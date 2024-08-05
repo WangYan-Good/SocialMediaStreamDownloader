@@ -1,0 +1,3 @@
+[submodule "f2"]
+	path = f2
+	url = git@github.com:WangYan-Good/f2.git

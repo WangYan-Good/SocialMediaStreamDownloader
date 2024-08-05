@@ -1,0 +1,47 @@
+live_link_share: https://v.douyin.com/i2mmYRQp/
+persistent_listen_download: true  # 该选项 enable 后，将会持续监听列表，不断添加直播下载任务
+params:
+  X-Bogus:
+  - https://webcast.amemv.com/douyin/webcast/reflow/7367950269759425315?iid=MS4wLjABAAAAJGY0KY4y8S7oDK8cvBmWt-i7UZTYtxsz5RMRC6ZPkSCAsdTGZRwF_Bg-U7VFNT-C&utm_source=copy&tt_from=copy&extra_params=%7B%22im_channel_invite_id%22:%22%22,%22shop_guide_id%22:%22%22,%22enable_replay%22:1,%22live_common_share_params%22:%22%7B%5C%22bcm%5C%22:%5C%22%7B%5C%5C%5C%22bcm_share_id%5C%5C%5C%22:%5C%5C%5C%227367955876453302582%5C%5C%5C%22%7D%5C%22%7D%22,%22life_extra_info%22:%22%7B%5C%22live_play_id%5C%22:%5C%22%5C%22,%5C%22live_play_share_id%5C%22:%5C%22%5C%22,%5C%22live_share_coupon_id%5C%22:%5C%22%5C%22%7D%22,%22from_request_id%22:%2220240512115125836B0025A8FE88DFB59C%22,%22share_platform%22:%22copy%22,%22vs_episode_sub_type%22:%22unknown%22,%22vs_episode_id%22:0%7D&utm_medium=ios&with_sec_did=1&sec_user_id=MS4wLjABAAAAbqB34lrj8vph6MA37NhxP-io6VGvx8domVL3e9ybyqfJ5IAv38q1o3LAsA6_GB8x&utm_campaign=client_share&u_code=ki64k3a1&app=aweme&did=MS4wLjABAAAAT0W1apCqYj7QR0wSGWlbDgYEAwgMVFjr3fakADqRoTI&share_extra_params=%7B%22enable_replay%22:1%7D&X-Bogus=DFSzswVYMLvANHT3tl6zKF9WX7JK
+  - DFSzswVYMLvANHT3tl6zKF9WX7JK
+  - Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)
+    Chrome/104.0.0.0 Safari/537.36
+  app_id: '1128'
+  live_api: https://live.douyin.com/webcast/room/web/enter/
+  live_api_share: https://webcast.amemv.com/webcast/room/reflow/info/
+  live_id: '1'
+  room_id: *id001
+  sec_user_id: *id002
+  type_id: '0'
+  verifyFp: verify_lw4tbmtm_1zLIXH4I_aVXM_4zds_9aPn_4hyskgQRyTBm
+  version_code: 99.99.99
+response_url:
+  netloc: webcast.amemv.com
+  params: ''
+  path: /douyin/webcast/reflow/7367950269759425315
+  query:
+    app:
+    - aweme
+    did:
+    - MS4wLjABAAAAT0W1apCqYj7QR0wSGWlbDgYEAwgMVFjr3fakADqRoTI
+    extra_params:
+    - '{"im_channel_invite_id":"","shop_guide_id":"","enable_replay":1,"live_common_share_params":"{"bcm":"{"bcm_share_id":"7367955876453302582"}"}","life_extra_info":"{"live_play_id":"","live_play_share_id":"","live_share_coupon_id":""}","from_request_id":"20240512115125836B0025A8FE88DFB59C","share_platform":"copy","vs_episode_sub_type":"unknown","vs_episode_id":0}'
+    iid:
+    - MS4wLjABAAAAJGY0KY4y8S7oDK8cvBmWt-i7UZTYtxsz5RMRC6ZPkSCAsdTGZRwF_Bg-U7VFNT-C
+    sec_user_id: &id002
+    - MS4wLjABAAAAbqB34lrj8vph6MA37NhxP-io6VGvx8domVL3e9ybyqfJ5IAv38q1o3LAsA6_GB8x
+    share_extra_params:
+    - '{"enable_replay":1}'
+    tt_from:
+    - copy
+    u_code:
+    - ki64k3a1
+    utm_campaign:
+    - client_share
+    utm_medium:
+    - ios
+    utm_source:
+    - copy
+    with_sec_did:
+    - '1'
+  scheme: https

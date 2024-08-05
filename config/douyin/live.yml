@@ -1,0 +1,30 @@
+live_api: "https://live.douyin.com/webcast/room/web/enter/"
+live_api_share: "https://webcast.amemv.com/webcast/room/reflow/info/"
+MAX_TIMEOUT: 10
+##
+## flv_pull_url: 1-FULL_HD1 2-HD1 3-SD1 4-SD2
+##
+flv_clarity: 1
+hls_clarity: 1
+
+##
+## personal verify config
+##
+share_url: null
+nickname: null
+rid: null
+verifyFp: verify_lxr9ntag_u1kSV5f9_drxY_4oFu_BE3r_YvsrXphqqxbS
+type_id: "0"
+live_id: "1"
+room_id: 7342521940575374106
+sec_user_id: MS4wLjABAAAAGZkW5n1EHZD_TFyQ-QiaISBPemtKFxVVdhLSeoXhh-U
+version_code: "99.99.99"
+app_id: "1128"
+x_bogus: DFSzswVOFK0ANnnVtvtZ8FSwXQ8N
+a_bogus: null
+
+##
+## live stream url
+##
+stream_url: null
+stream_name: null
