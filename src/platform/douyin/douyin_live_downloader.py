@@ -49,6 +49,7 @@ from f2.apps.douyin.filter import (
 )
 from f2.apps.douyin.utils import TokenManager
 
+total_live_number = 0
 class DouyinLiveDownloader(Downloader):
   ##
   ## Attribute
@@ -162,6 +163,7 @@ class DouyinLiveDownloader(Downloader):
     return request(method=method, url=url, params=params, timeout=timeout, headers=headers)
 
   def download_live_stream(self, url:str):
+    global total_live_number
     ##
     ## Define local variable
     ##
@@ -176,6 +178,7 @@ class DouyinLiveDownloader(Downloader):
             self.login.proxies.get_proxies_dict(),
             self.header.to_dict(),
             self.config.MAX_TIMEOUT)
+    total_live_number += 1
     download_thread = Thread(target=self.__request_file__, args=task)
     download_thread.start()
     '''
@@ -258,7 +261,7 @@ class DouyinLiveDownloader(Downloader):
       print("name:{} \nurl:{} \ndownload complete!\n".format(nickname, url))    
       print("当前总下载数：{}".format(self.current_download_count))
       '''
-      print()
+      print("name:{} \nurl:{} \ndownload complete!\n".format(nickname, url))  
     except Exception as e:
         print("request error: {err}".format(err=e))
         print("\tname:{}\n\tpath:{}\n\turl:{}\n\tdownload failed!!!\n".format(nickname, save_path + "/" + file_name, url))
@@ -428,3 +431,5 @@ if __name__ == "__main__":
   live_url_list = downloader.url_list.getConfigList("live")
   for url in live_url_list:
     downloader.run(url=url)
+    if downloader.config.max_thread <= total_live_number:
+      break
