@@ -30,6 +30,7 @@ from src.platform.douyin.douyin_api import DouyinApi
 from xbogus import XBogus as XB
 from a_bogus import ABogus as AB
 
+total_live_number = 0
 class DouyinLiveDownloader(Downloader):
 ##
 ## >>============================= attribute =============================>>
@@ -464,6 +465,7 @@ class DouyinLiveDownloader(Downloader):
     return request(method=method, url=url, params=params, timeout=timeout, headers=headers)
 
   def download_live_stream(self, url:str):
+    global total_live_number
     ##
     ## Define local variable
     ##
@@ -478,6 +480,7 @@ class DouyinLiveDownloader(Downloader):
             self.login.proxies.get_proxies_dict(),
             self.header.to_dict(),
             self.config.get_config_dict_attr("$.MAX_TIMEOUT"))
+    total_live_number += 1
     download_thread = Thread(target=self.__request_file__, args=task)
     download_thread.start()
     '''
@@ -543,3 +546,5 @@ if __name__ == "__main__":
     # Thread(target=downloader.run, args=url)
     # break
     sleep(randint(15, 45) * 0.1)
+    if downloader.config.max_thread <= total_live_number:
+      break
