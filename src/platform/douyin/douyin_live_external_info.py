@@ -2,7 +2,6 @@
 import re
 
 ##<<Extension>>
-import json
 
 ##<<Third-part>>
 from src.base.json import JSON

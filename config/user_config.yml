@@ -1,1 +1,12 @@
-platform: null
+##
+## for user personalize download
+## a user could fill those config below to override default setting
+##
+save_path: /home/userid/Videos #/mnt/nvme2/vedio
+log_enable: true
+log_path: ./logs
+max_thread: 0
+folderize: true
+login: false
+save_response: true
+debug: false

@@ -2,19 +2,37 @@
 ## default download config
 ##
 ##>>------------------ base download config -------------------->>
-save_path: /mnt/nvme2/vedio
+save_path: /home/userid/Videos #/mnt/nvme2/vedio
+log_enable: true
 log_path: ./logs
 max_thread: 0
 folderize: true
-config_directory: "config"
-stream_platform: "douyin"
-build_directory: "build"
 login: false
 save_response: true
 debug: false
 
+## do not modify
+config_directory: "config"
+stream_platform: "douyin"
+build_directory: "build"
 ##>>------------------ network download config -------------------->>
 headers_file: "headers.yml"  # path = [stream_platform] + [headers_config_path]
 
 ##>>------------------ download config -------------------->>
 download_file: "download.yml"
+
+##>>------------------ config path -------------------------------->>
+base_config_directory: null
+platform_config_path: null
+header_config_path: null
+download_config_path: null
+build_path: null
+base_config_save_path: null
+
+##>>------------------ douyin config path -------------------------------->>
+login_config_path: null
+post_config_path: null
+live_config_path: null
+share_url_path: null
+api_config_path: null
+douyin_base_config_save_path: null

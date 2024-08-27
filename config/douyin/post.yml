@@ -1,31 +1,65 @@
 share_url: null
-sec_user_id: "null"
+# sec_user_id: "null"
 nickname: "null"
+MAX_TIMEOUT: 10
+MAX_COUNT_WITHOUT_LOGIN: 15
+MAX_COUNT_WITH_LOGIN: 18
 
-device_platform: "webapp"
-aid: "6383"
-channel: "channel_pc_web"
+##
+## login is true
+##
+# x_bogus: DFSzswVOFK0ANnnVtvtZ8FSwXQ8N
+device_platform: webapp
+aid: 6383
+channel: channel_pc_web
+sec_user_id: MS4wLjABAAAAqGTeSZHx2YaoWi6GWYNgnh79g6JpV9AWArdVOYCG0zM
+max_cursor: 0
+locate_query: false
+show_live_replay_strategy: 1
+need_time_list: 1
+time_list_query: 0
+whale_cut_token: 
+cut_version: 1
+count: 18
+publish_video_strategy_type: 2
+update_version_code: 170400
 pc_client_type: 1
-version_code: "190500"
-version_name: "19.5.0"
-cookie_enabled: "true"
+version_code: 290100
+version_name: 29.1.0
+cookie_enabled: true
 screen_width: 1920
 screen_height: 1080
-browser_language: "zh-CN"
-browser_platform: "Win32"
-browser_name: "Edge"
-browser_version: "122.0.0.0"
-browser_online: "true"
-engine_name: "Blink"
-engine_version: "122.0.0.0"
-os_name: "Windows"
-os_version: "10"
-cpu_core_num: 12
+browser_language: en-US
+browser_platform: Win32
+browser_name: Chrome
+browser_version: 126.0.0.0
+browser_online: true
+engine_name: Blink
+engine_version: 126.0.0.0
+os_name: Windows
+os_version: 10
+cpu_core_num: 8
 device_memory: 8
-platform: "PC"
+platform: PC
 downlink: 10
-effective_type: "4g"
-round_trip_time: 100
-max_cursor: 0
-page_counts: 20
-max_counts: 0
+effective_type: 4g
+round_trip_time: 150
+webid: 7354373227919001126
+verifyFp: verify_lzr74fgo_ff95262d_3fe6_faae_8342_91e8ed9ed56e
+fp: verify_lzr74fgo_ff95262d_3fe6_faae_8342_91e8ed9ed56e
+msToken: x5bpDEJ-S7tN4Jvcsb0lB5KynC03uimTvj2MT0EIiQDPyVDfKGdafBEnbgQZt2NTb3NN7_ECfhja6oF3EzAOa6p3Lm8ZbKuEkAZzomoPUP4n8rZQCbtkOATb4L6qmnQ=
+a_bogus: x6mhBDhXDD6Pvf6D5W/LfY3q64-3YDR10trEMD2fcn3Gry39HMP99exoyptvkHDjN4/kIeYjy4hjY3rMx5/HA3vRHuDKUIcMmDSkKl5Q5xSSs1Xce6UgrUkP-hsACFrQsv1lxOfkww5CSY8hlVAJ5kIlO62-zo0/9Aj=
+
+##
+## login is false
+##
+reflow_source: "reflow_page"
+web_id: "7365918206132127241"
+device_id: "7365918206132127241"
+# aid: "6383"
+sec_uid: MS4wLjABAAAAqGTeSZHx2YaoWi6GWYNgnh79g6JpV9AWArdVOYCG0zM
+# count: 15
+# max_cursor: 0
+reflow_id: YBDtPPFe81Cxs5WE16WJW9m6ihoi8I3R3JVfWvXdC%2Fdep3PD5CX8comAT4U65raEaZ7vAy38eKqdG%2ByhL%2FBnCIdnBg7Myw1XJVyVkhmeWGA6WBPjmFzFOBqPakidzLIoW9EpcJbM4hjsXwhrKKLJr%2Bdz5%2FjTVt0aMgEvLONPTqomC%2BGCxfmudu2Q5HYAkjhDEUswOM2HOmg6LnRO8RCmUbt7KOk0ZXMWpRyYyD4V%2BWs%3D
+# msToken: 7YURhBYi8aCImhZURjL7CVihHVPP74jxkfjg2MckJH6LfVu8lY7NGC6nYTtheSiXCyzKSV1FUvDNZ-0A7Th3GrJJ-Eis8_r8Wjs7TVFNwkGqd06Gck3NOPS05vMeQgELNsZciLWJCzebu8XpIJvv
+# a_bogus: xvW0%2Ff8kmEVTXfEX5W5LfYpq33q3Y%2FSs0SVkMD2LJxVwn639HMPa9exo7VhvD1ujN4%2FkIbDjy4hCY3NMxQ2jA3sfHYJOW9aBmDSkKl5Q5xSa5ZRetyDmE0Ux-ws1tMc2-i1UrOJQqJKGKuRplnl60fAAPa8%3D
