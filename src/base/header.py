@@ -9,23 +9,28 @@ from pathlib import Path
 import yaml
 
 ##<<Third-part>>
-
+from src.library.baselib import load_yml, set_dict_attr, output_dict, get_dict_attr
 DEFAULT_REFERER = "https://www.douyin.com/"
 DEFAULT_USERR_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36"
 
 class Header(ABC):
-
+##
+## >>============================= attribute =============================>>
+##
   ##
   ## Defination and Initialize default
   ##
-  __header_dict = dict()
+  _header = dict()
 
+##
+## >>============================= private method =============================>>
+##
   ##
   ## Initialize header and constrcut
   ##
   def __init__(self, header_path:Path|str = None) -> None:
     if header_path is None:
-      print("WARNNING: Invalide input, will use default config")
+      raise FileNotFoundError
     
     try:
       if isinstance(header_path, str) is True:
@@ -33,54 +38,52 @@ class Header(ABC):
       ##
       ## Load header configuration
       ##
-      if header_path is not None:
-        header_dict = self.parse_header(header_path)
-        print("INFO: header initialized succeed!")
-      else:
-        header_dict.get("Referer", DEFAULT_REFERER)
-        header_dict.get("User-Agent", DEFAULT_USERR_AGENT)
-      
-      self.__header_dict = header_dict.copy()
-
-      ##
-      ## Transform dict to attribute
-      ##
-      self.__dict__.update(self.__header_dict)
-      # print(dir(self))
-      
+      self._header = load_yml(header_path)
     except Exception as e:
       print("ERROR: Header init failed: {}".format(e))
+      raise e
     return None
-    
+##
+## >>============================= abstract method =============================>>
+##
   ##
-  ## Parse header file
+  ## conversion header to dict
   ##
-  def parse_header(self, header_path:Path = None)->dict:
-    if header_path is None:
-      print("ERROR: Invalid input")
-      return None
-    
-    try:
-      ##
-      ## Load header load
-      ##
-      header_dict = yaml.safe_load(header_path.read_text(encoding="utf-8"))
-    except Exception as e:
-      print(e)
-      return None
-    
-    return header_dict
-  
-  def to_dict(self):
-    return self.__header_dict
+  @abstractmethod
+  def to_dict(self)->dict:
+    return self._header
+
 
   ##
   ## Dump header config
   ##
+  @abstractmethod
   def dump_header(self):
     print("Header configuration:")
-    for key, value in self.__header_dict.items():
-      print("\t{}: {}".format(key, value))
+    output_dict(self._header)
+
+  ##
+  ## get header dict attr
+  ##
+  @abstractmethod
+  def get_header_dict_attr(self, attr:str=None):
+    return get_dict_attr(self._header, attr)
+
+  ##
+  ## set header dict attr
+  ##
+  @abstractmethod
+  def set_header_dict_attr(self, attr:str=None, value:any=None):
+    set_dict_attr(self._header, attr, value)
+
+##
+## >>============================= sub class method =============================>>
+##
+  ##
+  ## save header
+  ##
+  def save_header(self, output:Path = None):
+    pass
 
 if __name__ == "__main__":
   Header(Path("config/douyin/headers.yml")).dump_header()

@@ -1,6 +1,7 @@
 ## <<Base>>
 import os
 import sys
+sys.path.append(os.getcwd())
 from pathlib import Path
 
 
@@ -9,13 +10,13 @@ from pathlib import Path
 ## <<Third-part>>
 from src.base.login import Login, Proxies
 
-## TODO
-import f2
-from f2.apps.douyin.utils import TokenManager as TM
+# ## TODO
+# import f2
+# from f2.apps.douyin.utils import TokenManager as TM
 
 class DouyinLogin(Login):
 
-  __login = False
+  __login_status = False
   
   ##
   ## Initialize Attribute & super
@@ -32,36 +33,37 @@ class DouyinLogin(Login):
     self.construct_aggregation_class()
 
   ##
+  ## switch login account
+  ##
+  def switch_login_account(self):
+    pass
+
+  ##
   ## login
   ##
   def login(self):
-    # self.__login = True
+    self.__login_status = True
+    
+    ##
+    ## TODO
+    ##
+
+  ##
+  ## get cookie
+  ##
+  def get_douyin_cookie(self):
     pass
 
   ##
-  ## Update msToken
+  ## update cookie
   ##
-  def update_msToken(self):
-    ##
-    ## Update attribute
-    ##
-    if self.__login is True:
-      pass
-    else:
-      self.msToken = TM.gen_real_msToken()
-
-      ##
-      ## update dict
-      ##
-      self.to_dict()["msToken"] = self.msToken
-
-  ##
-  ## Update cookie
-  ##
-  def update_cookie(self):
+  def update_douyin_cookie(self):
     pass
 
-  def update_config_with_login(self):
+  ##
+  ## get maToken
+  ##
+  def get_douyin_msToken(self):
     pass
 
   def to_dict(self) -> dict:

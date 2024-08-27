@@ -24,7 +24,9 @@ from src.base.login  import Login
 URL_RESPONSE_PATH = ""
 
 class Downloader(ABC):
-
+##
+## >>============================= attribute =============================>>
+##
   ##
   ## Downloader default configuration
   ##
@@ -46,10 +48,18 @@ class Downloader(ABC):
   header                           = None
 
   ##
+  ## API
+  ##
+  API                              = None
+
+  ##
   ## Listener
   ##
   listener                        = None
 
+##
+## >>============================= private method =============================>>
+##
   ##
   ## TODO: config path as input parameter
   ##
@@ -59,6 +69,9 @@ class Downloader(ABC):
       path = DEFAULT_BASE_CONFIG_PATH
     self.CONFIG_PATH = path
 
+##
+## >>============================= abstract method =============================>>
+##
   ##
   ## Generate download config based on base configuration
   ##
@@ -94,6 +107,54 @@ class Downloader(ABC):
   @abstractmethod
   def run(self, params:None = ...)->None:
     pass
+##
+## >>============================= sub class method =============================>>
+##
+
+##
+## parse str to dict
+## {"k":"v","k":"", ... ,"k":"{"k":"v"}"}
+##
+def parse_str_to_dict(source:str=None)->dict:
+  ##
+  ## match "{", "}"
+  ##
+  start = int()
+  end = int()
+  for index in range(len(source)):
+    
+    ch = source[index]
+    ##
+    ## exit
+    ##
+    if ch == '}':
+      end = index
+      break
+
+    ##
+    ## start char
+    ##
+    if ch == '{':
+      start = index
+    else:
+      pass
+  '''
+  if source[0] == "{":
+    if source[-1] != "}":
+      raise ValueError
+    else:
+      element_list = list()
+      ##
+      ## loop list
+      ##
+      for item in element_list:
+        pass
+  else:
+    ##
+    ## deal
+    ##
+    pass
+  '''
 
 # '''
 if __name__ == "__main__":
