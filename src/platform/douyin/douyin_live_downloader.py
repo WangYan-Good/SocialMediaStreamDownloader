@@ -546,5 +546,5 @@ if __name__ == "__main__":
     # Thread(target=downloader.run, args=url)
     # break
     sleep(randint(15, 45) * 0.1)
-    if downloader.config.max_thread <= total_live_number:
+    if downloader.config.get_config_dict_attr("$.max_thread") <= total_live_number:
       break

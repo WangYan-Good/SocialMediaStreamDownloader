@@ -38,7 +38,7 @@ class Header(ABC):
       ##
       ## Load header configuration
       ##
-      self._header = load_yml(header_path)   
+      self._header = load_yml(header_path)
     except Exception as e:
       print("ERROR: Header init failed: {}".format(e))
       raise e
