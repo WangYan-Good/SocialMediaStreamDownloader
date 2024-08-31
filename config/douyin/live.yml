@@ -22,7 +22,7 @@ hls_clarity: 1
 params:
   type_id: "0"
   live_id: "1"
-  room_id: 7342521940575374106
+  room_id: '7342521940575374106'
   sec_user_id: MS4wLjABAAAAGZkW5n1EHZD_TFyQ-QiaISBPemtKFxVVdhLSeoXhh-U
   version_code: "99.99.99"
   app_id: "1128"
@@ -33,8 +33,15 @@ params:
   msToken: null
 
 params_no_login: 
-  web_rid: null
-  verifyFp: verify_lxr9ntag_u1kSV5f9_drxY_4oFu_BE3r_YvsrXphqqxbS
+  verifyFp: 'verify_m0gs7vy7_T1XLmc6Q_JUeL_47Ye_8HE3_usFu0VSUcXAK'
+  type_id: '0'
+  live_id: '1'
+  room_id: '7362550606306773794'
+  sec_user_id: 'MS4wLjABAAAA3REn4Oekpt-zrnovTqTVWrTPkevbUHRJZRX2td0l_EdDr8Zgzk1HlnNgKHEyguTr'
+  version_code: '99.99.99'
+  app_id: '1128'
+  msToken: 'jlfD5fAuY8MVOXxw3D5g7lGmLlKjusOTsOjS1rKbsPLDhNLYIfU8N2AZHQ-_tuWuoHhOPJ8UbAjfXG2f8hFtStKiS_vJkoCuHqGR37S0upa7yxs8VaXZ'
+  X-Bogus: 'DFSzswVOqabANG3TtI66rlSwXQ8h'
 
 
 ##
@@ -42,11 +49,3 @@ params_no_login:
 ##
 stream_url: null
 stream_name: null
-
-##
-## personal verify config
-##
-live_info:
-  share_url: null
-  nickname: null
-  rid: null
