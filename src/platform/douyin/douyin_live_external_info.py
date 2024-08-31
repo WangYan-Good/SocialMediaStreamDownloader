@@ -5,6 +5,7 @@ import re
 
 ##<<Third-part>>
 from src.base.json import JSON
+from src.library.baselib import get_dict_attr
 
 ##
 ## Live stream file name
@@ -18,7 +19,7 @@ class LiveExternal(JSON):
   def get_flv_url(self, response)->str:
     pass
 
-  def _replaceT(self, obj):
+  def _replaceT(self, obj, replace:str=None):
       """
       替换文案非法字符 (Replace illegal characters in the text)
 
@@ -28,22 +29,35 @@ class LiveExternal(JSON):
       Returns:
           new: 处理后的内容 (Processed content)
       """
-
+      if replace is None:
+        replace = "_"
       reSub = r"[^\u4e00-\u9fa5a-zA-Z0-9#]"
 
       if isinstance(obj, list):
-          return [re.sub(reSub, "_", i) for i in obj]
+          return [re.sub(reSub, replace, i) for i in obj]
 
       if isinstance(obj, str):
-          return re.sub(reSub, "_", obj)
+          return re.sub(reSub, replace, obj)
 
       return obj
       # raise TypeError("输入应为字符串或字符串列表")
 
   def get_nickname(self, response):
+    nickname = str()
     build_dict = response.json()
-    return self._replaceT(build_dict["data"]["room"]["owner"]["nickname"])
+    nickname = get_dict_attr(build_dict, "$.data.room.owner.nickname")
+    if nickname is None:
+      raise ValueError
+    return self._replaceT(nickname)
   
+  def get_raw_nickname(self, response):
+    nickname = str()
+    build_dict = response.json()
+    nickname = get_dict_attr(build_dict, "$.data.room.owner.nickname")
+    if nickname is None:
+      raise ValueError
+    return nickname
+
   def get_flv_pull_url(self, response, flv_clarity):
     ##
     ## catch live status success

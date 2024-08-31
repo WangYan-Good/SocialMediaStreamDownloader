@@ -33,7 +33,7 @@ def get_dict_attr(source:dict=None, attr:str=None)->any:
 ##
 def set_dict_attr(source:dict=None, attr:str=None, value:any=None):
   if attr is None or value is None:
-    print("ERROR: Invalid header attribute")
+    print("ERROR: Invalid attribute")
     raise ValueError
   path = attr.split(sep=".")
 

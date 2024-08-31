@@ -10,9 +10,9 @@ from pathlib import Path
 ## <<Third-part>>
 from src.base.login import Login, Proxies
 
-## TODO
-import f2
-from f2.apps.douyin.utils import TokenManager as TM
+# ## TODO
+# import f2
+# from f2.apps.douyin.utils import TokenManager as TM
 
 class DouyinLogin(Login):
 
@@ -65,23 +65,6 @@ class DouyinLogin(Login):
   ##
   def get_douyin_msToken(self):
     pass
-
-  ##
-  ## Update msToken
-  ##
-  def update_douyin_msToken(self):
-    ##
-    ## Update attribute
-    ##
-    if self.__login_status is True:
-      pass
-    else:
-      self.msToken = TM.gen_real_msToken()
-
-      ##
-      ## update dict
-      ##
-      self.to_dict()["msToken"] = self.msToken
 
   def to_dict(self) -> dict:
     return super().to_dict()

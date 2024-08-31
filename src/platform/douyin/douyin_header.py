@@ -15,6 +15,10 @@ from src.library.baselib import output_dict, get_dict_attr, set_dict_attr
 
 DEFAULT_HEADER_PATH = "config/douyin/headers.yml"
 
+##TODO remove
+import f2
+from f2.apps.douyin.utils import TokenManager as TM
+
 class DouyinHeader(Header):
 ##
 ## >>============================= attribute =============================>>
@@ -67,21 +71,17 @@ class DouyinHeader(Header):
   def set_header_dict_attr(self, attr: str = None, value: any = None):
     set_dict_attr(self._header, attr, value)
 
-  ##
-  ## initialize header
-  ##
-  @abstractmethod
-  def init_header(self, login: bool = False):
-    pass
 ##
 ## >>============================= sub class method =============================>>
 ##
   ##
-  ## set header sttribute 
-  ## example: "$.a.b.c"
+  ## Update msToken
   ##
-  def set_header_attribute(self, attr:str=None, value:any=None):
-    pass
+  def create_douyin_msToken(self):
+    ##
+    ## update attribute
+    ##
+    return TM.gen_real_msToken()
 
 ##
 ## header for query share url
@@ -135,15 +135,27 @@ class DouyinShareHeader(DouyinHeader):
   ##
   ## initialize header
   ##
-  def init_header(self, login: bool = False):
+  def init_share_live_header(self, login: bool = False):
     if login is True:
       self._header = super().get_header_dict_attr("$.share_live_url")
     else:
       self._header = super().get_header_dict_attr("$.share_live_url_no_login")
     if self._header is None:
-      print("ERROR: Douyin share header does not found!")
+      print("ERROR: Douyin share live header does not found!")
       raise ModuleNotFoundError
-    print("INFO: Douyin share header initialize complete")
+  
+  ##
+  ## initialize header
+  ##
+  def init_share_post_header(self, login:bool = False):
+    if login is True:
+      pass
+    else:
+      pass
+    if self._header is None:
+      print("ERROR: Douyin share post header does not found!")
+      raise ValueError
+    print("INFO: Douyin share post header initialize complete")
 ##
 ## >>============================= sub class method =============================>>
 ##
@@ -191,8 +203,8 @@ class DouyinLiveInfoHeader(DouyinHeader):
   ##
   ## set header dict attr
   ##
-  def set_header_attribute(self, attr):
-    set_dict_attr(self._header, attr)
+  def set_header_dict_attr(self, attr: str = None, value: any = None):
+    set_dict_attr(self._header, attr, value)
 
 ##
 ## >>============================= sub class method =============================>>
@@ -208,8 +220,29 @@ class DouyinLiveInfoHeader(DouyinHeader):
     if self._header is None:
       print("ERROR: Douyin live info header does not found!")
       raise ModuleNotFoundError
-    print("INFO: Douyin live info header initialize complete")
 
+  ##
+  ## update header
+  ##
+  def update_header(self, login: bool = False, header:dict = None)->dict:
+    if login is True:
+      set_dict_attr(header, "$.User-Agent", self.get_header_dict_attr("$.user-agent"))
+    else:
+      # set_dict_attr(header, "$.Referer", self.get_header_dict_attr("$.referer"))
+      # set_dict_attr(header, "$.Accept", self.get_header_dict_attr("$.accept"))
+      # set_dict_attr(header, "$.Accept-Encoding", self.get_header_dict_attr("$.accept-encoding"))
+      # set_dict_attr(header, "$.Accept-Language", self.get_header_dict_attr("$.accept-language"))
+      # set_dict_attr(header, "$.Cookie", self.get_header_dict_attr("$.cookie"))
+      # set_dict_attr(header, "$.Priority", self.get_header_dict_attr("$.priority"))
+      # set_dict_attr(header, "$.Sec-Ch-Ua", self.get_header_dict_attr("$.sec-ch-ua"))
+      # set_dict_attr(header, "$.Sec-Ch-Ua-Mobile", self.get_header_dict_attr("$.sec-ch-ua-mobile"))
+      # set_dict_attr(header, "$.Sec-Ch-Ua-Platform", self.get_header_dict_attr("$.sec-ch-ua-platform"))
+      # set_dict_attr(header, "$.Sec-Fetch-Dest", self.get_header_dict_attr("$.sec-fetch-dest"))
+      # set_dict_attr(header, "$.Sec-Fetch-Mode", self.get_header_dict_attr("$.sec-fetch-mode"))
+      # set_dict_attr(header, "$.Sec-Fetch-Site", self.get_header_dict_attr("$.sec-fetch-site"))
+      set_dict_attr(header, "$.User-Agent", self.get_header_dict_attr("$.user-agent"))
+      # set_dict_attr(header, "$.Content-Type", self.get_header_dict_attr("$.content-type"))
+    return header
 class DouyinPostInfoHeader(DouyinHeader):
 ##
 ## >>============================= attribute =============================>>

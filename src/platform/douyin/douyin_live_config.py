@@ -103,7 +103,7 @@ class DouyinLiveConfig(DouyinConfig):
     ##
     ## update attribute
     ##
-    if self.login is True:
+    if self.get_config_dict_attr("$.login") is True:
       pass
     else:
       self.verifyFp = VFM.gen_verify_fp()
@@ -111,8 +111,8 @@ class DouyinLiveConfig(DouyinConfig):
       ##
       ## update dict
       ##
-      set_dict_attr(self.__config, "$.params_no_login.verifyFp", self.verifyFp)
-      # self.__config["verifyFp"] = self.verifyFp
+      self.set_config_dict_attr("$.params_no_login.verifyFp", self.verifyFp)
+      return self.verifyFp
 ##
 ## >>============================= override super method =============================>>
 ##

@@ -113,7 +113,6 @@ class BaseConfig(ABC):
     except Exception as e:
       print("ERROR: Base config init failed! {}".format(e))
       raise e
-    print("INFO: base config initialize complete!")
 
 ##
 ## >>============================= abstract method =============================>>
@@ -138,11 +137,13 @@ class BaseConfig(ABC):
   ##
   @abstractmethod
   def get_config_dict_attr(self, attr:str=None):
+    value = None
     try:
-      get_dict_attr(self.to_dict(), attr)
+      value = get_dict_attr(self.to_dict(), attr)
     except Exception as e:
       print("ERROR: get base config attr({}) failed".format(attr))
       raise e
+    return value
 
   ##
   ## set config dict
