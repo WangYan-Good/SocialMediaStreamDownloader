@@ -1,6 +1,15 @@
+##
+## >>-------------------------live static config------------------------->>
+##
 live_api: "https://live.douyin.com/webcast/room/web/enter/"
 live_api_share: "https://webcast.amemv.com/webcast/room/reflow/info/"
 MAX_TIMEOUT: 10
+douyin_live_config_save_path: null
+
+##
+## >>-------------------------live dynamic config------------------------->>
+##
+
 ##
 ## flv_pull_url: 1-FULL_HD1 2-HD1 3-SD1 4-SD2
 ##
@@ -8,20 +17,32 @@ flv_clarity: 1
 hls_clarity: 1
 
 ##
-## personal verify config
+## params for post
 ##
-share_url: null
-nickname: null
-rid: null
-verifyFp: verify_lxr9ntag_u1kSV5f9_drxY_4oFu_BE3r_YvsrXphqqxbS
-type_id: "0"
-live_id: "1"
-room_id: 7342521940575374106
-sec_user_id: MS4wLjABAAAAGZkW5n1EHZD_TFyQ-QiaISBPemtKFxVVdhLSeoXhh-U
-version_code: "99.99.99"
-app_id: "1128"
-x_bogus: DFSzswVOFK0ANnnVtvtZ8FSwXQ8N
-a_bogus: null
+params:
+  type_id: "0"
+  live_id: "1"
+  room_id: '7342521940575374106'
+  sec_user_id: MS4wLjABAAAAGZkW5n1EHZD_TFyQ-QiaISBPemtKFxVVdhLSeoXhh-U
+  version_code: "99.99.99"
+  app_id: "1128"
+  x_bogus: DFSzswVOFK0ANnnVtvtZ8FSwXQ8N
+  msToken: null
+  a_bogus: null
+  verifyFp: verify_lxr9ntag_u1kSV5f9_drxY_4oFu_BE3r_YvsrXphqqxbS
+  msToken: null
+
+params_no_login: 
+  verifyFp: 'verify_m0gs7vy7_T1XLmc6Q_JUeL_47Ye_8HE3_usFu0VSUcXAK'
+  type_id: '0'
+  live_id: '1'
+  room_id: '7362550606306773794'
+  sec_user_id: 'MS4wLjABAAAA3REn4Oekpt-zrnovTqTVWrTPkevbUHRJZRX2td0l_EdDr8Zgzk1HlnNgKHEyguTr'
+  version_code: '99.99.99'
+  app_id: '1128'
+  msToken: 'jlfD5fAuY8MVOXxw3D5g7lGmLlKjusOTsOjS1rKbsPLDhNLYIfU8N2AZHQ-_tuWuoHhOPJ8UbAjfXG2f8hFtStKiS_vJkoCuHqGR37S0upa7yxs8VaXZ'
+  X-Bogus: 'DFSzswVOqabANG3TtI66rlSwXQ8h'
+
 
 ##
 ## live stream url

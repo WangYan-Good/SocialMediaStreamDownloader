@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 import yaml as yml
 
 ##<<Third-part>>
+from src.library.baselib import get_dict_attr, set_dict_attr, save_dict_as_file, output_dict, load_yml
 
 ##
 ## Define
@@ -38,6 +39,9 @@ class BaseConfig(ABC):
   download_config_path: /mnt/nvme/CodeSpace/OpenSource/TikTokDownload/config/douyin/download.yml
   build_path: /mnt/nvme/CodeSpace/OpenSource/TikTokDownload/config/build
   '''
+##
+## >>============================= attribute =============================>>
+##
   ##
   ## Declare and define default value
   ##
@@ -48,12 +52,15 @@ class BaseConfig(ABC):
   header_config_path       = None
   download_config_path     = None
   build_path               = None
+  _base_config_save_path   = None
 
   ##
   ## The part of extension
   ##
   __config                 = dict()
-
+##
+## >>============================= private method =============================>>
+##
   ##
   ## Initialize base config
   ##
@@ -73,55 +80,43 @@ class BaseConfig(ABC):
       ##
       ## Parse configuration file
       ##
-      self.__config = self.parse_config(Path(self.BASE_CONFIG_FILE))
+      self.__config = load_yml(Path(self.BASE_CONFIG_FILE))
     except Exception as e:
       print("ERROR: Parse base configuration failed! {}".format(e))
       return None
 
     try:
       ##
-      ## Construct configuration
-      ##
-      self.__dict__.update(self.__config)
-
-      ##
       ## Construct extension config path
       ##
-      self.base_config_directory     = self.WORK_SPACE_PATH + "/" + self.config_directory
-      self.platform_config_path      = self.WORK_SPACE_PATH + "/" + self.config_directory + "/" + self.stream_platform
-      self.header_config_path        = self.platform_config_path + "/" + self.headers_file
-      self.download_config_path      = self.platform_config_path + "/" + self.download_file
-      self.build_path                = self.WORK_SPACE_PATH + "/" + self.config_directory + "/" + self.build_directory
+      self.base_config_directory     = self.WORK_SPACE_PATH + "/" + get_dict_attr(self.__config,"$.config_directory")
+      self.platform_config_path      = self.WORK_SPACE_PATH + "/" + get_dict_attr(self.__config,"$.config_directory") + "/" + get_dict_attr(self.__config,"$.stream_platform")
+      self.header_config_path        = self.platform_config_path + "/" + get_dict_attr(self.__config,"$.headers_file")
+      self.download_config_path      = self.platform_config_path + "/" + get_dict_attr(self.__config,"$.download_file")
+      self.build_path                = self.WORK_SPACE_PATH + "/" + get_dict_attr(self.__config,"$.config_directory") + "/" + get_dict_attr(self.__config,"$.build_directory")
+      self._base_config_save_path    = self.build_path + "/" + "base_config.yml"
 
       ##
       ## Construct config dict
       ##
-      self.__config["base_config_directory"]     = self.base_config_directory
-      self.__config["platform_config_path"]      = self.platform_config_path
-      self.__config["header_config_path"]        = self.header_config_path
-      self.__config["download_config_path"]      = self.download_config_path
-      self.__config["build_path"]                = self.build_path
+      set_dict_attr(self.__config, "$.base_config_directory", self.base_config_directory)
+      set_dict_attr(self.__config, "$.platform_config_path",  self.platform_config_path)
+      set_dict_attr(self.__config, "$.header_config_path",    self.header_config_path)
+      set_dict_attr(self.__config, "$.download_config_path",  self.download_config_path)
+      set_dict_attr(self.__config, "$.build_path",            self.build_path)
+      set_dict_attr(self.__config, "$.base_config_save_path", self._base_config_save_path)
+
+      ##
+      ## Construct configuration
+      ##
+      self.__dict__.update(self.__config)
     except Exception as e:
       print("ERROR: Base config init failed! {}".format(e))
+      raise e
 
-  ##
-  ## parse and genearte download config
-  ##
-  def parse_config(self, path:Path = None)->dict:
-    if path is None:
-      print ("ERROR: Invalide configuration path!")
-      return
-    
-    try:      
-      ##
-      ## Read config file
-      ##
-      config = yml.safe_load(path.read_text(encoding="utf-8"))
-    except Exception as e:
-      print("ERROR: Parse configuration failed: {}".format(e))
-    return config
-  
-
+##
+## >>============================= abstract method =============================>>
+##
   ##
   ## Transform config to dict
   ##
@@ -135,31 +130,36 @@ class BaseConfig(ABC):
   @abstractmethod
   def dump_config(self):
     print("Base configuration:")
-    for key, value in self.__config.items():
-      print("\t{k}: {v}".format(k=key, v=value))
-  
+    output_dict(self.to_dict())
+
+  ##
+  ## get config dict attr
+  ##
+  @abstractmethod
+  def get_config_dict_attr(self, attr:str=None):
+    value = None
+    try:
+      value = get_dict_attr(self.to_dict(), attr)
+    except Exception as e:
+      print("ERROR: get base config attr({}) failed".format(attr))
+      raise e
+    return value
+
+  ##
+  ## set config dict
+  ##
+  @abstractmethod
+  def set_config_dict_attr(self, attr:str=None, value:any=None):
+    set_dict_attr(self.to_dict(), attr, value)
+
+##
+## >>============================= sub class method =============================>>
+##
   ##
   ## Save config
   ##
   def save_config(self, output:Path = None):
     if output is None:
-      print("ERROR: Invalid input")
-      return
-
-    os.makedirs(os.path.dirname(output), exist_ok=True)
-    with open(output, 'w', encoding="utf-8") as f:
-        yml.safe_dump(self.__config, f)
-        f.close()
-        print("INFO: Save file {} success!".format(output))
-  
-  ##
-  ## regural out put
-  ##
-  def dict_regular_output(self, config:dict, level:int = 1):
-    for k,v in config.items():
-      if isinstance(v, dict):
-        print("\t"*level+"{}:".format(k))
-        self.dict_regular_output(config=v, level=(level+1))
-      else:
-        print("\t"*level+"{k}:{v}".format(k=k, v=v))
-    return None
+      output = self._base_config_save_path
+      print("WARNNING: save base config in default path")
+    save_dict_as_file(self.to_dict(), output)
