@@ -15,6 +15,8 @@ else
         echo "激活成功！"
     else
         echo "激活失败！"
+        # echo "创建虚拟环境"
+        # python3 -m venv venv
         exit 1
     fi
 fi
@@ -32,7 +34,7 @@ fi
 echo "当前pip3的版本是：$pip3_version"
 
 # 获取最新的pip3版本信息
-latest_version=$(pip3 install --upgrade pip 2>&1 | grep -o 'Successfully installed pip-[0-9.]*' | awk -F'-' '{print $2}')
+latest_version=$(pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple/ --trusted-host pypi.tuna.tsinghua.edu.cn --upgrade pip 2>&1 | grep -o 'Successfully installed pip-[0-9.]*' | awk -F'-' '{print $2}')
 
 if [[ -z "$latest_version" ]];
 then

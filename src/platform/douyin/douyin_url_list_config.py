@@ -30,7 +30,7 @@ class UrlListConfig ():
 
     # open the file
     try:
-      context =  open (file, "r")
+      context =  open (file, "r", encoding="utf-8")
     
       # loop config file
       for line in context.readlines(): 
@@ -62,7 +62,6 @@ class UrlListConfig ():
           continue
       self.__url_list.append(UrlList.copy())
       context.close()
-
     except Exception as e:
       print (e)
   
