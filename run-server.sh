@@ -34,7 +34,7 @@ fi
 echo "当前pip3的版本是：$pip3_version"
 
 # 获取最新的pip3版本信息
-latest_version=$(pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple/ --trusted-host pypi.tuna.tsinghua.edu.cn --upgrade pip 2>&1 | grep -o 'Successfully installed pip-[0-9.]*' | awk -F'-' '{print $2}')
+latest_version=$(pip3 install -i http://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com --upgrade pip 2>&1 | grep -o 'Successfully installed pip-[0-9.]*' | awk -F'-' '{print $2}')
 
 if [[ -z "$latest_version" ]];
 then
@@ -43,7 +43,7 @@ then
         echo "当前pip3版本已是最新。"
     else
         echo "当前pip3版本不是最新，正在更新..."
-        pip3 install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple/ --trusted-host pypi.tuna.tsinghua.edu.cn
+        pip3 install --upgrade pip -i http://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com
         echo "pip3 更新完成，新版本为：$latest_version"
     fi
 else
@@ -52,7 +52,7 @@ fi
 
 # 安装项目环境依赖
 . venv/bin/activate
-pip install -r ./requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple/ --trusted-host pypi.tuna.tsinghua.edu.cn
+pip install -r ./requirements.txt -i http://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com
 
 # # 编译安装 F2 模块
 # if [[ -x "$(command -v f2)" ]];
@@ -82,5 +82,5 @@ pip install -r ./requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple/ -
 
 # 编译安装 ffmpeg
 FFMPEG_REPO=./ffmpeg
-cd &(FFMPEG_REPO)
+cd $(FFMPEG_REPO)
 ./configure --enable-shared --enable-swscale --enable-gpl --enable-nonfree --enable-pic --prefix=/usr/local/whkt/ffmpeg  --enable-postproc --enable-pthreads --enable-static --enable-libx264 --enable-libfdk-aac
