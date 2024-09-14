@@ -147,7 +147,7 @@ class DouyinLiveListener(Listener):
     self._cursor = 0
     self._max_task = max_activeable_count
     self._patrol_thread = Thread(target=self.patrolman)
-    self._stop_thread   = Thread(target=self.stop_thread)
+    self._stop_thread   = Thread(target=self._stop)
 
 ##
 ## >>============================= abstract method =============================>>
@@ -169,12 +169,13 @@ class DouyinLiveListener(Listener):
     ##
     ## alway execute patrolman thread when flag is true
     ##
+    self._actived_count = 0
     self._patrol_thread.start()
 
   ##
   ## stop listen sub task
   ##
-  def stop_thread(self):
+  def _stop(self):
     cmd = input()
     if cmd == 'quit':
       self._is_need_listening = False
@@ -225,9 +226,40 @@ class DouyinLiveListener(Listener):
     ##
     ## active listener thread
     ##
+
+    ##
+    ## caculate total listener item
+    ##
     self._total_count = len(self._listen_list)
+    
+    ##
+    ## loop all listener item and actived
+    ##
     for index in range(len(self._listen_list)):
+      
+      ##
+      ## set cursor and indecate current item
+      ##
       self._cursor = index
+
+      ##
+      ## check listening flag
+      ##
+      while self._is_need_listening == True:
+        
+        ##
+        ## potrolman should wait until one of actived tasks is completed
+        ## max_task == 0 means there is not limit the max
+        ##
+        if self._max_task != 0 or self._actived_count >= self._max_task:
+          sleep(10)
+          continue
+
+        ##
+        ## 
+        ##
+
+
       if self._is_need_listening == True:
         pass
       else:
@@ -270,5 +302,15 @@ def test_listen_item():
     listen_item.dump_item()
     break
 
+def test_douyin_live_listener():
+  url_list = UrlListConfig(None).getConfigList("live")
+  live_listener = DouyinLiveListener(1, 10)
+  for url in url_list:
+    listen_item = ListenerItem(func=output, args=(url,))
+    live_listener.add_sub_task(listen_item)
+  live_listener.start()
+
+
 if __name__ == "__main__":
-  test_listen_item()
+  # test_listen_item()
+  test_douyin_live_listener()
