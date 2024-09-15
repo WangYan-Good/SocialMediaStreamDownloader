@@ -542,9 +542,12 @@ if __name__ == "__main__":
     downloader.dump_config()
   live_url_list = downloader.url_list.getConfigList("live")
   for url in live_url_list:
-    downloader.run(url=url)
-    # Thread(target=downloader.run, args=url)
-    # break
-    sleep(randint(15, 45) * 0.1)
-    if downloader.config.get_config_dict_attr("$.max_thread") <= total_live_number:
-      break
+    try:
+      downloader.run(url=url)
+      # Thread(target=downloader.run, args=url)
+      # break
+      sleep(randint(15, 45) * 0.1)
+      if downloader.config.get_config_dict_attr("$.max_thread") <= total_live_number:
+        break
+    except Exception:
+      continue
