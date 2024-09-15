@@ -147,7 +147,7 @@ class DouyinLiveListener(Listener):
     self._total_count = 0
     self._is_need_listening = False
     self._is_end_listening  = False
-    self._patrol_thread = Thread(target=self.patrolman)
+    self._patrol_thread = Thread(target=self._patrolman)
     self._stop_thread   = Thread(target=self._stop)
     self._stop_thread.daemon = True
 
@@ -171,18 +171,28 @@ class DouyinLiveListener(Listener):
     ##
     ## start enable stop thread and listener the condition
     ##
-    self._stop_thread.start()
+    try:
+      self._stop_thread.start()
+    except RuntimeError:
+      self._stop_thread = Thread(target=self._stop)
+      self._stop_thread.daemon = True
+      self._stop_thread.start()
 
     ##
     ## alway execute patrolman thread when flag is true
     ##
-    self._patrol_thread.start()
+    try:
+      self._patrol_thread.start()
+    except RuntimeError:
+      self._patrol_thread = Thread(target=self._patrolman)
+      self._patrol_thread.start()
 
   ##
   ## stop to listen sub task and enable download
   ##
   def stop(self):
     self._is_need_listening = False
+    print("INFO: stop linster succeed!")
 
   ##
   ## stop listen sub task
@@ -235,7 +245,7 @@ class DouyinLiveListener(Listener):
   ##
   ## patrolman function
   ##
-  def patrolman(self): 
+  def _patrolman(self): 
     ##
     ## active patrolman and start listener thread
     ##
@@ -304,7 +314,7 @@ def test_listen_item():
     break
 
 def test_douyin_live_listener():
-  url_list = UrlListConfig(None).getConfigList("post")
+  url_list = UrlListConfig(None).getConfigList("live")
   live_listener = DouyinLiveListener()
   for url in url_list:
     listen_item = ListenerItem(func=output, args=(url,))
@@ -312,6 +322,10 @@ def test_douyin_live_listener():
   live_listener.start()
   sleep(10)
   live_listener.stop()
+  if live_listener.is_patrolman_actived() is True:
+    live_listener.start()
+    sleep(10)
+    live_listener.stop()
 
 ##
 ## test
