@@ -21,17 +21,22 @@ class ListenerItem():
   ##
   ## The thread related download task
   ##
-  _thread   = None
+  _thread          = None
 
   ##
   ## A tuple of related parameters for input of thread
   ##
-  _args     = None
+  _args            = None
+
+  ##
+  ## thrget of the thread
+  ##
+  _target          = None
 
   ##
   ## indecate and specifiec the task thread
   ##
-  _identify = None
+  _identify        = None
 ##
 ## >>============================= private method =============================>>
 ##
@@ -48,9 +53,10 @@ class ListenerItem():
     ##
     ## initialize class member
     ##
-    self._args = args
-    self._thread = Thread(target=func, args=self._args)
+    self._args     = args
+    self._target   = func
     self._identify = self._generate_item_identify()
+    self._thread   = Thread(target=self._target, args=self._args)
 
 
   ##
@@ -58,7 +64,6 @@ class ListenerItem():
   ##
   def _generate_item_identify(self):
     return int(round(time.time() * 1000000))
-
 
 ##
 ## >>============================= sub class method =============================>>
@@ -80,7 +85,11 @@ class ListenerItem():
   ## active listener item and start execute sub-task
   ##
   def start_item(self):
-    self._thread.start()
+    try:
+      self._thread.start()
+    except RuntimeError:
+      self._thread = Thread(target=self._target, args=self._args)
+      self._thread.start()
   
   ##
   ## dump listener item
@@ -96,22 +105,7 @@ class DouyinLiveListener(Listener):
   ##
   ## A list related listened item
   ##
-  _listen_list      = list()
-
-  ##
-  ## The cursor indecate the executed location of the task in the listened list
-  ##
-  _cursor           = int()
-
-  ##
-  ## Max tasks are executed at a same time
-  ##
-  _max_task         = int()
-
-  ##
-  ## the count of actived task currently
-  ##
-  _actived_count    = int()
+  _listen_list        = list()
 
   ##
   ## total count in the listener list
@@ -119,9 +113,9 @@ class DouyinLiveListener(Listener):
   _total_count      = int()
 
   ##
-  ## the cycle to execute patrolman thread
+  ## The cursor indecate the executed location of the task in the listened list
   ##
-  # _scheduler        = None
+  _cursor           = int()
 
   ##
   ## patrol thread, it will generated when listener instance is initialized
@@ -131,23 +125,31 @@ class DouyinLiveListener(Listener):
   _patrol_thread    = None
 
   ##
+  ## stop patrol thread
   ##
+  _stop_thread       = None
+
+  ##
+  ## a flag indecate that whether the patrol down need to work
   ##
   _is_need_listening = bool()
 
   ##
-  ## stop thread
+  ## a flag indecate need to end the listener
   ##
-  _stop_thread       = None
+  _is_end_listening = bool()
 
 ##
 ## >>============================= private method =============================>>
 ##
-  def __init__(self, cycle, max_activeable_count:int = 0) -> None:
+  def __init__(self) -> None:
     self._cursor = 0
-    self._max_task = max_activeable_count
+    self._total_count = 0
+    self._is_need_listening = False
+    self._is_end_listening  = False
     self._patrol_thread = Thread(target=self.patrolman)
     self._stop_thread   = Thread(target=self._stop)
+    self._stop_thread.daemon = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -156,6 +158,11 @@ class DouyinLiveListener(Listener):
   ## start to listen sub task and enable download
   ##
   def start(self):
+    ##
+    ## caculate total listener item count
+    ##
+    self._total_count = len(self._listen_list)
+
     ##
     ## set listening flag is true
     ##
@@ -169,17 +176,23 @@ class DouyinLiveListener(Listener):
     ##
     ## alway execute patrolman thread when flag is true
     ##
-    self._actived_count = 0
     self._patrol_thread.start()
+
+  ##
+  ## stop to listen sub task and enable download
+  ##
+  def stop(self):
+    self._is_need_listening = False
 
   ##
   ## stop listen sub task
   ##
   def _stop(self):
-    cmd = input()
-    if cmd == 'quit':
-      self._is_need_listening = False
-    print("INFO: stop listener is false succeed.")
+    while True:
+      if input() == 'quit':
+        self._is_need_listening = False
+        break
+    print("INFO: stop listener succeed.")
 
   ##
   ## add sub task and append it into list
@@ -190,8 +203,9 @@ class DouyinLiveListener(Listener):
       return
     else:
       self._listen_list.append(item)
-    print("INFO: Add target {} succeed!".format(item.get_item_identify()))
-  
+      self._total_count += 1
+    # print("INFO: Add target {} succeed!".format(item.get_item_identify()))
+
   ##
   ## delete a specific sub task according identify
   ##
@@ -221,21 +235,16 @@ class DouyinLiveListener(Listener):
   ##
   ## patrolman function
   ##
-  def patrolman(self):
-    
+  def patrolman(self): 
     ##
-    ## active listener thread
+    ## active patrolman and start listener thread
     ##
-
-    ##
-    ## caculate total listener item
-    ##
-    self._total_count = len(self._listen_list)
     
     ##
     ## loop all listener item and actived
     ##
-    for index in range(len(self._listen_list)):
+    index = 0
+    while index < len(self._listen_list) and self._is_need_listening is True:
       
       ##
       ## set cursor and indecate current item
@@ -243,27 +252,19 @@ class DouyinLiveListener(Listener):
       self._cursor = index
 
       ##
-      ## check listening flag
+      ## scan listener list and start thread
       ##
-      while self._is_need_listening == True:
-        
-        ##
-        ## potrolman should wait until one of actived tasks is completed
-        ## max_task == 0 means there is not limit the max
-        ##
-        if self._max_task != 0 or self._actived_count >= self._max_task:
-          sleep(10)
-          continue
-
-        ##
-        ## 
-        ##
-
-
-      if self._is_need_listening == True:
-        pass
-      else:
-        break
+      if self._listen_list[self._cursor]._thread.is_alive() is not True:
+        self._listen_list[self._cursor].start_item()
+      
+      ##
+      ## start from first item if current item is the last
+      ##
+      sleep(1)
+      if self._listen_list[self._cursor].get_item_identify() == self._listen_list[-1].get_item_identify():
+        index = 0
+      else:  
+        index += 1
 
   ##
   ## check wether the status of patrolman is actived
@@ -303,14 +304,18 @@ def test_listen_item():
     break
 
 def test_douyin_live_listener():
-  url_list = UrlListConfig(None).getConfigList("live")
-  live_listener = DouyinLiveListener(1, 10)
+  url_list = UrlListConfig(None).getConfigList("post")
+  live_listener = DouyinLiveListener()
   for url in url_list:
     listen_item = ListenerItem(func=output, args=(url,))
     live_listener.add_sub_task(listen_item)
   live_listener.start()
+  sleep(10)
+  live_listener.stop()
 
-
+##
+## test
+##
 if __name__ == "__main__":
   # test_listen_item()
   test_douyin_live_listener()
