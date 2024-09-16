@@ -214,7 +214,6 @@ class DouyinLiveListener(Listener):
     else:
       self._listen_list.append(item)
       self._total_count += 1
-    # print("INFO: Add target {} succeed!".format(item.get_item_identify()))
 
   ##
   ## delete a specific sub task according identify
@@ -263,14 +262,15 @@ class DouyinLiveListener(Listener):
 
       ##
       ## scan listener list and start thread
+      ## TODO:: sleep 1 s
       ##
+      sleep(1)
       if self._listen_list[self._cursor]._thread.is_alive() is not True:
         self._listen_list[self._cursor].start_item()
       
       ##
       ## start from first item if current item is the last
       ##
-      sleep(1)
       if self._listen_list[self._cursor].get_item_identify() == self._listen_list[-1].get_item_identify():
         index = 0
       else:  
