@@ -30,7 +30,9 @@ from src.platform.douyin.douyin_api import DouyinApi
 from xbogus import XBogus as XB
 from a_bogus import ABogus as AB
 
-total_live_number = 0
+from src.platform.douyin.douyin_listener import DouyinLiveListener, ListenerItem
+
+# total_live_number = 0
 class DouyinLiveDownloader(Downloader):
 ##
 ## >>============================= attribute =============================>>
@@ -38,14 +40,16 @@ class DouyinLiveDownloader(Downloader):
   ##
   ## Attribute
   ##
-  url_list = None
-  REGULAR_ROOM_ID = r"/douyin/webcast/reflow/(\S+)"
+  url_list                  = None
+  REGULAR_ROOM_ID           = r"/douyin/webcast/reflow/(\S+)"
   REGULAR_ROOM_ID_LIVE_PATH = r"/douyin/webcast/reflow/\S+"
+  _actived_task_number      = 0
 
   ##
   ## member
   ##
   live_external_info = None
+  live_douyin_listener = None
 
   ##
   ## Cache
@@ -71,38 +75,6 @@ class DouyinLiveDownloader(Downloader):
     ##
     self.construct_aggregation_class()
 
-#  def __construct_query_share_url_params(self, share_url, response_result:dict)->dict:
-#    params = dict()
-#    try:
-#      ##
-#      ## Construct paramter to request live data
-#      ##
-#      # params["verifyFp"]       = self.config.get_config_dict_attr("$.params.verifyFp")
-#      params["type_id"]        = self.config.get_config_dict_attr("$.params.type_id") #get_dict_attr("$.params.type_id") # self.config.type_id
-#      params["live_id"]        = self.config.get_config_dict_attr("$.params.live_id") # self.config.live_id
-#      params["room_id"]        = self.config.get_config_dict_attr("$.params.room_id") # self.config.room_id[0]
-#      params["sec_user_id"]    = self.config.get_config_dict_attr("$.params.sec_user_id") # response_result["query"].get("sec_user_id", "")[0]
-#      params["version_code"]   = self.config.get_config_dict_attr("$.params.version_code") # self.config.version_code
-#      params["app_id"]         = self.config.get_config_dict_attr("$.params.app_id") # self.config.app_id
-#      # params["msToken"]        = self.login.msToken#TokenManager.gen_real_msToken()
-#      # params["live_api"]       = self.config.live_api#"https://live.douyin.com/webcast/room/web/enter/"
-#      # params["live_api_share"] = self.config.live_api_share#"https://webcast.amemv.com/webcast/room/reflow/info/"
-#      # params["cookie"]         = self.login.cookie
-#      params["X-Bogus"]        = self.config.get_config_dict_attr("$.params.x_bogus") # self.config.x_bogus
-#      # self.config.a_bogus = AB().get_value(params, "GET")
-#      # params["a_bogus"]   = self.config.a_bogus#
-#
-#      self.__build["query_external_info_params"]             = params
-#    except (
-#            exceptions.ProxyError,
-#            exceptions.SSLError,
-#            exceptions.ChunkedEncodingError,
-#            exceptions.ConnectionError,
-#            exceptions.ReadTimeout):
-#        print("ERROR: Query shared url failed!".format(url=share_url))
-#        return None
-#    return params
-
   def __request_file__(
     self,
     method: str,
@@ -117,30 +89,36 @@ class DouyinLiveDownloader(Downloader):
     timeout = 10,
     ):
     try:
+      ##
+      ## start download
+      ## output message
+      ##
       print("start download:")
       print("\tshare_url:{}\n\tpath:{}\n\tmethod:{}\n\turl:{}\n\tstram:{}\n\tproxies:{}\n\theaders:{}\n\ttimeout:{}".format(share_url, save_path + "/" + file_name, method, url, stream, proxies, headers, timeout))
-      # print("当前总下载数：{}".format(self.current_download_count))
+      print("当前总下载数：{}".format(self._actived_task_number))
 
+      ##
+      ## create directory
+      ##
       if not os.path.exists(save_path):
           print("create directory {}".format(save_path))
           os.makedirs(save_path, exist_ok=True)
+      
+      ##
+      ## download live stream
+      ##
       self.auto_down (url, save_path, file_name, 0)
       
-      # reset threading status
-      '''
-      self.current_download_count -= 1
-      for index in range(len(self.live_download_thread_list)):
-         if self.live_download_thread_list[index]["share_url"] == share_url:
-            self.live_share_url_download_status_list[index] = False
-            break
-         if index == len(self.live_download_thread_list) - 1:
-            print("live {} status does not found".format(share_url))
-            raise IndexError
-      '''
+      ##
+      ## reset actived number
+      ##
+      self._actived_task_number -= 1
+      
+      ##
+      ## update download message
+      ##
       print("name:{} \nurl:{} \ndownload complete!\n".format(nickname, url))    
-      '''
-      print("当前总下载数：{}".format(self.current_download_count))
-      '''
+      print("当前总下载数：{}".format(self._actived_task_number))
       print()
     except Exception as e:
         print("request error: {err}".format(err=e))
@@ -156,12 +134,13 @@ class DouyinLiveDownloader(Downloader):
       ##
       ## construct member
       ##
-      self.config             = DouyinLiveConfig(self.CONFIG_PATH)
-      self.login              = DouyinLogin(self.config.get_config_dict_attr("$.login_config_path"))
-      self.header             = DouyinShareHeader(self.config.header_config_path)
-      self.API                = DouyinApi(self.config.get_config_dict_attr("$.api_config_path"))
-      self.url_list           = UrlListConfig(self.config.get_config_dict_attr("$.share_url_path"))
-      self.live_external_info = LiveExternal()
+      self.config               = DouyinLiveConfig(self.CONFIG_PATH)
+      self.login                = DouyinLogin(self.config.get_config_dict_attr("$.login_config_path"))
+      self.header               = DouyinShareHeader(self.config.header_config_path)
+      self.API                  = DouyinApi(self.config.get_config_dict_attr("$.api_config_path"))
+      self.url_list             = UrlListConfig(self.config.get_config_dict_attr("$.share_url_path"))
+      self.live_external_info   = LiveExternal()
+      self.live_douyin_listener = DouyinLiveListener()
 
       ##
       ## initialize all member
@@ -187,7 +166,6 @@ class DouyinLiveDownloader(Downloader):
     self.url_list.dump_url_list()
 
   def run(self, url) -> None:
-
     ##
     ## attempt attribute
     ##
@@ -368,6 +346,10 @@ class DouyinLiveDownloader(Downloader):
       ##
       if stream_url is None:
         raise FileNotFoundError
+      
+      ##
+      ## download live stream
+      ##
       self.download_live_stream(url)
 
     except FileNotFoundError:
@@ -465,66 +447,41 @@ class DouyinLiveDownloader(Downloader):
     return request(method=method, url=url, params=params, timeout=timeout, headers=headers)
 
   def download_live_stream(self, url:str):
-    global total_live_number
     ##
-    ## Define local variable
+    ## cache all temp variable for mutiple thread
     ##
-    live_download_thread_dict = dict()
-    task = ("get", 
-            url, 
-            get_dict_attr(self.__build, "$.summary.stream_url"), 
-            self.config.get_config_dict_attr("$.save_path")+"/"+ self.config.get_config_dict_attr("$.stream_platform") + "/" + self.config.get_config_dict_attr("$.type") + "/" +get_dict_attr(self.__build, "$.summary.diectory_name"),
-            get_dict_attr(self.__build, "$.summary.stream_name"),
-            get_dict_attr(self.__build, "$.summary.nickname"),
-            True, 
-            self.login.proxies.get_proxies_dict(),
-            self.header.to_dict(),
-            self.config.get_config_dict_attr("$.MAX_TIMEOUT"))
-    total_live_number += 1
-    download_thread = Thread(target=self.__request_file__, args=task)
-    download_thread.start()
-    '''
-    ##
-    ## add a new download task
-    ##
-    if self.actived_download_live_url_list.count(url) == 0:
-       self.actived_download_live_url_list.append(url)
-       live_download_thread_dict["thread"] = threading.Thread(target=self.__request_file__, args=task)
-       live_download_thread_dict["share_url"] = url
-       self.live_download_thread_list.append(live_download_thread_dict)
-       self.live_share_url_download_status_list.append(True)
-    else:
-       ##
-       ## update threading args
-       ##
-       for index in range(len(self.live_download_thread_list)):
-          if self.live_download_thread_list[index]["share_url"] == url:
-             
-            ##
-            ## check live download status
-            ##
-            if self.live_share_url_download_status_list[index] == True:
-               print("live {} download status is true, skiped".format(self.nickname))
-               return None
-            else:
-               self.live_download_thread_list[index]["thread"] = threading.Thread(target=self.__request_file__, args=task)
-               self.live_share_url_download_status_list[index] = True
-            break
-          if index == len(self.live_download_thread_list) - 1:
-             print("actived live {} is not found!\nurl: {}".format(self.nickname, self.live_stream_url))
-             raise IndexError
+    stream_url = get_dict_attr(self.__build, "$.summary.stream_url")
+    save_dir = self.config.get_config_dict_attr("$.save_path")+"/"+ self.config.get_config_dict_attr("$.stream_platform") + "/" + self.config.get_config_dict_attr("$.type") + "/" +get_dict_attr(self.__build, "$.summary.diectory_name")
+    stream_name = get_dict_attr(self.__build, "$.summary.stream_name")
+    nickname = get_dict_attr(self.__build, "$.summary.nickname")
+    proxies = self.login.proxies.get_proxies_dict()
+    header = self.header.to_dict()
+    max_timeout = self.config.get_config_dict_attr("$.MAX_TIMEOUT")
     
     ##
-    ## start threading
+    ## setting max thread will work here
+    ## download wil be blocked if (actived task number >= max_thread and max_thread != 0)
     ##
-    self.current_download_count += 1
-    for d in self.live_download_thread_list:
-      if (d["share_url"] == url):
-        d["thread"].start()
-        return
-    print("live {} does not dound {}".format(self.nickname, url))
-    raise IndexError   
-    '''
+    while self._actived_task_number >= self.config.get_config_dict_attr("$.max_thread") and self.config.get_config_dict_attr("$.max_thread") != 0:
+      sleep(1)
+      if self.live_douyin_listener.is_listening_ending() is True:
+        print("INFO: download task {} {} is interrupt because of listener stop.".format(nickname, url))
+        return None
+    ##
+    ## start require live stream file
+    ##
+    self._actived_task_number += 1
+    self.__request_file__(
+          "get", 
+          url, 
+          stream_url, 
+          save_dir,
+          stream_name,
+          nickname,
+          True, 
+          proxies,
+          header,
+          max_timeout)
 
   def auto_down (self, url: str, fp: str, fn: str, retry_times: int):
     try:
@@ -536,15 +493,37 @@ class DouyinLiveDownloader(Downloader):
     except ContentTooShortError:
         self.auto_down (url, fp, fn, retry_times)
 
-if __name__ == "__main__":
+def download_live():
+  ##
+  ## construct live downloader
+  ##
+  downloader = DouyinLiveDownloader()
+  if downloader.config.get_config_dict_attr("$.debug") is True:
+    downloader.dump_config()
+  
+  ##
+  ## get live url list
+  ##
+  live_url_list = downloader.url_list.getConfigList("live")
+  for url in live_url_list:
+    item = ListenerItem(func=downloader.run, args=(url,))
+    downloader.live_douyin_listener.add_sub_task(item)
+    if downloader.live_douyin_listener.is_patrolman_actived() is not True:
+      downloader.live_douyin_listener.start()
+
+def download_live_test():
   downloader = DouyinLiveDownloader()
   if downloader.config.get_config_dict_attr("$.debug") is True:
     downloader.dump_config()
   live_url_list = downloader.url_list.getConfigList("live")
   for url in live_url_list:
-    downloader.run(url=url)
-    # Thread(target=downloader.run, args=url)
-    # break
-    sleep(randint(15, 45) * 0.1)
-    if downloader.config.get_config_dict_attr("$.max_thread") <= total_live_number:
-      break
+    try:
+      downloader.run(url=url)
+      sleep(randint(15, 45) * 0.1)
+      if downloader.config.get_config_dict_attr("$.max_thread") <= total_live_number and downloader.config.get_config_dict_attr("$.max_thread") != 0:
+        break
+    except Exception:
+      continue
+    
+if __name__ == "__main__":
+  download_live()

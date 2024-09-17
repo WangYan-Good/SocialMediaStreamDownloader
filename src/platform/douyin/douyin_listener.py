@@ -202,7 +202,7 @@ class DouyinLiveListener(Listener):
       if input() == 'quit':
         self._is_need_listening = False
         break
-    print("INFO: stop listener succeed.")
+    print("INFO: stop listener succeed! \nThe programmer will be ended once all task download completed.")
 
   ##
   ## add sub task and append it into list
@@ -214,7 +214,6 @@ class DouyinLiveListener(Listener):
     else:
       self._listen_list.append(item)
       self._total_count += 1
-    # print("INFO: Add target {} succeed!".format(item.get_item_identify()))
 
   ##
   ## delete a specific sub task according identify
@@ -263,14 +262,16 @@ class DouyinLiveListener(Listener):
 
       ##
       ## scan listener list and start thread
+      ## TODO:: sleep 1 s
       ##
+      sleep(1)
       if self._listen_list[self._cursor]._thread.is_alive() is not True:
+        # print("INFO: index={} args={}".format(index, self._listen_list[self._cursor]._args))
         self._listen_list[self._cursor].start_item()
       
       ##
       ## start from first item if current item is the last
       ##
-      sleep(1)
       if self._listen_list[self._cursor].get_item_identify() == self._listen_list[-1].get_item_identify():
         index = 0
       else:  
@@ -284,12 +285,24 @@ class DouyinLiveListener(Listener):
   def is_patrolman_actived(self):
     return self._patrol_thread.is_alive()
 
+  ##
+  ## check wether the listener is working
+  ## is not, all pending thread should be ended.
+  ##
+  def is_listening_ending(self)->bool:
+    if self._is_need_listening is True:
+      return False
+    else:
+      return True
+
 ##
 ## for unit test
 ##
 def output(url:str):
   sleep(5) # sleep 5s
   print(url)
+  sleep(5)
+  print("INFO: {}".format(url))
 
 def test_listen_item():
   url_list = UrlListConfig(None).getConfigList("live")
