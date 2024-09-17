@@ -10,6 +10,7 @@ folderize: true
 login: false
 save_response: true
 debug: false
+max_retry: 3
 
 ## do not modify
 config_directory: "config"
