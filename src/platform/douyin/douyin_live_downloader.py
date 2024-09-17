@@ -167,13 +167,6 @@ class DouyinLiveDownloader(Downloader):
 
   def run(self, url) -> None:
     ##
-    ## setting max thread will work here
-    ## download wil be blocked if (actived task number >= max_thread and max_thread != 0)
-    ##
-    if self._actived_task_number >= self.config.get_config_dict_attr("$.max_thread") and self.config.get_config_dict_attr("$.max_thread") != 0:
-      return None
-
-    ##
     ## attempt attribute
     ##
     summary = dict()
@@ -455,20 +448,40 @@ class DouyinLiveDownloader(Downloader):
 
   def download_live_stream(self, url:str):
     ##
+    ## cache all temp variable for mutiple thread
+    ##
+    stream_url = get_dict_attr(self.__build, "$.summary.stream_url")
+    save_dir = self.config.get_config_dict_attr("$.save_path")+"/"+ self.config.get_config_dict_attr("$.stream_platform") + "/" + self.config.get_config_dict_attr("$.type") + "/" +get_dict_attr(self.__build, "$.summary.diectory_name")
+    stream_name = get_dict_attr(self.__build, "$.summary.stream_name")
+    nickname = get_dict_attr(self.__build, "$.summary.nickname")
+    proxies = self.login.proxies.get_proxies_dict()
+    header = self.header.to_dict()
+    max_timeout = self.config.get_config_dict_attr("$.MAX_TIMEOUT")
+    
+    ##
+    ## setting max thread will work here
+    ## download wil be blocked if (actived task number >= max_thread and max_thread != 0)
+    ##
+    while self._actived_task_number >= self.config.get_config_dict_attr("$.max_thread") and self.config.get_config_dict_attr("$.max_thread") != 0:
+      sleep(1)
+      if self.live_douyin_listener.is_listening_ending() is True:
+        print("INFO: download task {} {} is interrupt because of listener stop.".format(nickname, url))
+        return None
+    ##
     ## start require live stream file
     ##
     self._actived_task_number += 1
     self.__request_file__(
           "get", 
           url, 
-          get_dict_attr(self.__build, "$.summary.stream_url"), 
-          self.config.get_config_dict_attr("$.save_path")+"/"+ self.config.get_config_dict_attr("$.stream_platform") + "/" + self.config.get_config_dict_attr("$.type") + "/" +get_dict_attr(self.__build, "$.summary.diectory_name"),
-          get_dict_attr(self.__build, "$.summary.stream_name"),
-          get_dict_attr(self.__build, "$.summary.nickname"),
+          stream_url, 
+          save_dir,
+          stream_name,
+          nickname,
           True, 
-          self.login.proxies.get_proxies_dict(),
-          self.header.to_dict(),
-          self.config.get_config_dict_attr("$.MAX_TIMEOUT"))
+          proxies,
+          header,
+          max_timeout)
 
   def auto_down (self, url: str, fp: str, fn: str, retry_times: int):
     try:
@@ -489,19 +502,14 @@ def download_live():
     downloader.dump_config()
   
   ##
-  ## douyin listener
-  ##
-  douyin_listener = DouyinLiveListener()
-  
-  ##
   ## get live url list
   ##
   live_url_list = downloader.url_list.getConfigList("live")
   for url in live_url_list:
     item = ListenerItem(func=downloader.run, args=(url,))
-    douyin_listener.add_sub_task(item)
-    if douyin_listener.is_patrolman_actived() is not True:
-      douyin_listener.start()
+    downloader.live_douyin_listener.add_sub_task(item)
+    if downloader.live_douyin_listener.is_patrolman_actived() is not True:
+      downloader.live_douyin_listener.start()
 
 def download_live_test():
   downloader = DouyinLiveDownloader()
