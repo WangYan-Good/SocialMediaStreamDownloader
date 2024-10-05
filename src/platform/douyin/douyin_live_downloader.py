@@ -247,7 +247,7 @@ class DouyinLiveDownloader(Downloader):
       else:
         params = self.construct_live_params_no_login(response_result)
     except Exception as e:
-      print("ERROR: Parse share live url failed! {}".format(e))
+      print("ERROR: Parse share live url failed! {} {}".format(e, url))
       return
     
     ##
