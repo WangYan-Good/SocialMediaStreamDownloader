@@ -125,6 +125,11 @@ class DouyinLiveListener(Listener):
   _patrol_thread    = None
 
   ##
+  ## start patrol thread
+  ##
+  _start_thread     = None
+
+  ##
   ## stop patrol thread
   ##
   _stop_thread       = None
@@ -143,13 +148,15 @@ class DouyinLiveListener(Listener):
 ## >>============================= private method =============================>>
 ##
   def __init__(self) -> None:
-    self._cursor = 0
-    self._total_count = 0
-    self._is_need_listening = False
-    self._is_end_listening  = False
-    self._patrol_thread = Thread(target=self._patrolman)
-    self._stop_thread   = Thread(target=self._stop)
-    self._stop_thread.daemon = True
+    self._cursor              = 0
+    self._total_count         = 0
+    self._is_need_listening   = False
+    self._is_end_listening    = False
+    self._patrol_thread       = Thread(target=self._patrolman)
+    self._start_thread        = Thread(target=self._start)
+    self._start_thread.daemon = True
+    self._stop_thread         = Thread(target=self._stop)
+    self._stop_thread.daemon  = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -195,12 +202,36 @@ class DouyinLiveListener(Listener):
     print("INFO: stop linster succeed!")
 
   ##
+  ## start to execture sub task
+  ##
+  def _start(self):
+    while True:
+      if input() == 'start':
+        self.start()
+        break
+    print("INFO: listener start succeed!\n")
+
+  ##
   ## stop listen sub task
   ##
   def _stop(self):
     while True:
       if input() == 'quit':
+        ##
+        ## set does not need to listening
+        ##
         self._is_need_listening = False
+
+        ##
+        ## listen to start thread
+        ##
+        try:
+          self._start_thread.start()
+        except RuntimeError:
+          self._start_thread        = Thread(target=self._start)
+          self._start_thread.daemon = True
+          self._start_thread.start()
+
         break
     print("INFO: stop listener succeed! \nThe programmer will be ended once all task download completed.")
 

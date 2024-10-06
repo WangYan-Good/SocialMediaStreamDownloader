@@ -11,7 +11,7 @@ class UrlListConfig ():
 
   def __init__(self, file:str=None) -> None:
     if file is None:
-      print("WARNNING: Invalid url file path, will use default file")
+      print("WARNING: Invalid url file path, will use default file")
       file = DEFAULT_CONFIG_FILE
     self.section = list()
     self.__url_list = list(list())

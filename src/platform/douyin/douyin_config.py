@@ -63,7 +63,7 @@ sub-class:
   ##
   def __init__(self, path: Path = None):
     if path is None:
-      print("WARNNING: Invalid input, will use default config path")
+      print("WARNING: Invalid input, will use default config path")
       path = Path(DEFAULT_BASE_CONFIG_PATH)
     
     ##
