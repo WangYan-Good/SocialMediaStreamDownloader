@@ -66,7 +66,7 @@ class BaseConfig(ABC):
   ##
   def __init__(self, path:Path|str = None):
     if path is None:
-      print("WARNNING: Invalide input, will use default base configuration!")
+      print("WARNING: invalide input, will use default base configuration")
       path = DEFAULT_BASE_CONFIG_PATH
 
     ##
@@ -161,5 +161,5 @@ class BaseConfig(ABC):
   def save_config(self, output:Path = None):
     if output is None:
       output = self._base_config_save_path
-      print("WARNNING: save base config in default path")
+      print("WARNING: save base config in default path")
     save_dict_as_file(self.to_dict(), output)

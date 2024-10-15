@@ -33,7 +33,7 @@ class DouyinLiveConfig(DouyinConfig):
   ##
   def __init__(self, path: Path = None):
     if path is None:
-      print("WARNING: Invalid input, will use default config path")
+      print("WARNING: invalid input, will use default config path")
       path = DEFAULT_BASE_CONFIG_PATH
     super().__init__(path)
 
@@ -129,7 +129,7 @@ class DouyinLiveConfig(DouyinConfig):
     ## save sub class config
     ##
     if output is None:
-      print("WARNNING: save douyin live config in default path")
+      print("WARNING: save douyin live config in default path")
       output = self._douyin_live_config_save_path
     save_dict_as_file(self.__config, output)
 

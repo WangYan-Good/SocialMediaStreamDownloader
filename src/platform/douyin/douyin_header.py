@@ -36,7 +36,7 @@ class DouyinHeader(Header):
   ##
   def __init__(self, header_path: Path | str = None) -> None:
     if header_path is None:
-      print("WARNNING: Invalid config, use default douyin header config")
+      print("WARNING: invalid config, use default douyin header config")
       header_path = DEFAULT_HEADER_PATH
     
     ##
