@@ -87,7 +87,7 @@ class DouyinPostDownloader(Downloader):
   ##
   def __init__(self, path: Path = None) -> None:
     if path is None:
-       print("WARNNING: invalid config path, will use default config")
+       print("WARNING: invalid config path, will use default config")
        path = DEFAULT_BASE_CONFIG_PATH
     
     ##

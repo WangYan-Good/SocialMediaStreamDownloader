@@ -11,7 +11,7 @@ class UrlListConfig ():
 
   def __init__(self, file:str=None) -> None:
     if file is None:
-      print("WARNING: Invalid url file path, will use default file")
+      print("WARNING: invalid url file path, will use default file")
       file = DEFAULT_CONFIG_FILE
     self.section = list()
     self.__url_list = list(list())
@@ -19,7 +19,7 @@ class UrlListConfig ():
 
   def __configParser (self, file:str=None):
     if file is None:
-      print("ERROR: Invalid file path")
+      print("ERROR: invalid file path")
       return
 
     SiftedContext = object()

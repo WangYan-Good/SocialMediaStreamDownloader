@@ -61,7 +61,7 @@ class DouyinLiveDownloader(Downloader):
 ##
   def __init__(self, path: Path = None) -> None:
     if path is None:
-      print("WARNING: Invalid input, will use default config")
+      print("WARNING: invalid input, will use default config")
       path = DEFAULT_BASE_CONFIG_PATH
     
     ##
@@ -366,7 +366,7 @@ class DouyinLiveDownloader(Downloader):
       print("ERROR: stream url is not found, please double check")
       return None
     except TimeoutError:
-      print("WARNING: Timeout, wait 5s and try again.")
+      print("WARNING: timeout, wait 5s and try again")
       sleep(5)
       self.run(url)
       return None

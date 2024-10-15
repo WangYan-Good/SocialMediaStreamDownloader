@@ -24,7 +24,7 @@ class DouyinApi(Api):
 ##
   def __init__(self, path: Path | str = None) -> None:
     if path is None:
-      print("WARNING: Invalid api config path, will use default api config")
+      print("WARNING: invalid api config path, will use default api config")
       path = DEFAULT_API_CONFIG_PATH
     super().__init__(path)
 

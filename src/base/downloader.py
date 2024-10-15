@@ -65,7 +65,7 @@ class Downloader(ABC):
   ##
   def __init__(self, path:Path = None) -> None:
     if path is None:
-      print("WARNING: Invalid input, will use default configuration.")
+      print("WARNING: invalid input, will use default configuration")
       path = DEFAULT_BASE_CONFIG_PATH
     self.CONFIG_PATH = path
 

@@ -65,7 +65,7 @@ class DouyinPostConfig(DouyinConfig):
 
   def __init__(self, path:Path = None) -> None:
     if path is None:
-      print("WARNING: Invalid input, will use default configuration!")
+      print("WARNING: invalid input, will use default configuration")
       path = DEFAULT_BASE_CONFIG_PATH
     super().__init__(path=Path(path))
     self.__parse_config(Path(self.post_config_path))
