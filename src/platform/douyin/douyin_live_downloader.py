@@ -13,7 +13,7 @@ from requests import request, exceptions
 from urllib.parse import urlparse, parse_qs
 from urllib.error import ContentTooShortError
 from urllib.request import urlretrieve
-from threading import Thread
+from threading import Thread, Lock
 
 ## <<Extension>>
 import yaml as yml
@@ -44,6 +44,7 @@ class DouyinLiveDownloader(Downloader):
   REGULAR_ROOM_ID           = r"/douyin/webcast/reflow/(\S+)"
   REGULAR_ROOM_ID_LIVE_PATH = r"/douyin/webcast/reflow/\S+"
   _actived_task_number      = 0
+  _lock                     = None
 
   ##
   ## member
@@ -141,6 +142,7 @@ class DouyinLiveDownloader(Downloader):
       self.url_list             = UrlListConfig(self.config.get_config_dict_attr("$.share_url_path"))
       self.live_external_info   = LiveExternal()
       self.live_douyin_listener = DouyinLiveListener()
+      self._lock                = Lock()
 
       ##
       ## initialize all member
@@ -170,11 +172,12 @@ class DouyinLiveDownloader(Downloader):
     ## download task shoule be blocked if the number >= max task
     ## TODO
     ##
+    output_fuse = False
     while self._actived_task_number >= self.config.get_config_dict_attr("$.max_thread") and self.config.get_config_dict_attr("$.max_thread") != 0:
-      sleep(5)
-      if self.live_douyin_listener.is_listening_ending() is True:
+      if self.live_douyin_listener.is_listening_ending() is True and output_fuse is False:
         print("INFO: download task {} is interrupt because of listener stop.".format(url))
-        return None
+        output_fuse = True
+        
     
     ##
     ## attempt attribute
@@ -377,6 +380,18 @@ class DouyinLiveDownloader(Downloader):
 ##
 ## >>============================= sub class method =============================>>
 ##
+  def acquire(self):
+    self._lock.acquire()
+  
+  def release(self):
+    self._lock.release()
+
+  def is_exceed_max_download_task(self):
+    if self._actived_task_number >= self.config.get_config_dict_attr("$.max_thread"):
+      return True
+    else:
+      return False
+
   def init_douyin_config(self):
     pass
 
@@ -474,15 +489,27 @@ class DouyinLiveDownloader(Downloader):
     max_timeout = self.config.get_config_dict_attr("$.MAX_TIMEOUT")
     
     ##
+    ## start require live stream file
+    ##
+    self.acquire()
+    ##
     ## setting max thread will work here
     ## download wil be blocked if (actived task number >= max_thread and max_thread != 0)
     ##
     while self._actived_task_number >= self.config.get_config_dict_attr("$.max_thread") and self.config.get_config_dict_attr("$.max_thread") != 0:
-      raise TimeoutError
+      pass
+    
     ##
-    ## start require live stream file
+    ## add actived task
     ##
     self._actived_task_number += 1
+    
+    ##
+    ## check max thread
+    ##
+    if self._actived_task_number >= self.config.get_config_dict_attr("$.max_thread") and self.config.get_config_dict_attr("$.max_thread") != 0:
+      self.live_douyin_listener.stop()
+    self.release()  
     self.__request_file__(
           "get", 
           url, 
@@ -519,7 +546,7 @@ def download_live():
   live_url_list = downloader.url_list.getConfigList("live")
   for url in live_url_list:
     item = ListenerItem(func=downloader.run, args=(url,))
-    downloader.live_douyin_listener.add_sub_task(item)
+    downloader.live_douyin_listener.add_sub_task(item)      
     if downloader.live_douyin_listener.is_patrolman_actived() is not True:
       downloader.live_douyin_listener.start()
 
