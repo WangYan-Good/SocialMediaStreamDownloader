@@ -2,7 +2,7 @@
 ## default download config
 ##
 ##>>------------------ base download config -------------------->>
-save_path: /mnt/sda/Videos #/mnt/nvme2/vedio
+save_path: /mnt/video
 log_enable: true
 log_path: ./logs
 max_thread: 7
