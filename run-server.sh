@@ -81,6 +81,6 @@ pip install -r ./requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple/ -
 # 检查是否安装 ffmpeg
 
 # 编译安装 ffmpeg
-FFMPEG_REPO=./ffmpeg
-cd &(FFMPEG_REPO)
-./configure --enable-shared --enable-swscale --enable-gpl --enable-nonfree --enable-pic --prefix=/usr/local/whkt/ffmpeg  --enable-postproc --enable-pthreads --enable-static --enable-libx264 --enable-libfdk-aac
+# FFMPEG_REPO=./ffmpeg
+# cd &(FFMPEG_REPO)
+# ./configure --enable-shared --enable-swscale --enable-gpl --enable-nonfree --enable-pic --prefix=/usr/local/whkt/ffmpeg  --enable-postproc --enable-pthreads --enable-static --enable-libx264 --enable-libfdk-aac

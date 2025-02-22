@@ -11,7 +11,7 @@ sys.path.append(os.getcwd())
 import yaml as yml
 
 ## <<Third-part>>
-from src.platform.douyin.douyin_config import DouyinConfig, DEFAULT_BASE_CONFIG_PATH
+from backend.src.platform.douyin.douyin_config import DouyinConfig, DEFAULT_BASE_CONFIG_PATH
 
 ## TODO remove
 from verify_fp_manager import VerifyFpManager as VFM

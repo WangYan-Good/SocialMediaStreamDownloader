@@ -10,8 +10,8 @@ from abc import abstractmethod
 
 ##<<Third-part>>
 from pathlib import Path
-from src.base.header import Header
-from src.library.baselib import output_dict, get_dict_attr, set_dict_attr
+from backend.src.base.header import Header
+from backend.src.library.baselib import output_dict, get_dict_attr, set_dict_attr
 
 DEFAULT_HEADER_PATH = "config/douyin/headers.yml"
 

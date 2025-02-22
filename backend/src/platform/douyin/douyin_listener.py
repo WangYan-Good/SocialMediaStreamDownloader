@@ -3,7 +3,7 @@ import os
 import sys
 sys.path.append(os.getcwd())
 from time import sleep
-from src.platform.douyin.douyin_url_list_config import UrlListConfig
+from backend.src.platform.douyin.douyin_url_list_config import UrlListConfig
 
 ##<<Base>>
 import time
@@ -12,7 +12,7 @@ from threading import Thread
 ##<Extension>>
 
 ##<<Third-part>>
-from src.base.listener import Listener
+from backend.src.base.listener import Listener
 
 class ListenerItem():
 ##
@@ -166,7 +166,7 @@ class DouyinLiveListener(Listener):
   ##
   def start(self):
     ##
-    ## caculate total listener item count
+    ## calculate total listener item count
     ##
     self._total_count = len(self._listen_list)
 
@@ -199,10 +199,10 @@ class DouyinLiveListener(Listener):
   ##
   def stop(self):
     self._is_need_listening = False
-    print("INFO: stop linster succeed!")
+    print("INFO: stop listener succeed!")
 
   ##
-  ## start to execture sub task
+  ## start to execute sub task
   ##
   def _start(self):
     while True:
@@ -287,7 +287,7 @@ class DouyinLiveListener(Listener):
     while index < len(self._listen_list) and self._is_need_listening is True:
       
       ##
-      ## set cursor and indecate current item
+      ## set cursor and indicate current item
       ##
       self._cursor = index
 
@@ -336,7 +336,7 @@ def output(url:str):
   print("INFO: {}".format(url))
 
 def test_listen_item():
-  url_list = UrlListConfig(None).getConfigList("live")
+  url_list = UrlListConfig(None).get_config_list("live")
   # listener = DouyinLiveListener(output)
   for url in url_list:
     listen_item = ListenerItem(func=output, args=(url,))
@@ -358,7 +358,7 @@ def test_listen_item():
     break
 
 def test_douyin_live_listener():
-  url_list = UrlListConfig(None).getConfigList("live")
+  url_list = UrlListConfig(None).get_config_list("live")
   live_listener = DouyinLiveListener()
   for url in url_list:
     listen_item = ListenerItem(func=output, args=(url,))

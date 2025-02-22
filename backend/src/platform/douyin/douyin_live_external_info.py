@@ -4,8 +4,8 @@ import re
 ##<<Extension>>
 
 ##<<Third-part>>
-from src.base.json import JSON
-from src.library.baselib import get_dict_attr
+from backend.src.base.json import JSON
+from backend.src.library.baselib import get_dict_attr
 
 ##
 ## Live stream file name
@@ -48,7 +48,7 @@ class LiveExternal(JSON):
     nickname = get_dict_attr(build_dict, "$.data.room.owner.nickname")
     if nickname is None:
       raise ValueError
-    return self._replaceT(nickname)
+    return self._replaceT(nickname, replace=None)
   
   def get_raw_nickname(self, response):
     nickname = str()

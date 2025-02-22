@@ -9,7 +9,7 @@ from pathlib import Path
 import yaml
 
 ##<<Third-part>>
-from src.library.baselib import load_yml, set_dict_attr, output_dict, get_dict_attr
+from backend.src.library.baselib import load_yml, set_dict_attr, output_dict, get_dict_attr
 DEFAULT_REFERER = "https://www.douyin.com/"
 DEFAULT_USERR_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36"
 

@@ -15,9 +15,9 @@ class UrlListConfig ():
       file = DEFAULT_CONFIG_FILE
     self.section = list()
     self.__url_list = list(list())
-    self.__configParser(file)
+    self.__config_parser(file)
 
-  def __configParser (self, file:str=None):
+  def __config_parser (self, file:str=None):
     if file is None:
       print("ERROR: invalid file path")
       return
@@ -65,7 +65,7 @@ class UrlListConfig ():
     except Exception as e:
       print (e)
   
-  def getConfigList(self, SectionName:str):
+  def get_config_list(self, SectionName:str):
     if SectionName is None:
       print("Invalide section name {}".format(SectionName))
       return None
@@ -84,5 +84,5 @@ class UrlListConfig ():
       print("\t{}".format(sec))
 
 if __name__ == "__main__":
-  url_list = UrlListConfig().getConfigList(SectionName="live")
+  url_list = UrlListConfig().get_config_list(SectionName="live")
   print(url_list)
