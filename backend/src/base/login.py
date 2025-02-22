@@ -62,7 +62,7 @@ class Login(ABC):
   ##
   def __init__(self, path: Path|str = None):
     if path is None:
-      print("WRANING: Invalid input path, will use default path!")
+      print("WARNING: invalid input path, will use default path")
       path = DEFAULT_BASE_CONFIG_PATH
     
     ##

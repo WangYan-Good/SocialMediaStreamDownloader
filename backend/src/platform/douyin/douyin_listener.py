@@ -283,30 +283,22 @@ class DouyinLiveListener(Listener):
     ##
     ## loop all listener item and actived
     ##
-    index = 0
-    while index < len(self._listen_list) and self._is_need_listening is True:
-      
-      ##
-      ## set cursor and indicate current item
-      ##
-      self._cursor = index
-
+    while self._cursor < len(self._listen_list) and self._is_need_listening is True:
       ##
       ## scan listener list and start thread
       ## TODO:: sleep 1 s
       ##
       sleep(1)
       if self._listen_list[self._cursor]._thread.is_alive() is not True:
-        # print("INFO: index={} args={}".format(index, self._listen_list[self._cursor]._args))
         self._listen_list[self._cursor].start_item()
       
       ##
       ## start from first item if current item is the last
       ##
       if self._listen_list[self._cursor].get_item_identify() == self._listen_list[-1].get_item_identify():
-        index = 0
+        self._cursor = 0
       else:  
-        index += 1
+        self._cursor += 1
 
   ##
   ## check wether the status of patrolman is actived
