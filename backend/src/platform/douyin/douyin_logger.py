@@ -3,7 +3,7 @@
 ##<<Extension>>
 
 ##<<Third-part>>
-from src.base.log import Log
+from backend.src.base.log import Log
 
 class DouyinLogger(Log):
   def __init__(self) -> None:

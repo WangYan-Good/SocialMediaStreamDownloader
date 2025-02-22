@@ -1,0 +1,7 @@
+backend/src/base/__pycache__/
+backend/src/library/__pycache__/
+backend/src/platform/douyin/__pycache__/
+backend/src/database/__pycache__/
+venv/
+logs/
+config/build/

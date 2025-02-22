@@ -7,8 +7,8 @@ sys.path.append(os.getcwd())
 ## <<Extension>>
 
 ## <<Third-part>>
-from src.library.baselib import output_dict, save_dict_as_file, get_dict_attr, set_dict_attr, load_yml
-from src.base.config import BaseConfig, DEFAULT_BASE_CONFIG_PATH
+from backend.src.library.baselib import output_dict, save_dict_as_file, get_dict_attr, set_dict_attr, load_yml
+from backend.src.base.config import BaseConfig, DEFAULT_BASE_CONFIG_PATH
 
 class DouyinConfig(BaseConfig):
 

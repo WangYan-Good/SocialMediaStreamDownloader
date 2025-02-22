@@ -8,9 +8,9 @@ sys.path.append(os.getcwd())
 import yaml as yml
 
 ## <<Third-part>>
-from src.library.baselib import output_dict, save_dict_as_file, set_dict_attr, get_dict_attr, load_yml
-from src.base.config import DEFAULT_BASE_CONFIG_PATH
-from src.platform.douyin.douyin_config import DouyinConfig
+from backend.src.library.baselib import output_dict, save_dict_as_file, set_dict_attr, get_dict_attr, load_yml
+from backend.src.base.config import DEFAULT_BASE_CONFIG_PATH
+from backend.src.platform.douyin.douyin_config import DouyinConfig
 
 ##TODO remove
 from verify_fp_manager import VerifyFpManager as VFM

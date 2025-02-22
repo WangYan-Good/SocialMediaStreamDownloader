@@ -8,7 +8,7 @@ from pathlib import Path
 ## <<Extension>>
 
 ## <<Third-part>>
-from src.base.login import Login, Proxies
+from backend.src.base.login import Login, Proxies
 
 # ## TODO
 # import f2

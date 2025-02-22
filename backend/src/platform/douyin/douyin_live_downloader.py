@@ -19,18 +19,19 @@ from threading import Thread
 import yaml as yml
 
 ## <<Third-Part>>
-from src.library.baselib import set_dict_attr, get_dict_attr, output_dict, save_dict_as_file
-from src.base.downloader import Downloader, DEFAULT_BASE_CONFIG_PATH
-from src.platform.douyin.douyin_header import DouyinShareHeader, DouyinLiveInfoHeader, DouyinHeader
-from src.platform.douyin.douyin_live_config import DouyinLiveConfig
-from src.platform.douyin.douyin_login import DouyinLogin
-from src.platform.douyin.douyin_url_list_config import UrlListConfig
-from src.platform.douyin.douyin_live_external_info import LiveExternal
-from src.platform.douyin.douyin_api import DouyinApi
+from backend.src.library.baselib import set_dict_attr, get_dict_attr, output_dict, save_dict_as_file
+from backend.src.base.downloader import Downloader, DEFAULT_BASE_CONFIG_PATH
+from backend.src.platform.douyin.douyin_header import DouyinShareHeader, DouyinLiveInfoHeader, DouyinHeader
+from backend.src.platform.douyin.douyin_live_config import DouyinLiveConfig
+from backend.src.platform.douyin.douyin_login import DouyinLogin
+from backend.src.platform.douyin.douyin_url_list_config import UrlListConfig
+from backend.src.platform.douyin.douyin_live_external_info import LiveExternal
+from backend.src.platform.douyin.douyin_api import DouyinApi
+from backend.src.platform.douyin.douyin_share_url_database import DouyinShareUrlDatabase
 from xbogus import XBogus as XB
 from a_bogus import ABogus as AB
 
-from src.platform.douyin.douyin_listener import DouyinLiveListener, ListenerItem
+from backend.src.platform.douyin.douyin_listener import DouyinLiveListener, ListenerItem
 
 # total_live_number = 0
 class DouyinLiveDownloader(Downloader):
@@ -48,8 +49,9 @@ class DouyinLiveDownloader(Downloader):
   ##
   ## member
   ##
-  live_external_info = None
-  live_douyin_listener = None
+  live_external_info           = None
+  live_douyin_listener         = None
+  database                     = None
 
   ##
   ## Cache
@@ -141,6 +143,16 @@ class DouyinLiveDownloader(Downloader):
       self.url_list             = UrlListConfig(self.config.get_config_dict_attr("$.share_url_path"))
       self.live_external_info   = LiveExternal()
       self.live_douyin_listener = DouyinLiveListener()
+      
+      if self.config.get_config_dict_attr("$.database_enable") is True:
+        self.database             = DouyinShareUrlDatabase (
+                                      host=self.config.get_config_dict_attr("$.database_ip"),
+                                      user=self.config.get_config_dict_attr("$.database_user"),
+                                      passwd=self.config.get_config_dict_attr("$.database_password"),
+                                      database=self.config.get_config_dict_attr("$.database_name")
+                                    )
+      else:
+        self.database             = None
 
       ##
       ## initialize all member
@@ -167,11 +179,14 @@ class DouyinLiveDownloader(Downloader):
 
   def run(self, url) -> None:
     ##
-    ## download task shoule be blocked if the number >= max task
+    ## download task should be blocked if the number >= max task
     ## TODO
     ##
     while self._actived_task_number >= self.config.get_config_dict_attr("$.max_thread") and self.config.get_config_dict_attr("$.max_thread") != 0:
+      # waiting 5s for other task is completed
       sleep(5)
+
+      # stop download if listener is end
       if self.live_douyin_listener.is_listening_ending() is True:
         print("INFO: download task {} is interrupt because of listener stop.".format(url))
         return None
@@ -179,11 +194,11 @@ class DouyinLiveDownloader(Downloader):
     ##
     ## attempt attribute
     ##
-    summary = dict()
+    summary         = dict()
     response_result = dict()
-    header = dict()
-    stream_url = str()
-    stream_name = str()
+    header          = dict()
+    stream_url      = str()
+    stream_name     = str()
 
     ##
     ##<<========================== query share url ==========================>>
@@ -199,7 +214,7 @@ class DouyinLiveDownloader(Downloader):
       self.header.init_share_live_header (self.config.get_config_dict_attr("$.login"))
 
       ##
-      ## coustruct header for query share url
+      ## construct header for query share url
       ##
       for k,v in self.header.to_dict().items():
         set_dict_attr(header, "$."+k, v)
@@ -207,10 +222,15 @@ class DouyinLiveDownloader(Downloader):
       ##
       ## query
       ##
-      response = self.query_url(method="get", url=url, params=None, timeout=self.config.get_config_dict_attr("$.MAX_TIMEOUT"), headers=header)
-      
+      response = self.query_url(
+                        method="get", 
+                        url=url, 
+                        params=None, 
+                        timeout=self.config.get_config_dict_attr("$.MAX_TIMEOUT"), 
+                        headers=header)
+
       ##
-      ## random delay
+      ## random delay between 1.5s - 4.5s
       ##
       sleep(randint(15, 45) * 0.1)
       response.raise_for_status()
@@ -304,7 +324,7 @@ class DouyinLiveDownloader(Downloader):
       ## initialize live nickname
       ##
       set_dict_attr(summary, "$.nickname", self.live_external_info.get_raw_nickname(live_response))
-      set_dict_attr(summary, "$.diectory_name", self.live_external_info.get_nickname(live_response))
+      set_dict_attr(summary, "$.directory_name", self.live_external_info.get_nickname(live_response))
 
       ##
       ## live status
@@ -317,7 +337,11 @@ class DouyinLiveDownloader(Downloader):
     except exceptions.HTTPError:
       print("ERROR: forbidden, please try via other way {}".format(url))
       ##
-      ## TODO
+      ## TODO save external information
+      ##
+
+      ##
+      ## TODO store information into database
       ##
       return None
     except Exception as e:
@@ -350,6 +374,24 @@ class DouyinLiveDownloader(Downloader):
         save_dict_as_file(source=self.__build, save_path=Path(path))
         if self.config.get_config_dict_attr("$.debug") is True:
           print("INFO: Save file {} success!".format(path))
+      
+      ##
+      ## save share url information into database
+      ##
+      if self.database is not None:
+        record_tuple  = self.database.get_share_url_table_tuple().copy()
+        record_tuple.clear()
+        set_dict_attr(record_tuple, "$.owner_user_id",  get_dict_attr(self.__build, "$.external_info.data.room.owner_user_id"))
+        set_dict_attr(record_tuple, "$.sec_user_id",    get_dict_attr(self.__build, "$.external_info.data.room.owner.sec_uid"))
+        set_dict_attr(record_tuple, "$.nickname",       get_dict_attr(self.__build, "$.external_info.data.room.owner.nickname"))
+        set_dict_attr(record_tuple, "$.live_share_url", get_dict_attr(summary, "$.share_url"))
+        set_dict_attr(record_tuple, "$.directory_name", get_dict_attr(summary, "$.directory_name"))
+        set_dict_attr(record_tuple, "$.user_status",    "正常")
+
+        ##
+        ## store record into database
+        ##
+        self.database.insert_live_share_url_record(record_tuple)
 
       ##
       ## try to download stream url
@@ -378,7 +420,7 @@ class DouyinLiveDownloader(Downloader):
 ## >>============================= sub class method =============================>>
 ##
   def init_douyin_config(self):
-    pass
+    pass    
 
   def init_douyin_login(self):
     pass
@@ -512,30 +554,43 @@ def download_live():
   downloader = DouyinLiveDownloader()
   if downloader.config.get_config_dict_attr("$.debug") is True:
     downloader.dump_config()
-  
+
   ##
   ## get live url list
   ##
-  live_url_list = downloader.url_list.getConfigList("live")
-  for url in live_url_list:
+  live_url_list = downloader.url_list.get_config_list("live")
+  for url in reversed(live_url_list):
     item = ListenerItem(func=downloader.run, args=(url,))
     downloader.live_douyin_listener.add_sub_task(item)
     if downloader.live_douyin_listener.is_patrolman_actived() is not True:
       downloader.live_douyin_listener.start()
 
+##
+## >>================================ test method ===============================>>
+##
+
+##
+## test: import share live url to database
+##
+def import_share_live_url_to_database(url:str):
+  pass
+
+##
+## test: download a live stream by url
+##
 def download_live_test():
   downloader = DouyinLiveDownloader()
   if downloader.config.get_config_dict_attr("$.debug") is True:
     downloader.dump_config()
-  live_url_list = downloader.url_list.getConfigList("live")
+  live_url_list = downloader.url_list.get_config_list("live")
   for url in live_url_list:
     try:
       downloader.run(url=url)
-      sleep(randint(15, 45) * 0.1)
-      if downloader.config.get_config_dict_attr("$.max_thread") <= total_live_number and downloader.config.get_config_dict_attr("$.max_thread") != 0:
-        break
+      # if downloader.config.get_config_dict_attr("$.max_thread") <= total_live_number and downloader.config.get_config_dict_attr("$.max_thread") != 0:
+      # break
     except Exception:
       continue
     
 if __name__ == "__main__":
   download_live()
+  # download_live_test()

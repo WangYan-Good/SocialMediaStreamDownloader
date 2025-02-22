@@ -8,8 +8,8 @@ import yaml as yml
 
 ##<<Third-part>>
 from pathlib import Path
-from src.base.api import Api
-from src.library.baselib import get_dict_attr
+from backend.src.base.api import Api
+from backend.src.library.baselib import get_dict_attr
 
 
 DEFAULT_API_CONFIG_PATH = "./config/douyin/api.yml"
