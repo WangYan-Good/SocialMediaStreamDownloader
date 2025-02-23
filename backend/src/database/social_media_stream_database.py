@@ -7,20 +7,22 @@ class SocialMediaStreamDataBase(ABC):
 ##
 ## >>============================= attribute =============================>>
 ##
-  __connector = None
+  __host:str     = None
+  __user:str     = None
+  __passwd:str   = None
+  __database:str = None
+  __connector    = None
 
 ##
 ## >>============================= private method =============================>>
 ##
   def __init__(self, host:str, user:str, passwd:str, database:str) -> None:
     try:
-      ##
-      ## connect database
-      ##
-      self.__connector = pymysql.connect(host=host, user=user, passwd=passwd, db=database)
-      print ("INFO: connect database {} success".format(database))
+      self.__host     = host
+      self.__user     = user
+      self.__passwd   = passwd
+      self.__database = database
     except Exception as e:
-      print ("ERROR: connect database {} fail".format(database))
       raise e
 ##
 ## >>============================= abstract method =============================>>
@@ -34,30 +36,15 @@ class SocialMediaStreamDataBase(ABC):
   ## get database connector
   ##
   def get_db_connector(self):
+    try:
+      ##
+      ## connect database
+      ##
+      self.__connector = pymysql.connect(host=self.__host, user=self.__user, passwd=self.__passwd, db=self.__database)
+    except Exception as e:
+      print ("ERROR: connect database {} fail".format(self.__database))
+      
     return self.__connector
-
-  ##
-  ## database commit
-  ##
-  def database_commit(self):
-    try:
-      self.__connector.commit()
-      print("INFO: database commit success!")
-    except Exception as e:
-      print("ERROR: database commit failed {} !".format(e))
-      raise e
-    return
-
-  ##
-  ## close database connector
-  ##
-  def close(self):
-    try:
-      self.__connector.close()
-      print ("INFO: close database success")
-    except Exception as e:
-      print ("ERROR: database instance connect is not created")
-      raise e
 
   ##
   ## drop database table

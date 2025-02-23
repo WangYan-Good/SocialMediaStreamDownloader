@@ -112,6 +112,7 @@ class DouyinShareUrlDatabase(SocialMediaStreamDataBase):
                           '''.format(record.get("live_share_url"), db_record[0])
             cursor.execute(update_sql)
             connector.commit()
+            connector.close()
             print("INFO: update owner_user_id:{} live_share_url:{} success".format(db_record[0], record["live_share_url"]))
           else:
             pass
@@ -133,6 +134,7 @@ class DouyinShareUrlDatabase(SocialMediaStreamDataBase):
                      '''.format(record.get("owner_user_id"), record.get("sec_user_id"), record.get("nickname"), record.get("post_share_url"), record.get("live_share_url"), record.get("directory_name"), record.get("user_status"))
         cursor.execute(insert_sql)
         connector.commit()
+        connector.close()
         print("INFO: insert record {} success".format([item for item in record.values()]))
     except Exception as e:
       print("ERROR: insert live share url {} failed {}".format(record["live_share_url"], e))
@@ -187,7 +189,7 @@ def test_create_db_table():
           '''
     cursor.execute(sql)
     print("INFO: test create database table success")
-    db.close()
+    connector.close()
   except Exception as e:
     print("ERROR: test create database table failed {}".format(e))
 
@@ -208,7 +210,7 @@ def test_drop_db_table():
           '''
     cursor.execute(sql)
     print("INFO: test drop database table success")
-    db.close()
+    connector.close()
   except Exception as e:
     print("ERROR: test drop database table failed {}".format(e))
 

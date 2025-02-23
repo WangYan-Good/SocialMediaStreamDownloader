@@ -237,6 +237,15 @@ class DouyinLiveDownloader(Downloader):
       ##
       sleep(randint(15, 45) * 0.1)
       response.raise_for_status()
+    except TimeoutError:
+      print("ERROR: Timeout, please try again later! {}".format(url))
+      return None
+    except exceptions.ReadTimeout:
+      print("ERROR: Read timeout, please try again later! {}".format(url))
+      return None
+    except UnboundLocalError:
+      print("ERROR: UnboundLocalError, please check the code! {}".format(url))
+      return None
     except Exception as e:
       print("ERROR: Query share url failed! \tstatus:{} \tERROR:{}".format(response.status_code, e))
       return None
@@ -306,6 +315,12 @@ class DouyinLiveDownloader(Downloader):
         raise exceptions.HTTPError
     except exceptions.HTTPError:
       print("ERROR: Query live response failed! {}".format(live_response.status_code))
+      return None
+    except TimeoutError:
+      print("ERROR: Timeout, please try again later! {}".format(url))
+      return None
+    except exceptions.ReadTimeout:
+      print("ERROR: Read timeout, please try again later! {}".format(url))
       return None
     except Exception as e:
       print("ERROR: Query live response failed! {}".format(e))
