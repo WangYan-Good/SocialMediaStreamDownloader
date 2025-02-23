@@ -10,7 +10,8 @@ from backend.src.library.baselib import get_dict_attr
 ##
 ## Live stream file name
 ##
-LIVE_STREAM_FILE_NAME_RE = r"stream-(\d+)_(\w+)\.(?:flv|m3u8)"
+# LIVE_STREAM_FILE_NAME_RE = r"stream-(\d+)_(\w+)\.(?:flv|m3u8)"
+LIVE_STREAM_FILE_NAME_RE = r'/([^/?]+\.(?:flv|m3u8))'
 
 class LiveExternal(JSON):
   def __init__(self) -> None:
@@ -93,11 +94,18 @@ class LiveExternal(JSON):
         self.live_stream_url = build_dict["data"]["room"]["stream_url"]["flv_pull_url"]["SD2"]
       elif self.hls_clarity == 4 and build_dict["data"]["room"]["stream_url"]["hls_pull_url_map"]["SD2"] is not None:
         self.live_stream_url = build_dict["data"]["room"]["stream_url"]["hls_pull_url_map"]["SD2"]
-      
-      live_stream_name = re.search(LIVE_STREAM_FILE_NAME_RE, self.live_stream_url).group()
     except Exception as e:
-       print(e)
-       return None
+       raise e
+     
+    ##
+    ## catch live stream name
+    ##
+    try:
+      live_stream_name = re.search(LIVE_STREAM_FILE_NAME_RE, self.live_stream_url).group()
+    except AttributeError:
+      raise TypeError
+    except Exception as e:
+      raise e
     return self.live_stream_url, live_stream_name
 
   def get_hls_pull_url(self, response):
