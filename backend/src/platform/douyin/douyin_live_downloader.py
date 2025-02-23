@@ -192,13 +192,14 @@ class DouyinLiveDownloader(Downloader):
         return None
     
     ##
-    ## attempt attribute
+    ## attempt attribute for thread
     ##
-    summary         = dict()
-    response_result = dict()
-    header          = dict()
-    stream_url      = str()
-    stream_name     = str()
+    summary              = dict()
+    response_result      = dict()
+    live_response_dict   = dict()
+    header               = dict()
+    stream_url           = str()
+    stream_name          = str()
 
     ##
     ##<<========================== query share url ==========================>>
@@ -328,6 +329,7 @@ class DouyinLiveDownloader(Downloader):
       ##
       ## initialize live nickname
       ##
+      live_response_dict = live_response.json()
       set_dict_attr(summary, "$.nickname", self.live_external_info.get_raw_nickname(live_response))
       set_dict_attr(summary, "$.directory_name", self.live_external_info.get_nickname(live_response))
 
@@ -374,7 +376,7 @@ class DouyinLiveDownloader(Downloader):
       ## save error information
       ##
       if self.config.get_config_dict_attr("$.save_error_response") is True:
-        set_dict_attr(self.__build, "$.error_response", live_response.json())
+        set_dict_attr(self.__build, "$.error_response", live_response_dict)
         path = self.config.get_config_dict_attr("$.build_path") + "/" + self.config.get_config_dict_attr("$.stream_platform") + "/" + self.config.get_config_dict_attr("$.type") + "/error_response/" + self.live_external_info.get_nickname(live_response)  + ".yml"
         set_dict_attr(summary, "$.save_path", path)
         set_dict_attr(self.__build, "$.summary", summary)
@@ -391,7 +393,7 @@ class DouyinLiveDownloader(Downloader):
       ## save live information
       ## example: config/build/douyin/live/_米开朗绿萝_.yml
       ##
-      set_dict_attr(self.__build, "$.external_info", live_response.json())
+      set_dict_attr(self.__build, "$.external_info", live_response_dict)
       if self.config.get_config_dict_attr("$.save_response") is True:
         path = self.config.get_config_dict_attr("$.build_path") + "/" + self.config.get_config_dict_attr("$.stream_platform") + "/" + self.config.get_config_dict_attr("$.type") + "/" + self.live_external_info.get_nickname(live_response)  + ".yml"
         set_dict_attr(summary, "$.save_path", path)
@@ -409,13 +411,13 @@ class DouyinLiveDownloader(Downloader):
         ##
         record_tuple  = self.database.get_share_url_table_tuple().copy()
         record_tuple.clear()
-        set_dict_attr(record_tuple, "$.owner_user_id",  get_dict_attr(self.__build, "$.external_info.data.room.owner_user_id"))
-        set_dict_attr(record_tuple, "$.sec_user_id",    get_dict_attr(self.__build, "$.external_info.data.room.owner.sec_uid"))
-        set_dict_attr(record_tuple, "$.nickname",       get_dict_attr(self.__build, "$.external_info.data.room.owner.nickname"))
+        set_dict_attr(record_tuple, "$.owner_user_id",  get_dict_attr(live_response_dict, "$.data.room.owner_user_id"))
+        set_dict_attr(record_tuple, "$.sec_user_id",    get_dict_attr(live_response_dict, "$.data.room.owner.sec_uid"))
+        set_dict_attr(record_tuple, "$.nickname",       get_dict_attr(live_response_dict, "$.data.room.owner.nickname"))
         set_dict_attr(record_tuple, "$.live_share_url", url)
         set_dict_attr(record_tuple, "$.directory_name", self.live_external_info.get_nickname(live_response))
         
-        owner_status = get_dict_attr(self.__build, "$.external_info.data.room.owner.status")
+        owner_status = get_dict_attr(self.__build, "$.data.room.owner.status")
         if owner_status == 1:
           set_dict_attr(record_tuple, "$.user_status",    "正常")
         elif owner_status == 0:
