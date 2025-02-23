@@ -437,7 +437,6 @@ class DouyinLiveDownloader(Downloader):
       ##
       ## download live stream when live room is active
       ##
-      return None
       if room_status == 2:
         self.download_live_stream(url)
 
