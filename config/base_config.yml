@@ -5,10 +5,11 @@
 save_path: /mnt/video
 log_enable: true
 log_path: ./logs
-max_thread: 1
+max_thread: 3
 folderize: true
 login: false
-save_response: true
+save_response: false
+save_error_response: true
 debug: false
 max_retry: 3
 
