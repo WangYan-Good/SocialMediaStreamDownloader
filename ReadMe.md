@@ -24,11 +24,11 @@
 - ✅添加批量直播下载
 - ✅添加自定义路径直播下载保存
 - ⌛ 添加自动直播下载功能
-- ⌛ 添加最大下载数量限制
+- ✅ 添加最大下载数量限制
 - ⌛ 动态控制直播下载
 
 ### feature
-- ⌛ 使用数据库对下载列表进行管理
+- ✅ 使用数据库对下载列表进行管理
 - ⌛ 使用 web 页面向数据库添加共享 url
 
 ### APP
@@ -87,12 +87,10 @@ Looking in indexes: https://pypi.tuna.tsinghua.edu.cn/simple/
   https://v.douyin.com/XXX2/  # URL2
 
 # 
-# 配置保存路径
+# 编辑文件 ./config/base_config.yml
 # 配置同一时间最大下载数量
 save_path: XXX
 max_thread: XXX
-
-# 更多配置查看 ./config/base_config.yml
 ```
 
 6. 开始下载，执行下载命令
@@ -112,7 +110,7 @@ TODO
 
 # 🚩待办列表\(TODO\)
 
-- ⌛添加数据库后台
+- ✅添加数据库后台
 - ⌛剥离 F2 依赖
 - ⌛添加前端模块
 - ⌛添加日志模块
