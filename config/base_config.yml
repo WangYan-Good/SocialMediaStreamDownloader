@@ -59,6 +59,11 @@ debug: false
 max_retry: 3
 
 ##
+## 测试模式：该模式下不会下载数据，仅会执行下载流程
+##
+test_mode: false
+
+##
 ## do not modify
 ##
 config_directory: "config"

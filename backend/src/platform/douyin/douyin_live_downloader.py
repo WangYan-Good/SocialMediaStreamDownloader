@@ -110,7 +110,8 @@ class DouyinLiveDownloader(Downloader):
       ##
       ## download live stream
       ##
-      self.auto_down (url, save_path, file_name, 0)
+      if self.config.get_config_dict_attr("$.test_mode") is not True:
+        self.auto_down (url, save_path, file_name, 0)
       
       ##
       ## reset actived number
@@ -196,6 +197,7 @@ class DouyinLiveDownloader(Downloader):
     ##
     ## attempt attribute for thread
     ##
+    build                = dict()
     summary              = dict()
     response_result      = dict()
     live_response_dict   = dict()
@@ -267,7 +269,7 @@ class DouyinLiveDownloader(Downloader):
       ##
       url_query = str(parse_qs(parse_result.query)).replace("\\", "")
       set_dict_attr(response_result, "$.query", yml.safe_load(url_query))
-      set_dict_attr(self.__build, "$.share_info", response_result.copy())
+      set_dict_attr(build, "$.share_info", response_result.copy())
     ##
     ##<<========================== query live info ==========================>>
     ##
@@ -341,6 +343,8 @@ class DouyinLiveDownloader(Downloader):
       ## check live status
       ##
       if self.live_external_info.get_status(live_response) != 0:
+        if self.config.get_config_dict_attr("$.debug") is True:
+          print("ERROR: non-except live status: {}".format(self.live_external_info.get_status(live_response)))
         raise exceptions.HTTPError
       
       ##
@@ -393,13 +397,13 @@ class DouyinLiveDownloader(Downloader):
       ## save error information
       ##
       if self.config.get_config_dict_attr("$.save_error_response") is True:
-        set_dict_attr(self.__build, "$.error_response", live_response_dict)
-        path = self.config.get_config_dict_attr("$.build_path") + "/" + self.config.get_config_dict_attr("$.stream_platform") + "/" + self.config.get_config_dict_attr("$.type") + "/error_response/" + self.live_external_info.get_nickname(live_response)  + ".yml"
-        set_dict_attr(summary, "$.save_path", path)
-        set_dict_attr(self.__build, "$.summary", summary)
-        save_dict_as_file(source=self.__build, save_path=Path(path))
+        set_dict_attr(build, "$.error_response", live_response_dict)
+        error_response_path = self.config.get_config_dict_attr("$.build_path") + "/" + self.config.get_config_dict_attr("$.stream_platform") + "/" + self.config.get_config_dict_attr("$.type") + "/error_response/" + self.live_external_info.get_nickname(live_response)  + ".yml"
+        set_dict_attr(summary, "$.error_response_path", error_response_path)
+        set_dict_attr(build, "$.summary", summary)
+        save_dict_as_file(source=params, save_path=Path(error_response_path))
         if self.config.get_config_dict_attr("$.debug") is True:
-          print("INFO: Save error response file {} success!".format(path))
+          print("INFO: Save error response file {} success!".format(error_response_path))
       return None
     except Exception as e:
       print("ERROR: Try download live stream {} failed! {}".format(url, e))
@@ -408,21 +412,22 @@ class DouyinLiveDownloader(Downloader):
     try:
       ##
       ## save live information
-      ## example: config/build/douyin/live/_米开朗绿萝_.yml
+      ## example: config/build/douyin/live/_xxx_.yml
       ##
-      set_dict_attr(self.__build, "$.external_info", live_response_dict)
+      set_dict_attr(build, "$.external_info", live_response_dict)
+      path = self.config.get_config_dict_attr("$.build_path") + "/" + self.config.get_config_dict_attr("$.stream_platform") + "/" + self.config.get_config_dict_attr("$.type") + "/" + self.live_external_info.get_nickname(live_response)  + ".yml"
+      set_dict_attr(summary, "$.save_path", path)
+      set_dict_attr(build, "$.summary", summary)
       if self.config.get_config_dict_attr("$.save_response") is True:
-        path = self.config.get_config_dict_attr("$.build_path") + "/" + self.config.get_config_dict_attr("$.stream_platform") + "/" + self.config.get_config_dict_attr("$.type") + "/" + self.live_external_info.get_nickname(live_response)  + ".yml"
-        set_dict_attr(summary, "$.save_path", path)
-        set_dict_attr(self.__build, "$.summary", summary)
-        save_dict_as_file(source=self.__build, save_path=Path(path))
+        set_dict_attr(build, "$.live_payload", get_dict_attr(self.__build, "$.live_payload"))
+        save_dict_as_file(source=build, save_path=Path(path))
         if self.config.get_config_dict_attr("$.debug") is True:
           print("INFO: Save file {} success!".format(path))
       
       ##
       ## save share url information into database
       ##
-      if self.database is not None:        
+      if self.database is not None:
         ##
         ## construct record tuple
         ##
@@ -445,7 +450,16 @@ class DouyinLiveDownloader(Downloader):
         ## store record into database
         ##
         sleep(randint(1, 5) * 0.1)
-        self.database.insert_live_share_url_record(record_tuple)
+        if self.database.is_owner_user_id_record_exist(get_dict_attr(live_response_dict, "$.data.room.owner_user_id")) is True:
+          ##
+          ## update live share url record
+          ##
+          self.database.update_live_share_url_record(record_tuple)
+        else:
+          ##
+          ## insert live share url record
+          ##
+          self.database.insert_live_share_url_record(record_tuple)
 
       ##
       ## try to download stream url
@@ -457,7 +471,7 @@ class DouyinLiveDownloader(Downloader):
       ## download live stream when live room is active
       ##
       if room_status == 2:
-        self.download_live_stream(url)
+        self.download_live_stream(url, build)
 
     except FileNotFoundError:
       print("ERROR: stream url is not found, please double check")
@@ -467,8 +481,11 @@ class DouyinLiveDownloader(Downloader):
       sleep(5)
       self.run(url)
       return None
+    except KeyError:
+      print("ERROR: KeyError, please check the code {} {}".format(get_dict_attr(build, "$.summary.nickname"), url))
+      return None
     except Exception as e:
-      print("ERROR: Failed download stream file {}".format(e))
+      print("ERROR: Failed download stream file {} {} {}".format(get_dict_attr(build, "$.summary.nickname"), url, e))
       raise e
 
 ##
@@ -570,22 +587,31 @@ class DouyinLiveDownloader(Downloader):
   def query_url (self, method, url, params, timeout, headers):
     return request(method=method, url=url, params=params, timeout=timeout, headers=headers)
 
-  def download_live_stream(self, url:str):
+  def download_live_stream(self, url:str, params:dict=None):
+    
+    ##
+    ##
+    ##
+    if params is None:
+      raise ValueError
+    
     ##
     ## cache all temp variable for multiple thread
     ##
-    stream_url  = get_dict_attr(self.__build, "$.summary.stream_url")
+    stream_url  = get_dict_attr(params, "$.summary.stream_url")
+    if stream_url is None:
+      raise ValueError
     
     ##
-    ## if database is enable, then get the save path from database
+    ## if database is enable, then get the directory name from database
     ##
-    if self.config.get_config_dict_attr("$.database_enable") is True:
-      pass
+    if self.config.get_config_dict_attr("$.database_enable") is True and self.database.is_live_share_url_record_exist(url) is True:
+      directory_name = self.database.get_owner_nickname_by_live_share_url(url)
     else:
-      pass
-    save_dir    = self.config.get_config_dict_attr("$.save_path")+"/"+ self.config.get_config_dict_attr("$.stream_platform") + "/" + self.config.get_config_dict_attr("$.type") + "/" +get_dict_attr(self.__build, "$.summary.directory_name")
-    stream_name = get_dict_attr(self.__build, "$.summary.stream_name")
-    nickname    = get_dict_attr(self.__build, "$.summary.nickname")
+      directory_name = get_dict_attr(params, "$.summary.directory_name")
+    save_dir    = self.config.get_config_dict_attr("$.save_path")+"/"+ self.config.get_config_dict_attr("$.stream_platform") + "/" + self.config.get_config_dict_attr("$.type") + "/" + directory_name
+    stream_name = get_dict_attr(params, "$.summary.stream_name")
+    nickname    = get_dict_attr(params, "$.summary.nickname")
     proxies     = self.login.proxies.get_proxies_dict()
     header      = self.header.to_dict()
     max_timeout = self.config.get_config_dict_attr("$.MAX_TIMEOUT")
@@ -611,7 +637,7 @@ class DouyinLiveDownloader(Downloader):
     ##
     if self._actived_task_number >= self.config.get_config_dict_attr("$.max_thread") and self.config.get_config_dict_attr("$.max_thread") != 0:
       self.live_douyin_listener.stop()
-    self.release()  
+    self.release()
     self.__request_file__(
           "get", 
           url, 
