@@ -2,18 +2,65 @@
 ## default download config
 ##
 ##>>------------------ base download config -------------------->>
+
+##
+## 下载内容保存路径，请使用绝对路径
+##
 save_path: /mnt/video
+
+##
+## 日志打印开关
+## true: 打印日志
+## false: 不打印日志
+##
 log_enable: true
+
+##
+## 日志保存相对路径，以本项目所在路径为基准
+##
 log_path: ./logs
+
+##
+## 下载线程数，当为 0 时，将不做下载数量限制，可能会出现下载失败的情况
+## 当下载数量过大时，建议适当调整线程数
+##
 max_thread: 3
+
+##
+## 是否按照文件夹保存
+##
 folderize: true
+
+##
+## 是否以登录用户身份下载
+##
 login: false
+
+##
+## 是否保存下载过程中服务器响应内容
+##
 save_response: false
+
+##
+## 当下载失败时是否保存错误响应内容
+## 该开关对出现 BUG 时，有助于分析原因
+##
 save_error_response: true
+
+##
+## 是否开启 debug 模式
+## 执行时会打印更多的过程日志信息
+##
 debug: false
+
+##
+## 最大重试次数
+##
 max_retry: 3
 
+##
 ## do not modify
+##
 config_directory: "config"
 stream_platform: "douyin"
 build_directory: "build"
