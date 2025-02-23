@@ -417,7 +417,7 @@ class DouyinLiveDownloader(Downloader):
         set_dict_attr(record_tuple, "$.live_share_url", url)
         set_dict_attr(record_tuple, "$.directory_name", self.live_external_info.get_nickname(live_response))
         
-        owner_status = get_dict_attr(self.__build, "$.data.room.owner.status")
+        owner_status = get_dict_attr(live_response_dict, "$.data.room.owner.status")
         if owner_status == 1:
           set_dict_attr(record_tuple, "$.user_status",    "正常")
         elif owner_status == 0:
