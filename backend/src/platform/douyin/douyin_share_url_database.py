@@ -101,37 +101,44 @@ class DouyinShareUrlDatabase(SocialMediaStreamDataBase):
         ## next: insert it if live share url is None
         ##
         for db_record in result:
+          ##
+          ## flag for difference
+          ##
+          different = False
           
           ##
           ## update nickname when the nickname is different
           ##
           if db_record[1] != record.get("nickname"):
             db_record[1] = record.get("nickname")
+            different = True
 
           ##
           ## update the record when the record is None
           ##
           if db_record[2] is None:
             db_record[2] = record.get("live_share_url")
+            different = True
             
           ##
           ## update user status when the user status is different
           ##
           if db_record[3] != record.get("user_status"):
             db_record[3] = record.get("user_status")
+            different = True
 
           ##
           ## update the record
           ##
-          update_sql = '''
-                        UPDATE share_url
-                        SET nickname = "{}", live_share_url = "{}", user_status = "{}"
-                        WHERE owner_user_id = "{}";
-                        '''.format(db_record[1], db_record[2], db_record[3], db_record[0])
-          cursor.execute(update_sql)
-          connector.commit()
-          connector.close()
-          print("INFO: update owner_user_id:{} live_share_url:{} success".format(db_record[0], record["live_share_url"]))
+          if different:
+            update_sql = '''
+                          UPDATE share_url
+                          SET nickname = "{}", live_share_url = "{}", user_status = "{}"
+                          WHERE owner_user_id = "{}";
+                          '''.format(db_record[1], db_record[2], db_record[3], db_record[0])
+            cursor.execute(update_sql)
+            connector.commit()
+            print("INFO: update {} success".format([item for item in db_record]))
       else:
         ##
         ## the record is not exist in database
@@ -150,8 +157,8 @@ class DouyinShareUrlDatabase(SocialMediaStreamDataBase):
                      '''.format(record.get("owner_user_id"), record.get("sec_user_id"), record.get("nickname"), record.get("post_share_url"), record.get("live_share_url"), record.get("directory_name"), record.get("user_status"))
         cursor.execute(insert_sql)
         connector.commit()
-        connector.close()
         print("INFO: insert record {} success".format([item for item in record.values()]))
+      connector.close()
     except Exception as e:
       print("ERROR: insert live share url {} failed {}".format(record["live_share_url"], e))
       raise e
