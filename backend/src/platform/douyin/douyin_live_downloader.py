@@ -408,7 +408,7 @@ class DouyinLiveDownloader(Downloader):
     try:
       ##
       ## save live information
-      ## example: config/build/douyin/live/_米开朗绿萝_.yml
+      ## example: config/build/douyin/live/_xxx_.yml
       ##
       set_dict_attr(self.__build, "$.external_info", live_response_dict)
       if self.config.get_config_dict_attr("$.save_response") is True:
@@ -445,7 +445,16 @@ class DouyinLiveDownloader(Downloader):
         ## store record into database
         ##
         sleep(randint(1, 5) * 0.1)
-        self.database.insert_live_share_url_record(record_tuple)
+        if self.database.is_owner_user_id_record_exist(get_dict_attr(live_response_dict, "$.data.room.owner_user_id")) is True:
+          ##
+          ## update live share url record
+          ##
+          self.database.update_live_share_url_record(record_tuple)
+        else:
+          ##
+          ## insert live share url record
+          ##
+          self.database.insert_live_share_url_record(record_tuple)
 
       ##
       ## try to download stream url
@@ -577,13 +586,13 @@ class DouyinLiveDownloader(Downloader):
     stream_url  = get_dict_attr(self.__build, "$.summary.stream_url")
     
     ##
-    ## if database is enable, then get the save path from database
+    ## if database is enable, then get the directory name from database
     ##
-    if self.config.get_config_dict_attr("$.database_enable") is True:
-      pass
+    if self.config.get_config_dict_attr("$.database_enable") is True and self.database.is_live_share_url_record_exist(url) is True:
+      directory_name = self.database.get_owner_nickname_by_live_share_url(url)
     else:
-      pass
-    save_dir    = self.config.get_config_dict_attr("$.save_path")+"/"+ self.config.get_config_dict_attr("$.stream_platform") + "/" + self.config.get_config_dict_attr("$.type") + "/" +get_dict_attr(self.__build, "$.summary.directory_name")
+      directory_name = get_dict_attr(self.__build, "$.summary.directory_name")
+    save_dir    = self.config.get_config_dict_attr("$.save_path")+"/"+ self.config.get_config_dict_attr("$.stream_platform") + "/" + self.config.get_config_dict_attr("$.type") + "/" + directory_name
     stream_name = get_dict_attr(self.__build, "$.summary.stream_name")
     nickname    = get_dict_attr(self.__build, "$.summary.nickname")
     proxies     = self.login.proxies.get_proxies_dict()

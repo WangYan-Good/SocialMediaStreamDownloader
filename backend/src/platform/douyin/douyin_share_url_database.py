@@ -74,6 +74,89 @@ class DouyinShareUrlDatabase(SocialMediaStreamDataBase):
     return self.__DOUYIN_SHARE_URL_TABLE_TUPLE
   
   ##
+  ## update live share url record
+  ##
+  def update_live_share_url_record(self, record:dict):
+    try:
+      ##
+      ## check if the primary key is exist
+      ##
+      if record.get("owner_user_id") is None:
+        raise KeyError
+      
+      ##
+      ## check if the record is exist in database
+      ##
+      sql = '''SELECT owner_user_id, nickname, live_share_url, user_status
+              FROM   share_url
+              WHERE  owner_user_id = "{}";
+            '''.format(record.get("owner_user_id"))
+      connector = self.get_db_connector()
+      cursor = connector.cursor()
+      cursor.execute(sql)
+      result = cursor.fetchall()
+      if len(result) != 0:
+        ##
+        ## the record is exist in database
+        ## next: insert it if live share url is None
+        ##
+        for db_record in result:
+          
+          ##
+          ## update nickname when the nickname is different
+          ##
+          if db_record[1] != record.get("nickname"):
+            db_record[1] = record.get("nickname")
+
+          ##
+          ## update the record when the record is None
+          ##
+          if db_record[2] is None:
+            db_record[2] = record.get("live_share_url")
+            
+          ##
+          ## update user status when the user status is different
+          ##
+          if db_record[3] != record.get("user_status"):
+            db_record[3] = record.get("user_status")
+
+          ##
+          ## update the record
+          ##
+          update_sql = '''
+                        UPDATE share_url
+                        SET nickname = "{}", live_share_url = "{}", user_status = "{}"
+                        WHERE owner_user_id = "{}";
+                        '''.format(db_record[1], db_record[2], db_record[3], db_record[0])
+          cursor.execute(update_sql)
+          connector.commit()
+          connector.close()
+          print("INFO: update owner_user_id:{} live_share_url:{} success".format(db_record[0], record["live_share_url"]))
+      else:
+        ##
+        ## the record is not exist in database
+        ## next: insert it into database
+        ##
+        insert_sql = '''
+                      INSERT INTO share_url (owner_user_id, sec_user_id, nickname, post_share_url, live_share_url, directory_name, user_status) VALUES (
+                        "{}",
+                        "{}", 
+                        "{}", 
+                        '{}',
+                        "{}", 
+                        "{}", 
+                        "{}"
+                      );
+                     '''.format(record.get("owner_user_id"), record.get("sec_user_id"), record.get("nickname"), record.get("post_share_url"), record.get("live_share_url"), record.get("directory_name"), record.get("user_status"))
+        cursor.execute(insert_sql)
+        connector.commit()
+        connector.close()
+        print("INFO: insert record {} success".format([item for item in record.values()]))
+    except Exception as e:
+      print("ERROR: insert live share url {} failed {}".format(record["live_share_url"], e))
+      raise e
+  
+  ##
   ## create a share url record
   ##
   def insert_live_share_url_record(self, record:dict):
@@ -150,15 +233,63 @@ class DouyinShareUrlDatabase(SocialMediaStreamDataBase):
               FROM share_url
               WHERE live_share_url = "{}";
             '''.format(live_share_url)
-      cursor = self.get_db_connector().cursor()
+      connector = self.get_db_connector()
+      cursor = connector.cursor()
       cursor.execute(sql)
       result = cursor.fetchall()
+      connector.close()
       if len(result) != 0:
         return True
       else:
         return False
     except Exception as e:
       print("ERROR: search live share url {} failed {}".format(live_share_url, e))
+      raise e
+
+  ##
+  ## get the owner nickname from database
+  ##
+  def get_owner_nickname_by_live_share_url(self, live_share_url:str) -> str:
+    try:
+      sql = '''
+              SELECT nickname
+              FROM share_url
+              WHERE live_share_url = "{}";
+            '''.format(live_share_url)
+      connector = self.get_db_connector()
+      cursor = connector.cursor()
+      cursor.execute(sql)
+      result = cursor.fetchall()
+      connector.close()
+      if len(result) != 0:
+        return result[0][0]
+      else:
+        return None
+    except Exception as e:
+      print("ERROR: search owner nickname {} failed {}".format(live_share_url, e))
+      raise e
+
+  ##
+  ## check if the douyin owner is recorded
+  ##
+  def is_owner_user_id_record_exist(self, owner_user_id:str) -> bool:
+    try:
+      sql = '''
+              SELECT owner_user_id 
+              FROM share_url
+              WHERE owner_user_id = "{}";
+            '''.format(owner_user_id)
+      connector = self.get_db_connector()
+      cursor = connector.cursor()
+      cursor.execute(sql)
+      result = cursor.fetchall()
+      connector.close()
+      if len(result) != 0:
+        return True
+      else:
+        return False
+    except Exception as e:
+      print("ERROR: search owner user id {} failed {}".format(owner_user_id, e))
       raise e
 
 ##
@@ -242,7 +373,6 @@ def test_search_record_from_table():
     url = "https://v.douyin.com/ikRBs7Sy/"
     if db.is_live_share_url_record_exist(url) is True:
       print("INFO: live share url {} is exist".format(url))
-    db.close()
   except Exception as e:
     print("ERROR: search records from table failed {}".format(e))
     raise e
