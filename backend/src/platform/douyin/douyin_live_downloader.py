@@ -606,7 +606,7 @@ class DouyinLiveDownloader(Downloader):
     ## if database is enable, then get the directory name from database
     ##
     if self.config.get_config_dict_attr("$.database_enable") is True and self.database.is_live_share_url_record_exist(url) is True:
-      directory_name = self.database.get_owner_nickname_by_live_share_url(url)
+      directory_name = self.database.get_owner_directory_name_by_live_share_url(url)
     else:
       directory_name = get_dict_attr(params, "$.summary.directory_name")
     save_dir    = self.config.get_config_dict_attr("$.save_path")+"/"+ self.config.get_config_dict_attr("$.stream_platform") + "/" + self.config.get_config_dict_attr("$.type") + "/" + directory_name
