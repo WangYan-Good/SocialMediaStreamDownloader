@@ -5,3 +5,4 @@ gmssl>=3.2.2
 ffmpeg-python
 selenium
 pymysql
+flask
