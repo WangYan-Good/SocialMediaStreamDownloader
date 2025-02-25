@@ -78,6 +78,7 @@ class DouyinShareUrlDatabase(SocialMediaStreamDataBase):
   ##
   def update_live_share_url_record(self, record:dict):
     try:
+      db_result_record = list()
       ##
       ## check if the primary key is exist
       ##
@@ -104,27 +105,28 @@ class DouyinShareUrlDatabase(SocialMediaStreamDataBase):
           ##
           ## flag for difference
           ##
+          df_result_record = [item for item in db_record]
           different = False
           
           ##
           ## update nickname when the nickname is different
           ##
           if db_record[1] != record.get("nickname"):
-            db_record[1] = record.get("nickname")
+            df_result_record[1] = record.get("nickname")
             different = True
 
           ##
           ## update the record when the record is None
           ##
           if db_record[2] is None:
-            db_record[2] = record.get("live_share_url")
+            df_result_record[2] = record.get("live_share_url")
             different = True
             
           ##
           ## update user status when the user status is different
           ##
           if db_record[3] != record.get("user_status"):
-            db_record[3] = record.get("user_status")
+            df_result_record[3] = record.get("user_status")
             different = True
 
           ##
@@ -135,10 +137,10 @@ class DouyinShareUrlDatabase(SocialMediaStreamDataBase):
                           UPDATE share_url
                           SET nickname = "{}", live_share_url = "{}", user_status = "{}"
                           WHERE owner_user_id = "{}";
-                          '''.format(db_record[1], db_record[2], db_record[3], db_record[0])
+                          '''.format(df_result_record[1], df_result_record[2], df_result_record[3], df_result_record[0])
             cursor.execute(update_sql)
             connector.commit()
-            print("INFO: update {} success".format([item for item in db_record]))
+            print("INFO: update {} success".format([item for item in df_result_record]))
       else:
         ##
         ## the record is not exist in database
