@@ -21,7 +21,7 @@
 
             if (matches && matches.length > 0) {
                 // 如果有匹配的链接，发送到后端处理
-                fetch('/process-link', {
+                fetch('/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
