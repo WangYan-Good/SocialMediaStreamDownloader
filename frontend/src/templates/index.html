@@ -26,7 +26,7 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ links: matches }),
+                    body: JSON.stringify({ urls: matches }),
                 })
                 .then(response => response.json())
                 .then(data => {

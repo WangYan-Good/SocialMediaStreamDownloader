@@ -22,8 +22,8 @@ app = Flask(__name__, static_folder='./frontend/src/static', template_folder='./
 ## TODO response to the client
 ##
 @app.route('/', methods=['POST'])
-def process_link():
-  urls = request.json
+def process_urls():
+  urls = request.json.get('urls')
   print(f"接收到的数据: {urls}")
   if urls is None or len(urls) == 0:
     return jsonify({"error": "No valid URLs found in input"}), 400

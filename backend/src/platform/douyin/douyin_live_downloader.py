@@ -28,8 +28,10 @@ from backend.src.platform.douyin.douyin_url_list_config import UrlListConfig
 from backend.src.platform.douyin.douyin_live_external_info import LiveExternal
 from backend.src.platform.douyin.douyin_api import DouyinApi
 from backend.src.platform.douyin.douyin_share_url_database import DouyinShareUrlDatabase
-from xbogus import XBogus as XB
-from a_bogus import ABogus as AB
+
+## TODO
+from backend.src.platform.douyin.xbogus import XBogus as XB
+from backend.src.platform.douyin.a_bogus import ABogus as AB
 
 from backend.src.platform.douyin.douyin_listener import DouyinLiveListener, ListenerItem
 
@@ -660,7 +662,23 @@ class DouyinLiveDownloader(Downloader):
     except ContentTooShortError:
         self.auto_down (url, fp, fn, retry_times)
 
-def download_live():
+def download_single_live(url):
+  ##
+  ## construct live downloader
+  ##
+  downloader = DouyinLiveDownloader()
+  if downloader.config.get_config_dict_attr("$.debug") is True:
+    downloader.dump_config()
+  
+  ##
+  ## start download live
+  ##  
+  try:
+    downloader.run(url=url)
+  except Exception as e:
+    raise e
+
+def download_multiple_live():
   ##
   ## construct live downloader
   ##
@@ -681,12 +699,6 @@ def download_live():
 ##
 ## >>================================ test method ===============================>>
 ##
-
-##
-## test: import share live url to database
-##
-def import_share_live_url_to_database(url:str):
-  pass
 
 ##
 ## test: download a live stream by url
