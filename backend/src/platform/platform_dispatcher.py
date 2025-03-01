@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 ##
 ## <<Third-Part>>
 ##
+from backend.src.base.config import BaseConfig
 from backend.src.platform.douyin.douyin_handler import douyin_handler
 
 # 定义一个事件分发器
@@ -67,11 +68,18 @@ class PlatformDispatcher:
 ##
   def register(self):
     ##
+    ## max thread
+    ##
+    base_config = BaseConfig()
+    max_thread = base_config.get_config_dict_attr("$.max_thread")
+    
+    
+    ##
     ## register handler
     ## TODO max_threads
     ##
     for event, handler in self.__handler_dict.items():
-      self.__platform_register_handler(event, handler)
+      self.__platform_register_handler(event, handler, max_thread)
 
   ##
   ## dispatch event

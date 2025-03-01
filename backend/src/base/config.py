@@ -120,14 +120,12 @@ class BaseConfig(ABC):
   ##
   ## Transform config to dict
   ##
-  @abstractmethod
   def to_dict(self)->dict:
     return self.__config
 
   ##
   ## Dump config
   ##
-  @abstractmethod
   def dump_config(self):
     print("Base configuration:")
     output_dict(self.to_dict())
@@ -135,7 +133,6 @@ class BaseConfig(ABC):
   ##
   ## get config dict attr
   ##
-  @abstractmethod
   def get_config_dict_attr(self, attr:str=None):
     value = None
     try:
@@ -148,7 +145,6 @@ class BaseConfig(ABC):
   ##
   ## set config dict
   ##
-  @abstractmethod
   def set_config_dict_attr(self, attr:str=None, value:any=None):
     set_dict_attr(self.to_dict(), attr, value)
 

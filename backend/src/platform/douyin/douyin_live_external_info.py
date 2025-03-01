@@ -101,7 +101,7 @@ class LiveExternal(JSON):
     ## catch live stream name
     ##
     try:
-      live_stream_name = re.search(LIVE_STREAM_FILE_NAME_RE, self.live_stream_url).group()
+      live_stream_name = re.search(LIVE_STREAM_FILE_NAME_RE, self.live_stream_url).group(1)
     except AttributeError:
       raise TypeError
     except Exception as e:
