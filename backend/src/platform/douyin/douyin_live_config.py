@@ -13,7 +13,7 @@ from backend.src.base.config import DEFAULT_BASE_CONFIG_PATH
 from backend.src.platform.douyin.douyin_config import DouyinConfig
 
 ##TODO remove
-from verify_fp_manager import VerifyFpManager as VFM
+from backend.src.platform.douyin.verify_fp_manager import VerifyFpManager as VFM
 
 class DouyinLiveConfig(DouyinConfig):
 ##

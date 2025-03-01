@@ -409,6 +409,9 @@ def test_search_record_from_table():
     print("ERROR: search records from table failed {}".format(e))
     raise e
 
+##
+## >>================================ main method ===============================>>
+##
 if __name__ == "__main__":
   ##
   ## test for connect to database
