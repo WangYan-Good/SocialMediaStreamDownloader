@@ -4,12 +4,48 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Link Parser</title>
+    <style>
+        .container {
+            width: 100%;
+            margin: 0 left;
+        }
+    
+        .auto-resize-input {
+            width: 100%; /* 输入框宽度固定为 100% */
+            font-size: 16px; /* 字体大小 */
+            padding: 10px; /* 内边距 */
+            box-sizing: border-box; /* 确保 padding 不影响宽度 */
+            border: 1px solid #ccc; /* 边框 */
+            outline: none; /* 移除焦点边框 */
+            resize: none; /* 禁用手动调整大小 */
+            overflow: hidden; /* 隐藏滚动条 */
+            line-height: 1.5; /* 行高 */
+            white-space: pre-wrap; /* 自动换行 */
+            word-wrap: break-word; /* 长单词换行 */
+        }
+    </style>
 </head>
 <body>
     <h1>Paste Your Link Here</h1>
-    <input type="text" id="linkInput" placeholder="Enter your link here">
-    <button onclick="processLink()">Submit</button>
+    <div class="container">
+        <textarea type="text" id="linkInput" class="auto-resize-input" placeholder="Enter your link here">
+        </textarea>
+    </div>
+    <script>
+        const input = document.getElementById('linkInput');
+        const initialFontSize = 16; // 初始字体大小
 
+        input.addEventListener('input', function () {
+            // 重置高度，以便计算新的高度
+            this.style.height = 'auto';
+            // 设置高度为滚动高度（内容高度）
+            this.style.height = this.scrollHeight + 'px';
+          });
+
+        // 初始化时触发一次 input 事件
+        input.dispatchEvent(new Event('input'));
+    </script>
+    <button onclick="processLink()">Submit</button>
     <script>
         function processLink() {
             // 获取输入框中的链接
