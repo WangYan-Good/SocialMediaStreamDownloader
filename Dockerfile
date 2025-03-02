@@ -61,6 +61,6 @@ RUN rm -rf Python-3.12.6
 
 
 # command deploy SocialMediaStreamDownloader project
-RUN mkdir -p /mnt/main/Service
-COPY /mnt/main/Service/SocialMediaStreamDownloader /mnt/main/Service
-# RUN git clone --recursive git@github.com:WangYan-Good/SocialMediaStreamDownloader.git
+RUN git clone https://github.com/WangYan-Good/SocialMediaStreamDownloader.git
+RUN cd SocialMediaStreamDownloader; git clone https://github.com/WangYan-Good/f2.git
+COPY ./config/douyin/base_config.yml SocialMediaStreamDownloader/config/douyin/
