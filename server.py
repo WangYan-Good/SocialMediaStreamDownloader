@@ -5,13 +5,12 @@ sys.path.append(os.getcwd())
 ##<< Test
 
 ## <<Base>>
-from urllib.parse import urlparse
+
 
 ## <<Third-Part>>
 from backend.src.platform.platform_dispatcher import PlatformDispatcher
 
-from flask import Flask, request, jsonify, render_template, g
-import re
+from flask import Flask, request, jsonify, render_template
 
 
 platform_dispatcher = PlatformDispatcher()
@@ -31,14 +30,13 @@ def process_urls():
   ##
   ## handle all urls
   ##
-  for url in urls:
-    try:
-      ##
-      ## trigger dispatch event
-      ##
-      platform_dispatcher.dispatch(url)
-    except Exception as e:
-      print(f"处理链接 {url} 时出错: {e}")
+  try:
+    ##
+    ## trigger dispatch event
+    ##
+    platform_dispatcher.dispatch(urls)
+  except Exception as e:
+    print("处理出错: {}".format(e))
 
   ##
   ## response to the client
