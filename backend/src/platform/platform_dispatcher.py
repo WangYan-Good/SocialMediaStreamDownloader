@@ -21,8 +21,8 @@ class PlatformDispatcher:
 ##
 ## >>============================= attribute =============================>>
 ##
-  __event_list   = ['douyin']
-  __handler_dict = {'douyin': douyin_handler}
+  __event_list      = ['douyin', 'other']
+  __handler_dict    = {'douyin': douyin_handler, 'other':None}
 
 ##
 ## >>============================= private method =============================>>
@@ -84,39 +84,46 @@ class PlatformDispatcher:
   ##
   ## dispatch event
   ##
-  def dispatch(self, url):
+  def dispatch(self, urls:list):
     ##
-    ## extract domain
+    ## split urls
     ##
-    domain = urlparse(url).netloc
+    url_dict = {item:list() for item in self.__event_list}
+    
+    for url in urls:
+      ##
+      ## extract domain
+      ##
+      domain = urlparse(url).netloc
 
-    ##
-    ## check domain and create event
-    ##
-    try:
-      for event in self.__event_list:
-        if event in domain:
-          break
-    except:
-      print("ERROR: Invalid domain: {}".format(domain))
-      event = 'other'
+      ##
+      ## check domain and create event
+      ##
+      try:
+        for event in self.__event_list:
+          if event in domain:
+            url_dict.get(event).append(url)
+      except:
+        print("ERROR: Invalid domain: {}".format(domain))
+        event = 'other'
 
     ##
     ## dispatch event
     ##
-    if self.handlers.get(event) is not None:
-      ##
-      ## dispatch event
-      ##
-      print("INFO: dispatching url: {} -> event: {}".format(url, event))
-      
-      
-      ##
-      ## submit handler
-      ##
-      self.executors[event].submit(self.handlers[event], url)
-    else:
-      print("ERROR: Invalid event: {}".format(event))
+    for event, url_list in url_dict:
+      if self.handlers.get(event) is not None:
+        ##
+        ## dispatch event
+        ##
+        print("INFO: dispatching event: {}".format(event))
+        
+        
+        ##
+        ## submit handler
+        ##
+        self.executors[event].submit(self.handlers[event], url_list)
+      else:
+        print("ERROR: Invalid event: {}".format(event))
 
 ##
 ## >>================================ test method ===============================>>

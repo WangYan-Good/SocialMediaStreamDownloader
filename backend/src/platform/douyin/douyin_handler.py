@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 ## <<Third-Part>>
 from backend.src.platform.douyin.douyin_api import DouyinApi
-from backend.src.platform.douyin.douyin_live_downloader import download_single_live
+from backend.src.platform.douyin.douyin_live_downloader import download_multiple_live
 
 ##
 ## handler douyin live url
@@ -78,29 +78,40 @@ def is_douyin_live_url(url):
 ## 3. 用户主页
 ##
 
-def douyin_handler(url):
-  print("[douyin] progressing: {}".format(url))
-  if url is None:
-    print("ERROR: invalid url")
+def douyin_handler(url_list:list):
+  if url_list is None:
+    print("ERROR: invalid url list")
     raise ValueError
   
-  ##
-  ## query url
-  ##
-  response = request('GET', url)
-  if response.status_code != 200:
-    print("ERROR: request failed")
-    return
+  live_url_list = list()
   
-  ##
-  ## comapre the usr with the api
-  ##
-  try:
-    if is_douyin_live_url(response.url):
-      download_single_live(url)
-  except Exception as e:
-    print(f"ERROR: {e}")
-    return
+  for url in url_list:
+    ##
+    ## query url
+    ##
+    response = request('GET', url)
+    if response.status_code != 200:
+      print("ERROR: request failed")
+      continue
+    
+    ##
+    ## compare the user with the api
+    ##
+    try:
+      if is_douyin_live_url(response.url):
+        live_url_list.append(url)
+    except Exception as e:
+      print(f"ERROR: {e}")
+      continue
+    
+    ##
+    ## start multiple thread to download living
+    ##
+    try:
+      download_multiple_live(live_url_list)
+    except Exception as e:
+      print("ERROR: download multiple live failed! {}".format(e))
+      return
   
   return
 
