@@ -457,6 +457,12 @@ class DouyinLiveDownloader(Downloader):
           ## update live share url record
           ##
           self.database.update_live_share_url_record(record_tuple)
+          
+          ##
+          ## add actived count if room is living
+          ##
+          if room_status == 2:
+            self.database.increment_live_actived_count(get_dict_attr(record_tuple, "$.owner_user_id"))
         else:
           ##
           ## insert live share url record
@@ -678,7 +684,7 @@ def download_single_live(url):
   except Exception as e:
     raise e
 
-def download_multiple_live():
+def download_multiple_live(url_list:list):
   ##
   ## construct live downloader
   ##
@@ -689,8 +695,8 @@ def download_multiple_live():
   ##
   ## get live url list
   ##
-  live_url_list = downloader.url_list.get_config_list("live")
-  for url in live_url_list:
+  # live_url_list = downloader.url_list.get_config_list("live")
+  for url in url_list:
     item = ListenerItem(func=downloader.run, args=(url,))
     downloader.live_douyin_listener.add_sub_task(item)
     if downloader.live_douyin_listener.is_patrolman_actived() is not True:

@@ -4,6 +4,9 @@ import sys
 sys.path.append(os.getcwd())
 ##<< Test
 
+## <<Base>>
+from logging import debug, info, warning, error
+
 ## <<Extension>>
 import pymysql.err
 
@@ -17,12 +20,12 @@ class DouyinShareUrlDatabase(SocialMediaStreamDataBase):
 
 ##
 ## douyin share url table header
-## +---------------+-------------+-----------+----------------+----------------+----------------+-------------+
-## | owner_user_id | sec_user_id | nickname  | post_share_url | live_share_url | directory_name | user_status |
-## +---------------+-------------+-----------+----------------+----------------+----------------+-------------+
+## +---------------+-------------+-----------+----------------+----------------+----------------+-------------+---------------+
+## | owner_user_id | sec_user_id | nickname  | post_share_url | live_share_url | directory_name | user_status | actived_count |
+## +---------------+-------------+-----------+----------------+----------------+----------------+-------------+---------------+
 ##
   __DOUYIN_SHARE_URL_TABLE_NAME   = 'share_url'
-  __DOUYIN_SHARE_URL_TABLE_HEADER = ['owner_user_id', 'sec_user_id', 'nickname', 'post_share_url', 'live_share_url', 'directory_name', 'user_status']
+  __DOUYIN_SHARE_URL_TABLE_HEADER = ['owner_user_id', 'sec_user_id', 'nickname', 'post_share_url', 'live_share_url', 'directory_name', 'user_status', 'actived_count']
   __DOUYIN_SHARE_URL_TABLE_TUPLE  = {item:None for item in __DOUYIN_SHARE_URL_TABLE_HEADER}
   __SQL_DROP_SHARE_URL_TABLE      = '''
                                     DROP TABLE share_url;
@@ -212,6 +215,7 @@ class DouyinShareUrlDatabase(SocialMediaStreamDataBase):
         ##
         ## the record is not exist in database
         ## next: insert it into database
+        ## actived_count: default 0, uncessary to insert
         ##
         insert_sql = '''
                       INSERT INTO share_url (owner_user_id, sec_user_id, nickname, post_share_url, live_share_url, directory_name, user_status) VALUES (
@@ -324,6 +328,63 @@ class DouyinShareUrlDatabase(SocialMediaStreamDataBase):
       print("ERROR: search owner user id {} failed {}".format(owner_user_id, e))
       raise e
 
+  ##
+  ## increment live actived count
+  ##
+  def increment_live_actived_count(self, owner_user_id:str):
+    try:
+      
+      ##
+      ## check if the input is valid
+      ##
+      if owner_user_id is None:
+        raise KeyError
+      
+      ##
+      ## construct sql to access database for actived_count
+      ##
+      sql = '''
+              SELECT owner_user_id, actived_count
+              FROM share_url
+              WHERE owner_user_id = "{}";
+            '''.format(owner_user_id)
+      ##
+      ## execute sql & receive result
+      ##
+      connector = self.get_db_connector()
+      cursor = connector.cursor()
+      cursor.execute(sql)
+      result = cursor.fetchall()
+      connector.close()
+      
+      ##
+      ## handle the result
+      ##
+      if len(result) == 0:
+        pass
+      else:
+        for db_record in result:
+          ##
+          ## construct sql
+          ##
+          increment_sql = '''
+                            UPDATE share_url
+                            SET actived_count = {}
+                            WHERE owner_user_id = "{}"
+                          '''.format(db_record[1]+1, db_record[0])
+                          
+          ##
+          ## execute sql
+          ##
+          connector = self.get_db_connector()
+          cursor = connector.cursor()
+          cursor.execute(increment_sql)
+          connector.commit()
+          connector.close()
+          info("increment actived count succeed!")
+    except Exception as e:
+      error()
+
 ##
 ## >>================================ test method ===============================>>
 ##
@@ -409,6 +470,14 @@ def test_search_record_from_table():
     print("ERROR: search records from table failed {}".format(e))
     raise e
 
+def test_increment_actived_count():
+  try:
+    owner_user_id = "55262425391"
+    db = DouyinShareUrlDatabase(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
+    db.increment_live_actived_count(owner_user_id)      
+  except Exception as e:
+    pass
+  
 ##
 ## >>================================ main method ===============================>>
 ##
@@ -420,4 +489,5 @@ if __name__ == "__main__":
   # test_drop_db_table()
   # test_insert_record()
   # test_search_record_from_table()
+  # test_increment_actived_count()
   pass
