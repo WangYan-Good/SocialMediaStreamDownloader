@@ -64,6 +64,12 @@ max_retry: 3
 test_mode: false
 
 ##
+## 监听下载列表
+## 当为 True 时，会不断监听列表
+##
+listening: false
+
+##
 ## do not modify
 ##
 config_directory: "config"

@@ -110,7 +110,7 @@ class PlatformDispatcher:
     ##
     ## dispatch event
     ##
-    for event, url_list in url_dict:
+    for event, url_list in url_dict.items():
       if self.handlers.get(event) is not None:
         ##
         ## dispatch event
