@@ -392,7 +392,7 @@ class DouyinShareUrlDatabase(SocialMediaStreamDataBase):
 ##
 ## test：create a database table
 ##
-def test_create_db_table():
+def test_create_share_url_table():
   ##
   ## test for connect to database
   ##
@@ -417,6 +417,28 @@ def test_create_db_table():
   except Exception as e:
     print("ERROR: test create database table failed {}".format(e))
 
+##
+## test: create a database liked owner table
+##
+def test_create_liked_owner_table():
+  ##
+  ## test for create a table
+  ##
+  try:
+    db = DouyinShareUrlDatabase(host='192.168.1.9', user='wangyan', passwd='wuyu1998', database='social_media_stream_downloader')
+    connector = db.get_db_connector()
+    cursor = connector.cursor()
+    sql = '''
+            CREATE TABLE owner_liked (
+              owner_user_id     CHAR(200) NOT NULL PRIMARY KEY,
+              platform          CHAR(20)
+            )
+          '''
+    cursor.execute(sql)
+    print("INFO: test create database table success")
+    connector.close()
+  except Exception as e:
+    print("ERROR: test create database table failed {}".format(e))
 
 ##
 ## test：drop a database table
@@ -490,4 +512,5 @@ if __name__ == "__main__":
   # test_insert_record()
   # test_search_record_from_table()
   # test_increment_actived_count()
+  test_create_liked_owner_table()
   pass

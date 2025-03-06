@@ -5,7 +5,6 @@
 import os
 import sys
 from pathlib import Path
-from abc import ABC, abstractmethod
 
 ##<<Extension>>
 import yaml as yml
@@ -21,7 +20,7 @@ DEFAULT_BASE_CONFIG_PATH = "config/base_config.yml"
 ##
 ## Defination sbstract class
 ##
-class BaseConfig(ABC):
+class BaseConfig():
   '''
   save_path: /mnt/nvme2/vedio
   max_thread: 0
@@ -66,7 +65,7 @@ class BaseConfig(ABC):
   ##
   def __init__(self, path:Path|str = None):
     if path is None:
-      print("WARNING: invalide input, will use default base configuration")
+      print("WARNING: invalid input, will use default base configuration")
       path = DEFAULT_BASE_CONFIG_PATH
 
     ##
