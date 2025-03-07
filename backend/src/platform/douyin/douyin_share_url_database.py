@@ -8,7 +8,6 @@ sys.path.append(os.getcwd())
 from logging import debug, info, warning, error
 
 ## <<Extension>>
-import pymysql.err
 
 ## <<Third-Part>>
 from backend.src.database.social_media_stream_database import SocialMediaStreamDataBase
@@ -492,6 +491,9 @@ def test_search_record_from_table():
     print("ERROR: search records from table failed {}".format(e))
     raise e
 
+##
+## test: increment actived count
+##
 def test_increment_actived_count():
   try:
     owner_user_id = "55262425391"
