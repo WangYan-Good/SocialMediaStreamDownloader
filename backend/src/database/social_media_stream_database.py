@@ -1,6 +1,8 @@
 ##<<Base>>
-from abc import ABC, abstractmethod
-from typing import Any
+from abc import ABC
+from logging import error, info
+
+## <<Extension>>
 import pymysql
 
 class SocialMediaStreamDataBase(ABC):
@@ -68,18 +70,43 @@ class SocialMediaStreamDataBase(ABC):
 ##
 ## test: execute search sql
 ##
-  def test_search_sec_user_id(self, live_share_url:str):
+def test_search_sec_user_id(live_share_url:str):
+  sql = '''
+          SELECT sec_user_id
+          FROM share_url
+          WHERE live_share_url = "{}";
+        '''.format(live_share_url)
+  db = SocialMediaStreamDataBase(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
+  cursor = db.get_db_connector().cursor()
+  print(sql)
+  cursor.execute(sql)
+  result = cursor.fetchall()
+  print(result)
+
+##
+## test: insert owner id into owner_liked table
+##
+def test_insert_owner_into_liked_table(owner_user_id:str, platform:str):
+  try:
     sql = '''
-            SELECT sec_user_id
-            FROM share_url
-            WHERE live_share_url = "{}";
-          '''.format(live_share_url)
-    cursor = self.get_db_connector().cursor()
+            insert into owner_liked (owner_user_id, platform) values ("{}", "{}");
+          '''.format(owner_user_id, platform)
+    db = SocialMediaStreamDataBase(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
+    connector = db.get_db_connector()
+    cursor = connector.cursor()
     print(sql)
     cursor.execute(sql)
-    result = cursor.fetchall()
-    print(result)
-    
+    connector.commit()
+    info("insert {} into liked table succeed!")
+  except Exception as e:
+    error(e)
+
+##
+## test: search liked owner nickname
+##    
+def test_search_nickname_from_liked_table(owner_user_id:str):
+  pass
+
 if __name__ == "__main__":
-  db = SocialMediaStreamDataBase(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
-  db.test_search_sec_user_id("https://v.douyin.com/ikRBs7Sy/")  
+  # test_search_sec_user_id("https://v.douyin.com/ikRBs7Sy/")
+  test_insert_owner_into_liked_table("2661232450234647", "douyin")
