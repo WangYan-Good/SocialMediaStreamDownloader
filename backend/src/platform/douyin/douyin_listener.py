@@ -13,7 +13,6 @@ from threading import Thread
 
 ##<<Third-part>>
 from backend.src.base.listener import Listener
-from backend.src.base.config import BaseConfig
 
 class ListenerItem():
 ##
@@ -301,8 +300,7 @@ class DouyinLiveListener(Listener):
         ## if listening is true
         ## restart form the head of the list
         ##
-        if BaseConfig().get_config_dict_attr("$.listening") is True:
-          self._cursor = 0
+        self._cursor = 0
       else:  
         self._cursor += 1
 

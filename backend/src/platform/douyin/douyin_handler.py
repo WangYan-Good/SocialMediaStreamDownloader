@@ -6,7 +6,6 @@ sys.path.append(os.getcwd())
 
 ## <<Base>>
 from requests import request
-from urllib.parse import urlparse
 
 ## <<Third-Part>>
 from backend.src.platform.douyin.douyin_api import DouyinApi
