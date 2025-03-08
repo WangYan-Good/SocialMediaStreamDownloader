@@ -3,6 +3,7 @@ backend/src/library/__pycache__/
 backend/src/platform/douyin/__pycache__/
 backend/src/database/__pycache__/
 backend/src/platform/__pycache__/
+backend/src/platform/other/__pycache__
 venv/
 logs/
 config/build/
