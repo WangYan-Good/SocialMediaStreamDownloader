@@ -684,6 +684,24 @@ def download_single_live(url):
   except Exception as e:
     raise e
 
+def download_multiple_live_with_patrolman():
+  ##
+  ## construct live downloader
+  ##
+  downloader = DouyinLiveDownloader()
+  if downloader.config.get_config_dict_attr("$.debug") is True:
+    downloader.dump_config()
+
+  ##
+  ## get live url list
+  ##
+  live_url_list = downloader.url_list.get_config_list("live")
+  for url in live_url_list:
+    item = ListenerItem(func=downloader.run, args=(url,))
+    downloader.live_douyin_listener.add_sub_task(item)
+    if downloader.live_douyin_listener.is_patrolman_actived() is not True:
+      downloader.live_douyin_listener.start()
+
 def download_multiple_live(url_list:list):
   ##
   ## construct live downloader
@@ -698,9 +716,10 @@ def download_multiple_live(url_list:list):
   # live_url_list = downloader.url_list.get_config_list("live")
   for url in url_list:
     item = ListenerItem(func=downloader.run, args=(url,))
-    downloader.live_douyin_listener.add_sub_task(item)
-    if downloader.live_douyin_listener.is_patrolman_actived() is not True:
-      downloader.live_douyin_listener.start()
+    item.start_item()
+    # downloader.live_douyin_listener.add_sub_task(item)
+    # if downloader.live_douyin_listener.is_patrolman_actived() is not True:
+    #   downloader.live_douyin_listener.start()
 
 ##
 ## >>================================ test method ===============================>>
@@ -723,5 +742,6 @@ def download_live_test():
       continue
     
 if __name__ == "__main__":
-  download_live()
+  # download_live()
   # download_live_test()
+  pass
