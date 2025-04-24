@@ -1,0 +1,37 @@
+.container {
+  width: 100%;
+  margin: 0 left;
+}
+
+.auto-resize-input {
+  width: 100%; /* 输入框宽度固定为 100% */
+  font-size: 16px; /* 字体大小 */
+  padding: 10px; /* 内边距 */
+  box-sizing: border-box; /* 确保 padding 不影响宽度 */
+  border: 1px solid #ccc; /* 边框 */
+  outline: none; /* 移除焦点边框 */
+  resize: none; /* 禁用手动调整大小 */
+  overflow: hidden; /* 隐藏滚动条 */
+  line-height: 1.5; /* 行高 */
+  white-space: pre-wrap; /* 自动换行 */
+  word-wrap: break-word; /* 长单词换行 */
+}
+
+.status {
+  margin-top: 10px;
+  color: #666;
+  font-style: italic;
+}
+
+button {
+  padding: 8px 16px;
+  margin: 5px;
+  cursor: pointer;
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button:hover {
+  background-color: #e0e0e0;
+}
