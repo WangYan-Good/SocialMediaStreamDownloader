@@ -6,7 +6,6 @@ sys.path.append(os.getcwd())
 
 ## <<Base>>
 
-
 ## <<Third-Part>>
 from backend.src.platform.platform_dispatcher import PlatformDispatcher
 
@@ -56,4 +55,4 @@ if __name__ == '__main__':
   ##
   ## 启动服务
   ##
-  app.run(debug=True, host='192.168.1.9', port=5000)
+  app.run(debug=True, host='192.168.1.9', port=5001)

@@ -11,8 +11,10 @@ from logging import debug, info, warning, error
 
 ## <<Third-Part>>
 from backend.src.database.social_media_stream_database import SocialMediaStreamDataBase
+from backend.src.database.favorite_owner import FavoriteOwnerTable
 
-class DouyinShareUrlDatabase(SocialMediaStreamDataBase):
+
+class DouyinShareUrlTable(SocialMediaStreamDataBase):
 ##
 ## >>============================= attribute =============================>>
 ##
@@ -48,11 +50,6 @@ class DouyinShareUrlDatabase(SocialMediaStreamDataBase):
 ##
 ## >>============================= abstract method =============================>>
 ##
-  # def insert_db_record(self, cursor, table, record):
-  #   return super().insert_db_record(cursor, table, record)
-  
-  # def create_db_table(self):
-  #   return super().create_db_table()
 
 ##
 ## >>============================= sub class method =============================>>
@@ -384,6 +381,45 @@ class DouyinShareUrlDatabase(SocialMediaStreamDataBase):
     except Exception as e:
       error()
 
+  ##
+  ## get douyin platform favorite owner live url
+  ##
+  def get_douyin_favorite_live_url(self) -> list:
+    sql = '''
+          select live_share_url
+          from share_url 
+          where owner_user_id in (
+            select owner_user_id 
+            from favorite_owner
+            ) and user_status != "已注销"
+          order by actived_count;
+          '''
+    connector = self.get_db_connector()
+    cursor = connector.cursor()
+    cursor.execute(sql)
+    result = cursor.fetchall()
+    connector.close()
+    return result
+  
+  ##
+  ## get douyin platform general owner live url
+  ##
+  def get_douyin_non_favorite_live_url(self) -> list:
+    sql = '''
+          select live_share_url
+          from share_url 
+          where owner_user_id not in (
+            select owner_user_id 
+            from favorite_owner
+            )  and user_status != "已注销"
+          order by actived_count;
+          '''
+    connector = self.get_db_connector()
+    cursor = connector.cursor()
+    cursor.execute(sql)
+    result = cursor.fetchall()
+    connector.close()
+    return result
 ##
 ## >>================================ test method ===============================>>
 ##
@@ -396,7 +432,7 @@ def test_create_share_url_table():
   ## test for connect to database
   ##
   try:
-    db = DouyinShareUrlDatabase(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
+    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
     connector = db.get_db_connector()
     cursor = connector.cursor()
     sql = '''
@@ -417,29 +453,6 @@ def test_create_share_url_table():
     print("ERROR: test create database table failed {}".format(e))
 
 ##
-## test: create a database liked owner table
-##
-def test_create_liked_owner_table():
-  ##
-  ## test for create a table
-  ##
-  try:
-    db = DouyinShareUrlDatabase(host='192.168.1.9', user='wangyan', passwd='wuyu1998', database='social_media_stream_downloader')
-    connector = db.get_db_connector()
-    cursor = connector.cursor()
-    sql = '''
-            CREATE TABLE owner_liked (
-              owner_user_id     CHAR(200) NOT NULL PRIMARY KEY,
-              platform          CHAR(20)
-            )
-          '''
-    cursor.execute(sql)
-    print("INFO: test create database table success")
-    connector.close()
-  except Exception as e:
-    print("ERROR: test create database table failed {}".format(e))
-
-##
 ## test：drop a database table
 ##
 def test_drop_db_table():  
@@ -447,7 +460,7 @@ def test_drop_db_table():
   ## test for connect to database
   ##
   try:
-    db = DouyinShareUrlDatabase(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
+    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
     connector = db.get_db_connector()
     cursor = connector.cursor()
     sql = '''
@@ -473,7 +486,7 @@ def test_insert_record():
   record["user_status"]    = "正常"
 
   try:
-    db = DouyinShareUrlDatabase(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
+    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
     db.insert_live_share_url_record(record)
   except Exception as e:
     print("ERROR: insert a record failed {}".format(e))
@@ -483,7 +496,7 @@ def test_insert_record():
 ##
 def test_search_record_from_table():
   try:
-    db = DouyinShareUrlDatabase(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
+    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
     url = "https://v.douyin.com/ikRBs7Sy/"
     if db.is_live_share_url_record_exist(url) is True:
       print("INFO: live share url {} is exist".format(url))
@@ -494,7 +507,7 @@ def test_search_record_from_table():
 def test_increment_actived_count():
   try:
     owner_user_id = "55262425391"
-    db = DouyinShareUrlDatabase(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
+    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
     db.increment_live_actived_count(owner_user_id)      
   except Exception as e:
     pass
@@ -505,11 +518,41 @@ def test_increment_actived_count():
 def test_increment_actived_count():
   try:
     owner_user_id = "55262425391"
-    db = DouyinShareUrlDatabase(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
+    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
     db.increment_live_actived_count(owner_user_id)      
   except Exception as e:
     pass
   
+class DouyinLiveRecordTable (SocialMediaStreamDataBase):
+##
+## >>============================= attribute =============================>>
+##
+
+##
+## douyin live record table header
+## +---------------+-------------+-----------+----------------+----------------+----------------+-------------+---------------+
+## | room_id | like_count | nickname  | post_share_url | live_share_url | directory_name | user_status | actived_count |
+## +---------------+-------------+-----------+----------------+----------------+----------------+-------------+---------------+
+##
+
+##
+## >>============================= private method =============================>>
+##
+
+##
+## >>============================= abstract method =============================>>
+##
+
+##
+## >>============================= sub class method =============================>>
+##
+
+##
+## >>================================ test method ===============================>>
+##
+  pass
+
+
 ##
 ## >>================================ main method ===============================>>
 ##
@@ -522,5 +565,5 @@ if __name__ == "__main__":
   # test_insert_record()
   # test_search_record_from_table()
   # test_increment_actived_count()
-  test_create_liked_owner_table()
+  # test_create_favorite_owner_table()
   pass

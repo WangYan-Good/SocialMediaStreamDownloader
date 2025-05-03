@@ -14,6 +14,7 @@ from urllib.parse import urlparse, parse_qs
 from urllib.error import ContentTooShortError
 from urllib.request import urlretrieve
 from threading import Thread, Lock
+from datetime import datetime
 
 ## <<Extension>>
 import yaml as yml
@@ -27,7 +28,7 @@ from backend.src.platform.douyin.douyin_login import DouyinLogin
 from backend.src.platform.douyin.douyin_url_list_config import UrlListConfig
 from backend.src.platform.douyin.douyin_live_external_info import LiveExternal
 from backend.src.platform.douyin.douyin_api import DouyinApi
-from backend.src.platform.douyin.douyin_share_url_database import DouyinShareUrlDatabase
+from backend.src.database.platform_douyin import DouyinShareUrlTable
 
 ## TODO
 from backend.src.platform.douyin.xbogus import XBogus as XB
@@ -150,7 +151,7 @@ class DouyinLiveDownloader(Downloader):
       self._lock                = Lock()
       
       if self.config.get_config_dict_attr("$.database_enable") is True:
-        self.database             = DouyinShareUrlDatabase (
+        self.database             = DouyinShareUrlTable (
                                       host=self.config.get_config_dict_attr("$.database_ip"),
                                       user=self.config.get_config_dict_attr("$.database_user"),
                                       passwd=self.config.get_config_dict_attr("$.database_password"),
@@ -618,7 +619,14 @@ class DouyinLiveDownloader(Downloader):
     else:
       directory_name = get_dict_attr(params, "$.summary.directory_name")
     save_dir    = self.config.get_config_dict_attr("$.save_path")+"/"+ self.config.get_config_dict_attr("$.stream_platform") + "/" + self.config.get_config_dict_attr("$.type") + "/" + directory_name
+    
+    ##
+    ## if tick_naming
+    ##
     stream_name = get_dict_attr(params, "$.summary.stream_name")
+    if self.config.get_config_dict_attr("$.tick_naming") is True:
+      stream_name = datetime.now().strftime("%Y%m%d%H%M%S") + "_" + stream_name
+    
     nickname    = get_dict_attr(params, "$.summary.nickname")
     proxies     = self.login.proxies.get_proxies_dict()
     header      = self.header.to_dict()
@@ -726,6 +734,25 @@ def download_multiple_live(url_list:list):
 ##
 
 ##
+## download live stream by database
+##
+def download_live_stream_by_db():
+  downloader = DouyinLiveDownloader()
+  if downloader.config.get_config_dict_attr("$.debug") is True:
+    downloader.dump_config()
+  favorite_list = downloader.database.get_douyin_favorite_live_url()
+  for url in favorite_list:
+    item = ListenerItem(func=downloader.run, args=(url[0],))
+    downloader.live_douyin_listener.add_sub_task(item)
+    if downloader.live_douyin_listener.is_patrolman_actived() is not True:
+      downloader.live_douyin_listener.start()
+  '''
+  non_favorite_list = downloader.database.get_douyin_non_favorite_live_url()
+  for url in non_favorite_list:
+    item = ListenerItem(func=downloader.run, args=(url[0],))
+    downloader.live_douyin_listener.add_sub_task(item)
+  '''
+##
 ## test: download a live stream by url
 ##
 def download_live_test():
@@ -744,4 +771,5 @@ def download_live_test():
 if __name__ == "__main__":
   # download_live()
   # download_live_test()
+  download_live_stream_by_db()
   pass

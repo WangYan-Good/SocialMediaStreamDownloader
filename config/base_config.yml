@@ -24,7 +24,7 @@ log_path: ./logs
 ## 下载线程数，当为 0 时，将不做下载数量限制，可能会出现下载失败的情况
 ## 当下载数量过大时，建议适当调整线程数
 ##
-max_thread: 3
+max_thread: 0
 
 ##
 ## 是否按照文件夹保存
@@ -70,6 +70,11 @@ test_mode: false
 listening: false
 
 ##
+## 下载文件名前面加上时间
+##
+tick_naming: true
+
+##
 ## do not modify
 ##
 config_directory: "config"
@@ -98,9 +103,9 @@ api_config_path: null
 douyin_base_config_save_path: null
 
 ##>>------------------ database config -------------------------------->>
-database_enable: false
-database_ip: "localhost"
+database_enable: true
+database_ip: "192.168.1.12"
 database_port: 3306
 database_name: social_media_stream_downloader
-database_user: "admin"
-database_password: "admin"
+database_user: "wangyan"
+database_password: "wuyu1998"
