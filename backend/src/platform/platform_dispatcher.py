@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 ##
 ## <<Third-Part>>
 ##
+from backend.src.library.baselib import set_dict_attr
 from backend.src.base.config import BaseConfig
 from backend.src.platform.douyin.douyin_handler import douyin_handler
 from backend.src.platform.other.other_handler import other_handler
@@ -78,13 +79,37 @@ class PlatformDispatcher:
   ##
   ## dispatch event
   ##
-  def dispatch(self, urls:list):
+  def dispatch(self, jsonData=None):
     ##
-    ## split urls
+    ## extended data related to the event
     ##
+    token = dict()
+    
+    ##
+    ## check attribute
+    ##
+    if jsonData is None:
+      print("ERROR: invalid attribute of dispatch")
+      raise ValueError
+    
+    ##
+    ## split jsonData
+    ##
+    urls = jsonData.get('urls')
+    if urls is None:
+      print("ERROR: invalid attribute of urls")
+      raise ValueError
+    if not isinstance(urls, list):
+      print("ERROR: invalid attribute of urls")
+      raise ValueError
+    if len(urls) == 0:
+      print("ERROR: invalid attribute of urls")
+      raise ValueError
+    
     url_dict = {item:list() for item in self.__event_list}
     
     for url in urls:
+      
       ##
       ## extract domain
       ##
@@ -96,15 +121,26 @@ class PlatformDispatcher:
       try:
         for event in self.__event_list:
           if event in domain:
-            url_dict.get(event).append(url)
+            
+            ##
+            ## set extended data
+            ##
+            set_dict_attr(token, "$.url", url)
+            set_dict_attr(token, "$.score", jsonData.get('score'))
+            
+            ##
+            ## tail insert extended data into url_dict list
+            ##
+            url_dict.get(event).append(token.copy())
       except:
-        print("ERROR: Invalid domain: {}".format(domain))
+        print("ERROR: invalid domain: {}".format(domain))
         event = 'other'
+      token.clear()
 
     ##
     ## dispatch event
     ##
-    for event, url_list in url_dict.items():
+    for event, token_list in url_dict.items():
       if self.handlers.get(event) is not None:
         ##
         ## dispatch event
@@ -115,9 +151,9 @@ class PlatformDispatcher:
         ##
         ## submit handler
         ##
-        self.executors[event].submit(self.handlers[event], url_list)
+        self.executors[event].submit(self.handlers[event], token_list)
       else:
-        print("ERROR: Invalid event: {}".format(event))
+        print("ERROR: invalid event: {}".format(event))
 
 ##
 ## >>================================ test method ===============================>>

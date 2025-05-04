@@ -24,7 +24,7 @@ log_path: ./logs
 ## 下载线程数，当为 0 时，将不做下载数量限制，可能会出现下载失败的情况
 ## 当下载数量过大时，建议适当调整线程数
 ##
-max_thread: 3
+max_thread: 0
 
 ##
 ## 是否按照文件夹保存
@@ -68,6 +68,11 @@ test_mode: false
 ## 当为 True 时，会不断监听列表
 ##
 listening: false
+
+##
+## 下载文件名前面加上时间
+##
+tick_naming: true
 
 ##
 ## do not modify
