@@ -8,6 +8,7 @@ sys.path.append(os.getcwd())
 from requests import request
 
 ## <<Third-Part>>
+from backend.src.library.baselib import get_dict_attr, set_dict_attr
 from backend.src.platform.douyin.douyin_api import DouyinApi
 from backend.src.platform.douyin.douyin_live_downloader import download_multiple_live
 
@@ -77,14 +78,22 @@ def is_douyin_live_url(url):
 ## 3. 用户主页
 ##
 
-def douyin_handler(url_list:list):
-  if url_list is None:
+def douyin_handler(token_list:list):
+  if token_list is None:
     print("ERROR: invalid url list")
     raise ValueError
   
-  live_url_list = list()
+  live_token_list = list()
   
-  for url in url_list:
+  ##
+  ## token["url"]: str
+  ## token["score"]: int
+  ##
+  for token in token_list:
+    url = get_dict_attr(token, "$.url")
+    if url is None:
+      print("ERROR: invalid url")
+      continue
     ##
     ## query url
     ##
@@ -98,7 +107,7 @@ def douyin_handler(url_list:list):
     ##
     try:
       if is_douyin_live_url(response.url):
-        live_url_list.append(url)
+        live_token_list.append(token)
     except Exception as e:
       print(f"ERROR: {e}")
       continue
@@ -107,7 +116,7 @@ def douyin_handler(url_list:list):
     ## start multiple thread to download living
     ##
     try:
-      download_multiple_live(live_url_list)
+      download_multiple_live(live_token_list)
     except Exception as e:
       print("ERROR: download multiple live failed! {}".format(e))
       return

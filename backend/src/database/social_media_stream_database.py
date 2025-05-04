@@ -89,12 +89,11 @@ def test_search_sec_user_id(live_share_url:str):
 def test_insert_owner_into_liked_table(owner_user_id:str, platform:str):
   try:
     sql = '''
-            insert into owner_liked (owner_user_id, platform) values ("{}", "{}");
+            insert into favorite_owner (owner_user_id, platform) values ("{}", "{}");
           '''.format(owner_user_id, platform)
-    db = SocialMediaStreamDataBase(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
+    db = SocialMediaStreamDataBase(host='192.168.1.9', user='wangyan', passwd='wuyu1998', database='social_media_stream_downloader')
     connector = db.get_db_connector()
     cursor = connector.cursor()
-    print(sql)
     cursor.execute(sql)
     connector.commit()
     info("insert {} into liked table succeed!")
@@ -109,4 +108,4 @@ def test_search_nickname_from_liked_table(owner_user_id:str):
 
 if __name__ == "__main__":
   # test_search_sec_user_id("https://v.douyin.com/ikRBs7Sy/")
-  test_insert_owner_into_liked_table("2661232450234647", "douyin")
+  test_insert_owner_into_liked_table("3171420333409886", "douyin")

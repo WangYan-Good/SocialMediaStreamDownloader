@@ -14,6 +14,7 @@ from urllib.parse import urlparse, parse_qs
 from urllib.error import ContentTooShortError
 from urllib.request import urlretrieve
 from threading import Thread, Lock
+from datetime import datetime
 
 ## <<Extension>>
 import yaml as yml
@@ -21,13 +22,13 @@ import yaml as yml
 ## <<Third-Part>>
 from backend.src.library.baselib import set_dict_attr, get_dict_attr, output_dict, save_dict_as_file
 from backend.src.base.downloader import Downloader, DEFAULT_BASE_CONFIG_PATH
-from backend.src.platform.douyin.douyin_header import DouyinShareHeader, DouyinLiveInfoHeader, DouyinHeader
+from backend.src.platform.douyin.douyin_header import DouyinShareHeader, DouyinLiveInfoHeader
 from backend.src.platform.douyin.douyin_live_config import DouyinLiveConfig
 from backend.src.platform.douyin.douyin_login import DouyinLogin
 from backend.src.platform.douyin.douyin_url_list_config import UrlListConfig
 from backend.src.platform.douyin.douyin_live_external_info import LiveExternal
 from backend.src.platform.douyin.douyin_api import DouyinApi
-from backend.src.platform.douyin.douyin_share_url_database import DouyinShareUrlDatabase
+from backend.src.database.platform_douyin import DouyinShareUrlTable
 
 ## TODO
 from backend.src.platform.douyin.xbogus import XBogus as XB
@@ -150,7 +151,7 @@ class DouyinLiveDownloader(Downloader):
       self._lock                = Lock()
       
       if self.config.get_config_dict_attr("$.database_enable") is True:
-        self.database             = DouyinShareUrlDatabase (
+        self.database             = DouyinShareUrlTable (
                                       host=self.config.get_config_dict_attr("$.database_ip"),
                                       user=self.config.get_config_dict_attr("$.database_user"),
                                       passwd=self.config.get_config_dict_attr("$.database_password"),
@@ -182,7 +183,16 @@ class DouyinLiveDownloader(Downloader):
     super().dump_config()
     self.url_list.dump_url_list()
 
-  def run(self, url) -> None:
+  def run(self, token) -> None:
+    
+    ##
+    ## get url from token
+    ##
+    url = get_dict_attr(token, "$.url")
+    if url is None:
+      print("ERROR: invalid url")
+      raise ValueError
+    
     ##
     ## download task should be blocked if the number >= max task
     ## TODO
@@ -468,6 +478,31 @@ class DouyinLiveDownloader(Downloader):
           ## insert live share url record
           ##
           self.database.insert_live_share_url_record(record_tuple)
+        
+        ##
+        ## update owner score of user
+        ## the owner user should be exist because of it has been stored in database
+        ##
+        score = get_dict_attr(token, "$.score")
+        if score is not None and self.database.is_owner_user_id_record_exist(get_dict_attr(live_response_dict, "$.data.room.owner_user_id")) is True:
+          
+          ##
+          ## for those who is not in the favorite list
+          ## add them into favorite list
+          ##
+          if self.database.is_owner_score_record_exist(get_dict_attr(live_response_dict, "$.data.room.owner_user_id")) is False:
+            self.database.insert_owner_score(owner_user_id=get_dict_attr(live_response_dict, "$.data.room.owner_user_id"), score=score)
+            print("INFO: insert owner score {} {}".format(get_dict_attr(live_response_dict, "$.data.room.owner_user_id"), score))
+          
+          ##
+          ## for those who is in the favorite list
+          ## update their score
+          ##
+          else:
+            origin_score = self.database.get_owner_score_by_user_id(get_dict_attr(live_response_dict, "$.data.room.owner_user_id"))
+            if origin_score != score:
+              self.database.update_owner_score(get_dict_attr(live_response_dict, "$.data.room.owner_user_id"), score)
+              print("INFO: update owner {} score {}->{}".format(get_dict_attr(live_response_dict, "$.data.room.owner_user_id"), origin_score, score))
 
       ##
       ## try to download stream url
@@ -618,7 +653,14 @@ class DouyinLiveDownloader(Downloader):
     else:
       directory_name = get_dict_attr(params, "$.summary.directory_name")
     save_dir    = self.config.get_config_dict_attr("$.save_path")+"/"+ self.config.get_config_dict_attr("$.stream_platform") + "/" + self.config.get_config_dict_attr("$.type") + "/" + directory_name
+    
+    ##
+    ## if tick_naming
+    ##
     stream_name = get_dict_attr(params, "$.summary.stream_name")
+    if self.config.get_config_dict_attr("$.tick_naming") is True:
+      stream_name = datetime.now().strftime("%Y%m%d%H%M%S") + "_" + stream_name
+    
     nickname    = get_dict_attr(params, "$.summary.nickname")
     proxies     = self.login.proxies.get_proxies_dict()
     header      = self.header.to_dict()
@@ -702,7 +744,7 @@ def download_multiple_live_with_patrolman():
     if downloader.live_douyin_listener.is_patrolman_actived() is not True:
       downloader.live_douyin_listener.start()
 
-def download_multiple_live(url_list:list):
+def download_multiple_live(token_list:list):
   ##
   ## construct live downloader
   ##
@@ -714,17 +756,33 @@ def download_multiple_live(url_list:list):
   ## get live url list
   ##
   # live_url_list = downloader.url_list.get_config_list("live")
-  for url in url_list:
-    item = ListenerItem(func=downloader.run, args=(url,))
+  for token in token_list:
+    item = ListenerItem(func=downloader.run, args=(token,))
     item.start_item()
-    # downloader.live_douyin_listener.add_sub_task(item)
-    # if downloader.live_douyin_listener.is_patrolman_actived() is not True:
-    #   downloader.live_douyin_listener.start()
 
 ##
 ## >>================================ test method ===============================>>
 ##
 
+##
+## download live stream by database
+##
+def download_live_stream_by_db():
+  downloader = DouyinLiveDownloader()
+  if downloader.config.get_config_dict_attr("$.debug") is True:
+    downloader.dump_config()
+  favorite_list = downloader.database.get_douyin_favorite_live_url()
+  for url in favorite_list:
+    item = ListenerItem(func=downloader.run, args=(url[0],))
+    downloader.live_douyin_listener.add_sub_task(item)
+    if downloader.live_douyin_listener.is_patrolman_actived() is not True:
+      downloader.live_douyin_listener.start()
+  '''
+  non_favorite_list = downloader.database.get_douyin_non_favorite_live_url()
+  for url in non_favorite_list:
+    item = ListenerItem(func=downloader.run, args=(url[0],))
+    downloader.live_douyin_listener.add_sub_task(item)
+  '''
 ##
 ## test: download a live stream by url
 ##
@@ -744,4 +802,5 @@ def download_live_test():
 if __name__ == "__main__":
   # download_live()
   # download_live_test()
+  download_live_stream_by_db()
   pass
