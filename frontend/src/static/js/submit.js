@@ -3,9 +3,41 @@ document.addEventListener('DOMContentLoaded', function() {
   const submitButton = document.getElementById('submitButton');
   
   if (submitButton) {
-      submitButton.addEventListener('click', processLink);
+      submitButton.addEventListener('click', processSubmit);
   }
 });
+
+function processSubmit() {
+    urls = processLink();
+    score = processScoring();
+
+    if (urls && urls.length > 0) {
+        // 发送数据到后端
+        fetch('/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ urls: urls, score: score >= 0 ? score : null }),
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Success:', data);
+            alert('submit succeed!');
+        })
+        .catch((error) => {
+            console.error('Error:', error);
+            alert('Error submitting data: ' + error.message);
+        });
+    } else {
+        alert('No valid links found! Please enter at least one valid URL starting with http:// or https://');
+    }
+}
 
 function processLink() {
   // 获取输入框中的链接
@@ -18,30 +50,14 @@ function processLink() {
   const urlRegex = /https?:\/\/[^\s]+/g;
   const matches = link.match(urlRegex);
 
-  if (matches && matches.length > 0) {
-      // 如果有匹配的链接，发送到后端处理
-      fetch('/', {
-          method: 'POST',
-          headers: {
-              'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ urls: matches }),
-      })
-      .then(response => {
-          if (!response.ok) {
-              throw new Error('Network response was not ok');
-          }
-          return response.json();
-      })
-      .then(data => {
-          console.log('Success:', data);
-          alert('Links processed successfully!');
-      })
-      .catch((error) => {
-          console.error('Error:', error);
-          alert('Error processing links: ' + error.message);
-      });
-  } else {
-      alert('No valid links found! Please enter at least one valid URL starting with http:// or https://');
-  }
+  return matches ? matches : [];
+}
+
+function processScoring() {
+    // 获取进度条百分比
+    const linkInput = document.getElementById('percentageValue');
+    if (!linkInput) return 0;
+
+    const percentage = parseInt(linkInput.value, 10);
+    return isNaN(percentage) ? 0 : percentage;
 }
