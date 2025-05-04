@@ -420,6 +420,75 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
     result = cursor.fetchall()
     connector.close()
     return result
+
+  ##
+  ## check if the douyin platform favorite owner score record is exist
+  ##
+  def is_owner_score_record_exist(self, owner_user_id:str) -> bool:
+    sql = '''
+          select owner_user_id
+          from favorite_owner 
+          where owner_user_id = "{}"
+          '''.format(owner_user_id)
+    connector = self.get_db_connector()
+    cursor = connector.cursor()
+    cursor.execute(sql)
+    result = cursor.fetchall()
+    connector.close()
+    if len(result) != 0:
+      return True
+    else:
+      return False
+
+  ##
+  ## insert douyin platform favorite owner score
+  ##
+  def insert_owner_score(self, owner_user_id:str, platform:str="douyin", score:int=0):
+    sql = '''
+          insert into favorite_owner (owner_user_id, score)
+          values ("{}", {})
+          '''.format(owner_user_id, score)
+    connector = self.get_db_connector()
+    cursor = connector.cursor()
+    cursor.execute(sql)
+    connector.commit()
+    connector.close()
+    return True
+
+  ##
+  ## get douyin platform favorite owner score
+  ##
+  def get_owner_score_by_user_id(self, owner_user_id:str) -> int:
+    sql = '''
+          select score
+          from favorite_owner 
+          where owner_user_id = "{}"
+          '''.format(owner_user_id)
+    connector = self.get_db_connector()
+    cursor = connector.cursor()
+    cursor.execute(sql)
+    result = cursor.fetchall()
+    connector.close()
+    if len(result) != 0:
+      return result[0][0]
+    else:
+      raise ValueError("ERROR: get owner score failed, owner_user_id: {}".format(owner_user_id))
+
+  ##
+  ## update douyin platform favorite owner score
+  ##
+  def update_owner_score(self, owner_user_id:str, score:int):
+    sql = '''
+          update favorite_owner
+          set score = {}
+          where owner_user_id = "{}"
+          '''.format(score, owner_user_id)
+    connector = self.get_db_connector()
+    cursor = connector.cursor()
+    cursor.execute(sql)
+    connector.commit()
+    connector.close()
+    return True
 ##
 ## >>================================ test method ===============================>>
 ##

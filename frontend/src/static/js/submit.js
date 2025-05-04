@@ -55,9 +55,7 @@ function processLink() {
 
 function processScoring() {
     // 获取进度条百分比
-    const linkInput = document.getElementById('percentageValue');
-    if (!linkInput) return 0;
-
-    const percentage = parseInt(linkInput.value, 10);
-    return isNaN(percentage) ? 0 : percentage;
+    const slider = document.getElementById('preferenceSlider');
+    if (!slider) return 0;
+    return isNaN(slider.value) ? 0 : slider.value;
 }

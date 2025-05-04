@@ -22,7 +22,7 @@ import yaml as yml
 ## <<Third-Part>>
 from backend.src.library.baselib import set_dict_attr, get_dict_attr, output_dict, save_dict_as_file
 from backend.src.base.downloader import Downloader, DEFAULT_BASE_CONFIG_PATH
-from backend.src.platform.douyin.douyin_header import DouyinShareHeader, DouyinLiveInfoHeader, DouyinHeader
+from backend.src.platform.douyin.douyin_header import DouyinShareHeader, DouyinLiveInfoHeader
 from backend.src.platform.douyin.douyin_live_config import DouyinLiveConfig
 from backend.src.platform.douyin.douyin_login import DouyinLogin
 from backend.src.platform.douyin.douyin_url_list_config import UrlListConfig
@@ -183,7 +183,16 @@ class DouyinLiveDownloader(Downloader):
     super().dump_config()
     self.url_list.dump_url_list()
 
-  def run(self, url) -> None:
+  def run(self, token) -> None:
+    
+    ##
+    ## get url from token
+    ##
+    url = get_dict_attr(token, "$.url")
+    if url is None:
+      print("ERROR: invalid url")
+      raise ValueError
+    
     ##
     ## download task should be blocked if the number >= max task
     ## TODO
@@ -469,6 +478,31 @@ class DouyinLiveDownloader(Downloader):
           ## insert live share url record
           ##
           self.database.insert_live_share_url_record(record_tuple)
+        
+        ##
+        ## update owner score of user
+        ## the owner user should be exist because of it has been stored in database
+        ##
+        score = get_dict_attr(token, "$.score")
+        if score is not None and self.database.is_owner_user_id_record_exist(get_dict_attr(live_response_dict, "$.data.room.owner_user_id")) is True:
+          
+          ##
+          ## for those who is not in the favorite list
+          ## add them into favorite list
+          ##
+          if self.database.is_owner_score_record_exist(get_dict_attr(live_response_dict, "$.data.room.owner_user_id")) is False:
+            self.database.insert_owner_score(owner_user_id=get_dict_attr(live_response_dict, "$.data.room.owner_user_id"), score=score)
+            print("INFO: insert owner score {} {}".format(get_dict_attr(live_response_dict, "$.data.room.owner_user_id"), score))
+          
+          ##
+          ## for those who is in the favorite list
+          ## update their score
+          ##
+          else:
+            origin_score = self.database.get_owner_score_by_user_id(get_dict_attr(live_response_dict, "$.data.room.owner_user_id"))
+            if origin_score != score:
+              self.database.update_owner_score(get_dict_attr(live_response_dict, "$.data.room.owner_user_id"), score)
+              print("INFO: update owner {} score {}->{}".format(get_dict_attr(live_response_dict, "$.data.room.owner_user_id"), origin_score, score))
 
       ##
       ## try to download stream url
@@ -710,7 +744,7 @@ def download_multiple_live_with_patrolman():
     if downloader.live_douyin_listener.is_patrolman_actived() is not True:
       downloader.live_douyin_listener.start()
 
-def download_multiple_live(url_list:list):
+def download_multiple_live(token_list:list):
   ##
   ## construct live downloader
   ##
@@ -722,12 +756,9 @@ def download_multiple_live(url_list:list):
   ## get live url list
   ##
   # live_url_list = downloader.url_list.get_config_list("live")
-  for url in url_list:
-    item = ListenerItem(func=downloader.run, args=(url,))
+  for token in token_list:
+    item = ListenerItem(func=downloader.run, args=(token,))
     item.start_item()
-    # downloader.live_douyin_listener.add_sub_task(item)
-    # if downloader.live_douyin_listener.is_patrolman_actived() is not True:
-    #   downloader.live_douyin_listener.start()
 
 ##
 ## >>================================ test method ===============================>>

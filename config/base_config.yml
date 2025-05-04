@@ -103,9 +103,9 @@ api_config_path: null
 douyin_base_config_save_path: null
 
 ##>>------------------ database config -------------------------------->>
-database_enable: true
-database_ip: "192.168.1.12"
+database_enable: false
+database_ip: "localhost"
 database_port: 3306
 database_name: social_media_stream_downloader
-database_user: "wangyan"
-database_password: "wuyu1998"
+database_user: "admin"
+database_password: "admin"

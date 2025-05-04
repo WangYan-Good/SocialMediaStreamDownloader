@@ -21,9 +21,9 @@ class FavoriteOwnerTable(SocialMediaStreamDataBase):
   __FAVORITE_OWNER_TABLE_TUPLE = {item:None for item in __FAVORITE_OWNER_TABLE_TITLE}
 ##
 ## favorite owner table header
-## +---------------+----------+
-## | owner_user_id | platform |
-## +---------------+----------+
+## +---------------+----------+-------+
+## | owner_user_id | platform | score |
+## +---------------+----------+-------+
 ##
 
 ##

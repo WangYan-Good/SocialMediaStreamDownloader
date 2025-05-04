@@ -16,31 +16,26 @@ platform_dispatcher = PlatformDispatcher()
 app = Flask(__name__, static_folder='./frontend/src/static', template_folder='./frontend/src/templates')
 
 ##
-## process all links those are posted to the server
-## TODO response to the client
+## handle the request from the client
 ##
 @app.route('/', methods=['POST'])
-def process_urls():
-  urls = request.json.get('urls')
-  print(f"接收到的数据: {urls}")
-  if urls is None or len(urls) == 0:
-    return jsonify({"error": "No valid URLs found in input"}), 400
-  
-  ##
-  ## handle all urls
-  ##
+def process_request():
   try:
     ##
-    ## trigger dispatch event
+    ## get request from the client
     ##
-    platform_dispatcher.dispatch(urls)
+    platform_dispatcher.dispatch(request.json)
   except Exception as e:
-    print("处理出错: {}".format(e))
+    print(f"ERROR: {e}")
+    ##
+    ## response to the client
+    ##
+    return jsonify({"message": f"request 处理失败"}), 500
 
   ##
   ## response to the client
   ##
-  return jsonify({"message": f"共接收 {len(urls)} 条链接，已开始处理"}), 200
+  return jsonify({"message": f"request 已开始处理"}), 200
 
 @app.route('/', methods=['GET'])
 def index():
@@ -55,4 +50,4 @@ if __name__ == '__main__':
   ##
   ## 启动服务
   ##
-  app.run(debug=True, host='192.168.1.9', port=5001)
+  app.run(debug=True, host='localhost', port=5000)
