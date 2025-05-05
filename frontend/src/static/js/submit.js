@@ -28,7 +28,7 @@ function processSubmit() {
         })
         .then(data => {
             console.log('Success:', data);
-            alert('submit succeed!');
+            alert('Link submitted successfully!');
         })
         .catch((error) => {
             console.error('Error:', error);
