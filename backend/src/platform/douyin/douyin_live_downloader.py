@@ -500,7 +500,7 @@ class DouyinLiveDownloader(Downloader):
           ##
           else:
             origin_score = self.database.get_owner_score_by_user_id(get_dict_attr(live_response_dict, "$.data.room.owner_user_id"))
-            if origin_score != score:
+            if origin_score != int(score):
               self.database.update_owner_score(get_dict_attr(live_response_dict, "$.data.room.owner_user_id"), score)
               print("INFO: update owner {} score {}->{}".format(get_dict_attr(live_response_dict, "$.data.room.owner_user_id"), origin_score, score))
 
