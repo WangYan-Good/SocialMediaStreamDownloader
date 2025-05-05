@@ -103,7 +103,7 @@ api_config_path: null
 douyin_base_config_save_path: null
 
 ##>>------------------ database config -------------------------------->>
-database_enable: true
+database_enable: false
 database_ip: "localhost"
 database_port: 3306
 database_name: social_media_stream_downloader
