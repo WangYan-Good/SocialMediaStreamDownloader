@@ -445,9 +445,9 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
   ##
   def insert_owner_score(self, owner_user_id:str, platform:str="douyin", score:int=0):
     sql = '''
-          insert into favorite_owner (owner_user_id, score)
-          values ("{}", {})
-          '''.format(owner_user_id, score)
+          insert into favorite_owner (owner_user_id, platform, score)
+          values ("{}", "{}", {})
+          '''.format(owner_user_id, platform, score)
     connector = self.get_db_connector()
     cursor = connector.cursor()
     cursor.execute(sql)
