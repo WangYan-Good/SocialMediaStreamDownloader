@@ -386,13 +386,11 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
   ##
   def get_douyin_favorite_live_url(self) -> list:
     sql = '''
-          select live_share_url
-          from share_url 
-          where owner_user_id in (
-            select owner_user_id 
-            from favorite_owner
-            ) and user_status != "已注销"
-          order by actived_count;
+          select share_url.live_share_url
+          from share_url, favorite_owner
+          where share_url.owner_user_id = favorite_owner.owner_user_id
+          and share_url.user_status != "已注销"
+          order by favorite_owner.score desc;
           '''
     connector = self.get_db_connector()
     cursor = connector.cursor()
