@@ -767,22 +767,20 @@ def download_multiple_live(token_list:list):
 ##
 ## download live stream by database
 ##
-def download_live_stream_by_db():
+def download_live_stream_by_score():
+  token = dict()
   downloader = DouyinLiveDownloader()
   if downloader.config.get_config_dict_attr("$.debug") is True:
     downloader.dump_config()
   favorite_list = downloader.database.get_douyin_favorite_live_url()
   for url in favorite_list:
-    item = ListenerItem(func=downloader.run, args=(url[0],))
+    token["url"] = url[0]
+    token["score"] = None
+    item = ListenerItem(func=downloader.run, args=(token.copy(),))
+    token.clear()
     downloader.live_douyin_listener.add_sub_task(item)
     if downloader.live_douyin_listener.is_patrolman_actived() is not True:
       downloader.live_douyin_listener.start()
-  '''
-  non_favorite_list = downloader.database.get_douyin_non_favorite_live_url()
-  for url in non_favorite_list:
-    item = ListenerItem(func=downloader.run, args=(url[0],))
-    downloader.live_douyin_listener.add_sub_task(item)
-  '''
 ##
 ## test: download a live stream by url
 ##
@@ -802,5 +800,4 @@ def download_live_test():
 if __name__ == "__main__":
   # download_live()
   # download_live_test()
-  download_live_stream_by_db()
-  pass
+  download_live_stream_by_score()
