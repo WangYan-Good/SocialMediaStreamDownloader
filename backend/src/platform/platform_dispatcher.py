@@ -127,6 +127,7 @@ class PlatformDispatcher:
             ##
             set_dict_attr(token, "$.url", url)
             set_dict_attr(token, "$.score", jsonData.get('score'))
+            set_dict_attr(token, "$.favorite", jsonData.get('favorite'))
             
             ##
             ## tail insert extended data into url_dict list

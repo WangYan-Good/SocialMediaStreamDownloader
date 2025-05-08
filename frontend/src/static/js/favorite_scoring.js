@@ -1,13 +1,18 @@
 document.addEventListener('DOMContentLoaded', function() {
   // 获取DOM元素
+  const favoriteCheckbox = document.getElementById('favoriteCheckbox');
+  const sliderContainer = document.getElementById('sliderContainer');
+
   const slider = document.getElementById('preferenceSlider');
   const sliderProgress = document.getElementById('sliderProgress');
   const percentageValue = document.getElementById('percentageValue');
 
-  // 初始化进度条
-  updateProgress(slider.value);
+  favoriteCheckbox.addEventListener('change', function() {
+    sliderContainer.style.display =  this.checked ? 'flex' : 'none';
+  });
 
   // 滑动条值变化时更新显示
+  updateProgress(slider.value);
   slider.addEventListener('input', function() {
     updateProgress(this.value);
   });
