@@ -483,8 +483,11 @@ class DouyinLiveDownloader(Downloader):
         ## update owner score of user
         ## the owner user should be exist because of it has been stored in database
         ##
+        favorite = get_dict_attr(token, "$.favorite")
         score = get_dict_attr(token, "$.score")
-        if score is not None and self.database.is_owner_user_id_record_exist(get_dict_attr(live_response_dict, "$.data.room.owner_user_id")) is True:
+        if favorite is True and \
+          score is not None and \
+          self.database.is_owner_user_id_record_exist(get_dict_attr(live_response_dict, "$.data.room.owner_user_id")) is True:
           
           ##
           ## for those who is not in the favorite list
@@ -776,6 +779,7 @@ def download_live_stream_by_score():
   for url in favorite_list:
     token["url"] = url[0]
     token["score"] = None
+    token["favorite"] = False
     item = ListenerItem(func=downloader.run, args=(token.copy(),))
     token.clear()
     downloader.live_douyin_listener.add_sub_task(item)

@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function processSubmit() {
     urls = processLink();
     score = processScoring();
+    favorite = isFavorite();
 
     if (urls && urls.length > 0) {
         // 发送数据到后端
@@ -18,7 +19,7 @@ function processSubmit() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ urls: urls, score: score >= 0 ? score : null }),
+            body: JSON.stringify({ urls: urls, score: score, favorite: favorite }),
         })
         .then(response => {
             if (!response.ok) {
@@ -58,4 +59,11 @@ function processScoring() {
     const slider = document.getElementById('preferenceSlider');
     if (!slider) return 0;
     return isNaN(slider.value) ? 0 : slider.value;
+}
+
+function isFavorite() {
+    // 获取收藏复选框的状态
+    const favoriteCheckbox = document.getElementById('favoriteCheckbox');
+    if (!favoriteCheckbox) return false;
+    return favoriteCheckbox.checked;
 }
