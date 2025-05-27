@@ -6,7 +6,6 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 ##<<Extension>>
-import yaml
 
 ##<<Third-part>>
 from backend.src.library.baselib import load_yml, set_dict_attr, output_dict, get_dict_attr

@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 
 ##<<Extension>>
-import yaml as yml
 
 ##<<Third-part>>
 from backend.src.library.baselib import get_dict_attr, set_dict_attr, save_dict_as_file, output_dict, load_yml

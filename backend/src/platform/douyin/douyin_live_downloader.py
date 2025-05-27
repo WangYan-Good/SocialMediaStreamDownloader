@@ -13,7 +13,7 @@ from requests import request, exceptions
 from urllib.parse import urlparse, parse_qs
 from urllib.error import ContentTooShortError
 from urllib.request import urlretrieve
-from threading import Thread, Lock
+from threading import Lock
 from datetime import datetime
 
 ## <<Extension>>

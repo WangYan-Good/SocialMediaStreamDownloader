@@ -3,15 +3,9 @@
 
 ##<<Base>>
 from abc import ABC, abstractmethod
-from requests import request, exceptions
 from pathlib import Path
-from time import sleep
-from random import randint
-import urllib.request
-import re
 
 ##<<Extension>>
-import yaml as yml
 
 ##<<Third-part>>
 from backend.src.base.config import BaseConfig, DEFAULT_BASE_CONFIG_PATH
