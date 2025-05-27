@@ -29,7 +29,6 @@ class LoggerManager():
   __DEFAULT_LOGGER_NAME          = "default"
   __DEFAULT_LOGGER_LEVEL         = "DEBUG"
   __DEFAULT_LOGGER_FORMATTER_STR = '[%(asctime)s]-[%(name)s]-[%(levelname)s]: %(message)s'
-  __DEFAULT_LOG_FILE_NAME        = None
 
 ##
 ## >>============================= private method =============================>>
