@@ -5,6 +5,9 @@ from logging import error, info
 ## <<Extension>>
 import pymysql
 
+## <<Third-Part>>
+from backend.src.base.log import get_logger
+
 class SocialMediaStreamDataBase(ABC):
 ##
 ## >>============================= attribute =============================>>
@@ -44,7 +47,7 @@ class SocialMediaStreamDataBase(ABC):
       ##
       self.__connector = pymysql.connect(host=self.__host, user=self.__user, passwd=self.__passwd, db=self.__database)
     except Exception as e:
-      print ("ERROR: connect database {} fail".format(self.__database))
+      get_logger().error("ERROR: connect database {} fail, reason: {}".format(self.__database, e))
       
     return self.__connector
 
@@ -56,7 +59,7 @@ class SocialMediaStreamDataBase(ABC):
       sql = '''DROP TABLE {};'''.format(table_name)
       self.get_db_connector().cursor().execute(sql)
     except Exception as e:
-      print("ERROR: drop databse table {} is failed! reason: {}".format(table_name, e))
+      get_logger().error("ERROR: drop database table {} is failed! reason: {}".format(table_name, e))
       raise e
     
 ##
@@ -78,10 +81,10 @@ def test_search_sec_user_id(live_share_url:str):
         '''.format(live_share_url)
   db = SocialMediaStreamDataBase(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
   cursor = db.get_db_connector().cursor()
-  print(sql)
+  get_logger().debug(sql)
   cursor.execute(sql)
   result = cursor.fetchall()
-  print(result)
+  get_logger().debug(result)
 
 ##
 ## test: insert owner id into owner_liked table
@@ -96,9 +99,9 @@ def test_insert_owner_into_liked_table(owner_user_id:str, platform:str):
     cursor = connector.cursor()
     cursor.execute(sql)
     connector.commit()
-    info("insert {} into liked table succeed!")
+    get_logger().info("insert {} into liked table succeed!".format(owner_user_id))
   except Exception as e:
-    error(e)
+    get_logger().error("insert {} into liked table failed {}".format(owner_user_id, e))
 
 ##
 ## test: search liked owner nickname

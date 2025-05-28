@@ -1,4 +1,8 @@
+## <<Base>>
 import re
+
+## <<Third-Part>>
+from backend.src.base.log import get_logger
 
 # config file path
 DEFAULT_CONFIG_FILE = "config/douyin/conf.ini"
@@ -11,7 +15,7 @@ class UrlListConfig ():
 
   def __init__(self, file:str=None) -> None:
     if file is None:
-      print("WARNING: invalid url file path, will use default file")
+      get_logger().warning("invalid url file path, will use default file")
       file = DEFAULT_CONFIG_FILE
     self.section = list()
     self.__url_list = list(list())
@@ -19,7 +23,7 @@ class UrlListConfig ():
 
   def __config_parser (self, file:str=None):
     if file is None:
-      print("ERROR: invalid file path")
+      get_logger().error("invalid file path")
       return
 
     SiftedContext = object()
@@ -63,11 +67,11 @@ class UrlListConfig ():
       self.__url_list.append(UrlList.copy())
       context.close()
     except Exception as e:
-      print (e)
+      get_logger().error(e)
   
   def get_config_list(self, SectionName:str):
     if SectionName is None:
-      print("Invalide section name {}".format(SectionName))
+      get_logger().error("Invalide section name {}".format(SectionName))
       return None
     # defination
     SectionIndex = int()
@@ -79,10 +83,10 @@ class UrlListConfig ():
       return None
     
   def dump_url_list(self):
-    print("Url share link:")
+    get_logger().info("Url share link:")
     for sec in self.__url_list:
-      print("\t{}".format(sec))
+      get_logger().info("\t{}".format(sec))
 
 if __name__ == "__main__":
   url_list = UrlListConfig().get_config_list(SectionName="live")
-  print(url_list)
+  get_logger().info(url_list)

@@ -3,7 +3,6 @@ import os
 import sys
 sys.path.append(os.getcwd())
 from time import sleep
-from backend.src.platform.douyin.douyin_url_list_config import UrlListConfig
 
 ##<<Base>>
 import time
@@ -13,6 +12,8 @@ from threading import Thread
 
 ##<<Third-part>>
 from backend.src.base.listener import Listener
+from backend.src.platform.douyin.douyin_url_list_config import UrlListConfig
+from backend.src.base.log import get_logger
 
 class ListenerItem():
 ##
@@ -47,7 +48,7 @@ class ListenerItem():
   ##
   def __init__(self, func:any = None, args:tuple = None) -> None:
     if not isinstance(args, tuple):
-      print("ERROR: input parameter does not correct!")
+      get_logger().error("input parameter does not correct!")
       raise ValueError
     
     ##
@@ -95,8 +96,8 @@ class ListenerItem():
   ## dump listener item
   ##
   def dump_item(self):
-    print("\tidentify: {}".format(self._identify))
-    print("\targs: {}\n".format(self._args))
+    get_logger().info("\tidentify: {}".format(self._identify))
+    get_logger().info("\targs: {}\n".format(self._args))
 
 class DouyinLiveListener(Listener):
 ##
@@ -199,7 +200,7 @@ class DouyinLiveListener(Listener):
   ##
   def stop(self):
     self._is_need_listening = False
-    print("INFO: stop listener succeed!")
+    get_logger().info("stop listener succeed!")
 
   ##
   ## start to execute sub task
@@ -209,7 +210,7 @@ class DouyinLiveListener(Listener):
       if input() == 'start':
         self.start()
         break
-    print("INFO: listener start succeed!\n")
+    get_logger().info("listener start succeed!\n")
 
   ##
   ## stop listen sub task
@@ -233,14 +234,14 @@ class DouyinLiveListener(Listener):
           self._start_thread.start()
 
         break
-    print("INFO: stop listener succeed! \nThe programmer will be ended once all task download completed.")
+    get_logger().info("stop listener succeed! \nThe programmer will be ended once all task download completed.")
 
   ##
   ## add sub task and append it into list
   ##
   def add_sub_task(self, item:ListenerItem):
     if self.is_sub_task_exist(item.get_item_identify()):
-      print("INFO: Target {} has exist in the listen list".format(item.get_item_identify()))
+      get_logger().info("Target {} has exist in the listen list".format(item.get_item_identify()))
       return
     else:
       self._listen_list.append(item)
@@ -254,11 +255,11 @@ class DouyinLiveListener(Listener):
       for item in self._listen_list:
         if identify == item.identify:
           self._listen_list.remove(item)
-          print("INFO: Delete target {} succeed".format(identify))
+          get_logger().info("Delete target {} succeed".format(identify))
     except ValueError:
-      print("INFO: Target {} does not found".format(identify))
+      get_logger().info("Target {} does not found".format(identify))
     except Exception as e:
-      print("ERROR: Delete sub-task failed {}".format(identify))
+      get_logger().error("Delete sub-task failed {}".format(identify))
 
 ##
 ## >>============================= sub class method =============================>>
@@ -327,9 +328,9 @@ class DouyinLiveListener(Listener):
 ##
 def output(url:str):
   sleep(5) # sleep 5s
-  print(url)
+  get_logger().info(url)
   sleep(5)
-  print("INFO: {}".format(url))
+  get_logger().info(url)
 
 def test_listen_item():
   url_list = UrlListConfig(None).get_config_list("live")
@@ -338,18 +339,18 @@ def test_listen_item():
     listen_item = ListenerItem(func=output, args=(url,))
     
     # expect: false
-    print("thread is alive: {}".format(listen_item.is_item_actived()))
+    get_logger().info("thread is alive: {}".format(listen_item.is_item_actived()))
     listen_item.start_item()
     
     # expect: true
-    print("thread is alive: {}".format(listen_item.is_item_actived()))
+    get_logger().info("thread is alive: {}".format(listen_item.is_item_actived()))
     
     # expect: false
     sleep(7)
-    print("thread is alive: {}".format(listen_item.is_item_actived()))
+    get_logger().info("thread is alive: {}".format(listen_item.is_item_actived()))
 
     # dump
-    print("dump {} item details:".format(url))
+    get_logger().info("dump {} item details:".format(url))
     listen_item.dump_item()
     break
 

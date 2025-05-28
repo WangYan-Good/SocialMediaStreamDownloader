@@ -11,6 +11,7 @@ from pathlib import Path
 from backend.src.base.config import BaseConfig, DEFAULT_BASE_CONFIG_PATH
 from backend.src.base.header import Header
 from backend.src.base.login  import Login
+from backend.src.base.log    import get_logger
 
 ##
 ## Defination save file name
@@ -59,7 +60,7 @@ class Downloader(ABC):
   ##
   def __init__(self, path:Path = None) -> None:
     if path is None:
-      print("WARNING: invalid input, will use default configuration")
+      get_logger().warning("invalid input, will use default configuration")
       path = DEFAULT_BASE_CONFIG_PATH
     self.CONFIG_PATH = path
 
@@ -150,14 +151,11 @@ def parse_str_to_dict(source:str=None)->dict:
     pass
   '''
 
-# '''
 if __name__ == "__main__":
   downloader = Downloader()
   for url in downloader.download_url_list:
     stream_url = downloader.get_douyin_live_download_stream(url)
     if stream_url is None:
       continue
-    print(downloader.live_stream_name)
-
-  print("all live download completed!")
-# '''
+    get_logger().info(downloader.live_stream_name)
+  get_logger().info("all live download completed!")

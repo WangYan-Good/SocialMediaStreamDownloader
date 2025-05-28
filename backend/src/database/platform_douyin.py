@@ -11,7 +11,8 @@ from logging import debug, info, warning, error
 
 ## <<Third-Part>>
 from backend.src.database.social_media_stream_database import SocialMediaStreamDataBase
-from backend.src.database.favorite_owner import FavoriteOwnerTable
+from backend.src.database.favorite_owner               import FavoriteOwnerTable
+from backend.src.base.log                              import get_logger
 
 
 class DouyinShareUrlTable(SocialMediaStreamDataBase):
@@ -140,6 +141,7 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
             cursor.execute(update_sql)
             connector.commit()
             print("INFO: update {} success".format([item for item in df_result_record]))
+            
       else:
         ##
         ## the record is not exist in database
@@ -158,10 +160,10 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
                      '''.format(record.get("owner_user_id"), record.get("sec_user_id"), record.get("nickname"), record.get("post_share_url"), record.get("live_share_url"), record.get("directory_name"), record.get("user_status"))
         cursor.execute(insert_sql)
         connector.commit()
-        print("INFO: insert record {} success".format([item for item in record.values()]))
+        get_logger().info("insert record {} success".format([item for item in record.values()]))
       connector.close()
     except Exception as e:
-      print("ERROR: insert live share url {} failed {}".format(record["live_share_url"], e))
+      get_logger().error("insert live share url {} failed {}".format(record["live_share_url"], e))
       raise e
   
   ##
@@ -204,7 +206,7 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
             cursor.execute(update_sql)
             connector.commit()
             connector.close()
-            print("INFO: update owner_user_id:{} live_share_url:{} success".format(db_record[0], record["live_share_url"]))
+            get_logger().info("update owner_user_id:{} live_share_url:{} success".format(db_record[0], record["live_share_url"]))
           else:
             pass
       else:
@@ -227,9 +229,9 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
         cursor.execute(insert_sql)
         connector.commit()
         connector.close()
-        print("INFO: insert record {} success".format([item for item in record.values()]))
+        get_logger().info("insert record {} success".format([item for item in record.values()]))
     except Exception as e:
-      print("ERROR: insert live share url {} failed {}".format(record["live_share_url"], e))
+      get_logger().error("insert live share url {} failed {}".format(record["live_share_url"], e))
       raise e
 
   ##
@@ -252,7 +254,7 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       else:
         return False
     except Exception as e:
-      print("ERROR: search live share url {} failed {}".format(live_share_url, e))
+      get_logger().error("search live share url {} failed {}".format(live_share_url, e))
       raise e
 
   ##
@@ -275,7 +277,7 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       else:
         return None
     except Exception as e:
-      print("ERROR: search owner directory name {} failed {}".format(live_share_url, e))
+      get_logger().error("search owner directory name {} failed {}".format(live_share_url, e))
       raise e
 
   ##
@@ -298,7 +300,7 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       else:
         return None
     except Exception as e:
-      print("ERROR: search owner nickname {} failed {}".format(live_share_url, e))
+      get_logger().error("search owner nickname {} failed {}".format(live_share_url, e))
       raise e
 
   ##
@@ -321,7 +323,7 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       else:
         return False
     except Exception as e:
-      print("ERROR: search owner user id {} failed {}".format(owner_user_id, e))
+      get_logger().error("search owner user id {} failed {}".format(owner_user_id, e))
       raise e
 
   ##
@@ -377,9 +379,9 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
           cursor.execute(increment_sql)
           connector.commit()
           connector.close()
-          info("increment actived count succeed!")
+          get_logger().info("increment actived count succeed!")
     except Exception as e:
-      error()
+      get_logger().error("increment actived count failed {}".format(e))
 
   ##
   ## get douyin platform favorite owner live url
@@ -514,10 +516,10 @@ def test_create_share_url_table():
             )
           '''
     cursor.execute(sql)
-    print("INFO: test create database table success")
+    get_logger().info("test create database table success")
     connector.close()
   except Exception as e:
-    print("ERROR: test create database table failed {}".format(e))
+    get_logger().error("test create database table failed {}".format(e))
 
 ##
 ## test：drop a database table
@@ -534,10 +536,10 @@ def test_drop_db_table():
             DROP TABLE share_url;
           '''
     cursor.execute(sql)
-    print("INFO: test drop database table success")
+    get_logger().info("test drop database table success")
     connector.close()
   except Exception as e:
-    print("ERROR: test drop database table failed {}".format(e))
+    get_logger().error("test drop database table failed {}".format(e))
 
 ##
 ## test：insert a record to database table
@@ -556,7 +558,7 @@ def test_insert_record():
     db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
     db.insert_live_share_url_record(record)
   except Exception as e:
-    print("ERROR: insert a record failed {}".format(e))
+    get_logger().error("insert a record failed {}".format(e))
 
 ##
 ## test: search recode from table
@@ -566,9 +568,9 @@ def test_search_record_from_table():
     db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
     url = "https://v.douyin.com/ikRBs7Sy/"
     if db.is_live_share_url_record_exist(url) is True:
-      print("INFO: live share url {} is exist".format(url))
+      get_logger().info("live share url {} is exist".format(url))
   except Exception as e:
-    print("ERROR: search records from table failed {}".format(e))
+    get_logger().error("search records from table failed {}".format(e))
     raise e
 
 def test_increment_actived_count():

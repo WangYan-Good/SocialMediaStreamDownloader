@@ -17,6 +17,7 @@ from backend.src.library.baselib import set_dict_attr
 from backend.src.base.config import BaseConfig
 from backend.src.platform.douyin.douyin_handler import douyin_handler
 from backend.src.platform.other.other_handler import other_handler
+from backend.src.base.log import get_logger
 
 # 定义一个事件分发器
 class PlatformDispatcher:
@@ -48,7 +49,7 @@ class PlatformDispatcher:
     ## check attribute
     ##
     if event is None or handler is None:
-      print("ERROR: invalid attribute of registered handler")
+      get_logger().error("invalid attribute of registered handler")
       raise ValueError
 
     ##
@@ -89,7 +90,7 @@ class PlatformDispatcher:
     ## check attribute
     ##
     if jsonData is None:
-      print("ERROR: invalid attribute of dispatch")
+      get_logger().error("invalid attribute of dispatch")
       raise ValueError
     
     ##
@@ -97,13 +98,13 @@ class PlatformDispatcher:
     ##
     urls = jsonData.get('urls')
     if urls is None:
-      print("ERROR: invalid attribute of urls")
+      get_logger().error("invalid attribute of urls")
       raise ValueError
     if not isinstance(urls, list):
-      print("ERROR: invalid attribute of urls")
+      get_logger().error("invalid attribute of urls")
       raise ValueError
     if len(urls) == 0:
-      print("ERROR: invalid attribute of urls")
+      get_logger().error("invalid attribute of urls")
       raise ValueError
     
     url_dict = {item:list() for item in self.__event_list}
@@ -134,7 +135,7 @@ class PlatformDispatcher:
             ##
             url_dict.get(event).append(token.copy())
       except:
-        print("ERROR: invalid domain: {}".format(domain))
+        get_logger().error("invalid domain: {}".format(domain))
         event = 'other'
       token.clear()
 
@@ -146,7 +147,7 @@ class PlatformDispatcher:
         ##
         ## dispatch event
         ##
-        print("INFO: dispatching event: {}".format(event))
+        get_logger().info("dispatching event: {}".format(event))
         
         
         ##
@@ -154,7 +155,7 @@ class PlatformDispatcher:
         ##
         self.executors[event].submit(self.handlers[event], token_list)
       else:
-        print("ERROR: invalid event: {}".format(event))
+        get_logger().error("invalid event: {}".format(event))
 
 ##
 ## >>================================ test method ===============================>>
@@ -191,4 +192,4 @@ if __name__ == "__main__":
       dispatcher.dispatch(url)
 
   # 主线程继续执行其他任务
-  print("主线程继续运行...")
+  get_logger().info("主线程继续运行...")

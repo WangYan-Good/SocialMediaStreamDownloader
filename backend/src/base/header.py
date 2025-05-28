@@ -9,6 +9,7 @@ from pathlib import Path
 
 ##<<Third-part>>
 from backend.src.library.baselib import load_yml, set_dict_attr, output_dict, get_dict_attr
+from backend.src.base.log        import get_logger
 DEFAULT_REFERER = "https://www.douyin.com/"
 DEFAULT_USERR_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36"
 
@@ -39,7 +40,7 @@ class Header(ABC):
       ##
       self._header = load_yml(header_path)
     except Exception as e:
-      print("ERROR: Header init failed: {}".format(e))
+      get_logger().error("Header init failed: {}".format(e))
       raise e
     return None
 ##
@@ -58,7 +59,7 @@ class Header(ABC):
   ##
   @abstractmethod
   def dump_header(self):
-    print("Header configuration:")
+    get_logger().info("Header configuration:")
     output_dict(self._header)
 
   ##

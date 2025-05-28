@@ -29,6 +29,7 @@ from backend.src.platform.douyin.douyin_url_list_config import UrlListConfig
 from backend.src.platform.douyin.douyin_live_external_info import LiveExternal
 from backend.src.platform.douyin.douyin_api import DouyinApi
 from backend.src.database.platform_douyin import DouyinShareUrlTable
+from backend.src.base.log import get_logger
 
 ## TODO
 from backend.src.platform.douyin.xbogus import XBogus as XB
@@ -67,7 +68,7 @@ class DouyinLiveDownloader(Downloader):
 ##
   def __init__(self, path: Path = None) -> None:
     if path is None:
-      print("WARNING: invalid input, will use default config")
+      get_logger().warning("invalid input, will use default config")
       path = DEFAULT_BASE_CONFIG_PATH
     
     ##
@@ -99,15 +100,15 @@ class DouyinLiveDownloader(Downloader):
       ## start download
       ## output message
       ##
-      print("start download:")
-      print("\tshare_url:{}\n\tpath:{}\n\tmethod:{}\n\turl:{}\n\tstram:{}\n\tproxies:{}\n\theaders:{}\n\ttimeout:{}".format(share_url, save_path + "/" + file_name, method, url, stream, proxies, headers, timeout))
-      print("当前总下载数：{}".format(self._actived_task_number))
+      get_logger().info("start download:")
+      get_logger().info("\tshare_url:{}\n\tpath:{}\n\tmethod:{}\n\turl:{}\n\tstram:{}\n\tproxies:{}\n\theaders:{}\n\ttimeout:{}".format(share_url, save_path + "/" + file_name, method, url, stream, proxies, headers, timeout))
+      get_logger().info("当前总下载数：{}".format(self._actived_task_number))
 
       ##
       ## create directory
       ##
       if not os.path.exists(save_path):
-          print("create directory {}".format(save_path))
+          get_logger().info("create directory {}".format(save_path))
           os.makedirs(save_path, exist_ok=True)
       
       ##
@@ -124,12 +125,11 @@ class DouyinLiveDownloader(Downloader):
       ##
       ## update download message
       ##
-      print("name:{} \nurl:{} \ndownload complete!\n".format(nickname, url))    
-      print("当前总下载数：{}".format(self._actived_task_number))
-      print()
+      get_logger().info("name:{} \nurl:{} \ndownload complete!\n".format(nickname, url))    
+      get_logger().info("当前总下载数：{}\n".format(self._actived_task_number))
     except Exception as e:
-        print("request error: {err}".format(err=e))
-        print("\tname:{}\n\tpath:{}\n\turl:{}\n\tdownload failed!!!\n".format(nickname, save_path + "/" + file_name, url))
+        get_logger().error("request error: {err}".format(err=e))
+        get_logger().error("\tname:{}\n\tpath:{}\n\turl:{}\n\tdownload failed!!!\n".format(nickname, save_path + "/" + file_name, url))
         return None
 
 ##
@@ -176,7 +176,7 @@ class DouyinLiveDownloader(Downloader):
         # self.header.create_douyin_msToken()
         # self.config.update_verifyFp()
     except Exception as e:
-      print("ERROR: constrcute aggregation member failed!\n{}".format(e))
+      get_logger().error("construct aggregation member failed!\n{}".format(e))
       raise e
   
   def dump_config(self):
@@ -190,7 +190,7 @@ class DouyinLiveDownloader(Downloader):
     ##
     url = get_dict_attr(token, "$.url")
     if url is None:
-      print("ERROR: invalid url")
+      get_logger().error("invalid url")
       raise ValueError
     
     ##
@@ -202,7 +202,7 @@ class DouyinLiveDownloader(Downloader):
 
       # stop download if listener is end
       if self.live_douyin_listener.is_listening_ending() is True and output_fuse is False:
-        print("INFO: download task {} is interrupt because of listener stop.".format(url))
+        get_logger().info("download task {} is interrupt because of listener stop.".format(url))
         output_fuse = True
         
     
@@ -223,7 +223,7 @@ class DouyinLiveDownloader(Downloader):
     try:
       set_dict_attr(summary, "$.share_url", url)
       if self.config.get_config_dict_attr("$.debug") is True:
-        print("Share url: {}".format(url))
+        get_logger().info("Share url: {}".format(url))
       ##
       ## construct header for query share url
       ##
@@ -252,16 +252,16 @@ class DouyinLiveDownloader(Downloader):
       sleep(randint(15, 45) * 0.1)
       response.raise_for_status()
     except TimeoutError:
-      print("ERROR: Timeout, please try again later! {}".format(url))
+      get_logger().error("Timeout, please try again later! {}".format(url))
       return None
     except exceptions.ReadTimeout:
-      print("ERROR: Read timeout, please try again later! {}".format(url))
+      get_logger().error("Read timeout, please try again later! {}".format(url))
       return None
     except UnboundLocalError:
-      print("ERROR: UnboundLocalError, please check the code! {}".format(url))
+      get_logger().error("UnboundLocalError, please check the code! {}".format(url))
       return None
     except Exception as e:
-      print("ERROR: Query share url failed! \tstatus:{} \tERROR:{}".format(response.status_code, e))
+      get_logger().error("Query share url failed! \tstatus:{} \tERROR:{}".format(response.status_code, e))
       return None
 
     try:
@@ -293,7 +293,7 @@ class DouyinLiveDownloader(Downloader):
       else:
         params = self.construct_live_params_no_login(response_result)
     except Exception as e:
-      print("ERROR: Parse share live url failed! {} {}".format(e, url))
+      get_logger().error("Parse share live url failed! {} {}".format(e, url))
       return
     
     ##
@@ -312,10 +312,10 @@ class DouyinLiveDownloader(Downloader):
       self.header.init_header(self.config.get_config_dict_attr("$.login"))
       header = self.header.update_header(self.config.get_config_dict_attr("$.login"), header)
       if self.config.get_config_dict_attr("$.debug") is True:
-        print("Url query response:")
+        get_logger().info("Url query response:")
         output_dict(params)
         output_dict(header)
-        print(api)
+        get_logger().info(api)
       ##
       ## request for live stream
       ##
@@ -328,22 +328,22 @@ class DouyinLiveDownloader(Downloader):
       if live_response.status_code != 200:
         raise exceptions.HTTPError
     except exceptions.HTTPError:
-      print("ERROR: Query live response failed! {}".format(live_response.status_code))
+      get_logger().error("Query live response failed! {}".format(live_response.status_code))
       return None
     except TimeoutError:
-      print("ERROR: Timeout, please try again later! {}".format(url))
+      get_logger().error("Timeout, please try again later! {}".format(url))
       return None
     except exceptions.ReadTimeout:
-      print("ERROR: Read timeout, please try again later! {}".format(url))
+      get_logger().error("Read timeout, please try again later! {}".format(url))
       return None
     except Exception as e:
-      print("ERROR: Query live response failed! {}".format(e))
+      get_logger().error("Query live response failed! {}".format(e))
       raise e
     
     # delay random
     sleep(randint(15, 45) * 0.1)
     if self.config.get_config_dict_attr("$.debug") is True:
-      print("Live external information:")
+      get_logger().info("Live external information:")
       output_dict(live_response.json())
 
     ##
@@ -356,7 +356,7 @@ class DouyinLiveDownloader(Downloader):
       ##
       if self.live_external_info.get_status(live_response) != 0:
         if self.config.get_config_dict_attr("$.debug") is True:
-          print("ERROR: non-except live status: {}".format(self.live_external_info.get_status(live_response)))
+          get_logger().error("non-except live status: {}".format(self.live_external_info.get_status(live_response)))
         raise exceptions.HTTPError
       
       ##
@@ -373,11 +373,11 @@ class DouyinLiveDownloader(Downloader):
       ##
       room_status = self.live_external_info.get_room_status(live_response)
       if room_status != 2:
-        print("当前 {0} 直播已结束".format(self.live_external_info.get_raw_nickname(live_response)))
+        get_logger().info("当前 {0} 直播已结束".format(self.live_external_info.get_raw_nickname(live_response)))
       else:
-        print("当前 {0} 正在直播...".format(self.live_external_info.get_raw_nickname(live_response)))
+        get_logger().info("当前 {0} 正在直播...".format(self.live_external_info.get_raw_nickname(live_response)))
     except exceptions.HTTPError:
-      print("ERROR: forbidden, please try via other way {}".format(url))
+      get_logger().error("forbidden, please try via other way {}".format(url))
       ##
       ## TODO save external information
       ##
@@ -391,7 +391,7 @@ class DouyinLiveDownloader(Downloader):
       ##
       return None
     except Exception as e:
-      print("ERROR: Transformation response to json failed {}".format(e))
+      get_logger().error("Transformation response to json failed {}".format(e))
       raise e
     
     try:
@@ -403,7 +403,7 @@ class DouyinLiveDownloader(Downloader):
         set_dict_attr(summary, "$.stream_url", stream_url)
         set_dict_attr(summary, "$.stream_name", stream_name)
         if self.config.get_config_dict_attr("$.debug") is True:
-          print("INFO: stream url: {}\nstream name:{}".format(stream_url, stream_name))  
+          get_logger().info("stream url: {}\nstream name:{}".format(stream_url, stream_name))  
     except TypeError:
       ##
       ## save error information
@@ -415,10 +415,10 @@ class DouyinLiveDownloader(Downloader):
         set_dict_attr(build, "$.summary", summary)
         save_dict_as_file(source=params, save_path=Path(error_response_path))
         if self.config.get_config_dict_attr("$.debug") is True:
-          print("INFO: Save error response file {} success!".format(error_response_path))
+          get_logger().info("Save error response file {} success!".format(error_response_path))
       return None
     except Exception as e:
-      print("ERROR: Try download live stream {} failed! {}".format(url, e))
+      get_logger().error("Try download live stream {} failed! {}".format(url, e))
       raise e
     
     try:
@@ -434,7 +434,7 @@ class DouyinLiveDownloader(Downloader):
         set_dict_attr(build, "$.live_payload", get_dict_attr(self.__build, "$.live_payload"))
         save_dict_as_file(source=build, save_path=Path(path))
         if self.config.get_config_dict_attr("$.debug") is True:
-          print("INFO: Save file {} success!".format(path))
+          get_logger().info("Save file {} success!".format(path))
       
       ##
       ## save share url information into database
@@ -495,7 +495,7 @@ class DouyinLiveDownloader(Downloader):
           ##
           if self.database.is_owner_score_record_exist(get_dict_attr(live_response_dict, "$.data.room.owner_user_id")) is False:
             self.database.insert_owner_score(owner_user_id=get_dict_attr(live_response_dict, "$.data.room.owner_user_id"), score=score)
-            print("INFO: insert owner score {} {}".format(get_dict_attr(live_response_dict, "$.data.room.owner_user_id"), score))
+            get_logger().info("insert owner score {} {}".format(get_dict_attr(live_response_dict, "$.data.room.owner_user_id"), score))
           
           ##
           ## for those who is in the favorite list
@@ -505,7 +505,7 @@ class DouyinLiveDownloader(Downloader):
             origin_score = self.database.get_owner_score_by_user_id(get_dict_attr(live_response_dict, "$.data.room.owner_user_id"))
             if origin_score != int(score):
               self.database.update_owner_score(get_dict_attr(live_response_dict, "$.data.room.owner_user_id"), score)
-              print("INFO: update owner {} score {}->{}".format(get_dict_attr(live_response_dict, "$.data.room.owner_user_id"), origin_score, score))
+              get_logger().info("update owner {} score {}->{}".format(get_dict_attr(live_response_dict, "$.data.room.owner_user_id"), origin_score, score))
 
       ##
       ## try to download stream url
@@ -520,18 +520,18 @@ class DouyinLiveDownloader(Downloader):
         self.download_live_stream(url, build)
 
     except FileNotFoundError:
-      print("ERROR: stream url is not found, please double check")
+      get_logger().error("stream url is not found, please double check")
       return None
     except TimeoutError:
-      print("WARNING: timeout, wait 5s and try again")
+      get_logger().warning("timeout, wait 5s and try again")
       sleep(5)
       self.run(url)
       return None
     except KeyError:
-      print("ERROR: KeyError, please check the code {} {}".format(get_dict_attr(build, "$.summary.nickname"), url))
+      get_logger().error("KeyError, please check the code {} {}".format(get_dict_attr(build, "$.summary.nickname"), url))
       return None
     except Exception as e:
-      print("ERROR: Failed download stream file {} {} {}".format(get_dict_attr(build, "$.summary.nickname"), url, e))
+      get_logger().error("Failed download stream file {} {} {}".format(get_dict_attr(build, "$.summary.nickname"), url, e))
       raise e
 
 ##
