@@ -1,4 +1,7 @@
 ##>> test
+import os
+import sys
+sys.path.append(os.getcwd())
 ##<< test
 
 ##<<Base>>
@@ -11,11 +14,7 @@ from pathlib import Path
 ##<<Third-part>>
 from backend.src.library.baselib import get_dict_attr, set_dict_attr, save_dict_as_file, output_dict, load_yml
 from backend.src.base.log import get_logger
-
-##
-## Define
-##
-DEFAULT_BASE_CONFIG_PATH = "config/base_config.yml"
+from backend.src.base.default import DEFAULT_BASE_CONFIG_PATH
 
 ##
 ## Defination sbstract class

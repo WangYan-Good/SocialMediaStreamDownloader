@@ -1,4 +1,10 @@
-###<<Base>>
+##>>Test
+import os
+import sys
+sys.path.append(os.getcwd())
+##<<Test
+
+##<<Base>>
 import os
 from pathlib import Path
 

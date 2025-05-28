@@ -13,7 +13,7 @@ import re
 import yaml as yml
 
 ##<<Third-part>>
-from backend.src.base.config import DEFAULT_BASE_CONFIG_PATH
+from backend.src.base.default import DEFAULT_BASE_CONFIG_PATH
 from backend.src.library.baselib import get_dict_attr
 
 ##
