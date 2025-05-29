@@ -19,7 +19,6 @@ from backend.src.base.log import get_logger
 ##
 def get_dict_attr(source:dict=None, attr:str=None)->any:
   if attr is None or attr is None:
-    get_logger().error("Invalid header attribute")
     raise ValueError
   path = attr.split(sep=".")
 

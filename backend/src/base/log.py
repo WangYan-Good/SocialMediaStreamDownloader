@@ -14,7 +14,6 @@ import yaml as yml
 
 ##<<Third-part>>
 from backend.src.base.default import DEFAULT_BASE_CONFIG_PATH
-from backend.src.library.baselib import get_dict_attr
 
 ##
 ## >>============================= public defination =============================>>
@@ -73,7 +72,7 @@ class LoggerManager():
         ##
         ## get the log path from the config file
         ##
-        self.__DEFAULT_LOG_FILE_DIR = get_dict_attr(config, "$.log_path")
+        self.__DEFAULT_LOG_FILE_DIR =  config.get("log_path", None)
         if self.__DEFAULT_LOG_FILE_DIR is None:
           raise Exception("Log path is not defined in the base config file.")
         
