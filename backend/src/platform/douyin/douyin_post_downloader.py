@@ -22,6 +22,7 @@ from backend.src.platform.douyin.douyin_url_list_config import UrlListConfig
 from backend.src.platform.douyin.douyin_post_config import DouyinPostConfig, DEFAULT_BASE_CONFIG_PATH
 from backend.src.platform.douyin.douyin_login import DouyinLogin
 from backend.src.platform.douyin.douyin_api import DouyinApi
+from backend.src.base.log import get_logger
 
 '''
 Basic configuration:
@@ -87,7 +88,7 @@ class DouyinPostDownloader(Downloader):
   ##
   def __init__(self, path: Path = None) -> None:
     if path is None:
-       print("WARNING: invalid config path, will use default config")
+       get_logger().warning("invalid config path, will use default config")
        path = DEFAULT_BASE_CONFIG_PATH
     
     ##
@@ -122,13 +123,13 @@ class DouyinPostDownloader(Downloader):
       ## TODO
       ##
     except Exception as e:
-      print("ERROR: constrcute aggregation member failed!\n{}".format(e))
+      get_logger().error("constrcute aggregation member failed!\n{}".format(e))
       raise e
 
   def set_share_url(self, url:str=None):
     sec_user_id = str()
     if url is None:
-       print("ERROR: invalid url")
+       get_logger().error("invalid url")
        raise TypeError
     
     # update share url
@@ -144,7 +145,7 @@ class DouyinPostDownloader(Downloader):
         if sec_user_id is not None:
           self.set_sec_user_id(sec_user_id)
         else:
-          print("ERROR: sec_user_id note found!")
+          get_logger().error("sec_user_id note found!")
           raise ValueError
 
   def __update_sec_user_id_by_url(self):
@@ -183,8 +184,8 @@ class DouyinPostDownloader(Downloader):
     ## debug
     ##
     if self.config.debug is True:
-      print("INFO: response url {}".format(response.url))
-    
+      get_logger().info("response url {}".format(response.url))
+
     ##
     ## construct return result
     ##
@@ -220,10 +221,10 @@ class DouyinPostDownloader(Downloader):
       with open(save_path, 'w', encoding="utf-8") as f:
           yml.safe_dump(response.text, f)
           f.close()
-          print("save share url html response:")
-          print("\turl: {}".format(url))
-          print("\tsec_user_id: {}".format(response_url["query"]["sec_uid"]))
-          print("INFO: Save file {} success!".format(save_path))
+          get_logger().info("save share url html response:")
+          get_logger().info("\turl: {}".format(url))
+          get_logger().info("\tsec_user_id: {}".format(response_url["query"]["sec_uid"]))
+          get_logger().info("Save file {} success!".format(save_path))
     return response_url["query"]
 
 
@@ -232,7 +233,7 @@ class DouyinPostDownloader(Downloader):
 
   def query_user_post_without_login(self):
     if self.config.login is True:
-      print("ERROR: Invalid login config, please confirm it again")
+      get_logger().error("Invalid login config, please confirm it again")
       raise TypeError
     
     ##
@@ -284,7 +285,7 @@ class DouyinPostDownloader(Downloader):
         # params["X-Bogus"] = self.config.x_bogus
         self.__build["post_params"]           = params.copy()
     except Exception as e:
-        print("ERROR: construct parameter for download post without login failed!\n{}".format(e))
+        get_logger().error("construct parameter for download post without login failed!\n{}".format(e))
         raise e
 
     try:
@@ -311,19 +312,19 @@ class DouyinPostDownloader(Downloader):
         with open(save_path, 'w', encoding="utf-8") as f:
             yml.safe_dump(response.text, f)
             f.close()
-            print("save user post html response:")
-            print("\turl: {}".format(self.config.share_url))
-            print("\tsec_uid: {}".format(self.config.sec_uid))
-            print("\tnickname: {}".format(self.config.nickname))
-            print("INFO: Save file {} success!".format(save_path))
+            get_logger().info("save user post html response:")
+            get_logger().info("\turl: {}".format(self.config.share_url))
+            get_logger().info("\tsec_uid: {}".format(self.config.sec_uid))
+            get_logger().info("\tnickname: {}".format(self.config.nickname))
+            get_logger().info("Save file {} success!".format(save_path))
       ##
       ## TODO
       ##
-      print(response.status_code)
-      print(response.url)
-      print(response.json())
+      get_logger().info(response.status_code)
+      get_logger().info(response.url)
+      get_logger().info(response.json())
     except Exception as e:
-      print("ERROR: query user post without login failed!\n{}".format(e))
+      get_logger().error("query user post without login failed!\n{}".format(e))
       raise e
 
   def query_user_post(self):
@@ -358,7 +359,7 @@ class DouyinPostDownloader(Downloader):
       ##
       self.update_user_post_verify_params()
     except Exception as e:
-      print("ERROR: update download post parameters failed!\n{}".format(e))
+      get_logger().error("update download post parameters failed!\n{}".format(e))
       raise e
 
     try:
@@ -410,7 +411,7 @@ class DouyinPostDownloader(Downloader):
       # params["X-Bogus"] = self.config.x_bogus
       self.__build["post_params"]           = params.copy()
     except Exception as e:
-       print("ERROR: construct parameter for download post failed!\n{}".format(e))
+       get_logger().error("construct parameter for download post failed!\n{}".format(e))
        raise e
 
     try:
@@ -437,19 +438,19 @@ class DouyinPostDownloader(Downloader):
         with open(save_path, 'w', encoding="utf-8") as f:
             yml.safe_dump(response.text, f)
             f.close()
-            print("save user post html response:")
-            print("\turl: {}".format(self.config.share_url))
-            print("\tsec_user_id: {}".format(self.config.sec_user_id))
-            print("\tnickname: {}".format(self.config.nickname))
-            print("INFO: Save file {} success!".format(save_path))
+            get_logger().info("save user post html response:")
+            get_logger().info("\turl: {}".format(self.config.share_url))
+            get_logger().info("\tsec_user_id: {}".format(self.config.sec_user_id))
+            get_logger().info("\tnickname: {}".format(self.config.nickname))
+            get_logger().info("Save file {} success!".format(save_path))
 
       ##
       ## TODO
       ##
-      print(response.status_code)
-      print(response.json())
+      get_logger().info(response.status_code)
+      get_logger().info(response.json())
     except Exception as e:
-      print("ERROR: query user post failed!\n{}".format(e))
+      get_logger().error("query user post failed!\n{}".format(e))
       raise e
     
 
@@ -489,9 +490,9 @@ class DouyinPostDownloader(Downloader):
     ##
     ## dump post download config
     ##
-    print("Douyin post downloader configuration:")
+    get_logger().info("Douyin post downloader configuration:")
     for k,v in self.__build.items():
-      print("\t{}: {}".format(k,v))
+      get_logger().info("\t{}: {}".format(k,v))
 
   def run(self, params: None = ...) -> None:
      return super().run(params)
@@ -539,7 +540,7 @@ def download_test():
     #    sec_user_id = re.search(pattern=DOUYIN_POST_URL_PATTERN, string=share_url).group(1)
     #    post_downloader.set_sec_user_id(sec_user_id)
     post_downloader.set_share_url(share_url)
-    print('sec_uid: {}'.format(post_downloader.config.sec_user_id))
+    get_logger().info('sec_uid: {}'.format(post_downloader.config.sec_user_id))
 
     ##
     ## Query user home page
@@ -554,7 +555,7 @@ def download_test():
         post_downloader.query_user_post_without_login()    
     except Exception as e:
        post_downloader.dump_config()
-       print("ERROR: request post failed!\n{}".format(e))
+       get_logger().error("request post failed!\n{}".format(e))
        raise e
     '''
     params = dict(post_downloader.max_cursor, post_downloader.page_counts, post_downloader.sec_user_id)
@@ -562,14 +563,14 @@ def download_test():
     endpoint_url = None
     request("get", )
     '''
-    # print(post_downloader.douyin_post_config.to_dict())
+    # get_logger().info(post_downloader.douyin_post_config.to_dict())
     # post_downloader.dump_config()
     '''
     if post_downloader.config.save_response is True:
       path = post_downloader.config.build_path + "/" + post_downloader.config.stream_platform + "/" + post_downloader.config.type + "/" + post_downloader.config.nickname + ".yml"
       post_downloader.config.save_config(data=post_downloader.__build, output=Path(path))
       if post_downloader.config.debug is True:
-        print("INFO: Save file {} success!".format(path))
+        get_logger().info("Save file {} success!".format(path))
     '''
     break
 
@@ -618,6 +619,6 @@ if __name__ == "__main__":
     ## 2. override configuration by user command
     ##
     query_result = post_downloader.query_share_url(url=share_url)
-    print(query_result)
+    get_logger().info(query_result)
     break
 '''

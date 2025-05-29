@@ -11,6 +11,7 @@ import yaml as yml
 from backend.src.library.baselib import output_dict, save_dict_as_file, set_dict_attr, get_dict_attr, load_yml
 from backend.src.base.config import DEFAULT_BASE_CONFIG_PATH
 from backend.src.platform.douyin.douyin_config import DouyinConfig
+from backend.src.base.log import get_logger
 
 ##TODO remove
 from backend.src.platform.douyin.verify_fp_manager import VerifyFpManager as VFM
@@ -33,7 +34,7 @@ class DouyinLiveConfig(DouyinConfig):
   ##
   def __init__(self, path: Path = None):
     if path is None:
-      print("WARNING: invalid input, will use default config path")
+      get_logger().warning("invalid input, will use default config path")
       path = DEFAULT_BASE_CONFIG_PATH
     super().__init__(path)
 
@@ -69,7 +70,7 @@ class DouyinLiveConfig(DouyinConfig):
   def dump_config(self):
     # super().dump_config()
 
-    print("Douyin live config:")
+    get_logger().info("Douyin live config:")
     output_dict(self.__config)
 
   ##
@@ -82,7 +83,7 @@ class DouyinLiveConfig(DouyinConfig):
     except KeyError:
       value = super().get_config_dict_attr(attr)
     except Exception as e:
-      print("ERROR: get douyin live config attr({}) failed".format(attr))
+      get_logger().error("get douyin live config attr({}) failed".format(attr))
       raise e
     return value
 
@@ -129,7 +130,7 @@ class DouyinLiveConfig(DouyinConfig):
     ## save sub class config
     ##
     if output is None:
-      print("WARNING: save douyin live config in default path")
+      get_logger().warning("save douyin live config in default path")
       output = self._douyin_live_config_save_path
     save_dict_as_file(self.__config, output)
 

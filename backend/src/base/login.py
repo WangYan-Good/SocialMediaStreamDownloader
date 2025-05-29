@@ -11,6 +11,7 @@ from pathlib import Path
 import yaml as yml
 
 ##<<Third-part>>
+from backend.src.base.log import get_logger
 DEFAULT_BASE_CONFIG_PATH = "config/douyin/login.yml"
 
 class Proxies(ABC):
@@ -22,14 +23,14 @@ class Proxies(ABC):
   ##
   def set_proxies(self, proxies:dict = None):
     if proxies is None:
-      print("ERROR: Invalid proxies!")
+      get_logger().error("Invalid proxies!")
       return
     
     try:
       self.__proxies = proxies.copy()
       self.__dict__.update(proxies)
     except Exception as e:
-      print("ERROR: Set proxies failed {}".format(e))
+      get_logger().error("Set proxies failed {}".format(e))
 
   ##
   ## get proxies in dict
@@ -41,9 +42,9 @@ class Proxies(ABC):
   ## Dump configuration
   ##
   def dump_config(self):
-    print("Proxies configuration:")
+    get_logger().info("Proxies configuration:")
     for key, value in self.__proxies.items():
-      print("\t{}: {}".format(key, value))
+      get_logger().info("\t{}: {}".format(key, value))
 
 class Login(ABC):
 
@@ -62,7 +63,7 @@ class Login(ABC):
   ##
   def __init__(self, path: Path|str = None):
     if path is None:
-      print("WARNING: invalid input path, will use default path")
+      get_logger().warning("invalid input path, will use default path")
       path = DEFAULT_BASE_CONFIG_PATH
     
     ##
@@ -74,13 +75,13 @@ class Login(ABC):
       self.__login = self.parse_config(path)
       self.__dict__.update(self.__login)
     except Exception as e:
-      print("ERROR: Login init failed {}".format(e))
+      get_logger().error("Login init failed: {}".format(e))
   ##
   ## Parse and genearte download config
   ##
   def parse_config(self, path:Path = None)->dict:
     if path is None:
-      print ("ERROR: Invalid configuration path!")
+      get_logger().error("Invalid configuration path!")
       return
     
     try:
@@ -90,7 +91,7 @@ class Login(ABC):
       ##
       base_config = yml.safe_load(path.read_text(encoding="utf-8"))
     except Exception as e:
-      print("ERROR: Parse configuration failed: {}".format(e))
+      get_logger().error("Parse configuration failed: {}".format(e))
     return base_config
 
   ##
@@ -109,14 +110,14 @@ class Login(ABC):
       self.proxies = Proxies()
       self.proxies.set_proxies(self.__login.get("proxies", None))
     except Exception as e:
-      print("ERROR: Construct aggregation class failed {}".format(e))
+      get_logger().error("Construct aggregation class failed {}".format(e))
 
   ##
   ## Dump configuration
   ##
   @abstractmethod
   def dump_config(self):
-    print("Login configuration:")
+    get_logger().info("Login configuration:")
     for key, value in self.__login.items():
-      print("\t{}: {}".format(key, value))
+      get_logger().info("\t{}: {}".format(key, value))
     self.proxies.dump_config()

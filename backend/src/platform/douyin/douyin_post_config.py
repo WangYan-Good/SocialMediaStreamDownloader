@@ -12,6 +12,7 @@ import yaml as yml
 
 ## <<Third-part>>
 from backend.src.platform.douyin.douyin_config import DouyinConfig, DEFAULT_BASE_CONFIG_PATH
+from backend.src.base.log import get_logger
 
 ## TODO remove
 from verify_fp_manager import VerifyFpManager as VFM
@@ -65,7 +66,7 @@ class DouyinPostConfig(DouyinConfig):
 
   def __init__(self, path:Path = None) -> None:
     if path is None:
-      print("WARNING: invalid input, will use default configuration")
+      get_logger().warning("invalid input, will use default configuration")
       path = DEFAULT_BASE_CONFIG_PATH
     super().__init__(path=Path(path))
     self.__parse_config(Path(self.post_config_path))
@@ -128,7 +129,7 @@ class DouyinPostConfig(DouyinConfig):
   ##
   def __parse_config(self, path:Path = None)->dict:
     if path is None:
-      print ("ERROR: invalid post configuration path!")
+      get_logger().error("invalid post configuration path!")
       raise FileNotFoundError
     
     try:
@@ -143,7 +144,7 @@ class DouyinPostConfig(DouyinConfig):
       ##
       self.__dict__.update(self.__config)
     except Exception as e:
-      print("ERROR: parse configuration failed = {}".format(e))
+      get_logger().error("parse configuration failed = {}".format(e))
       raise e
     return self.__config
 
@@ -152,7 +153,7 @@ class DouyinPostConfig(DouyinConfig):
   ##
   def update_post_share_url(self, param:dict = None):
     if param is None:
-      print("ERROR: invalid parameter!")
+      get_logger().error("invalid parameter!")
       raise ValueError
     
     try:
@@ -162,7 +163,7 @@ class DouyinPostConfig(DouyinConfig):
       self.share_url   = param.get("share_url", "")
       # self.sec_user_id = param.get("sec_user_id", "")
     except Exception as e:
-      print("ERROR: update douyin post config failed!\n{}".format(e))
+      get_logger().error("update douyin post config failed!\n{}".format(e))
       raise e
 
   ##
@@ -180,9 +181,9 @@ class DouyinPostConfig(DouyinConfig):
     ##
     ## dump config
     ##
-    print("Douyin POST configuration:")
+    get_logger().info("Douyin POST configuration:")
     for key, value in self.__config.items():
-      print("\t{k}: {v}".format(k=key, v=value))
+      get_logger().info("\t{k}: {v}".format(k=key, v=value))
 
 if __name__ == "__main__":
   post_config = DouyinPostConfig()
