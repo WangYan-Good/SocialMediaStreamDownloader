@@ -283,6 +283,29 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
   ##
   ## get the owner nickname from database
   ##
+  def get_directory_name_by_owner_user_id(self, owner_user_id:str) -> str:
+    try:
+      sql = '''
+              SELECT directory_name
+              FROM share_url
+              WHERE owner_user_id = "{}";
+            '''.format(owner_user_id)
+      connector = self.get_db_connector()
+      cursor = connector.cursor()
+      cursor.execute(sql)
+      result = cursor.fetchall()
+      connector.close()
+      if len(result) != 0:
+        return result[0][0]
+      else:
+        return None
+    except Exception as e:
+      get_logger().error("search owner directory name {} failed {}".format(owner_user_id, e))
+      raise e
+
+  ##
+  ## get the owner nickname from database
+  ##
   def get_owner_nickname_by_live_share_url(self, live_share_url:str) -> str:
     try:
       sql = '''
