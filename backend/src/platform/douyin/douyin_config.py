@@ -8,7 +8,8 @@ sys.path.append(os.getcwd())
 
 ## <<Third-part>>
 from backend.src.library.baselib import output_dict, save_dict_as_file, get_dict_attr, set_dict_attr, load_yml
-from backend.src.base.config import BaseConfig, DEFAULT_BASE_CONFIG_PATH
+from backend.src.base.config     import BaseConfig, DEFAULT_BASE_CONFIG_PATH
+from backend.src.base.log        import get_logger
 
 class DouyinConfig(BaseConfig):
 
@@ -63,7 +64,7 @@ sub-class:
   ##
   def __init__(self, path: Path = None):
     if path is None:
-      print("WARNING: invalid input, will use default config path")
+      get_logger().warning("invalid input, will use default config path")
       path = Path(DEFAULT_BASE_CONFIG_PATH)
     
     ##
@@ -119,9 +120,7 @@ sub-class:
   ##  Dump config
   ##
   def dump_config(self,):
-    # super().dump_config()
-
-    print("Douyin config:")
+    get_logger().info("Douyin configuration:")
     output_dict(self.__config)
 
 
@@ -134,7 +133,7 @@ sub-class:
     except KeyError:
       super().get_config_dict_attr(attr)
     except Exception as e:
-      print("ERROR: get douyin config attr({}) failed".format(attr))
+      get_logger().error("get douyin config attr({}) failed".format(attr))
       raise e
 
   ##
@@ -151,7 +150,7 @@ sub-class:
   ##
   def dict_to_attr(self, dic:dict = None):
     if dict is None:
-      print("ERROR: Invalid input dict")
+      get_logger().error("Invalid input dict")
       return
     pass
 
@@ -171,7 +170,7 @@ sub-class:
     ## save sub class config
     ##
     if output is None:
-      print("WARNING: save douyin base config in default path")
+      get_logger().warning("save douyin base config in default path")
       output = self._douyin_base_config_save_path
     save_dict_as_file(self.__config, output)
 

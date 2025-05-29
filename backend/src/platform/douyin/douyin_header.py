@@ -12,6 +12,7 @@ from abc import abstractmethod
 from pathlib import Path
 from backend.src.base.header import Header
 from backend.src.library.baselib import output_dict, get_dict_attr, set_dict_attr
+from backend.src.base.log import get_logger
 
 DEFAULT_HEADER_PATH = "config/douyin/headers.yml"
 
@@ -36,7 +37,7 @@ class DouyinHeader(Header):
   ##
   def __init__(self, header_path: Path | str = None) -> None:
     if header_path is None:
-      print("WARNING: invalid config, use default douyin header config")
+      get_logger().warning("invalid config, use default douyin header config")
       header_path = DEFAULT_HEADER_PATH
     
     ##
@@ -117,7 +118,7 @@ class DouyinShareHeader(DouyinHeader):
   ## Dump header config
   ##
   def dump_header(self):
-    print("Douyin share url header configuration:")
+    get_logger().info("Douyin share url header configuration:")
     output_dict(self._header)
 
   ##
@@ -141,7 +142,7 @@ class DouyinShareHeader(DouyinHeader):
     else:
       self._header = super().get_header_dict_attr("$.share_live_url_no_login")
     if self._header is None:
-      print("ERROR: Douyin share live header does not found!")
+      get_logger().error("Douyin share live header does not found!")
       raise ModuleNotFoundError
   
   ##
@@ -153,9 +154,9 @@ class DouyinShareHeader(DouyinHeader):
     else:
       pass
     if self._header is None:
-      print("ERROR: Douyin share post header does not found!")
+      get_logger().error("Douyin share post header does not found!")
       raise ValueError
-    print("INFO: Douyin share post header initialize complete")
+    get_logger().info("Douyin share post header initialize complete")
 ##
 ## >>============================= sub class method =============================>>
 ##
@@ -191,7 +192,7 @@ class DouyinLiveInfoHeader(DouyinHeader):
   ## Dump header config
   ##  
   def dump_header(self):
-    print("Douyin live info header configuration:")
+    get_logger().info("Douyin live info header configuration:")
     output_dict(self._header)
 
   ##
@@ -218,7 +219,7 @@ class DouyinLiveInfoHeader(DouyinHeader):
     else:
       self._header = super().get_header_dict_attr("$.live_room_info_no_login")
     if self._header is None:
-      print("ERROR: Douyin live info header does not found!")
+      get_logger().error("Douyin live info header does not found!")
       raise ModuleNotFoundError
 
   ##
@@ -274,7 +275,7 @@ class DouyinPostInfoHeader(DouyinHeader):
   ## Dump header config
   ##  
   def dump_header(self):
-    print("Douyin live info header configuration:")
+    get_logger().info("Douyin live info header configuration:")
     output_dict(self._header)
 
   ##
@@ -301,9 +302,9 @@ class DouyinPostInfoHeader(DouyinHeader):
     else:
       self._header = super().get_header_dict_attr("$.post_info_no_login")
     if self._header is None:
-      print("ERROR: Douyin post info header does not found!")
+      get_logger().error("Douyin post info header does not found!")
       raise ModuleNotFoundError
-    print("INFO: Douyin post info header initialize complete")
+    get_logger().info("Douyin post info header initialize complete")
 
 if __name__ == "__main__":
   # '''

@@ -11,6 +11,7 @@ from logging import debug, info, warning, error
 
 ## <<Third-Part>>
 from backend.src.database.social_media_stream_database import SocialMediaStreamDataBase
+from backend.src.base.log                              import get_logger
 
 class FavoriteOwnerTable(SocialMediaStreamDataBase):
 ##
@@ -62,7 +63,7 @@ def test_create_favorite_owner_table():
             )
           '''
     cursor.execute(sql)
-    print("INFO: test create database table success")
+    get_logger().info("test create database table success")
     connector.close()
   except Exception as e:
-    print("ERROR: test create database table failed {}".format(e))
+    get_logger().error("test create database table failed {}".format(e))

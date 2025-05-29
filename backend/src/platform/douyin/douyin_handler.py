@@ -8,17 +8,18 @@ sys.path.append(os.getcwd())
 from requests import request
 
 ## <<Third-Part>>
-from backend.src.library.baselib import get_dict_attr, set_dict_attr
-from backend.src.platform.douyin.douyin_api import DouyinApi
+from backend.src.library.baselib                        import get_dict_attr, set_dict_attr
+from backend.src.platform.douyin.douyin_api             import DouyinApi
 from backend.src.platform.douyin.douyin_live_downloader import download_multiple_live
+from backend.src.base.log                               import get_logger
 
 ##
 ## handler douyin live url
 ##
 def douyin_live_handler(url):
-  print("[douyin] progressing: {}".format(url))
+  get_logger().info("[douyin] progressing: {}".format(url))
   if url is None:
-    print("ERROR: invalid url")
+    get_logger().error("invalid url")
     raise ValueError
   
   pass
@@ -27,9 +28,9 @@ def douyin_live_handler(url):
 ## handle douyin user main page url
 ##
 def douyin_user_main_page_handler(url):
-  print("[douyin] progressing: {}".format(url))
+  get_logger().info("[douyin] progressing: {}".format(url))
   if url is None:
-    print("ERROR: invalid url")
+    get_logger().error("invalid url")
     raise ValueError
   
   pass
@@ -38,9 +39,9 @@ def douyin_user_main_page_handler(url):
 ## handle douyin video post url
 ##
 def douyin_video_post_handler(url):
-  print("[douyin] progressing: {}".format(url))
+  get_logger().info("[douyin] progressing: {}".format(url))
   if url is None:
-    print("ERROR: invalid url")
+    get_logger().error("invalid url")
     raise ValueError
   
   pass
@@ -54,7 +55,7 @@ def is_douyin_live_url(url):
   ## check if the url is valid
   ##
   if url is None:
-    print("ERROR: invalid url")
+    get_logger().error("invalid url")
     raise ValueError
   
   ##
@@ -80,7 +81,7 @@ def is_douyin_live_url(url):
 
 def douyin_handler(token_list:list):
   if token_list is None:
-    print("ERROR: invalid url list")
+    get_logger().error("invalid url list")
     raise ValueError
   
   live_token_list = list()
@@ -92,16 +93,16 @@ def douyin_handler(token_list:list):
   for token in token_list:
     url = get_dict_attr(token, "$.url")
     if url is None:
-      print("ERROR: invalid url")
+      get_logger().error("invalid url")
       continue
     ##
     ## query url
     ##
     response = request('GET', url)
     if response.status_code != 200:
-      print("ERROR: request failed")
+      get_logger().error("request failed")
       continue
-    
+
     ##
     ## compare the user with the api
     ##
@@ -109,7 +110,7 @@ def douyin_handler(token_list:list):
       if is_douyin_live_url(response.url):
         live_token_list.append(token)
     except Exception as e:
-      print(f"ERROR: {e}")
+      get_logger().error("{}".format(e))
       continue
     
     ##
@@ -118,7 +119,7 @@ def douyin_handler(token_list:list):
     try:
       download_multiple_live(live_token_list)
     except Exception as e:
-      print("ERROR: download multiple live failed! {}".format(e))
+      get_logger().error("download multiple live failed! {}".format(e))
       return
   
   return

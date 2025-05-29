@@ -7,9 +7,10 @@ sys.path.append(os.getcwd())
 import yaml as yml
 
 ##<<Third-part>>
-from pathlib import Path
-from backend.src.base.api import Api
+from pathlib                     import Path
+from backend.src.base.api        import Api
 from backend.src.library.baselib import get_dict_attr
+from backend.src.base.log        import get_logger
 
 
 DEFAULT_API_CONFIG_PATH = "./config/douyin/api.yml"
@@ -24,7 +25,7 @@ class DouyinApi(Api):
 ##
   def __init__(self, path: Path | str = None) -> None:
     if path is None:
-      print("WARNING: invalid api config path, will use default api config")
+      get_logger().warning("invalid api config path, will use default api config")
       path = DEFAULT_API_CONFIG_PATH
     super().__init__(path)
 
@@ -40,7 +41,7 @@ class DouyinApi(Api):
 
   def __parse_api(self, path: Path = None):
     if path is None:
-      print("ERROR: invalid api config path")
+      get_logger().error("invalid api config path")
       raise FileNotFoundError
     self.__api = yml.safe_load(path.read_text(encoding="utf-8"))
 ##
@@ -48,9 +49,9 @@ class DouyinApi(Api):
 ##
   def dump_config(self):
     super().dump_config()
-    print("douyin API configuration:")
+    get_logger().info("Douyin API configuration:")
     for k,v in self.__api.items():
-      print("\t{}: {}".format(k,v))
+      get_logger().info("\t{}: {}".format(k,v))
 ##
 ## >>============================= sub class method =============================>>
 ##
@@ -62,7 +63,7 @@ class DouyinApi(Api):
     try:
       value = get_dict_attr(self.__api, attr)
     except Exception as e:
-      print("ERROR: get douyin live config attr({}) failed".format(attr))
+      get_logger().error("Douyin API get config attr failed: {}".format(e))
       raise e
     return value
 if __name__ == "__main__":

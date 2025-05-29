@@ -1,4 +1,7 @@
 ##>> test
+import os
+import sys
+sys.path.append(os.getcwd())
 ##<< test
 
 ##<<Base>>
@@ -7,15 +10,11 @@ import sys
 from pathlib import Path
 
 ##<<Extension>>
-import yaml as yml
 
 ##<<Third-part>>
 from backend.src.library.baselib import get_dict_attr, set_dict_attr, save_dict_as_file, output_dict, load_yml
-
-##
-## Define
-##
-DEFAULT_BASE_CONFIG_PATH = "config/base_config.yml"
+from backend.src.base.log import get_logger
+from backend.src.base.default import DEFAULT_BASE_CONFIG_PATH
 
 ##
 ## Defination sbstract class
@@ -65,7 +64,7 @@ class BaseConfig():
   ##
   def __init__(self, path:Path|str = None):
     if path is None:
-      print("WARNING: invalid input, will use default base configuration")
+      get_logger().warning("invalid input, will use default base configuration")
       path = DEFAULT_BASE_CONFIG_PATH
 
     ##
@@ -81,7 +80,7 @@ class BaseConfig():
       ##
       self.__config = load_yml(Path(self.BASE_CONFIG_FILE))
     except Exception as e:
-      print("ERROR: Parse base configuration failed! {}".format(e))
+      get_logger().error("Parse base configuration failed! {}".format(e))
       return None
 
     try:
@@ -110,7 +109,7 @@ class BaseConfig():
       ##
       self.__dict__.update(self.__config)
     except Exception as e:
-      print("ERROR: Base config init failed! {}".format(e))
+      get_logger().error("Base config init failed! {}".format(e))
       raise e
 
 ##
@@ -126,7 +125,7 @@ class BaseConfig():
   ## Dump config
   ##
   def dump_config(self):
-    print("Base configuration:")
+    get_logger().info("Base configuration:")
     output_dict(self.to_dict())
 
   ##
@@ -137,7 +136,7 @@ class BaseConfig():
     try:
       value = get_dict_attr(self.to_dict(), attr)
     except Exception as e:
-      print("ERROR: get base config attr({}) failed".format(attr))
+      get_logger().error("get base config attr({}) failed: {}".format(attr, e))
       raise e
     return value
 
@@ -156,5 +155,5 @@ class BaseConfig():
   def save_config(self, output:Path = None):
     if output is None:
       output = self._base_config_save_path
-      print("WARNING: save base config in default path")
+      get_logger().warning("save base config in default path: {}".format(output))
     save_dict_as_file(self.to_dict(), output)
