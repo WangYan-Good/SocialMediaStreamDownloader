@@ -134,6 +134,10 @@ TODO
 
 TODO
 
+# 📜 变更记录\(Change\)
+
+参考 [变更记录](./docs/history-ZH.md#-日志记录)
+
 # 💡 项目参考\(Refer\)
 
 * https://github.com/Johnserf-Seed/f2
