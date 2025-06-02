@@ -48,7 +48,7 @@ Looking in indexes: https://pypi.tuna.tsinghua.edu.cn/simple/
 ```
 
 6. 打开浏览器，输入框添加分享链接
-<img src="./docs/media/web-ui.PNG">
+![web-UI](./docs/media/web-ui.PNG)
 
 # 📋 项目说明\(Instructions\)
 
