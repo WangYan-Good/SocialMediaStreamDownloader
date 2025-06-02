@@ -5,6 +5,7 @@ sys.path.append(os.getcwd())
 
 ##<<Base>>
 from logging import Logger, FileHandler, StreamHandler, Formatter
+from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 import time
 import re
@@ -102,7 +103,11 @@ class LoggerManager():
     ##
     ## initialize the default logger with file handler
     ##
-    file_handler = FileHandler(time.strftime(f"{self.__DEFAULT_LOG_FILE_DIR}/%Y-%m-%d.log"))
+    file_handler = TimedRotatingFileHandler(
+      filename=time.strftime(f"{self.__DEFAULT_LOG_FILE_DIR}/%Y-%m-%d.log"),
+      when='midnight',
+      interval=1
+    )
     file_handler.setLevel(self.__DEFAULT_LOGGER_LEVEL)
     file_handler.setFormatter(Formatter(self.__DEFAULT_LOGGER_FORMATTER_STR))
     self.__default_logger.addHandler(file_handler)
@@ -248,14 +253,14 @@ def test_default_logger():
   logger.debug("This is a test debug message from the default logger.")
   logger.critical("This is a test critical message from the default logger.")
   
-  test_logger = register_logger(name="test_logger", level="DEBUG")
-  set_logger_console_handler(name="test_logger", format=DEFAULT_LOGGER_FORMATTER_STR, level="DEBUG")
-  set_logger_file_handler(name="test_logger", file_path="test_log.log", format=DEFAULT_LOGGER_FORMATTER_STR, level="DEBUG")
-  test_logger.info("This is a test log message from the test logger.")
-  test_logger.error("This is a test error message from the test logger.")
-  test_logger.warning("This is a test warning message from the test logger.")
-  test_logger.debug("This is a test debug message from the test logger.")
-  test_logger.critical("This is a test critical message from the test logger.")
+  # test_logger = register_logger(name="test_logger", level="DEBUG")
+  # set_logger_console_handler(name="test_logger", format=DEFAULT_LOGGER_FORMATTER_STR, level="DEBUG")
+  # set_logger_file_handler(name="test_logger", file_path="test_log.log", format=DEFAULT_LOGGER_FORMATTER_STR, level="DEBUG")
+  # test_logger.info("This is a test log message from the test logger.")
+  # test_logger.error("This is a test error message from the test logger.")
+  # test_logger.warning("This is a test warning message from the test logger.")
+  # test_logger.debug("This is a test debug message from the test logger.")
+  # test_logger.critical("This is a test critical message from the test logger.")
 
 ##
 ## >>================================ main method ===============================>>
