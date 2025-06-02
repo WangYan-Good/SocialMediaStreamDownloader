@@ -42,43 +42,13 @@ Looking in indexes: https://pypi.tuna.tsinghua.edu.cn/simple/
 ...
 ```
 
-5. 配置分享链接，以 douyin 为例
-```shell
-# 编辑文件 ./config/douyin/conf.ini
-# 在 [live] 添加直播分享链接，以行分隔
-[live]
-  https://v.douyin.com/XXX1/  # URL1
-  https://v.douyin.com/XXX2/  # URL2
-
-# 
-# 编辑文件 ./config/base_config.yml
-# 配置同一时间最大下载数量
-save_path: XXX
-max_thread: XXX
-```
-
-6. 开始下载，执行下载命令
-```shell
-(venv) [userid@localhost SocialMediaStreamDownloader]$ python3 ./src/platform/douyin/douyin_live_downloader.py
-```
-
-7. 开启下载后，应用会不断轮询 [live] 列表，会不断监听直播状态，如需退出，输入以下命令：
-```shell
-# 触发退出线程，停止监听器，当前正在下载的直播不会中断
-quit
-```
-
-## Web下载演示
-
-重复上述步骤 1-4
-
 5. 启动 web 服务
 ```shell
 (venv) [userid@localhost SocialMediaStreamDownloader]$ python3 ./server.py
 ```
 
 6. 打开浏览器，输入框添加分享链接
-
+<img src="./docs/media/web-ui.PNG">
 
 # 📋 项目说明\(Instructions\)
 
