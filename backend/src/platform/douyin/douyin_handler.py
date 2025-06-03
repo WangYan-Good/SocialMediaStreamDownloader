@@ -79,8 +79,8 @@ def is_douyin_live_url(url):
 ## 3. 用户主页
 ##
 
-def douyin_handler(token_list:list):
-  if token_list is None:
+def douyin_handler(token:dict):
+  if token is None:
     get_logger().error("invalid url list")
     raise ValueError
   
@@ -90,37 +90,36 @@ def douyin_handler(token_list:list):
   ## token["url"]: str
   ## token["score"]: int
   ##
-  for token in token_list:
-    url = get_dict_attr(token, "$.url")
-    if url is None:
-      get_logger().error("invalid url")
-      continue
-    ##
-    ## query url
-    ##
-    response = request('GET', url)
-    if response.status_code != 200:
-      get_logger().error("request failed")
-      continue
+  url = get_dict_attr(token, "$.url")
+  if url is None:
+    get_logger().error("invalid url")
+    return
+  ##
+  ## query url
+  ##
+  response = request('GET', url)
+  if response.status_code != 200:
+    get_logger().error("request failed")
+    return
 
-    ##
-    ## compare the user with the api
-    ##
-    try:
-      if is_douyin_live_url(response.url):
-        live_token_list.append(token)
-    except Exception as e:
-      get_logger().error("{}".format(e))
-      continue
-    
-    ##
-    ## start multiple thread to download living
-    ##
-    try:
-      download_multiple_live(live_token_list)
-    except Exception as e:
-      get_logger().error("download multiple live failed! {}".format(e))
-      return
+  ##
+  ## compare the user with the api
+  ##
+  try:
+    if is_douyin_live_url(response.url):
+      live_token_list.append(token)
+  except Exception as e:
+    get_logger().error("{}".format(e))
+    return
+  
+  ##
+  ## start multiple thread to download living
+  ##
+  try:
+    download_multiple_live(live_token_list)
+  except Exception as e:
+    get_logger().error("download multiple live failed! {}".format(e))
+    return
   
   return
 
