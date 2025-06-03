@@ -107,7 +107,7 @@ class PlatformDispatcher:
       get_logger().error("invalid attribute of urls")
       raise ValueError
     
-    url_dict = {item:list() for item in self.__event_list}
+    url_dict = {event:list() for event in self.__event_list}
     
     for url in urls:
       
@@ -147,13 +147,13 @@ class PlatformDispatcher:
         ##
         ## dispatch event
         ##
-        get_logger().info("dispatching event: {}".format(event))
-        
+        get_logger().info("dispatching event: {}".format(event))        
         
         ##
         ## submit handler
         ##
-        self.executors[event].submit(self.handlers[event], token_list)
+        for token in token_list:  
+          self.executors[event].submit(self.handlers[event], token)
       else:
         get_logger().error("invalid event: {}".format(event))
 
