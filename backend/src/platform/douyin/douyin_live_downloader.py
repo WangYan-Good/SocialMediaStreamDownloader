@@ -713,11 +713,14 @@ class DouyinLiveDownloader(Downloader):
     except ContentTooShortError:
         self.auto_down (url, fp, fn, retry_times)
 
+##
+## >>================================ public method ===============================>>
+##
+downloader = DouyinLiveDownloader()
 def download_single_live(url):
   ##
   ## construct live downloader
   ##
-  downloader = DouyinLiveDownloader()
   if downloader.config.get_config_dict_attr("$.debug") is True:
     downloader.dump_config()
   
@@ -733,7 +736,6 @@ def download_multiple_live_with_patrolman():
   ##
   ## construct live downloader
   ##
-  downloader = DouyinLiveDownloader()
   if downloader.config.get_config_dict_attr("$.debug") is True:
     downloader.dump_config()
 
@@ -751,7 +753,6 @@ def download_multiple_live(token_list:list):
   ##
   ## construct live downloader
   ##
-  downloader = DouyinLiveDownloader()
   if downloader.config.get_config_dict_attr("$.debug") is True:
     downloader.dump_config()
 
@@ -772,7 +773,6 @@ def download_multiple_live(token_list:list):
 ##
 def download_live_stream_by_score():
   token = dict()
-  downloader = DouyinLiveDownloader()
   if downloader.config.get_config_dict_attr("$.debug") is True:
     downloader.dump_config()
   favorite_list = downloader.database.get_douyin_favorite_live_url()
@@ -789,7 +789,6 @@ def download_live_stream_by_score():
 ## test: download a live stream by url
 ##
 def download_live_test():
-  downloader = DouyinLiveDownloader()
   if downloader.config.get_config_dict_attr("$.debug") is True:
     downloader.dump_config()
   live_url_list = downloader.url_list.get_config_list("live")
