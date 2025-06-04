@@ -104,10 +104,12 @@ class LoggerManager():
     ## initialize the default logger with file handler
     ##
     file_handler = TimedRotatingFileHandler(
-      filename=time.strftime(f"{self.__DEFAULT_LOG_FILE_DIR}/%Y-%m-%d.log"),
+      filename= os.path.join(self.__DEFAULT_LOG_FILE_DIR, "social_media_stream_downloader")
       when='midnight',
-      interval=1
+      interval=1,
+      encoding="uft-8"
     )
+    file_handler.suffix="-%Y-%m-%d.log"
     file_handler.setLevel(self.__DEFAULT_LOGGER_LEVEL)
     file_handler.setFormatter(Formatter(self.__DEFAULT_LOGGER_FORMATTER_STR))
     self.__default_logger.addHandler(file_handler)
