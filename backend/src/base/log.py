@@ -7,7 +7,6 @@ sys.path.append(os.getcwd())
 from logging import Logger, FileHandler, StreamHandler, Formatter
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
-import time
 import re
 
 ##<<Existension>>
@@ -104,10 +103,10 @@ class LoggerManager():
     ## initialize the default logger with file handler
     ##
     file_handler = TimedRotatingFileHandler(
-      filename= os.path.join(self.__DEFAULT_LOG_FILE_DIR, "social_media_stream_downloader")
+      filename=os.path.join(self.__DEFAULT_LOG_FILE_DIR, "social_media_stream_downloader"),
       when='midnight',
       interval=1,
-      encoding="uft-8"
+      encoding="utf-8"
     )
     file_handler.suffix="-%Y-%m-%d.log"
     file_handler.setLevel(self.__DEFAULT_LOGGER_LEVEL)
