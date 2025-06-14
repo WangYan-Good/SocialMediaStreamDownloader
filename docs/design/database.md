@@ -36,20 +36,49 @@
 | level         | int       | NO   |     | 0       |       |
 +---------------+-----------+------+-----+---------+-------+
 ```
-
-直播信息表
-
-直播间信息
-  - 当前观众人数
-  - 管理员信息 admin_user_ids
-  - 分享链接文本 anchor_share_text
-  - 商业直播 business_live
-  - 基础类型 base_category
-  - 类别 category: 2969
-  - cell_style: 3
-  - 封面 cover
-主播信息
-  - 城市 auth_city
+直播记录
+  - 时间戳(ms)
+  - 直播状态(status_code)
+  - 直播间信息
+    - *AnchorABMap
+    - *熟悉状态(acquaintance_status)
+    - 管理员列表(admin_user_ids)
+    - *管理员开放ID(admin_user_open_ids)
+    - *anchor_scheduled_time_text
+    - 锚定分享文本(anchor_share_text)
+    - *锚定标签类型(anchor_tab_type)
+    - *app_id
+    - *assist_label_list
+    - 作者地址(auth_city)
+    - *自动封面(auto_cover)
+    - *基本类别(base_category)
+    - *book_end_time
+    - *book_time
+    - 商业直播(business_live)
+    - category
+    - cell_style
+    - challenge_info
+    - city_top_distance
+    - client_version
+    - 评论区(comment_box)
+      - 占位符(placeholder)
+    - 评论名称模式(comment_name_mode)
+    - common_label_list
+    - content_tag
+    - 封面(cover)
+    - 创建时间(create_time/s)
+    - 弹幕详情(danmaku_detail)
+    
+    - 当前观众人数
+    - 管理员信息 admin_user_ids
+    - 分享链接文本 anchor_share_text
+    - 商业直播 business_live
+    - 基础类型 base_category
+    - 类别 category: 2969
+    - cell_style: 3
+    - 封面 cover
+    - 主播信息
+    - 城市 auth_city
 观众人次
 
 ```yml
