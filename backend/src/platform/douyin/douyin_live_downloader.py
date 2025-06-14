@@ -427,7 +427,7 @@ class DouyinLiveDownloader(Downloader):
       ## example: config/build/douyin/live/_xxx_.yml
       ##
       set_dict_attr(build, "$.external_info", live_response_dict)
-      path = self.config.get_config_dict_attr("$.build_path") + "/" + self.config.get_config_dict_attr("$.stream_platform") + "/" + self.config.get_config_dict_attr("$.type") + "/" + self.live_external_info.get_nickname(live_response)  + ".yml"
+      path = self.config.get_config_dict_attr("$.build_path") + "/" + self.config.get_config_dict_attr("$.stream_platform") + "/" + self.config.get_config_dict_attr("$.type") + "/" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S_") + self.live_external_info.get_nickname(live_response)  + ".yml"
       set_dict_attr(summary, "$.save_path", path)
       set_dict_attr(build, "$.summary", summary)
       if self.config.get_config_dict_attr("$.save_response") is True:
