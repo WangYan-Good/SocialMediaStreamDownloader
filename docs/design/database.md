@@ -15,6 +15,7 @@
 - ID: varchar(200)
 - 姓名昵称: varchar(50)
 - 城市: varchar(100)
+- 位置：varchar(100)
 - 类型: unsigned tinyint, 占 1 个字节 0~255
 - 模式: unsigned tinyint, 占 1 个字节 0~255
 - 时间：timestamp
@@ -27,174 +28,16 @@
 - 配置：text, 最大 64KB
 - 参数：text, 最大 64KB
 - 标题：tinytext, 最大 256 字节
-- 标签：tinytext, 最大 256 字节
 - 版本：varchar(20)
+- 标签：tinytext, 最大 256 字节
+- 关注数量：unsigned int 占 4 个字节 0 - 4 294,967,295
+- 粉丝数量：unsigned bigint 占 8 个字节 0 - 18,446,744,073,709,551,615
+- 设置: tinytext, 最大 256 字节
+- uri 的 url 索引: unsigned tinyint, 占 1 个字节
+- 拓扑路径: tinyint, 最大 256 字节
+- 颜色: varchar(7)
 
 ## 抖音
-### 二次数据
-作者信息表 - share_url
-```shell
-+----------------+--------------+------+-----+---------+-------+-----------------+------------------------------+
-| Field          | Type         | Null | Key | Default | Extra | Comment         | Topology                     |
-+----------------+--------------+------+-----+---------+-------+-----------------+------------------------------+
-| owner_user_id  | varchar(200) | NO   | PRI | NULL    |       |                 | "$.data.room.owner_user_id"  |
-| sec_user_id    | varchar(200) | YES  |     | NULL    |       |                 |                              |
-| nickname       | varchar(50)  | YES  |     | NULL    |       |                 | "$.data.room.owner.nickname" |
-| post_share_url | varchar(100) | YES  |     | NULL    |       |                 |
-| live_share_url | varchar(100) | YES  |     | NULL    |       |                 |
-| directory_name | varchar(100) | YES  |     | NULL    |       |                 |
-| user_status    | varchar(100) | YES  |     | NULL    |       |                 |
-| actived_count  | unsinged int | NO   |     | 0       |       |                 |
-+----------------+--------------+------+-----+---------+-------+-----------------+-----------------------------+
-```
-
-喜爱的作者表 - favorite_owner
-```shell
-+---------------+------------------+------+-----+---------+-------+-----------------+-----------------------------+
-| Field         | Type             | Null | Key | Default | Extra | Comment         | Topology                    |
-+---------------+------------------+------+-----+---------+-------+-----------------+-----------------------------+
-| owner_user_id | varchar(200)     | NO   | PRI | NULL    |       |                 | "$.data.room.owner_user_id" |
-| platform      | varchar(20)      | YES  |     | NULL    |       |                 |                             |
-| score         | unsigned tinyint | NO   |     | 0       |       |     0-100       |                             |
-+---------------+------------------+------+-----+---------+-------+-----------------+-----------------------------+
-```
-
-直播记录表 - live_record
-```shell
-+----------------------------+------------------+------+-----+---------+-------+-----------------+---------------------------+
-| Field                      | Type             | Null | Key | Default | Extra | Comment         | Topology                  |
-+----------------------------+------------------+------+-----+---------+-------+-----------------+---------------------------+
-| now                        | timestamp        | YES  |     |         |       | 当前时间戳       | "$.extra.now"             |
-| platform                   | varchar(20)      |      |     | NULL    |       | 平台             |                          |
-| room_id                    | varchar(200)     |      |     |         |       | 直播间ID         | "$.data.room.id"          |
-| user_id                    | varchar(200)     |      |     | NULL    |       | 当前观众ID       | "$.data.user.id"          |
-| start_time                 | timestamp        |      |     | 0       |       | 开始时间         | "$.data.room.start_time"  |
-| finish_time                | timestamp        |      |     | 0       |       | 结束时间         | "$.data.room.finish_time" |
-| status_code                | unsigned tinyint |      |     | 0       |       | 网络请求状态     | "$.status_code"           |
-| status                     | unsigned tinyint |      |     | 0       |       | 直播状态         | "$.data.room.status"      |
-+----------------------------+------------------+------+-----+---------+-------+-----------------+---------------------------+
-```
-
-直播间表 - live_room
-```shell
-+----------------------------+------------------+------+-----+---------+-------+-----------------+---------------------------+
-| Field                      | Type             | Null | Key | Default | Extra | Comment         | Topology                  |
-+----------------------------+------------------+------+-----+---------+-------+-----------------+---------------------------+
-| now                        | timestamp        | YES  |     |         |       | 当前时间戳       | "$.extra.now"             |
-| id                         | varchar(200)     |      |     |         |       | 直播间ID         | "$.data.room.id"          |
-| create_time                | timestamp        |      |     |         |       | 直播间创建时间   | "$.data.room.create_time" | 
-+----------------------------+------------------+------+-----+---------+-------+-----------------+---------------------------+
-```
-
-直播间 owner 表 - live_room_owner
-```shell
-+----------------------------+------------------+------+-----+---------+-------+-----------------+-----------------------------+
-| Field                      | Type             | Null | Key | Default | Extra | Comment         | Topology                    |
-+----------------------------+------------------+------+-----+---------+-------+-----------------+-----------------------------+
-| now                        | timestamp        | YES  |     |         |       | 当前时间戳       | "$.extra.now"               |
-| room_id                    | varchar(200)     |      |     |         |       | 直播间ID         | "$.data.room.id"            |
-| owner_user_id              | varchar(200)     |      |     |         |       | 直播间主播ID     | "$.data.room.owner_user_id" |
-+----------------------------+------------------+------+-----+---------+-------+-----------------+-----------------------------+
-```
-
-用户表 - user
-```shell
-+----------------------------+------------------+------+-----+---------+-------+-----------------+-----------------------------+
-| Field                      | Type             | Null | Key | Default | Extra | Comment         | Topology                    |
-+----------------------------+------------------+------+-----+---------+-------+-----------------+-----------------------------+
-| id                         | varchar(200)     |      |     |         |       | 直播间ID         |  "$.data.user.id"           |
-+----------------------------+------------------+------+-----+---------+-------+-----------------+-----------------------------+
-```
-
-===
-
-短接触区域配置 - short_touch_area_config
-```shell
-+--------------------------------+------------------------------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                                     | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------------------------------+------+-----+---------+-------+-----------------+
-| elements                       | table - short_touch_area_config_elements | NULL |     |         |       |                 |
-| forbidden_types_map            | json                                     | NULL |     |         |       |                 |
-| strategy_feat_whitelist        | table - strategy_feat_whitelist          | NULL |     |         |       |                 |
-| temp_state_condition_map       | table - temp_state_condition_map         | NULL |     |         |       |                 |
-| temp_state_global_condition    | table - temp_state_global_condition      | NULL |     |         |       |                 |
-| temp_state_strategy            | table - temp_state_strategy              | NULL |     |         |       |                 |
-+--------------------------------+------------------------------------------+------+-----+---------+-------+-----------------+
-```
-
-直播间用户 ID 记录表 - live_room_user_id
-```shell
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type             | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| room_id                        | varchar(200)     |      |     |         |       |                 |
-| start_time                     | timestamp        |      |     |         |       |                 |
-| owner                          | bool             |      |     |         |       |                 |
-| room_admin                     | bool             |      |     |         |       |                 |
-| fans_group_admin               | bool             |      |     |         |       |                 |
-| user_id                        | varchar(200)     |      |     |         |       |                 |
-| user_open_id                   | varchar(200)     |      |     |         |       |                 |
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-```
-
-直播流质量表 live_stream
-```shell
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type             | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| quality                        | varchar(10)      |      |     |         |       |                 |
-| url                            | text             |      |     |         |       |                 |
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-```
-
-直播间过滤词 - live_room_filter_word
-```shell
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                 | Null | Key | Default | Extra | Comment         |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| filter_word                    | varchar(20)          |      |     |         |       |                 |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-```
-
-分享音乐ID - live_room_sharing_music_id
-```shell
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                 | Null | Key | Default | Extra | Comment         |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| sharing_music_id               | varchar(200)         |      |     |         |       | 分享音乐ID       |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-```
-
-直播间标签 - live_room_tag
-```shell
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                               | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| tag                            | tinytext                           |      |     |         |       |                 |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-```
-
-策略壮举白名单 - strategy_feat_whitelist
-
-```shell
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                               | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| strategy_feat_whiteitem        | tinytext                           |      |     |         |       |                 |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-```
-
-
-临时状态全局条件 - temp_state_global_condition
-```shell
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                               | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| allow_count                    | unsigned tinyint                   |      |     |         |       |                 |
-| duration_gap                   | unsigned tinyint                   |      |     |         |       |                 |
-| ignore_strategy_types          | unsigned tinyint                   |      |     |         |       |                 |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-```
 ### 原始数据
 
 直播信息
@@ -898,8 +741,8 @@ room_view_stats
 +--------------------------------+----------------------+------+-----+---------+-------+-----------------+
 | Field                          | Type                 | Null | Key | Default | Extra | Comment         |
 +--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| display_long                   | tinytext             |      |     |         |       |                 |
-| display_long_anchor            | tinytext             |      |     |         |       |                 |
+| display_long                   | tinytext             |      |     |         |       | 直播间观看人数   |
+| display_long_anchor            | tinytext             |      |     |         |       | 主播观看人数     |
 | display_middle                 | tinytext             |      |     |         |       |                 |
 | display_middle_anchor          | tinytext             |      |     |         |       |                 |
 | display_short                  | tinytext             |      |     |         |       |                 |
@@ -936,8 +779,8 @@ short_touch_area_config
 | dou_plus_promotion             |                                    |      |     |         |       | 抖+促销          |
 | enter_count                    | unsigned int                       |      |     |         |       | 进入数量         |
 | fan_ticket                     | unsigned bigint                    |      |     |         |       | 粉丝票           |
-| follow_count                   | unsigned int                       |      |     |         |       | 关注数量         |
-| gift_uv_count                  | unsigned int                       |      |     |         |       | 关注数量         |
+| follow_count                   | unsigned bigint                    |      |     |         |       | 关注数量         |
+| gift_uv_count                  | unsigned int                       |      |     |         |       | 礼物UV数量       |
 | id                             | varchar(200)                       |      |     |         |       | 直播间ID         |
 | id_str                         | varchar(200)                       |      |     |         |       | 直播间ID         |
 | like_count                     | unsigned int                       |      |     |         |       | 点赞数量         |
@@ -945,7 +788,7 @@ short_touch_area_config
 | total_user                     | unsigned int                       |      |     |         |       | 用户数量         |
 | total_user_desp                |
 | total_user_str                 | varchar(100)                       |      |     |         |       | 用户数量         |
-| up_right_stats_str             |                                                                   | 右上角状态条     |
+| up_right_stats_str             | varchar(100)                       |      |     |         |       | 右上角状态条     |
 | up_right_stats_str_complete    |                                                                   | 右上角状态条完成  |
 | user_count_composition         |                                                                   | 用户数量组成     |
 | user_count_str                 | varchar(100)                       |      |     |         |       | 用户数量         |
@@ -1469,3 +1312,1125 @@ additional_content
 | v_codec
 +--------------------------------+------------------+------+-----+---------+-------+-----------------+
 ```
+
+短接触区域配置 - short_touch_area_config
+```shell
++--------------------------------+------------------------------------------+------+-----+---------+-------+-----------------+
+| Field                          | Type                                     | Null | Key | Default | Extra | Comment         |
++--------------------------------+------------------------------------------+------+-----+---------+-------+-----------------+
+| elements                       | table - short_touch_area_config_elements | NULL |     |         |       |                 |
+| forbidden_types_map            | json                                     | NULL |     |         |       |                 |
+| strategy_feat_whitelist        | table - strategy_feat_whitelist          | NULL |     |         |       |                 |
+| temp_state_condition_map       | table - temp_state_condition_map         | NULL |     |         |       |                 |
+| temp_state_global_condition    | table - temp_state_global_condition      | NULL |     |         |       |                 |
+| temp_state_strategy            | table - temp_state_strategy              | NULL |     |         |       |                 |
++--------------------------------+------------------------------------------+------+-----+---------+-------+-----------------+
+```
+
+直播间用户 ID 记录表 - live_room_user_id
+```shell
++--------------------------------+------------------+------+-----+---------+-------+-----------------+
+| Field                          | Type             | Null | Key | Default | Extra | Comment         |
++--------------------------------+------------------+------+-----+---------+-------+-----------------+
+| room_id                        | varchar(200)     |      |     |         |       |                 |
+| start_time                     | timestamp        |      |     |         |       |                 |
+| owner                          | bool             |      |     |         |       |                 |
+| room_admin                     | bool             |      |     |         |       |                 |
+| fans_group_admin               | bool             |      |     |         |       |                 |
+| user_id                        | varchar(200)     |      |     |         |       |                 |
+| user_open_id                   | varchar(200)     |      |     |         |       |                 |
++--------------------------------+------------------+------+-----+---------+-------+-----------------+
+```
+
+直播流质量表 live_stream
+```shell
++--------------------------------+------------------+------+-----+---------+-------+-----------------+
+| Field                          | Type             | Null | Key | Default | Extra | Comment         |
++--------------------------------+------------------+------+-----+---------+-------+-----------------+
+| quality                        | varchar(10)      |      |     |         |       |                 |
+| url                            | text             |      |     |         |       |                 |
++--------------------------------+------------------+------+-----+---------+-------+-----------------+
+```
+
+直播间过滤词 - live_room_filter_word
+```shell
++--------------------------------+----------------------+------+-----+---------+-------+-----------------+
+| Field                          | Type                 | Null | Key | Default | Extra | Comment         |
++--------------------------------+----------------------+------+-----+---------+-------+-----------------+
+| filter_word                    | varchar(20)          |      |     |         |       |                 |
++--------------------------------+----------------------+------+-----+---------+-------+-----------------+
+```
+
+分享音乐ID - live_room_sharing_music_id
+```shell
++--------------------------------+----------------------+------+-----+---------+-------+-----------------+
+| Field                          | Type                 | Null | Key | Default | Extra | Comment         |
++--------------------------------+----------------------+------+-----+---------+-------+-----------------+
+| sharing_music_id               | varchar(200)         |      |     |         |       | 分享音乐ID       |
++--------------------------------+----------------------+------+-----+---------+-------+-----------------+
+```
+
+直播间标签 - live_room_tag
+```shell
++--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
+| Field                          | Type                               | Null | Key | Default | Extra | Comment         |
++--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
+| tag                            | tinytext                           |      |     |         |       |                 |
++--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
+```
+
+策略壮举白名单 - strategy_feat_whitelist
+
+```shell
++--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
+| Field                          | Type                               | Null | Key | Default | Extra | Comment         |
++--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
+| strategy_feat_whiteitem        | tinytext                           |      |     |         |       |                 |
++--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
+```
+
+
+临时状态全局条件 - temp_state_global_condition
+```shell
++--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
+| Field                          | Type                               | Null | Key | Default | Extra | Comment         |
++--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
+| allow_count                    | unsigned tinyint                   |      |     |         |       |                 |
+| duration_gap                   | unsigned tinyint                   |      |     |         |       |                 |
+| ignore_strategy_types          | unsigned tinyint                   |      |     |         |       |                 |
++--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
+```
+
+### E-R 图
+
+
+### 二次数据
+#### 属性表
+
+分享链接表 - share_url
+```shell
++----------------+--------------+------+-----+---------+-------+------------------------------+-----------------+
+| Field          | Type         | Null | Key | Default | Extra | Topology                     | Comment         |
++----------------+--------------+------+-----+---------+-------+------------------------------+-----------------+
+| owner_user_id  | varchar(200) | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"  | 账号作者ID       |
+| sec_user_id    | varchar(200) | YES  |     | NULL    |       |                              | 安全用户ID       |
+| nickname       | varchar(50)  | YES  |     | NULL    |       | "$.data.room.owner.nickname" | 昵称             |
+| post_share_url | varchar(100) | YES  |     | NULL    |       |             -                | 主页分享链接     |
+| live_share_url | varchar(100) | YES  |     | NULL    |       |             -                | 直播分享链接     |
+| directory_name | varchar(100) | YES  |     | NULL    |       |             -                | 文件夹名称       |
+| user_status    | varchar(100) | YES  |     | NULL    |       |             -                | 用户状态         |
+| actived_count  | unsinged int | NO   |     | 0       |       |             -                | 访问次数         |
++----------------+--------------+------+-----+---------+-------+------------------------------+-----------------+
+```
+
+喜爱的作者表 - favorite_owner
+```shell
++---------------+------------------+------+-----+---------+-------+-----------------------------+-----------------+
+| Field         | Type             | Null | Key | Default | Extra | Topology                    | Comment         |
++---------------+------------------+------+-----+---------+-------+-----------------------------+-----------------+
+| owner_user_id | varchar(200)     | NO   | PRI | NULL    |       | "$.data.room.owner_user_id" | 账号作者ID       |
+| platform      | varchar(20)      | YES  |     | NULL    |       |             -               | 平台             |
+| score         | unsigned tinyint | NO   |     | 0       |       |             -               |     0-100       |
++---------------+------------------+------+-----+---------+-------+-----------------------------+-----------------+
+```
+
+直播记录表 - live_record
+```shell
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------+----------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                   | Comment              | 
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------+----------------------+
+| now                              | timestamp         | YES  |     |         |       | "$.extra.now"              | 当前时间戳            |
+| platform                         | varchar(20)       |      |     | NULL    |       |           -                | 平台                  | 
+| room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"           | 直播间ID              | 
+| user_id                          | varchar(200)      |      |     | NULL    |       | "$.data.user.id"           | 当前观众ID            | 
+| start_time                       | timestamp         |      |     | 0       |       | "$.data.room.start_time"   | 开始时间              | 
+| finish_time                      | timestamp         |      |     | 0       |       | "$.data.room.finish_time"  | 结束时间              | 
+| status_code                      | unsigned tinyint  |      |     | 0       |       | "$.status_code"            | 网络请求状态          | 
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------+----------------------+
+```
+
+直播间表(静态信息) - room
+```shell
++----------------------------------+-------------------+------+-----+---------+-------+-------------------------------------------------------+---------------------------------+
+| Field                            | Type              | Null | Key | Default | Extra |Topology                                               | Comment                         |
++----------------------------------+-------------------+------+-----+---------+-------+-------------------------------------------------------+---------------------------------+
+| id                               | varchar(200)      |      |     |         |       | "$.data.room.id"                                      | 直播间ID                         |
+| create_time                      | timestamp         |      |     |         |       | "$.data.room.create_time"                             | 直播间创建时间                    | 
+| search_id                        | varchar(200)      |      |     |         |       | "$.data.room.search_id"                               | 直播间搜索ID                     |
+| share_msg_style                  | unsigned tinyint  |      |     |         |       | "$.data.room.share_msg_style"                         | 分享消息样式                     |
+| share_url                        | text              |      |     |         |       | "$.data.room.share_url"                               | 直播间分享链接                    |
+| scroll_config                    | text              | YES  |     |         |       | "$.data.room.scroll_config"                           | 滚动配置                         |
+| location                         | varchar(100)      |      |     |         |       | "$.data.room.location"                                | 直播间位置                       |
+| room_tag                         | unsigned tinyint  |      |     |         |       | "$.data.room.room_tag"                                | 直播间标签                       |
+| room_layout                      | unsigned tinyint  |      |     |         |       | "$.data.room.room_layout"                             | 直播间布局                       |
+| anchor_scheduled_time_text       | text              |      |     |         |       | "$.data.room.anchor_scheduled_time_text"              | 直播间布局                       |
+| anchor_share_text                | text              |      |     |         |       | "$.data.room.anchor_share_text"                       | 主播分享文本                     |
+| anchor_tab_type                  | unsigned tinyint  |      |     |         |       | "$.data.room.anchor_tab_type"                         | 主播标签类型                     |
+| app_id                           | varchar(200)      |      |     |         |       | "$.data.room.app_id"                                  | 应用ID                          |
+| auth_city                        | varchar(100)      |      |     |         |       | "$.data.room.auth_city"                               | 直播间认证城市                   |
+| auto_cover                       | unsigned tinyint  |      |     |         |       | "$.data.room.auto_cover"                              | 自动封面                         |
+| base_category                    | unsigned tinyint  |      |     |         |       | "$.data.room.base_category"                           | 基础分类                         |
+| book_end_time                    | timestamp         |      |     |         |       | "$.data.room.book_end_time"                           | 直播间预约结束时间                |
+| book_time                        | timestamp         |      |     |         |       | "$.data.room.book_time"                               | 直播间预约开始时间                |
+| business_live                    | unsigned tinyint  |      |     |         |       | "$.data.room.business_live"                           | 商业直播                         |
+| category                         | unsigned tinyint  |      |     |         |       | "$.data.room.category"                                | 分类                            |
+| cell_style                       | unsigned tinyint  |      |     |         |       | "$.data.room.cell_style"                              | 直播间单元样式                   |
+| challenge_info                   | tinytext          |      |     |         |       | "$.data.room.challenge_info"                          | 挑战信息                         |
+| city_top_distance                | tinytext          |      |     |         |       | "$.data.room.city_top_distance"                       | 城市顶部距离                     |
+| client_version                   | varchar(20)       |      |     |         |       | "$.data.room.client_version"                          | 客户端版本                       |
+| placeholder                      | tinytext          |      |     |         |       | "$.data.room.placeholder"                             | 评论框占位符                     |
+| comment_name_mode                | unsigned tinyint  |      |     |         |       | "$.data.room.comment_name_mode"                       | 评论名称模式                     |
+| common_label_list                | tinytext          |      |     |         |       | "$.data.room.common_label_list"                       | 常用标签列表                     |
+| content_tag                      | tinytext          |      |     |         |       | "$.data.room.content_tag"                             | 内容标签                         |
+| danmaku_detail                   | unsigned int      |      |     |         |       | "$.data.room.danmaku_detail"                          | 弹幕详情                         |
+| distance                         | varchar(100)      |      |     |         |       | "$.data.room.distance"                                | 距离                             |
+| distance_city                    | varchar(100)      |      |     |         |       | "$.data.room.distance_city"                           | 城市距离                         |
+| distance_km                      | varchar(100)      |      |     |         |       | "$.data.room.distance_km"                             | 公里距离                         |
+| dynamic_cover_dict               | json              |      |     |         |       | "$.data.room.dynamic_cover_dict"                      | 动态封面字典                     |
+| dynamic_cover_uri                | text              |      |     |         |       | "$.data.room.dynamic_cover_uri"                       | 动态封面URI                      |
+| enable_room_perspective          | bool              |      |     |         |       | "$.data.room.enable_room_perspective"                 | 是否启用直播间透视                |
+| fansclub_msg_style               | unsigned tinyint  |      |     |         |       | "$.data.room.fansclub_msg_style"                      | 粉丝俱乐部消息样式                |
+| fcdn_appid                       | varchar(200)      |      |     |         |       | "$.data.room.fcdn_appid"                              | FCDN应用ID                       |
+| finish_reason                    | unsigned tinyint  |      |     |         |       | "$.data.room.finish_reason"                           | 直播结束原因                     |
+| finish_url                       | text              |      |     |         |       | "$.data.room.finish_url"                              | 直播结束URL                      |
+| follow_msg_style                 | unsigned tinyint  |      |     |         |       | "$.data.room.follow_msg_style"                        | 关注消息样式                     |
+| forum_extra_data                 | text              |      |     |         |       | "$.data.room.forum_extra_data"                        | 论坛额外数据                     |
+| game_room_type                   | unsigned tinyint  |      |     |         |       | "$.data.room.game_room_type"                          | 游戏直播间类型                   |
+| gift_msg_style                   | unsigned tinyint  |      |     |         |       | "$.data.room.gift_msg_style"                          | 礼物消息样式                     |
+| group_id                         | varchar(200)      |      |     |         |       | "$.data.room.group_id"                                | 直播间组ID                       |
+| group_source                     | unsigned tinyint  |      |     |         |       | "$.data.room.group_source"                            | 直播间组来源                     |
+| has_commerce_goods               | bool              |      |     |         |       | "$.data.room.has_commerce_goods"                      | 是否有商品                       |
+| has_promotion_games              | bool              |      |     |         |       | "$.data.room.has_promotion_games"                     | 是否有推广游戏                   |
+| highlight                        | bool              |      |     |         |       | "$.data.room.highlight"                               | 是否高亮                         |
+| hot_sentence_info                | text              |      |     |         |       | "$.data.room.hot_sentence_info"                       | 热门语句信息                     |
+| introduction                     | text              |      |     |         |       | "$.data.room.introduction"                            | 直播间介绍                       |
+| is_need_check_list               | bool              |      |     |         |       | "$.data.room.is_need_check_list"                      | 是否需要检查列表                 |
+| is_official_channel_room         | bool              |      |     |         |       | "$.data.room.is_official_channel_room"                | 是否为官方频道直播间              |
+| is_replay                        | bool              |      |     |         |       | "$.data.room.is_replay"                               | 是否为回放                       |
+| is_show_inquiry_ball             | bool              |      |     |         |       | "$.data.room.is_show_inquiry_ball"                    | 是否显示询问球                   |
+| is_show_user_card_switch         | bool              |      |     |         |       | "$.data.room.is_show_user_card_switch"                | 是否显示用户卡片开关              |
+| item_explicit_info               | text              |      |     |         |       | "$.data.room.item_explicit_info"                      | 物品显式信息                     |
+| last_ping_time                   | timestamp         |      |     |         |       | "$.data.room.last_ping_time"                          | 最后ping时间                     |
+| layout                           | unsigned tinyint  |      |     |         |       | "$.data.room.layout"                                  | 直播间布局                       |
+| like_count                       | unsigned bigint   |      |     |         |       | "$.data.room.like_count"                              | 点赞数量                         |
+| linker_map                       | json              |      |     |         |       | "$.data.room.linker_map"                              | 点连接器映射                     |
+| linkmic_display_type             | unsigned tinyint  |      |     |         |       | "$.data.room.linkmic_display_type"                    | 连麦显示类型                     |
+| linkmic_layout                   | unsigned tinyint  |      |     |         |       | "$.data.room.linkmic_layout"                          | 连麦布局                         |
+| live_id                          | varchar(200)      |      |     |         |       | "$.data.room.live_id"                                 | 直播ID                          |
+| live_platform_source             | tinytext          |      |     |         |       | "$.data.room.live_platform_source"                    | 直播平台来源                     |
+| live_room_mode                   | unsigned tinyint  |      |     |         |       | "$.data.room.live_room_mode"                          | 直播间模式                       |
+| live_type_audio                  | bool              |      |     |         |       | "$.data.room.live_type_audio"                         | 是否为音频直播                   |
+| live_type_linkmic                | bool              |      |     |         |       | "$.data.room.live_type_linkmic"                       | 是否为连麦直播                   |
+| live_type_normal                 | bool              |      |     |         |       | "$.data.room.live_type_normal"                        | 是否为普通直播                   |
+| live_type_official               | bool              |      |     |         |       | "$.data.room.live_type_official"                      | 是否为官方直播                   |
+| live_type_sandbox                | bool              |      |     |         |       | "$.data.room.live_type_sandbox"                       | 是否为沙盒直播                   |
+| live_type_screenshot             | bool              |      |     |         |       | "$.data.room.live_type_screenshot"                    | 是否为截图直播                   |
+| live_type_third_party            | bool              |      |     |         |       | "$.data.room.live_type_third_party"                   | 是否为第三方直播                 |
+| live_type_vs_live                | bool              |      |     |         |       | "$.data.room.live_type_vs_live"                       | 是否为VS直播                     |
+| live_type_vs_premiere            | bool              |      |     |         |       | "$.data.room.live_type_vs_premiere"                   | 是否为VS首播                     |
+| xigua_uid                        | varchar(200)      |      |     |         |       | "$.data.room.extra.xigua_uid"                         | 西瓜用户ID                       |
+| title                            | tinytext          |      |     |         |       | "$.data.room.title"                                   | 直播间标题                       |
+| title_recommend                  | bool              |      |     |         |       | "$.data.room.title_recommend"                         | 是否推荐标题                     |
+| toutiao_cover_recommend_level    | unsigned tinyint  |      |     |         |       | "$.data.room.toutiao_cover_recommend_level"           | 头条封面推荐等级                 |
+| toutiao_title_recommend_level    | unsigned tinyint  |      |     |         |       | "$.data.room.toutiao_title_recommend_level"           | 头条标题推荐等级                 |
+| use_filter                       | bool              |      |     |         |       | "$.data.room.use_filter"                              | 是否使用滤镜                     |
+| user_count                       | unsigned int      |      |     |         |       | "$.data.room.user_count"                              | 用户数量                         |
+| vertical_cover_uri               | text              |      |     |         |       | "$.data.room.vertical_cover_uri"                      | 竖屏封面URI                      |
+| vid                              | varchar(200)      |      |     |         |       | "$.data.room.vid"                                     | 视频ID                          |
+| video_feed_tag                   | tinytext          |      |     |         |       | "$.data.room.video_feed_tag"                          | 视频Feed标签                     |
+| visibility_range                 | unsigned tinyint  |      |     |         |       | "$.data.room.visibility_range"                        | 可见范围：X-公开 X-私密 X-好友可见 |
+| vs_main_replay_id                | varchar(200)      |      |     |         |       | "$.data.room.vs_main_replay_id"                       | VS主回放ID                       |
+| web_count                        | unsigned bigint   |      |     |         |       | "$.data.room.web_count"                               | 网页观看人数                      |
+| webcast_comment_tcs              | unsigned int      |      |     |         |       | "$.data.room.webcast_comment_tcs"                     | 直播间评论TCs                     |
+| webcast_sdk_version              | varchar(20)       |      |     |         |       | "$.data.room.webcast_sdk_version"                     | 直播间SDK版本                     |
+| with_aggregate_column            | bool              |      |     |         |       | "$.data.room.with_aggregate_column"                   | 是否有聚合栏目                    |
+| with_draw_something              | bool              |      |     |         |       | "$.data.room.with_draw_something"                     | 是否有抽奖                        |
+| with_ktv                         | bool              |      |     |         |       | "$.data.room.with_ktv"                                | 是否有KTV                        |
+| with_linkmic                     | bool              |      |     |         |       | "$.data.room.with_linkmic"                            | 是否有连麦                        |
++----------------------------------+-------------------+------+-----+---------+-------+-------------------------------------------------------+----------------------------------+
+```
+
+直播间记录表(动态信息) - room_record
+```shell
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                             | Comment             |
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+| now                              | timestamp         | YES  |     |         |       | "$.extra.now"                                        | 当前时间戳           | 
+| platform                         | varchar(20)       |      |     | NULL    |       |           -                                          | 平台                 | 
+| id                               | varchar(200)      |      |     |         |       | "$.data.room.id"                                     | 直播间ID             | 
+| status                           | unsigned tinyint  |      |     | 0       |       | "$.data.room.status"                                 | 直播状态             | 
+| rank                             | unsigned smallint |      |     |         |       | "$.data.room.AnchorABMap"                            | 排名/等级            | 
+| AnchorABMap                      | json              |      |     |         |       | "$.data.room.living_room_attrs.rank"                 | 主播AB映射           | 
+| acquaintance_status              | unsigned tinyint  |      |     |         |       | "$.data.room.acquaintance_status"                    | 直播间熟人状态       | 
+| *silence_flag                    | unsigned tinyint  |      |     |         |       | "$.data.room.living_room_attrs.silence_flag"         | 直播间静音状态       | 
+| view_stats_display_long          | tinytext          |      |     |         |       | "$.data.room.room_view_stats.display_long"           | 直播间观看人数       | 
+| view_stats_display_long_anchor   | tinytext          |      |     |         |       | "$.data.room.room_view_stats.display_long_anchor"    | 主播观看人数         | 
+| view_stats_display_middle        | tinytext          |      |     |         |       | "$.data.room.room_view_stats.display_middle"         | 直播间观看人数（中）  |
+| view_stats_display_middle_anchor | tinytext          |      |     |         |       | "$.data.room.room_view_stats.display_middle_anchor"  | 主播观看人数（中）    |
+| view_stats_display_short         | tinytext          |      |     |         |       | "$.data.room.room_view_stats.display_short"          | 直播间观看人数（短）  |
+| view_stats_display_short_anchor  | tinytext          |      |     |         |       | "$.data.room.room_view_stats.display_short_anchor"   | 主播观看人数（短）    |
+| view_stats_display_type          | unsigned tinyint  |      |     |         |       | "$.data.room.room_view_stats.display_type"           | 直播间观看人数显示类型 |
+| view_stats_display_value         | unsigned int      |      |     |         |       | "$.data.room.room_view_stats.display_value"          | 直播间观看人数        |
+| view_stats_display_version       | varchar(20)       |      |     |         |       | "$.data.room.room_view_stats.display_version"        | 直播间观看人数显示版本 |
+| view_stats_incremental           | bool              |      |     |         |       | "$.data.room.room_view_stats.incremental"            | 是否增量更新          |
+| view_stats_is_hidden             | bool              |      |     |         |       | "$.data.room.room_view_stats.is_hidden"              | 是否隐藏状态          |
+| wait_copy                        | tinytext          |      |     |         |       | "$.data.room.wait_copy"                              | 等待复制              |
+| user_share_text                  | text              |      |     |         |       | "$.data.Froom.user_share_text"                        | 用户分享文本          |
+| sofa_layout                      | unsigned tinyint  |      |     |         |       | "$.data.room.sofa_layout"                            | 沙发布局              |
+| screen_capture_sharing_title     | tinytext          |      |     |         |       | "$.data.room.screen_capture_sharing_title"           | 屏幕截图分享标题       |
+| short_title                      | tinytext          |      |     |         |       | "$.data.room.short_title"                            | 屏幕直播间短          |
+| stream_close_time                | timestamp         |      |     |         |       | "$.data.room.stream_close_time"                      | 直播间流关闭时间戳     |
+| room_create_ab_param             | text              |      |     |         |       | "$.data.room.room_create_ab_param"                   | 直播间创建AB参数      |
+| lottery_finish_time              | timestamp         |      |     |         |       | "$.data.room.lottery_finish_time"                    | 抽奖结束时间          |
+| luckymoney_num                   | unsigned int      |      |     |         |       | "$.data.room.luckymoney_num"                         | 幸运红包数量          |
+| mosaic_status                    | unsigned int      |      |     |         |       | "$.data.room.mosaic_status"                          | 马赛克状态            |
+| mosaic_tip                       | tinytext          |      |     |         |       | "$.data.room.mosaic_tip"                             | 马赛克提示            |
+| official_channel_open_id         | varchar(200)      |      |     |         |       | "$.data.room.official_channel_open_id"               | 官方频道OpenID        |
+| official_channel_uid             | varchar(200)      |      |     |         |       | "$.data.room.official_channel_uid"                   | 官方频道用户ID        |
+| orientation                      | unsigned tinyint  |      |     |         |       | "$.data.room.orientation"                            | 直播间方向            |
+| os_type                          | unsigned tinyint  |      |     |         |       | "$.data.room.os_type"                                | 操作系统类型          |
+| create_scene                     | tinytext          |      |     |         |       | "$.data.room.extra.create_scene"                     | 创建场景              |
+| facial_unrecognised              | unsigned tinyint  |      |     |         |       | "$.data.room.extra.facial_unrecognised"              | 面部未识别            |
+| geo_block                        | unsigned tinyint  |      |     |         |       | "$.data.room.extra.geo_block"                        | 地理封锁              |
+| is_sandbox                       | bool              |      |     |         |       | "$.data.room.extra.is_sandbox"                       | 是否为沙盒            |
+| is_virtual_anchor                | bool              |      |     |         |       | "$.data.room.extra.is_virtual_anchor"                | 是否为虚拟主播        |
+| limit_appid                      | varchar(200)      |      |     |         |       | "$.data.room.extra.limit_appid"                      | 限制应用ID            |
+| limit_strategy                   | unsigned tinyint  |      |     |         |       | "$.data.room.extra.limit_strategy"                   | 地理封锁              |
+| realtime_playback_shift          | unsigned tinyint  |      |     |         |       | "$.data.room.extra.realtime_playback_shift"          | 实时回放偏移          |
+| realtime_playback_start_shift    | unsigned tinyint  |      |     |         |       | "$.data.room.extra.realtime_playback_start_shift"    | 实时回放开始偏移      |
+| realtime_replay_enabled          | bool              |      |     |         |       | "$.data.room.extra.realtime_replay_enabled"          | 是否启用实时回放      |
+| vr_type                          | unsigned tinyint  |      |     |         |       | "$.data.room.extra.vr_type"                          | VR类型               |
+| vs_type                          | unsigned tinyint  |      |     |         |       | "$.data.room.extra.vs_type"                          | VS类型               |
+| popularity                       | unsigned bigint   |      |     |         |       | "$.data.room.popularity"                             | 人气                 |
+| popularity_str                   | varchar(20)       |      |     |         |       | "$.data.room.popularity_str"                         | 人气字符串            |
+| pre_enter_time                   | timestamp         |      |     |         |       | "$.data.room.pre_enter_time"                         | 预进入时间            |
+| preview_copy                     | tinytext          |      |     |         |       | "$.data.room.preview_copy"                           | 预览复制文本          |
+| preview_flow_tag                 | unsigned tinyint  |      |     |         |       | "$.data.room.preview_flow_tag"                       | 预览流量标签          |
+| private_info                     | text              |      |     |         |       | "$.data.room.private_info"                           | 私有信息              |
+| ranklist_audience_type           | unsigned tinyint  |      |     |         |       | "$.data.room.ranklist_audience_type"                 | 排行榜观众类型        |
+| real_distance                    | varchar(100)      |      |     |         |       | "$.data.room.real_distance"                          | 实际距离              |
+| redpacket_audience_auth          | unsigned tinyint  |      |     |         |       | "$.data.room.redpacket_audience_auth"                | 红包观众认证          |
+| relation_tag                     | tinytext          |      |     |         |       | "$.data.room.relation_tag"                           | 关系标签              |
+| replay                           | bool              |      |     |         |       | "$.data.room.replay"                                 | 是否为回放            |
+| replay_location                  | unsigned tinyint  |      |     |         |       | "$.data.room.replay_location"                        | 回放位置              |
+| room_audit_status                | unsigned tinyint  |      |     |         |       | "$.data.room.room_audit_status"                      | 直播间审核状态        |
+| comment_count                    | unsigned bigint   |      |     |         |       | "$.data.room.stats.comment_count"                    | 评论数量              |
+| digg_count                       | unsigned bigint   |      |     |         |       | "$.data.room.stats.digg_count"                       | 点赞数量              |
+| dou_plus_promotion               | tinytext          |      |     |         |       | "$.data.room.stats.dou_plus_promotion"               | DouPlus推广          |
+| enter_count                      | unsigned bigint   |      |     |         |       | "$.data.room.stats.enter_count"                      | 进入数量              |
+| fan_ticket                       | unsigned bigint   |      |     |         |       | "$.data.room.stats.fan_ticket"                       | 粉丝票数量            |
+| follow_count                     | unsigned bigint   |      |     |         |       | "$.data.room.stats.follow_count"                     | 关注数量              |
+| gift_uv_count                    | unsigned int      |      |     |         |       | "$.data.room.stats.gift_uv_count"                    | 礼物UV数量            |
+| like_count                       | unsigned int      |      |     |         |       | "$.data.room.stats.like_count"                       | 喜欢数量              |
+| money                            | unsigned int      |      |     |         |       | "$.data.room.stats.money"                            | 金额                  |
+| total_user                       | unsigned int      |      |     |         |       | "$.data.room.stats.total_user"                       | 用户数量              |
+| total_user_desp                  | text              |      |     |         |       | "$.data.room.stats.total_user_desp"                  | 总用户描述            |
+| total_user_str                   | varchar(100)      |      |     |         |       | "$.data.room.stats.total_user_str"                   | 总用户描述            |
+| up_right_stats_str               | varchar(100)      |      |     |         |       | "$.data.room.stats.up_right_stats_str"               | 右上角统计字符串      |
+| up_right_stats_str_complete      | tinytext          |      |     |         |       | "$.data.room.stats.up_right_stats_str_complete"      | 完整的右上角统计字符串 |
+| sun_daily_icon_content           | text              |      |     |         |       | "$.data.room.sun_daily_icon_content"                 | 日常图标内容          |
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+----------------------+
+```
+
+直播间实时回放质量 - room_realtime_playback_qualities
+```shell
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                             | Comment             |
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+| now                              | timestamp         | YES  |     |         |       | "$.extra.now"                                        | 当前时间戳           | 
+| platform                         | varchar(20)       |      |     | NULL    |       |           -                                          | 平台                 | 
+| room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                     | 直播间ID             | 
+| realtime_playback_quality        |                   | No   |     |         |       | "$.data.room.extra.realtime_playback_qualities"      | 实时回放质量         | 
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+```
+
+直播间过滤关键字 - room_filter_word
+```shell
+# 关键字 内容若为空，则不记录
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+----------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                             | Comment              |
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+----------------------+
+| now                              | timestamp         | YES  | PRI |         |       | "$.extra.now"                                        | 当前时间戳            | 
+| platform                         | varchar(20)       |      | PRI | NULL    |       |           -                                          | 平台                  |
+| room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                     | 直播间ID              |
+| filter_word_index                |                   | NO   | PRI | NULL    |       |           -                                          | 粉丝群管理员OpenID列表 |
+|                                  |                   | NO   | PRI | NULL    |       | "$.data.room.filter_words"                           | 过滤词列表             |
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+-----------------------+
+```
+
+直播间装饰清单 - room_deco
+```shell
+# deco 内容若为空，则不记录
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                             | Comment             |
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+| now                              | timestamp         | YES  |     |         |       | "$.extra.now"                                        | 当前时间戳           | 
+| platform                         | varchar(20)       |      |     | NULL    |       |           -                                          | 平台                 | 
+| id                               | varchar(200)      |      |     |         |       | "$.data.room.id"                                     | 直播间ID             |
+| deco_index                       |                   | No   |     | 0       |       |           -                                          | 装饰索引号            |  
+|                                  |                   | No   |     |         |       | "$.data.room.deco_list"                              | 装饰                 | 
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+----------------------+
+```
+
+直播分发表 - live_distribution
+```shell
+# live_distribution 内容若为空，则不记录
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                             | Comment             |
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+| now                              | timestamp         | YES  |     |         |       | "$.extra.now"                                        | 当前时间戳           | 
+| platform                         | varchar(20)       |      |     | NULL    |       |           -                                          | 平台                 | 
+| id                               | varchar(200)      |      |     |         |       | "$.data.room.id"                                     | 直播间ID             |
+| description_index                |                   | No   |     | 0       |       |           -                                          | 描述索引号            |  
+|                                  |                   | No   |     |         |       | "$.data.room.live_distribution"                      | 描述内容              | 
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+----------------------+
+```
+
+主播商业直播配置ID表 - commerce_webcast_config_id
+```shell
+# live_distribution 内容若为空，则不记录
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                             | Comment             |
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+| now                              | timestamp         | YES  |     |         |       | "$.extra.now"                                        | 当前时间戳           | 
+| platform                         | varchar(20)       |      |     | NULL    |       |           -                                          | 平台                 | 
+| room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                     | 直播间ID             |
+| id_index                         | unsigned tinyint  | No   |     | 0       |       |           -                                          | ID索引号             |  
+| commerce_webcast_config_id       | varchar(200)      | No   |     |         |       | "$.data.room.owner.commerce_webcast_config_ids"      | 商业直播配置ID列表    | 
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+----------------------+
+```
+
+粉丝群管理员ID表 - fans_group_admin_user_id
+```shell
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                             | Comment             |
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+| now                              | timestamp         | YES  | PRI |         |       | "$.extra.now"                                        | 当前时间戳           | 
+| platform                         | varchar(20)       |      | PRI | NULL    |       |           -                                          | 平台                 |
+| room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                     | 直播间ID             | 
+| owner_user_id                    | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"                          | 账号作者ID           |
+| fans_group_admin_user_id         | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.fans_group_admin_user_ids"              | 粉丝群管理员用户ID   |
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+```
+
+粉丝群管理员公开ID表 - fans_group_admin_user_open_id
+```shell
+# fans_group_admin_user_open_ids 内容若为空，则不记录
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+----------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                             | Comment              |
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+----------------------+
+| now                              | timestamp         | YES  | PRI |         |       | "$.extra.now"                                        | 当前时间戳            | 
+| platform                         | varchar(20)       |      | PRI | NULL    |       |           -                                          | 平台                  |
+| room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                     | 直播间ID              | 
+| owner_user_id                    | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"                          | 账号作者ID            |
+| fans_group_admin_user_open_id    | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.fans_group_admin_user_open_ids"         | 粉丝群管理员OpenID列表 |
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+-----------------------+
+```
+
+粉丝群信息表 - fans_group_info
+```shell
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+| now                              | timestamp         | YES  | PRI |         |       | "$.extra.now"                                            | 当前时间戳            | 
+| platform                         | varchar(20)       |      | PRI | NULL    |       |           -                                              | 平台                  |
+| room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                         | 直播间ID              | 
+| owner_user_id                    | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"                              | 账号作者ID            |
+| list_fans_group_url              | text              | NO   | PRI | NULL    |       | "$.data.room.owner.fans_group_info.list_fans_group_url"  | 粉丝群列表URL          |
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+-----------------------+
+```
+
+粉丝俱乐部信息表 - fans_club
+```shell
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+| now                              | timestamp         | YES  | PRI |         |       | "$.extra.now"                                            | 当前时间戳            | 
+| platform                         | varchar(20)       |      | PRI | NULL    |       |           -                                              | 平台                  |
+| room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                         | 直播间ID              | 
+| owner_user_id                    | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"                              | 账号作者ID            |
+| anchor_id                        | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner.fans_club.data.anchor_id"             | 主播ID                |
+| anchor_open_id                   | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner.fans_club.data.anchor_open_id"        | 主播OpenID            |
+| badge_type                       | unsigned tinyint  |      |     | NULL    |       | "$.data.room.owner.fans_club.data.badge_type"            | 勋章类型              |
+| badge_title                      | tinytext          |      |     | NULL    |       | "$.data.room.owner.fans_club.data.badge.title"           | 勋章标题              |
+| club_name                        | varchar(50)       |      |     | NULL    |       | "$.data.room.owner.fans_club.data.club_name"             | 俱乐部名称            |
+| guard_expired_time               | timestamp         |      |     | NULL    |       | "$.data.room.owner.fans_club.data.guard_expired_time"    | 俱乐部守护过期时间     |
+| level                            | unsigned smallint |      |     | NULL    |       | "$.data.room.owner.fans_club.data.level"                 | 俱乐部等级            |
+| user_fans_club_status            | unsigned tinyint  |      |     | NULL    |       | "$.data.room.owner.fans_club.data.user_fans_club_status" | 用户粉丝俱乐部状态     |
+| user_guard_status                | unsigned tinyint  |      |     | NULL    |       | "$.data.room.owner.fans_club.data.user_guard_status"     | 用户守护状态           |
+| prefer_data                      | json              |      |     | NULL    |       | "$.data.room.owner.fans_club.prefer_data"                | 偏好数据               |
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+-----------------------+
+```
+
+粉丝俱乐部勋章图标表 - fans_club_badge_icon
+```shell
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+| now                              | timestamp         | YES  | PRI |         |       | "$.extra.now"                                            | 当前时间戳            | 
+| platform                         | varchar(20)       |      | PRI | NULL    |       |           -                                              | 平台                  |
+| room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                         | 直播间ID              | 
+| owner_user_id                    | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"                              | 账号作者ID            |
+| anchor_id                        | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner.fans_club.data.anchor_id"             | 主播ID                |
+| icon_index                       | unsigned tinyint  | NO   |     | NULL    |       | "$.data.room.owner.fans_club.data.badge.icons.'0'"       | 勋章图标0             |
+| icon_uri                         | text              | NO   |     | NULL    |       | "$.data.room.owner.fans_club.data.badge.icons.'0'.uri"   | 勋章图标URI           |
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+```
+
+粉丝俱乐部可用礼物ID表 - fans_club_available_gift_id
+```shell
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+| now                              | timestamp         | YES  | PRI |         |       | "$.extra.now"                                            | 当前时间戳            | 
+| platform                         | varchar(20)       |      | PRI | NULL    |       |           -                                              | 平台                  |
+| room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                         | 直播间ID              | 
+| owner_user_id                    | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"                              | 账号作者ID            |
+| anchor_id                        | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner.fans_club.data.anchor_id"             | 主播ID                |
+| available_gift_id                | varchar(200)      |      |     | NULL    |       | "$.data.room.owner.fans_club.data.available_gift_ids"    | 可用礼物ID列表        |
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+```
+j 认证信息 - j_accredit_info
+```shell
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+| now                              | timestamp         | YES  | PRI |         |       | "$.extra.now"                                            | 当前时间戳            | 
+| platform                         | varchar(20)       |      | PRI | NULL    |       |           -                                              | 平台                  |
+| room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                         | 直播间ID              | 
+| owner_user_id                    | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"                              | 账号作者ID            |
+| JAccreditAdvance                 | unsigned tinyint  | NO   |     | 0       |       | "$.data.room.owner.j_accredit_info.JAccreditAdvance"     | 主播认证高级          |
+| JAccreditBasic                   | unsigned tinyint  | NO   |     | 0       |       | "$.data.room.owner.j_accredit_info.JAccreditBasic"       | 主播认证基础          |
+| JAccreditContent                 | unsigned tinyint  | NO   |     | 0       |       | "$.data.room.owner.j_accredit_info.JAccreditContent"     | 主播认证内容          | 
+| JAccreditLive                    | unsigned tinyint  | NO   |     | 0       |       | "$.data.room.owner.j_accredit_info.JAccreditLive"        | 主播认证直播          | 
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+```
+
+媒体勋章图片表 - media_badge_image
+```shell
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+| now                              | timestamp         | YES  | PRI |         |       | "$.extra.now"                                            | 当前时间戳            | 
+| platform                         | varchar(20)       |      | PRI | NULL    |       |           -                                              | 平台                  |
+| room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                         | 直播间ID              | 
+| owner_user_id                    | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"                              | 账号作者ID            |
+| media_badge_image                | unsigned tinyint  | NO   |     | 0       |       |           -                                              | 索引号               |
+|                                  |                   | NO   |     | NULL    |       | "$.data.room.owner.media_badge_image_list"               | 媒体勋章图片列表      |
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+```
+
+新实时图标列表 - new_real_time_icon
+```shell
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+| now                              | timestamp         | YES  | PRI |         |       | "$.extra.now"                                            | 当前时间戳            | 
+| platform                         | varchar(20)       |      | PRI | NULL    |       |           -                                              | 平台                  |
+| room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                         | 直播间ID              | 
+| owner_user_id                    | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"                              | 账号作者ID            |
+| real_time_icon_index             | unsigned tinyint  | NO   |     | 0       |       |           -                                              | 索引号               |
+|                                  |                   | NO   |     | NULL    |       | "$.data.room.owner.new_real_time_icons"                  | 新实时图标列表        |
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+```
+
+用户表 - user
+```shell
++------------------------------------------+------------------+------+-----+---------+-------+--------------------------------------------------------+--------------------------+
+| Field                                    | Type             | Null | Key | Default | Extra | Topology                                               | Comment                  |
++------------------------------------------+------------------+------+-----+---------+-------+--------------------------------------------------------+--------------------------+
+| id                                       | varchar(200)     |      |     |         |       | "$.data.user.id"                                       | 直播间ID                  |
+| gender                                   | unsigned tinyint |      |     | 0       |       | "$.data.user.gender"                                   | 性别（0-未知，1-男，2-女）  |
+| allow_be_located                         | bool             |      |     |         |       | "$.data.user.owner.allow_be_located"                   | 是否允许被定位             |
+| age_range                                | unsigned tinyint |      |     | 0       |       | "$.data.user.age_range"                                | 年龄范围                   |
+| adversary_authorization_info             | unsigned tinyint |      |     | 0       |       | "$.data.user.adversary_authorization_info"             | 对手授权信息               |
+| adversary_user_status                    | unsigned tinyint |      |     | 0       |       | "$.data.user.adversary_user_status"                    | 对手用户状态               |
+| allow_find_by_contacts                   | bool             |      |     |         |       | "$.data.user.allow_find_by_contacts"                   | 是否允许通过联系人查找      |
+| allow_others_download_video              | bool             |      |     |         |       | "$.data.user.allow_others_download_video"              | 是否允许其他人下载视频       |
+| allow_others_download_when_sharing_video | bool             |      |     |         |       | "$.data.user.allow_others_download_when_sharing_video" | 是否允许其他人下载分享的视频  |
+| allow_share_show_profile                 | bool             |      |     |         |       | "$.data.user.allow_share_show_profile"                 | 是否允许分享展示个人资料     |
+| allow_show_in_gossip                     | bool             |      |     |         |       | "$.data.user.allow_show_in_gossip"                     | 是否允许在八卦中展示         |
+| allow_show_my_action                     | bool             |      |     |         |       | "$.data.user.allow_show_my_action"                     | 是否允许展示我的动态         |
+| allow_strange_comment                    | bool             |      |     |         |       | "$.data.user.allow_strange_comment"                    | 是否允许陌生人评论           |
+| allow_unfollower_comment                 | bool             |      |     |         |       | "$.data.user.allow_unfollower_comment"                 | 是否允许非关注者评论         |
+| allow_use_linkmic                        | bool             |      |     |         |       | "$.data.user.allow_use_linkmic"                        | 是否允许使用连麦            |
+| authorization_info                       | unsigned tinyint |      |     |         |       | "$.data.user.authorization_info"                       | 授权信息                   |
+| bg_img_url                               | text             |      |     |         |       | "$.data.user.bg_img_url"                               | 背景图片URL                 |
+| birthday                                 | timestamp        |      |     |         |       | "$.data.user.birthday"                                 | 生日时间戳                  |
+| birthday_description                     | tinytext         |      |     |         |       | "$.data.user.birthday_description"                     | 生日描述                   |
+| birthday_valid                           | bool             |      |     |         |       | "$.data.user.birthday_valid"                           | 生日是否有效                |
+| block_status                             | unsigned tinyint |      |     |         |       | "$.data.user.block_status"                             | 屏蔽状态：0-未屏蔽 1-已屏蔽  |
+| city                                     | varchar(100)     |      |     |         |       | "$.data.user.city"                                     | 城市                       |
+| comment_restrict                         | unsigned tinyint |      |     |         |       | "$.data.user.comment_restrict"                         | 评论限制                    |
+| constellation                            | varchar(20)      |      |     |         |       | "$.data.user.constellation"                            | 星座                       |
+| consume_diamond_level                    | unsigned smallint|      |     |         |       | "$.data.user.consume_diamond_level"                    | 消费钻石等级                |
+| create_time                              | timestamp        |      |     |         |       | "$.data.user.create_time"                              | 账号创建时间戳              |
+| desensitized_nickname                    | varchar(50)      |      |     |         |       | "$.data.user.desensitized_nickname"                    | 脱敏昵称                   |
+| disable_ichat                            | bool             |      |     |         |       | "$.data.user.disable_ichat"                            | 是否禁用iChat               |
+| display_id                               | varchar(200)     |      |     |         |       | "$.data.user.display_id"                               | 显示ID                     |
+| enable_ichat_img                         | unsigned tinyint |      |     |         |       | "$.data.user.enable_ichat_img"                         | 是否启用iChat图片           |
+| fold_stranger_chat                       | bool             |      |     |         |       | "$.data.user.fold_stranger_chat"                       | 是否折叠陌生人聊天          |
+| nickname                                 | varchar(50)      |      |     |         |       | "$.data.user.nickname"                                 | 昵称                       |
+| pay_score                                | unsigned int     |      |     |         |       | "$.data.user.pay_score"                                | 支付分                     |
+| pay_scores                               | unsigned int     |      |     |         |       | "$.data.user.pay_scores"                               | 支付分                     |
+| need_profile_guide                       | bool             |      |     |         |       | "$.data.user.need_profile_guide"                       | 是否需要个人资料引导         |
+| hotsoon_verified                         | bool             |      |     |         |       | "$.data.user.hotsoon_verified"                         | 是否Hotsoon认证             |
+| hotsoon_verified_reason                  | bool             |      |     |         |       | "$.data.user.hotsoon_verified_reason"                  | Hotsoon认证原因             |
+| ichat_restrict_type                      | unsigned tinyint |      |     |         |       | "$.data.user.ichat_restrict_type"                      | iChat限制类型               |
+| income_share_percent                     | unsigned tinyint |      |     |         |       | "$.data.user.income_share_percent"                     | 收入分成百分比              |
+| push_comment_status                      | bool             |      |     |         |       | "$.data.user.push_comment_status"                      | 是否推送评论状态             |
+| push_digg                                | bool             |      |     |         |       | "$.data.user.push_digg"                                | 是否推送点赞                |
+| push_follow                              | bool             |      |     |         |       | "$.data.user.push_follow"                              | 是否推送关注                |
+| push_friend_action                       | bool             |      |     |         |       | "$.data.user.push_friend_action"                       | 是否推送好友操作            |
+| push_ichat                               | bool             |      |     |         |       | "$.data.user.push_ichat"                               | 是否推送iChat               |
+| push_status                              | bool             |      |     |         |       | "$.data.user.push_status"                              | 是否推送状态                |
+| push_video_post                          | bool             |      |     |         |       | "$.data.user.push_video_post"                          | 是否推送视频发布            |
+| push_video_recommend                     | bool             |      |     |         |       | "$.data.user.push_video_recommend"                     | 是否推送视频推荐            |
+| remark_name                              | varchar(50)      |      |     |         |       | "$.data.user.remark_name"                              | 备注名                     |
+| sec_uid                                  | varchar(200)     |      |     |         |       | "$.data.user.sec_uid"                                  | 安全用户ID                 |
+| secret                                   | unsigned tinyint |      |     |         |       | "$.data.user.secret"                                   | 是否私密                    |
+| share_qrcode_uri                         | text             |      |     |         |       | "$.data.user.share_qrcode_uri"                         | 分享二维码URI               |
+| short_id                                 | varchar(200)     |      |     |         |       | "$.data.user.short_id"                                 | 短ID                       |
+| signature                                | text             |      |     |         |       | "$.data.user.signature"                                | 个性签名                    |
+| special_id                               | varchar(200)     |      |     |         |       | "$.data.user.special_id"                               | 特殊ID                     |
+| status                                   | unsigned tinyint |      |     | 0       |       | "$.data.user.status"                                   | 用户状态：0-注销 1-正常     |
+| telephone                                | varchar(20)      |      |     |         |       | "$.data.user.telephone"                                | 电话号码                    |
+| total_recharge_diamond_count             | unsigned bigint  |      |     |         |       | "$.data.user.total_recharge_diamond_count"             | 总充值钻石数量              |
+| user_canceled                            | bool             |      |     |         |       | "$.data.user.user_canceled"                            | 用户是否已取消              |
+| user_open_id                             | varchar(200)     |      |     |         |       | "$.data.user.user_open_id"                             | 用户开放ID                  |
+| user_role                                | unsigned tinyint |      |     |         |       | "$.data.user.user_role"                                | 用户角色                    |
+| verified                                 | bool             |      |     |         |       | "$.data.user.verified"                                 | 是否认证                    |
+| verified_content                         | tinytext         |      |     |         |       | "$.data.user.verified_content"                         | 认证内容                    |
+| verified_mobile                          | bool             |      |     |         |       | "$.data.user.verified_mobile"                          | 是否认证手机                |
+| verified_reason                          | tinytext         |      |     |         |       | "$.data.user.verified_reason"                          | 认证原因                    |
+| watch_duration_month                     | unsigned tinyint |      |     |         |       | "$.data.user.watch_duration_month"                     | 观看时长（月）              |
+| web_rid                                  | varchar(200)     |      |     |         |       | "$.data.user.web_rid"                                  | Web用户ID                  |
+| webcast_uid                              | varchar(200)     |      |     |         |       | "$.data.user.webcast_uid"                              | Webcast用户ID              |
+| with_car_management_permission           | bool             |      |     |         |       | "$.data.user.with_car_management_permission"           | 是否具有汽车管理权限         |
+| with_commerce_permission                 | bool             |      |     |         |       | "$.data.user.with_commerce_permission"                 | 是否具有商业权限            |
+| with_fusion_shop_entry                   | bool             |      |     |         |       | "$.data.user.with_fusion_shop_entry"                   | 是否具有融合店铺入口         |
++------------------------------------------+------------------+------+-----+---------+-------+--------------------------------------------------------+----------------------------+
+```
+
+直播间 owner 表 - room_owner
+```shell
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------+----------------------------+
+| Field                                    | Type              | Null | Key | Default | Extra |Topology                                                      | Comment                    |
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------+----------------------------+
+| now                                      | timestamp         | YES  |     |         |       | "$.extra.now"                                                | 当前时间戳                  |
+| room_id                                  | varchar(200)      |      |     |         |       | "$.data.room.id"                                             | 直播间ID                    |
+| owner_user_id                            | varchar(200)      |      |     |         |       | "$.data.room.owner_user_id"                                  | 直播间主播ID                |
+| follower_count                           | unsigned bigint   |      |     | 0       |       | "$.data.room.owner.follow_info.follower_count"               | 粉丝数量                    |
+| follower_count_str                       | varchar(20)       |      |     | 0       |       | "$.data.room.owner.follow_info.follower_count_str"           | 粉丝数量字符串              |
+| following_count                          | unsigned int      |      |     | 0       |       | "$.data.room.owner.follow_info.following_count"              | 关注数量                    |
+| following_count_str                      | varchar(20)       |      |     | 0       |       | "$.data.room.owner.follow_info.following_count_str"          | 关注数量字符串               |
+| gender                                   | unsigned tinyint  |      |     | 0       |       | "$.data.room.owner.follow_info.following_count_str"          | 性别（0-未知，1-男，2-女）   |
+| allow_be_located                         | bool              |      |     | 0       |       | "$.data.room.owner.allow_be_located"                         | 是否允许被定位               |
+| age_range                                | unsigned tinyint  |      |     | 0       |       | "$.data.room.owner.age_range"                                | 年龄范围                     |
+| adversary_authorization_info             | unsigned tinyint  |      |     | 0       |       | "$.data.room.owner.adversary_authorization_info"             | 对手授权信息                 |
+| adversary_user_status                    | unsigned tinyint  |      |     | 0       |       | "$.data.room.owner.adversary_user_status"                    | 对手用户状态                 |
+| owner_device_id                          | varchar(200)      |      |     | 0       |       | "$.data.room.owner.owner_device_id"                          | 主播设备ID                  |
+| owner_open_id                            | varchar(200)      |      |     | 0       |       | "$.data.room.owner.owner_open_id"                            | 主播OpenID                  |
+| allow_find_by_contacts                   | bool              |      |     |         |       | "$.data.room.owner.allow_find_by_contacts"                   | 是否允许通过联系人查找       |
+| allow_others_download_video              | bool              |      |     |         |       | "$.data.room.owner.allow_others_download_video"              | 是否允许其他人下载视频       |
+| allow_others_download_when_sharing_video | bool              |      |     |         |       | "$.data.room.owner.allow_others_download_when_sharing_video" | 是否允许其他人下载分享的视频  |
+| allow_share_show_profile                 | bool              |      |     |         |       | "$.data.room.owner.allow_share_show_profile"                 | 是否允许分享展示个人资料      |
+| allow_show_in_gossip                     | bool              |      |     |         |       | "$.data.room.owner.allow_show_in_gossip"                     | 是否允许在八卦中展示          |
+| allow_show_my_action                     | bool              |      |     |         |       | "$.data.room.owner.allow_show_my_action"                     | 是否允许展示我的动态          |
+| allow_strange_comment                    | bool              |      |     |         |       | "$.data.room.owner..allow_strange_comment"                   | 是否允许陌生人评论            |
+| allow_unfollower_comment                 | bool              |      |     |         |       | "$.data.room.owner..allow_unfollower_comment"                | 是否允许非关注者评论          |
+| allow_use_linkmic                        | bool              |      |     |         |       | "$.data.room.owner..allow_use_linkmic"                       | 是否允许使用连麦              |
+| authorization_info                       | unsigned tinyint  |      |     |         |       | "$.data.room.owner..authorization_info"                      | 授权信息                     |
+| bg_img_url                               | text              |      |     |         |       | "$.data.room.owner.bg_img_url"                               | 背景图片URL                 |
+| birthday                                 | timestamp         |      |     |         |       | "$.data.room.owner.birthday"                                 | 生日时间戳                  |
+| birthday_description                     | tinytext          |      |     |         |       | "$.data.room.owner.birthday_description"                     | 生日描述                   |
+| birthday_valid                           | bool              |      |     |         |       | "$.data.room.owner.birthday_valid"                           | 生日是否有效                |
+| block_status                             | unsigned tinyint  |      |     |         |       | "$.data.room.owner.block_status"                             | 屏蔽状态：0-未屏蔽 1-已屏蔽  |
+| city                                     | varchar(100)      |      |     |         |       | "$.data.room.owner.city"                                     | 城市                       |
+| comment_restrict                         | unsigned tinyint  |      |     |         |       | "$.data.room.owner.comment_restrict"                         | 评论限制                    |
+| constellation                            | varchar(20)       |      |     |         |       | "$.data.room.owner.constellation"                            | 星座                       |
+| consume_diamond_level                    | unsigned smallint |      |     |         |       | "$.data.room.owner.consume_diamond_level"                    | 消费钻石等级                |
+| create_time                              | timestamp         |      |     |         |       | "$.data.room.owner.create_time"                              | 账号创建时间戳              |
+| desensitized_nickname                    | varchar(50)       |      |     |         |       | "$.data.room.owner.desensitized_nickname"                    | 脱敏昵称                   |
+| disable_ichat                            | bool              |      |     |         |       | "$.data.room.owner.disable_ichat"                            | 是否禁用iChat               |
+| display_id                               | varchar(200)      |      |     |         |       | "$.data.room.owner.display_id"                               | 显示ID                     |
+| enable_ichat_img                         | unsigned tinyint  |      |     |         |       | "$.data.room.owner.enable_ichat_img"                         | 是否启用iChat图片           |
+| exp                                      | unsigned int      |      |     |         |       | "$.data.room.owner.exp"                                      | 经验值                      |
+| experience                               | unsigned int      |      |     |         |       | "$.data.room.owner.experience"                               | 经验值                      |
+| fan_ticket_count                         | unsigned bigint   |      |     |         |       | "$.data.room.owner.fan_ticket_count"                         | 粉丝票数量                  |
+| fold_stranger_chat                       | bool              |      |     |         |       | "$.data.room.owner.fold_stranger_chat"                       | 是否折叠陌生人聊天           |
+| hotsoon_verified                         | bool              |      |     |         |       | "$.data.room.owner.hotsoon_verified"                         | 是否Hotsoon认证             |
+| hotsoon_verified_reason                  | bool              |      |     |         |       | "$.data.room.owner.hotsoon_verified_reason"                  | Hotsoon认证原因             |
+| ichat_restrict_type                      | unsigned tinyint  |      |     |         |       | "$.data.room.owner.ichat_restrict_type"                      | iChat限制类型               |
+| income_share_percent                     | unsigned tinyint  |      |     |         |       | "$.data.room.owner.income_share_percent"                     | 收入分成百分比               |
+| is_follower                              | bool              |      |     |         |       | "$.data.room.owner.is_follower"                              | 是否是粉丝                  |
+| is_anonymous                             | bool              |      |     |         |       | "$.data.room.owner.is_anonymous"                             | 是否匿名                    |
+| is_following                             | bool              |      |     |         |       | "$.data.room.owner.is_following"                             | 是否正在关注                 |
+| level                                    | unsigned smallint |      |     |         |       | "$.data.room.owner.level"                                    | 用户等级                    |
+| link_mic_stats                           | unsigned tinyint  |      |     |         |       | "$.data.room.owner.link_mic_stats"                           | 连麦状态                    |
+| location_city                            | varchar(100)      |      |     |         |       | "$.data.room.owner.location_city"                            | 定位城市                    |
+| mystery_man                              | unsigned tinyint  |      |     |         |       | "$.data.room.owner.mystery_man"                              | 是否神秘人                  |
+| modify_time                              | timestamp         |      |     |         |       | "$.data.room.owner.modify_time"                              | 修改时间戳                  |
+| need_profile_guide                       | bool              |      |     |         |       | "$.data.room.owner.need_profile_guide"                       | 是否需要个人资料引导         |
+| nickname                                 | varchar(50)       |      |     |         |       | "$.data.room.owner.nickname"                                 | 昵称                       |
+| pay_grade_banner                         | tinytext          |      |     |         |       | "$.data.room.owner.pay_grade.grade_banner"                   | 付费等级横幅                |
+| pay_grade_describe                       | tinytext          |      |     |         |       | "$.data.room.owner.pay_grade.grade_describe"                 | 付费等级描述                |
+| pay_grade_describe_shining               | bool              |      |     |         |       | "$.data.room.owner.pay_grade.grade_describe_shining"         | 付费等级描述闪烁             |
+| pay_grade_level                          | unsigned smallint |      |     |         |       | "$.data.room.owner.pay_grade.level"                          | 付费等级                    |
+| pay_grade_name                           | varchar(50)       |      |     |         |       | "$.data.room.owner.pay_grade.name"                           | 付费等级名称                 |
+| pay_grade_next_diamond                   | unsigned bigint   |      |     |         |       | "$.data.room.owner.pay_grade.next_diamond"                   | 下一级所需钻石               |
+| pay_grade_next_name                      | varchar(50)       |      |     |         |       | "$.data.room.owner.pay_grade.next_name"                      | 下一级名称                   |
+| pay_grade_next_privileges                | tinytext          |      |     |         |       | "$.data.room.owner.pay_grade.next_privileges"                | 下一级特权                   |
+| pay_grade_now_diamond                    | unsigned bigint   |      |     |         |       | "$.data.room.owner.pay_grade.now_diamond"                    | 当前钻石                     |
+| pay_diamond_bak                          | unsigned bigint   |      |     |         |       | "$.data.room.owner.pay_grade.pay_diamond_bak"                | 付费钻石备份                 |
+| pay_grade_score                          | unsigned int      |      |     |         |       | "$.data.room.owner.pay_grade.score"                          | 分数                        |
+| screen_chat_type                         | unsigned tinyint  |      |     |         |       | "$.data.room.owner.pay_grade.screen_chat_type"               | 屏幕聊天类型                 |
+| this_grade_max_diamond                   | unsigned bigint   |      |     |         |       | "$.data.room.owner.pay_grade.this_grade_max_diamond"         | 当前等级最大钻石             |
+| this_grade_min_diamond                   | unsigned bigint   |      |     |         |       | "$.data.room.owner.pay_grade.this_grade_min_diamond"         | 当前等级最小钻石             |
+| total_diamond_count                      | unsigned bigint   |      |     |         |       | "$.data.room.owner.pay_grade.total_diamond_count"            | 总钻石数量                   |
+| upgrade_need_consume                     | unsigned bigint   |      |     |         |       | "$.data.room.owner.pay_grade.upgrade_need_consume"           | 升级所需消费                 |
+| pay_score                                | unsigned int      |      |     |         |       | "$.data.room.owner.pay_score"                                | 支付分                     |
+| pay_scores                               | unsigned int      |      |     |         |       | "$.data.room.owner.pay_scores"                               | 支付分                     |
+| public_area_oper_freq                    | unsigned tinyint  |      |     |         |       | "$.data.room.owner.public_area_oper_freq"                    | 公共区域操作频率             |
+| push_comment_status                      | bool              |      |     |         |       | "$.data.room.owner.push_comment_status"                      | 是否推送评论状态             |
+| push_digg                                | bool              |      |     |         |       | "$.data.room.owner.push_digg"                                | 是否推送点赞                |
+| push_follow                              | bool              |      |     |         |       | "$.data.room.owner.push_follow"                              | 是否推送关注                |
+| push_friend_action                       | bool              |      |     |         |       | "$.data.room.owner.push_friend_action"                       | 是否推送好友操作            |
+| push_ichat                               | bool              |      |     |         |       | "$.data.room.owner.push_ichat"                               | 是否推送iChat               |
+| push_status                              | bool              |      |     |         |       | "$.data.room.owner.push_status"                              | 是否推送状态                |
+| push_video_post                          | bool              |      |     |         |       | "$.data.room.owner.push_video_post"                          | 是否推送视频发布            |
+| push_video_recommend                     | bool              |      |     |         |       | "$.data.room.owner.push_video_recommend"                     | 是否推送视频推荐            |
+| remark_name                              | varchar(50)       |      |     |         |       | "$.data.room.owner.remark_name"                              | 备注名                     |
+| sec_uid                                  | varchar(200)      |      |     |         |       | "$.data.room.owner.sec_uid"                                  | 安全用户ID                 |
+| secret                                   | unsigned tinyint  |      |     |         |       | "$.data.room.owner.secret"                                   | 是否私密                    |
+| share_qrcode_uri                         | text              |      |     |         |       | "$.data.room.owner.share_qrcode_uri"                         | 分享二维码URI               |
+| short_id                                 | varchar(200)      |      |     |         |       | "$.data.room.owner.short_id"                                 | 短ID                       |
+| signature                                | text              |      |     |         |       | "$.data.room.owner.signature"                                | 个性签名                    |
+| special_id                               | varchar(200)      |      |     |         |       | "$.data.room.owner.special_id"                               | 特殊ID                     |
+| status                                   | unsigned tinyint  |      |     | 0       |       | "$.data.room.owner.status"                                   | 用户状态：0-注销 1-正常     |
+| telephone                                | varchar(20)       |      |     |         |       | "$.data.room.owner.telephone"                                | 电话号码                    |
+| ticket_count                             | unsigned bigint   |      |     |         |       | "$.data.room.owner.ticket_count"                             | 票数                        |
+| top_vip_no                               | unsigned smallint |      |     |         |       | "$.data.room.owner.top_vip_no"                               | 顶级VIP编号                 |
+| total_recharge_diamond_count             | unsigned bigint   |      |     |         |       | "$.data.room.owner.total_recharge_diamond_count"             | 总充值钻石数量               |
+| user_canceled                            | bool              |      |     |         |       | "$.data.room.owner.user_canceled"                            | 用户是否已取消               |
+| user_open_id                             | varchar(200)      |      |     |         |       | "$.data.room.owner.user_open_id"                             | 用户OpenID                  |
+| user_role                                | unsigned tinyint  |      |     |         |       | "$.data.room.owner.user_role"                                | 用户角色                    |
+| verified                                 | bool              |      |     |         |       | "$.data.room.owner.verified"                                 | 是否认证                     |
+| verified_content                         | tinytext          |      |     |         |       | "$.data.room.owner.verified_content"                         | 认证内容                     |
+| verified_mobile                          | bool              |      |     |         |       | "$.data.room.owner.verified_mobile"                          | 是否为认证手机号              |
+| verified_reason                          | tinytext          |      |     |         |       | "$.data.room.owner.verified_reason"                          | 认证原因                      |
+| watch_duration_month                     | unsigned smallint |      |     |         |       | "$.data.room.owner.watch_duration_month"                     | 观看时长（月）                |
+| web_rid                                  | varchar(200)      |      |     |         |       | "$.data.room.owner.web_rid"                                  | Web RID                      |
+| webcast_uid                              | varchar(200)      |      |     |         |       | "$.data.room.owner.webcast_uid"                              | 主播Webcast UID              |
+| with_car_management_permission           | bool              |      |     |         |       | "$.data.room.owner.with_car_management_permission"           | 是否具有车辆管理权限          |
+| with_commerce_permission                 | bool              |      |     |         |       | "$.data.room.owner.with_commerce_permission"                 | 是否具有商业权限              |
+| with_fusion_shop_entry                   | bool              |      |     |         |       | "$.data.room.owner.with_fusion_shop_entry"                   | 是否具有融合店铺入口          |
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------+-----------------------------+
+```
+
+付费等级图标 - pay_grade_icon
+```shell
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+| now                              | timestamp         | YES  | PRI |         |       | "$.extra.now"                                            | 当前时间戳            | 
+| platform                         | varchar(20)       |      | PRI | NULL    |       |           -                                              | 平台                  |
+| room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                         | 直播间ID              | 
+| owner_user_id                    | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"                              | 账号作者ID            |
+| pay_grade_icon_index             | unsigned tinyint  | NO   |     | 0       |       |           -                                              | 索引号               |
+|                                  |                   | NO   |     | 0       |       | "$.data.room.owner.pay_grade.grade_icon_list"            | 付费等级图标列表      |
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+```
+
+直播间认证信息 - room_auth
+```shell
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+| now                              | timestamp         | YES  | PRI |         |       | "$.extra.now"                                            | 当前时间戳            | 
+| platform                         | varchar(20)       |      | PRI | NULL    |       |           -                                              | 平台                  |
+| room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                         | 直播间ID              | 
+| AIClone                          | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.AIClone"                          | AI克隆                | 
+| AdminCommentWall                 | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.AdminCommentWall"                 | 管理员评论墙          | 
+| AnchorAudioChat                  | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.AnchorAudioChat"                  | 主播音频聊天          | 
+| AnchorColdMessageTiled           | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.AnchorColdMessageTiled"           | 主播冷消息平铺        | 
+| AnchorHotMessageAggregated       | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.AnchorHotMessageAggregated"       | 主播热消息聚合        | 
+| AnchorMission                    | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.AnchorMission"                    | 主播任务             | 
+| AudioChat                        | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.AudioChat"                        | 音频聊天             | 
+| AudioChatTotext                  | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.AudioChatTotext"                  | 音频聊天转文本        | 
+| Banner                           | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.Banner"                           | 横幅                 | 
+| BulletStyle                      | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.BulletStyle"                      | 弹幕样式              | 
+| CanSellTicket                    | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.CanSellTicket"                    | 是否可以售票          | 
+| CastScreen                       | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.CastScreen"                       | 屏幕投射             | 
+| CastScreenExplicit               | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.CastScreenExplicit"               | 屏幕投射显式          | 
+| Chat                             | bool              |      |     |         |       | "$.data.room.room_auth.Chat"                             | 聊天                 | 
+| ChatDispatch                     | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ChatDispatch"                     | 聊天分发             | 
+| ChatDynamicSlideSpeed            | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ChatDynamicSlideSpeed"            | 聊天动态滑动速度      | 
+| ChatDynamicSlideSpeedAnchor      | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ChatDynamicSlideSpeedAnchor"      | 主播聊天动态滑动速度   | 
+| ChatGuideEmoji                   | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ChatGuideEmoji"                   | 聊天引导表情          |
+| ChatGuideImage                   | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ChatGuideImage"                   | 聊天引导图片          |
+| ChatIdentity                     | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ChatIdentity"                     | 聊天身份              |
+| ChatMention                      | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ChatMention"                      | 聊天提及             |
+| ChatMentionV2                    | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ChatMentionV2"                    | 聊天提及V2            |
+| ChatOperate                      | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ChatOperate"                      | 聊天操作             |
+| ChatReply                        | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ChatReply"                        | 聊天回复              |
+| ClearEntranceOption              | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ClearEntranceOption"              | 清除入口选项          |
+| Collect                          | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.Collect"                          | 收藏                 |
+| CommentWall                      | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.CommentWall"                      | 评论墙               |
+| CommerceCard                     | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.CommerceCard"                     | 商业卡片             |
+| CommerceComponent                | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.CommerceComponent"                | 商业组件             |
+| CommonCard                       | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.CommonCard"                       | 通用卡片             |
+| CountType                        | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.CountType"                        | 计数类型             | 
+| Danmaku                          | bool              |      |     |         |       | "$.data.room.room_auth.Danmaku"                          | 弹幕                 | 
+| DanmakuDefault                   | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.DanmakuDefault"                   | 弹幕默认             | 
+| Denounce                         | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.Denounce"                         | 举报                 | 
+| Digg                             | bool              |      |     |         |       | "$.data.room.room_auth.Digg"                             | 点赞                 | 
+| Dislike                          | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.Dislike"                          | 不喜欢               | 
+| DonationSticker                  | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.DonationSticker"                  | 捐赠贴纸             | 
+| DouPlus                          | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.DouPlus"                          | DouPlus             | 
+| DouPlusPopularityGem             | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.DouPlusPopularityGem"             | DouPlus人气宝石      | 
+| DownloadVideo                    | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.DownloadVideo"                    | 下载视频             | 
+| EcomFansClub                     | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.EcomFansClub"                     | 电商粉丝俱乐部        | 
+| EmojiOutside                     | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.EmojiOutside"                     | 外部表情             | 
+| EnhancedTouch                    | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.EnhancedTouch"                    | 增强触摸             | 
+| EnterEffects                     | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.EnterEffects"                     | 进入效果             | 
+| ExpandScreen                     | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ExpandScreen"                     | 扩展屏幕             | 
+| FansClub                         | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.FansClub"                         | 粉丝俱乐部           | 
+| FansClubBlessing                 | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.FansClubBlessing"                 | 粉丝俱乐部祝福        | 
+| FansClubDeclaration              | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.FansClubDeclaration"              | 粉丝俱乐部宣言        | 
+| FansClubLetter                   | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.FansClubLetter"                   | 粉丝俱乐部信件        | 
+| FansClubNotice                   | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.FansClubNotice"                   | 粉丝俱乐部通知        | 
+| FansGroup                        | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.FansGroup"                        | 粉丝群               | 
+| FeaturedPublicScreen             | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.FeaturedPublicScreen"             | 精选公共屏幕          | 
+| FirstFeedHistChat                | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.FirstFeedHistChat"                | 首次Feed历史聊天      | 
+| FixedChat                        | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.FixedChat"                        | 固定聊天             | 
+| FrequentlyChat                   | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.FrequentlyChat"                   | 常用聊天             | 
+| FusionEmoji                      | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.FusionEmoji"                      | 融合表情             | 
+| GamePointsPlaying                | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.GamePointsPlaying"                | 游戏积分玩法          | 
+| Gift                             | bool              |      |     |         |       | "$.data.room.room_auth.Gift"                             | 礼物                 | 
+| GiftAnchorMt                     | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.GiftAnchorMt"                     | 主播礼物MT           | 
+| GiftVote                         | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.GiftVote"                         | 礼物投票             | 
+| Highlights                       | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.Highlights"                       | 精彩片段             | 
+| HostTeam                         | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.HostTeam"                         | 主播团队             | 
+| HostTeamChannel                  | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.HostTeamChannel"                  | 主播团队频道          | 
+| HotChatTray                      | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.HotChatTray"                      | 热聊天托盘            | 
+| HourRank                         | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.HourRank"                         | 小时排行榜            | 
+| ImHeatValue                      | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ImHeatValue"                      | IM热值               | 
+| IndustryService                  | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.IndustryService"                  | 行业服务             | 
+| InteractionGift                  | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.InteractionGift"                  | 互动礼物             | 
+| InteractiveComponent             | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.InteractiveComponent"             | 互动组件             | 
+| ItemShare                        | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ItemShare"                        | 物品分享             | 
+| KtvOrderSong                     | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.KtvOrderSong"                     | KTV点歌              | 
+| Landscape                        | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.Landscape"                        | 横屏                 | 
+| LandscapeChat                    | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.LandscapeChat"                    | 横屏聊天             | 
+| LandscapeChatDynamicSlideSpeed   | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.LandscapeChatDynamicSlideSpeed"   | 横屏聊天动态滑动速度   | 
+| LandscapeGift                    | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.LandscapeGift"                    | 横屏礼物             | 
+| LandscapeScreenCapture           | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.LandscapeScreenCapture"           | 横屏屏幕截图          | 
+| LandscapeScreenRecording         | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.LandscapeScreenRecording"         | 横屏屏幕录制          | 
+| LandscapeScreenShare             | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.LandscapeScreenShare"             | 横屏屏幕分享          | 
+| Like                             | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.Like"                             | 点赞                 | 
+| LinkmicGuestLike                 | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.LinkmicGuestLike"                 | 连麦嘉宾点赞          | 
+| LongPressOption                  | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.LongPressOption"                  | 长按选项              | 
+| LongTouch                        | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.LongTouch"                        | 长按触摸              | 
+| LuckMoney                        | bool              |      |     |         |       | "$.data.room.room_auth.LuckMoney"                        | 红包                 | 
+| MarkUser                         | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.MarkUser"                         | 标记用户             | 
+| MediaHistoryMessage              | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.MediaHistoryMessage"              | 媒体历史消息          | 
+| MediaLinkmic                     | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.MediaLinkmic"                     | 媒体连麦             | 
+| MessageDispatch                  | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.MessageDispatch"                  | 消息分发             | 
+| MessageGift                      | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.MessageGift"                      | 消息礼物             | 
+| MissionCenter                    | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.MissionCenter"                    | 任务中心             | 
+| MoreAnchor                       | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.MoreAnchor"                       | 更多主播             | 
+| MoreHistChat                     | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.MoreHistChat"                     | 更多历史聊天          | 
+| MultiplierPlayback               | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.MultiplierPlayback"               | 倍速播放             | 
+| MyLiveEntrance                   | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.MyLiveEntrance"                   | 我的直播入口          | 
+| OnlyTa                           | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.OnlyTa"                           | 仅限TA               | 
+| PCPlay                           | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.PCPlay"                           | PC播放               | 
+| POI                              | bool              |      |     |         |       | "$.data.room.room_auth.POI"                              | POI                  | 
+| PadPlay                          | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.PadPlay"                          | 平板播放             | 
+| PanelECService                   | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.PanelECService"                   | 面板EC服务           | 
+| PlayerRankList                   | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.PlayerRankList"                   | 播放器排行榜列表      | 
+| Poster                           | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.Poster"                           | 海报                 | 
+| PosterCache                      | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.PosterCache"                      | 海报缓存             | 
+| PreviewChatExpose                | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.PreviewChatExpose"                | 预览聊天曝光          | 
+| PreviewHotCommentSwitch          | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.PreviewHotCommentSwitch"          | 预览热评论开关        | 
+| ProjectionBtn                    | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ProjectionBtn"                    | 投影按钮             | 
+| Props                            | bool              |      |     |         |       | "$.data.room.room_auth.Props"                            | 道具                 | 
+| PublicScreen                     | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.PublicScreen"                     | 公共屏幕             | 
+| QuizGamePointsPlaying            | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.QuizGamePointsPlaying"            | 测验游戏积分玩法      | 
+| RecordScreen                     | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.RecordScreen"                     | 录制屏幕             | 
+| RoomChannel                      | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.RoomChannel"                      | 直播间频道            | 
+| RoomChatLikeDisplay              | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.RoomChatLikeDisplay"              | 直播间聊天点赞显示    | 
+| RoomChatOperatePanel             | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.RoomChatOperatePanel"             | 直播间聊天操作面板    | 
+| RoomContributor                  | bool              |      |     |         |       | "$.data.room.room_auth.RoomContributor"                  | 直播间贡献者          | 
+| RoomWidget                       | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.RoomWidget"                       | 直播间小部件          | 
+| ScreenBottomInfo                 | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ScreenBottomInfo"                 | 屏幕底部信息          | 
+| ScreenProjectionBarrage          | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ScreenProjectionBarrage"          | 屏幕投影弹幕          | 
+| Seek                             | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.Seek"                             | 寻找                 | 
+| Selection                        | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.Selection"                        | 选择                 | 
+| SelectionAlbum                   | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.SelectionAlbum"                   | 选择相册             | 
+| Share                            | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.Share"                            | 分享                 | 
+| ShortTouch                       | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ShortTouch"                       | 短触摸               | 
+| ShortTouchTempState              | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ShortTouchTempState"              | 短触摸临时状态        | 
+| ShowGamePlugin                   | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ShowGamePlugin"                   | 显示游戏插件          | 
+| ShowQualification                | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ShowQualification"                | 显示资格             | 
+| SmallWindowDisplay               | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.SmallWindowDisplay"               | 小窗口显示            | 
+| SmallWindowPlayer                | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.SmallWindowPlayer"                | 小窗口播放器          | 
+| StickyMessage                    | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.StickyMessage"                    | 固定消息             | 
+| StreamAdaptation                 | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.StreamAdaptation"                 | 流适应               | 
+| StrokeUpDownGuide                | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.StrokeUpDownGuide"                | 上下滑动引导          | 
+| SubscribeCardPackage             | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.SubscribeCardPackage"             | 订阅卡包             | 
+| Teleprompter                     | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.Teleprompter"                     | 提词器               | 
+| TextGift                         | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.TextGift"                         | 文本礼物             | 
+| TimedShutdown                    | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.TimedShutdown"                    | 定时关机             | 
+| ToolbarBubble                    | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.ToolbarBubble"                    | 工具栏气泡            | 
+| Topic                            | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.Topic"                            | 话题                 | 
+| TypingCommentState               | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.TypingCommentState"               | 输入评论状态          | 
+| UgcVSReplayDelete                | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.UgcVSReplayDelete"                | Ugc VS回放删除        | 
+| UgcVsReplayVisibility            | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.UgcVsReplayVisibility"            | Ugc VS回放可见性      | 
+| UpRightStatsFloatingLayer        | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.UpRightStatsFloatingLayer"        | 右上角统计浮动层      | 
+| UseHostInfo                      | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.UseHostInfo"                      | 使用主机信息          | 
+| UserCard                         | bool              |      |     |         |       | "$.data.room.room_auth.UserCard"                         | 用户卡片              | 
+| UserCorner                       | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.UserCorner"                       | 用户角落              | 
+| VSGift                           | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.VSGift"                           | VS礼物               | 
+| VSRank                           | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.VSRank"                           | VS排行榜             | 
+| VSTopic                          | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.VSTopic"                          | VS话题               | 
+| VerticalRank                     | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.VerticalRank"                     | 垂直排行榜            | 
+| VerticalScreenShare              | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.VerticalScreenShare"              | 垂直屏幕分享          | 
+| VideoAmplificationType           | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.VideoAmplificationType"           | 视频放大类型          | 
+| VideoShare                       | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.VideoShare"                       | 视频分享             | 
+| VsCommentBar                     | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.VsCommentBar"                     | VS评论栏             | 
+| VsDouPlus                        | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.VsDouPlus"                        | VS DouPlus           | 
+| VsExtensionEnableFollow          | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.VsExtensionEnableFollow"          | VS扩展启用关注        | 
+| VsFansClub                       | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.VsFansClub"                       | VS粉丝俱乐部          | 
+| VsWelcomeDanmaku                 | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.VsWelcomeDanmaku"                 | VS欢迎弹幕            | 
+| WordAssociation                  | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.WordAssociation"                  | 词关联                | 
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+```
+
+直播间标签表 - room_tab
+```shell
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+| now                              | timestamp         | YES  | PRI |         |       | "$.extra.now"                                            | 当前时间戳            | 
+| platform                         | varchar(20)       |      | PRI | NULL    |       |           -                                              | 平台                  |
+| room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                         | 直播间ID              | 
+| tab_index
+|
++----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+```
+
+
+直播流数据表 - live_stream
+```shell
++------------------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------------+----------------------------------+
+| Field                                    | Type              | Null | Key | Default | Extra | Topology                                                   | Comment                          | 
++------------------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------------+----------------------------------+
+| id                                       | varchar(200)      |      |     |         |       | "$.data.room.stream_url.id"                                | 直播间流ID                        |
+| default_resolution                       | varchar(20)       |      |     |         |       | "$.data.room.stream_url.default_resolution"                | 默认分辨率                        |
+| resolution_name                          | json              |      |     |         |       | "$.data.room.stream_url.resolution_name"                   | 分辨率名称                        |
+| flv_pull_url                             | json              |      |     |         |       | "$.data.room.stream_url.flv_pull_url"                      | 直播间FLV拉流地址                 |
+| flv_pull_url_params                      | json              |      |     |         |       | "$.data.room.stream_url.flv_pull_url_params"               | FLV拉流地址参数                   |
+| hls_pull_url                             | text              |      |     |         |       | "$.data.room.stream_url.hls_pull_url"                      | 直播间HLS拉流地址                 |
+| hls_pull_url_map                         | json              |      |     |         |       | "$.data.room.stream_url.hls_pull_url_map"                  | 直播间HLS拉流地址映射              |
+| hls_pull_url_params                      | json              |      |     |         |       | "$.data.room.stream_url.hls_pull_url_params"               | HLS拉流地址参数                   |
+| provider                                 | unsigned tinyint  |      |     |         |       | "$.data.room.stream_url.provider"                          | 直播间推流服务商                  |
+| push_stream_type                         | unsigned tinyint  |      |     |         |       | "$.data.room.stream_url.push_stream_type"                  | 推流类型                          |
+| rtmp_pull_url                            | text              |      |     |         |       | "$.data.room.stream_url.rtmp_pull_url"                     | 直播间RTMP拉流地址                |
+| rtmp_pull_url_params                     | json              |      |     |         |       | "$.data.room.stream_url.rtmp_pull_url_params"              | RTMP拉流地址参数                  |
+| pull_datas                               | json              |      |     |         |       | "$.data.room.stream_url.pull_datas"                        | 拉流数据                          |
+| push_datas                               | json              |      |     |         |       | "$.data.room.stream_url.push_datas"                        | 推流数据                          |
+| stream_provider                          | unsigned tinyint  |      |     |         |       | "$.data.room.stream_provider"                              | 直播间流提供者                    |
+| anchor_interact_profile                  | unsigned tinyint  |      |     |         |       | "$.data.room.stream_url.extra.anchor_interact_profile"     | 主播互动配置文件                  |
+| audience_interact_profile                | unsigned tinyint  |      |     |         |       | "$.data.room.stream_url.extra.audience_interact_profile"   | 观众互动配置文件                  |
+| bframe_enable                            | bool              |      |     |         |       | "$.data.room.stream_url.extra.bframe_enable"               | B帧启用                          |
+| bitrate_adapt_strategy                   | unsigned tinyint  |      |     |         |       | "$.data.room.stream_url.extra.bitrate_adapt_strategy"      | 比特率自适应策略                  |
+| bytevc1_enable                           | bool              |      |     |         |       | "$.data.room.stream_url.extra.bytevc1_enable"              | 比特率自适应策略                  |
+| default_bitrate                          | unsigned tinyint  |      |     |         |       | "$.data.room.stream_url.extra.default_bitrate"             | 默认比特率                        |
+| fps                                      | unsigned tinyint  |      |     |         |       | "$.data.room.stream_url.extra.fps"                         | 帧率                              |
+| gop_sec                                  | unsigned tinyint  |      |     |         |       | "$.data.room.stream_url.extra.gop_sec"                     | GOP秒数                          |
+| h265_enable                              | bool              |      |     |         |       | "$.data.room.stream_url.extra.h265_enable"                 | H.265启用                        |
+| hardware_encode                          | bool              |      |     |         |       | "$.data.room.stream_url.extra.hardware_encode"             | 硬件编码                          |
+| height                                   | unsigned smallint |      |     |         |       | "$.data.room.stream_url.extra.height"                      | 高度                             |
+| max_bitrate                              | unsigned int      |      |     |         |       | "$.data.room.stream_url.extra.max_bitrate"                 | 最大比特率                        |
+| min_bitrate                              | unsigned int      |      |     |         |       | "$.data.room.stream_url.extra.min_bitrate"                 | 最小比特率                        |
+| roi                                      | bool              |      |     |         |       | "$.data.room.stream_url.extra.roi"                         | 是否启用ROI（Region of Interest） |
+| sw_roi                                   | bool              |      |     |         |       | "$.data.room.stream_url.extra.sw_roi"                      | 是否启用软件ROI                   |
+| video_profile                            | unsigned tinyint  |      |     |         |       | "$.data.room.stream_url.extra.video_profile"               | 视频配置文件                      |
+| width                                    | unsigned smallint |      |     |         |       | "$.data.room.stream_url.extra.width"                       | 宽度                             |
+| rtmp_push_url                            | text              |      |     |         |       | "$.data.room.stream_url.rtmp_push_url"                     | 直播间RTMP推流地址                |
+| rtmp_push_url_params                     | text              |      |     |         |       | "$.data.room.stream_url.rtmp_push_url_params"              | RTMP推流地址参数                  |
+| stream_control_type                      | unsigned tinyint  |      |     |         |       | "$.data.room.stream_url.stream_control_type"               | 直播间流控制类型                  |
+| stream_orientation                       | unsigned tinyint  |      |     |         |       | "$.data.room.stream_url.stream_orientation"                | 直播间流方向：1-竖屏 2-横屏        |
+| vr_type                                  | unsigned tinyint  |      |     |         |       | "$.data.room.stream_url.vr_type"                           | VR类型                           |
++------------------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------------+----------------------------------+
+```
+
+勋章图片表 - badge_image
+```shell
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
+| Field                                    | Type              | Null | Key | Default | Extra | Topology                                               | Comment                   |
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
+| badge_image_index                        | unsigned tinyint  |      |     |         |       |                                                        | 勋章图片索引               |
+| version                                  | varchar(20)       |      |     |         |       |                                                        |                           |
+| uri                                      | text              |      |     |         |       | "$.data.room.owner.badge_image_list.uri"               | 统一资源识别符             |
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
+```
+
+图片内容表 - picture_content
+```shell
++------------------------------------------+-------------------+------+-----+---------+-------+---------------------------------------------------------------+---------------------------+
+| Field                                    | Type              | Null | Key | Default | Extra | Topology                                                      | Comment                   |
++------------------------------------------+-------------------+------+-----+---------+-------+---------------------------------------------------------------+---------------------------+
+| uri                                      | unsigned tinyint  |      |     |         |       | "$.data.room.owner.badge_image_list.uri"                      | 统一资源识别符             |
+| alternative_text                         | text              |      |     |         |       | "$.data.room.owner.badge_image_list.content.alternative_text" | 替代文本                  |
+| font_color                               | varchar(7)        |      |     |         |       | "$.data.room.owner.badge_image_list.content.font_color"       | 字体颜色                  |
+| level                                    | unsigned smallint |      |     |         |       | "$.data.room.owner.badge_image_list.content.level"            | 等级                      |
+| name                                     | varchar(50)       |      |     |         |       | "$.data.room.owner.badge_image_list.content.name"             | 名称                      |
++------------------------------------------+-------------------+------+-----+---------+-------+---------------------------------------------------------------+---------------------------+
+```
+
+===================================================================================================================================================================================
+
+图片资源表 - picture
+```shell
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
+| Field                                    | Type              | Null | Key | Default | Extra | Topology                                               | Comment                   |
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
+| uri                                      | text              |      |     |         |       | "$.data.room.guide_button.uri"                         | 统一资源识别符             |
+| avg_color                                | varchar(7)        |      |     |         |       | "$.data.room.guide_button.avg_color"                   | 平均颜色                  |
+| height                                   | unsigned int      |      |     |         |       | "$.data.room.guide_button.height"                      | 高度                      |
+| image_type                               | unsigned tinyint  |      |     |         |       | "$.data.room.guide_button.image_type"                  | 图片类型                  |
+| is_animated                              | bool              |      |     |         |       | "$.data.room.guide_button.is_animated"                 | 是否为动画                |
+| open_web_url                             | text              |      |     |         |       | "$.data.room.guide_button.open_web_url"                | 开放网页URL               |
+| width                                    | unsigned int      |      |     |         |       | "$.data.room.guide_button.width"                       | 宽度                      |
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
+```
+
+图片弹性设置表 - picture_flex_setting
+```shell
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
+| Field                                    | Type              | Null | Key | Default | Extra | Topology                                               | Comment                   |
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
+| uri                                      | text              |      |     |         |       | "$.data.room.guide_button.uri"                         | 统一资源识别符             |
+| flex_setting                             | tinytext          |      |     |         |       | "$.data.room.guide_button.flex_setting_list"           | 弹性设置                   |
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
+```
+
+图片文本设置表 - picture_text_setting
+```shell
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
+| Field                                    | Type              | Null | Key | Default | Extra | Topology                                               | Comment                   |
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
+| uri                                      | text              |      |     |         |       | "$.data.room.guide_button.uri"                         | 统一资源识别符             |
+| text_setting                             | tinytext          |      |     |         |       | "$.data.room.guide_button.text_setting_list"           | 文本设置                   |
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
+```
+
+图片url表 - picture_url
+```shell
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
+| Field                                    | Type              | Null | Key | Default | Extra | Topology                                               | Comment                   |
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
+| uri                                      | text              |      |     |         |       | "$.data.room.guide_button.uri"                         | 统一资源识别符             |
+| url                                      | text              |      |     |         |       | "$.data.room.guide_button.url_list"                    | url                       |
+| url_index                                | unsigned tinyint  |      |     |         |       | -                                                      | url索引号                 |
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
+```
+
+图片资源拓扑表 - picture_topology
+```shell
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
+| Field                                    | Type              | Null | Key | Default | Extra | Topology                                               | Comment                   |
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
+| uri                                      | text              |      |     |         |       | "$.data.room.guide_button.uri"                         | 统一资源识别符             |
+| topology                                 | tinytext          |      |     |         |       | -                                                      | 拓扑路径                   |
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
+```
+===================================================================================================================================================================================
+
+#### 关系表
+
+主播用户关系表 - room_owner_and_user
+```shell
++----------------------------+------------------+------+-----+---------+-------+-------------------------------------------------------+------------------+
+| Field                      | Type             | Null | Key | Default | Extra | Topology                                              | Comment          |
++----------------------------+------------------+------+-----+---------+-------+-------------------------------------------------------+------------------+
+| now                        | timestamp        | YES  |     |         |       | "$.extra.now"                                         | 当前时间戳        |
+| room_id                    | varchar(200)     |      |     |         |       | "$.data.room.id"                                      | 直播间ID          |
+| owner_user_id              | varchar(200)     |      |     |         |       | "$.data.room.owner_user_id"                           | 直播间主播ID      |
+| user_id                    | varchar(200)     |      |     |         |       | "$.data.user.id"                                      | 直播间用户ID      |
+| follow_status              | unsigned tinyint |      |     |         |       | "$.data.room.owner.follow_status"                     | 关注状态          |
+| invalid_follow_status      | bool             |      |     |         |       | "$.data.room.owner.follow_info.invalid_follow_status" | 是否为无效关注状态 |
+| remark_name                | varchar(50)      |      |     |         |       | "$.data.room.owner.follow_info.remark_name"           | 备注名称          |
+| push_status                | unsigned tinyint |      |     |         |       | "$.data.room.owner.follow_info.push_status"           | 关注推送状态      |
+| is_following               | bool             |      |     |         |       | "$.data.user.is_following"                            | 是否正在关注      |
++----------------------------+------------------+------+-----+---------+-------+-------------------------------------------------------+------------------+
+```
+
+直播间用户表 - room_user
+```shell
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
+| Field                                    | Type              | Null | Key | Default | Extra | Topology                                               | Comment                   |
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
+| room_id                                  | varchar(200)      |      |     |         |       | "$.data.room.id"                                       | 直播间ID                   |
+| user_id                                  | varchar(200)      |      |     |         |       | "$.data.user.id"                                       | 直播间用户ID               |
+| exp                                      | unsigned int      |      |     |         |       | "$.data.user.exp"                                      | 经验值                     |
+| experience                               | unsigned int      |      |     |         |       | "$.data.user.experience"                               | 经验值                     |
+| fan_ticket_count                         | unsigned bigint   |      |     |         |       | "$.data.user.fan_ticket_count"                         | 粉丝票数量                  |
+| is_follower                              | bool              |      |     |         |       | "$.data.user.is_follower"                              | 是否是粉丝                  |
+| is_anonymous                             | bool              |      |     |         |       | "$.data.user.is_anonymous"                             | 是否匿名                    |
+| level                                    | unsigned smallint |      |     |         |       | "$.data.user.level"                                    | 用户等级                    |
+| link_mic_stats                           | unsigned tinyint  |      |     |         |       | "$.data.user.link_mic_stats"                           | 连麦状态                    |
+| location_city                            | varchar(100)      |      |     |         |       | "$.data.user.location_city"                            | 定位城市                    |
+| mystery_man                              | unsigned tinyint  |      |     |         |       | "$.data.user.mystery_man"                              | 是否神秘人                  |
+| modify_time                              | timestamp         |      |     |         |       | "$.data.user.modify_time"                              | 修改时间戳                  |
+| public_area_oper_freq                    | unsigned tinyint  |      |     |         |       | "$.data.user.public_area_oper_freq"                    | 公共区域操作频率             |
+| ticket_count                             | unsigned bigint   |      |     |         |       | "$.data.user.ticket_count"                             | 票数                        |
+| top_vip_no                               | unsigned smallint |      |     |         |       | "$.data.user.top_vip_no"                               | 顶级VIP编号                 |
+| admin_flag                               | unsigned tinyint  |      |     |         |       | "$.data.room.living_room_attrs.admin_flag"             | 直播间管理员标志             |
+| user_count_composition_city              | unsigned tinyint  |      |     |         |       | "$.data.room.stats.user_count_composition.city"        | 城市                        |
+| user_count_composition_my_follow         | unsigned bigint   |      |     |         |       | "$.data.room.stats.user_count_composition.my_follow"   | 我的关注                    |
+| user_count_composition_other             | unsigned bigint   |      |     |         |       | "$.data.room.stats.user_count_composition.other"       | 其他                       |
+| user_count_composition_video_detail      | unsigned bigint   |      |     |         |       | "$.data.room.stats.user_count_composition.video_detail"| 视频详情                    |
+| user_count_str                           | unsigned bigint   |      |     |         |       | "$.data.room.stats.user_count_str"                     | 用户数量字符串              |
+| watermelon                               | unsigned bigint   |      |     |         |       | "$.data.room.stats.watermelon"                         | 西瓜                       |
+| welfare_donation_amount                  | unsigned bigint   |      |     |         |       | "$.data.room.stats.welfare_donation_amount"            | 福利捐赠金额                |
++------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+----------------------------+
+```
+直播间管理员ID表 - room_admin_user_id
+```shell
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                             | Comment             |
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+| now                              | timestamp         |      |     |         |       | "$.data.room.create_time"                            | 当前时间戳           | 
+| platform                         | varchar(20)       |      |     | NULL    |       |           -                                          | 平台                 | 
+| room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                     | 直播间ID             | 
+| admin_user_id                    | varchar(200)      |      |     |         |       | "$.data.room.admin_user_ids"                         | 直播间管理员用户ID    | 
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+```
+
+直播间管理员开放ID表 - room_admin_user_open_id
+```shell
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                             | Comment             |
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+| now                              | timestamp         |      |     |         |       | "$.extra.now"                                        | 当前时间戳           | 
+| platform                         | varchar(20)       |      |     | NULL    |       |           -                                          | 平台                 | 
+| room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                     | 直播间ID             |
+| admin_user_open_id               | varchar(200)      |      |     |         |       | "$.data.room.admin_user_open_ids"                    | 直播间管理员用户ID    | 
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+```
+
+直播间助手标签列表 - room_assist_label
+```shell
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+| Field                            | Type              | Null | Key | Default | Extra | Topology                                             | Comment             |
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+| now                              | timestamp         |      |     |         |       | "$.extra.now"                                        | 当前时间戳           | 
+| platform                         | varchar(20)       |      |     | NULL    |       |           -                                          | 平台                 | 
+| room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                     | 直播间ID             | 
+| assist_label_list                | tinytext          |      |     |         |       | "$.data.room.assist_label_list"                      | 直播间辅助标签       | 
++----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
+```
+
