@@ -405,26 +405,26 @@ external_info:
           ... \u597D\u73A9\uFF01\n\U0001F234\uFE0F\U0001F454\U0001F457\u79C1"             # 主播签名
         special_id: ''                                                                    # 特殊ID
         status: 1                                                                         # 状态（0-注销，1-正常）
-        subscribe:                                                                        # TBD 订阅状态
-          buy_type: 0
-          identity_type: 0
-          is_member: false
-          level: 0
-          open: 0
+        subscribe:                                                                        # 订阅状态
+          buy_type: 0                                                                     # 购买类型
+          identity_type: 0                                                                # 身份类型
+          is_member: false                                                                # 是否为会员
+          level: 0                                                                        # 订阅等级
+          open: 0                                                                         # 是否开启订阅
         telephone: ''                                                                              # 电话号码
         ticket_count: 0                                                                            # 票数
         top_fans: []                                                                               # TBD 顶级粉丝列表
         top_vip_no: 0                                                                              # 顶级VIP编号
         total_recharge_diamond_count: 0                                                            # 总充值钻石数量
-        user_attr:
-          admin_privileges: []
-          is_admin: false
-          is_muted: false
-          is_super_admin: false
+        user_attr:                                                                                 # 用户属性
+          admin_privileges: []                                                                     # 管理员权限列表
+          is_admin: false                                                                          # 是否为管理员
+          is_muted: false                                                                          # 是否被禁言
+          is_super_admin: false                                                                    # 是否为超级管理员
         user_canceled: false                                                                       # 用户是否已取消
-        user_dress_info:
-          dress_own_ids: []
-          dress_wear_ids: []
+        user_dress_info:                                                                           # 用户着装信息
+          dress_own_ids: []                                                                        # 用户拥有的着装ID列表
+          dress_wear_ids: []                                                                       # 用户穿戴的着装ID列表
         user_open_id: ''                                                                           # 用户OpenID
         user_role: 0                                                                               # 用户角色
         verified: true                                                                             # 是否认证
@@ -440,24 +440,24 @@ external_info:
       owner_device_id: 0                                                                           # 主播设备ID
       owner_open_id: ''                                                                            # 主播OpenID
       owner_user_id: 2700838411446480                                                              # 主播用户ID
-      pack_meta:
-        cluster: default
-        dc: lf
-        env: prod
-        extras: {}
-        scene: reflow_room_info(prod_single_dc/rpc/topo)
-        trace_id: ''
-      paid_live_data:
-        anchor_right: 0
-        delivery: 0
-        duration: 0
-        max_preview_duration: 0
-        need_delivery_notice: false
-        paid_type: 0
-        pay_ab_type: 0
-        privilege_info: {}
-        privilege_info_map: {}
-        view_right: 0
+      pack_meta: {}                                                                                # 包元数据
+        cluster: default                                                                           # 集群
+        dc: lf                                                                                     # 数据中心
+        env: prod                                                                                  # 环境
+        extras: {}                                                                                 # 附加信息
+        scene: reflow_room_info(prod_single_dc/rpc/topo)                                           # 场景
+        trace_id: ''                                                                               # 跟踪ID
+      paid_live_data:                                                                              # 付费直播数据
+        anchor_right: 0                                                                            # 主播权限
+        delivery: 0                                                                                # 交付状态
+        duration: 0                                                                                # 直播时长
+        max_preview_duration: 0                                                                    # 最大预览时长
+        need_delivery_notice: false                                                                # 是否需要交付通知
+        paid_type: 0                                                                               # 付费类型
+        pay_ab_type: 0                                                                             # 付费AB类型
+        privilege_info: {}                                                                         # 特权信息
+        privilege_info_map: {}                                                                     # 特权信息映射
+        view_right: 0                                                                              # 观看权限
       popularity: 0                                                                                # 人气
       popularity_str: ''                                                                           # 人气字符串
       pre_enter_time: 0                                                                            # 预进入时间
@@ -652,51 +652,51 @@ external_info:
       sharing_music_id_list: []
       short_title: ''                                                                              # 直播间短标题
       short_touch_area_config:
-        elements:
-          '1':
-            priority: 1
-            type: 1
-          '10':
-            priority: 3
-            type: 10
-          '12':
-            priority: 3
-            type: 12
-          '2':
-            priority: 1
-            type: 2
-          '22':
-            priority: 1
-            type: 22
-          '27':
-            priority: 3
-            type: 27
-          '3':
-            priority: 1
-            type: 3
-          '30':
-            priority: 2
-            type: 30
-          '4':
-            priority: 3
-            type: 4
-          '5':
-            priority: 4
-            type: 5
-          '6':
-            priority: 3
-            type: 6
-          '7':
-            priority: 3
-            type: 7
-          '8':
-            priority: 3
-            type: 8
-          '9':
-            priority: 3
-            type: 9
-        forbidden_types_map: {}
-        strategy_feat_whitelist:
+        elements:                                                                                  # 短触摸区域配置元素
+          '1':                                                                                     # 元素1
+            priority: 1                                                                            # 优先级
+            type: 1                                                                                # 类型
+          '10':                                                                                    # 元素10
+            priority: 3                                                                            # 优先级
+            type: 10                                                                               # 类型
+          '12':                                                                                    # 元素12
+            priority: 3                                                                            # 优先级
+            type: 12                                                                               # 类型
+          '2':                                                                                     # 元素2
+            priority: 1                                                                            # 优先级
+            type: 2                                                                                # 类型
+          '22':                                                                                    # 元素22
+            priority: 1                                                                            # 优先级
+            type: 22                                                                               # 类型
+          '27':                                                                                    # 元素27
+            priority: 3                                                                            # 优先级
+            type: 27                                                                               # 类型
+          '3':                                                                                     # 元素3
+            priority: 1                                                                            # 优先级
+            type: 3                                                                                # 类型
+          '30':                                                                                    # 元素30
+            priority: 2                                                                            # 优先级
+            type: 30                                                                               # 类型
+          '4':                                                                                     # 元素4
+            priority: 3                                                                            # 优先级
+            type: 4                                                                                # 类型
+          '5':                                                                                     # 元素5
+            priority: 4                                                                            # 优先级
+            type: 5                                                                                # 类型
+          '6':                                                                                     # 元素6
+            priority: 3                                                                            # 优先级
+            type: 6                                                                                # 类型
+          '7':                                                                                     # 元素7
+            priority: 3                                                                            # 优先级
+            type: 7                                                                                # 类型
+          '8':                                                                                     # 元素8
+            priority: 3                                                                            # 优先级
+            type: 8                                                                                # 类型
+          '9':                                                                                     # 元素9
+            priority: 3                                                                            # 优先级
+            type: 9                                                                                # 类型
+        forbidden_types_map: {}                                                                    # 禁止类型映射
+        strategy_feat_whitelist:                                                                   # 策略特性白名单
         - feat_coin_lottery_amount
         - feat_redpack_amount
         - live_short_touch_ecom_redpack_type
@@ -706,46 +706,46 @@ external_info:
         - live_ecom_cart_click_twice
         - live_ecom_cart_stop_buy
         - live_watch_6_min
-        temp_state_condition_map:
-          '1':
-            minimum_gap: 900
-            type:
-              priority: 30
-              strategy_type: 1
-          '2':
-            minimum_gap: 900
-            type:
-              priority: 20
-              strategy_type: 2
-          '3':
-            minimum_gap: 900
-            type:
-              priority: 10
-              strategy_type: 3
-          '4':
-            minimum_gap: 0
-            type:
-              priority: 1
-              strategy_type: 4
-          '5':
-            minimum_gap: 0
-            type:
-              priority: 5
-              strategy_type: 5
-          '6':
-            minimum_gap: 0
-            type:
-              priority: 7
-              strategy_type: 6
-          '7':
-            minimum_gap: 0
-            type:
-              priority: 6
-              strategy_type: 7
-        temp_state_global_condition:
-          allow_count: 1
-          duration_gap: 300
-          ignore_strategy_types:
+        temp_state_condition_map:                                                                  # 临时状态条件映射
+          '1':                                                                                     # 条件1
+            minimum_gap: 900                                                                       # 最小间隔
+            type:                                                                                  # 类型
+              priority: 30                                                                         # 优先级
+              strategy_type: 1                                                                     # 策略类型
+          '2':                                                                                     # 条件2
+            minimum_gap: 900                                                                       # 最小间隔
+            type:                                                                                  # 类型
+              priority: 20                                                                         # 优先级
+              strategy_type: 2                                                                     # 策略类型
+          '3':                                                                                     # 条件3
+            minimum_gap: 900                                                                       # 最小间隔
+            type:                                                                                  # 类型
+              priority: 10                                                                         # 优先级
+              strategy_type: 3                                                                     # 策略类型
+          '4':                                                                                     # 条件4
+            minimum_gap: 0                                                                         # 最小间隔
+            type:                                                                                  # 类型
+              priority: 1                                                                          # 优先级
+              strategy_type: 4                                                                     # 策略类型
+          '5':                                                                                     # 条件5
+            minimum_gap: 0                                                                         # 最小间隔
+            type:                                                                                  # 类型
+              priority: 5                                                                          # 优先级
+              strategy_type: 5                                                                     # 策略类型
+          '6':                                                                                     # 条件6
+            minimum_gap: 0                                                                         # 最小间隔
+            type:                                                                                  # 类型
+              priority: 7                                                                          # 优先级
+              strategy_type: 6                                                                     # 策略类型
+          '7':                                                                                     # 条件7
+            minimum_gap: 0                                                                         # 最小间隔
+            type:                                                                                  # 类型
+              priority: 6                                                                          # 优先级
+              strategy_type: 7                                                                     # 策略类型
+        temp_state_global_condition:                                                               # 临时状态全局条件
+          allow_count: 1                                                                           # 允许总数
+          duration_gap: 300                                                                        # 持续间隔
+          ignore_strategy_types:                                                                   # 忽略策略类型
           - 4
         temp_state_strategy:
           '136':
@@ -1082,8 +1082,8 @@ external_info:
       stream_id_str: '691500607505433258'                                                          # 直播间流ID字符串
       stream_provider: 0                                                                           # 直播间流提供者
       stream_url:                                                                                  # 直播间流地址
-        candidate_resolution: []
-        complete_push_urls: []
+        candidate_resolution: []                                                                   # 候选分辨率
+        complete_push_urls: []                                                                     # 完整推流地址
         default_resolution: FULL_HD1                                                               # 默认分辨率
         extra:                                                                                     # 额外信息
           anchor_interact_profile: 0                                                               # 主播互动配置文件
@@ -1113,38 +1113,38 @@ external_info:
         id: 691500607505433258                                                                     # 直播间流ID
         id_str: '691500607505433258'                                                               # 直播间流ID字符串
         live_core_sdk_data:                                                                        # 直播核心SDK数据
-          pull_data:
-            Flv: []
-            Hls: []
-            codec: ''
-            compensatory_data: ''
-            hls_data_unencrypted: {}
-            kind: 0
-            options:
-              default_quality:
-                additional_content: ''
-                disable: 0
-                fps: 0
-                level: 0
-                name: "\u6807\u6E05"
-                resolution: ''
-                sdk_key: origin
-                v_bit_rate: 0
-                v_codec: ''
-              qualities:
-              - additional_content: ''
-                disable: 0
-                fps: 0
-                level: 1
-                name: "\u6807\u6E05"
-                resolution: ''
-                sdk_key: origin
-                v_bit_rate: 0
-                v_codec: '264'
-              vpass_default: false
-            stream_data: '{"common":{"ts":"1740301576","session_id":"037-2025022317061645842BB1D723AB138B06","stream":"691500607505433258","rule_ids":"{\"ab_version_trace\":null,\"sched\":\"{\\\"result\\\":{\\\"hit\\\":\\\"determined\\\",\\\"cdn\\\":847}}\"}","common_trace":"{\"StrategyTrace\":{\"Neptune\":{\"PlayStream\":{\"ids\":null}}},\"BusinessType\":\"\",\"BigeventAnchorLevel\":\"\"}","app_id":"100100","major_anchor_level":"","mode":"Normal","lines":{"main":"line_847"},"p2p_params":null,"stream_data_content_encoding":"default","common_sdk_params":{"main":"{}"},"stream_name":"stream-691500607505433258","main_push_id":682,"backup_push_id":0},"data":{"md":{"main":{"flv":"https://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_md.flv?expire=1740906376&sign=5ae0c29aedb9ad114656303bfe824fc0&unique_id=stream-691500607505433258_682_flv_md&volcSecret=5ae0c29aedb9ad114656303bfe824fc0&volcTime=1740906376","hls":"http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_md/index.m3u8?expire=1740906376&sign=dac6a3f29ece599fd3deb672528ff8c2&volcSecret=dac6a3f29ece599fd3deb672528ff8c2&volcTime=1740906376","cmaf":"","dash":"","lls":"http://pull-lls-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_md.sdp?expire=1740906376&sign=795a6d09d502aeee7f09bc5b20ac4d28&unique_id=stream-691500607505433258_682_lls_md&volcSecret=795a6d09d502aeee7f09bc5b20ac4d28&volcTime=1740906376","tsl":"","tile":"","http_ts":"","ll_hls":"","sdk_params":"{\"FastOpenDuration\":-500,\"NetworkAdapt\":{\"SlowTime\":90,\"HurryStartMs\":4000,\"HurrySpeed\":1.1,\"Enabled\":0,\"HurryMillisecond\":3500,\"SlowSpeed\":1,\"HurryType\":0,\"HurryStopType\":1,\"HurryTime\":3500,\"SlowMillisecond\":90},\"PlayingIntervalMs\":20000,\"P2PFastOpenDuration\":-1500,\"BufferDataMs\":1000,\"VCodec\":\"h264\",\"vbitrate\":250000,\"resolution\":\"240P\",\"gop\":4,\"drType\":\"sdr\",\"fps\":15}","enableEncryption":false}},"ao":{"main":{"flv":"http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258.flv?expire=1740906376&only_audio=1&sign=48ee468a79787bab67bb7b3db8070734&unique_id=stream-691500607505433258_682_flv&volcSecret=48ee468a79787bab67bb7b3db8070734&volcTime=1740906376","hls":"","cmaf":"","dash":"","lls":"","tsl":"","tile":"","http_ts":"","ll_hls":"","sdk_params":"{\"FastOpenDuration\":-500,\"NetworkAdapt\":{\"HurryMillisecond\":3500,\"HurryType\":0,\"SlowTime\":90,\"SlowSpeed\":1,\"Enabled\":0,\"HurrySpeed\":1.1,\"HurryStopType\":1,\"HurryTime\":3500,\"SlowMillisecond\":90,\"HurryStartMs\":4000},\"PlayingIntervalMs\":20000,\"P2PFastOpenDuration\":-1500,\"BufferDataMs\":1000,\"VCodec\":\"h264\",\"vbitrate\":0,\"resolution\":\"\",\"gop\":4,\"drType\":\"sdr\"}","enableEncryption":false}},"origin":{"main":{"flv":"http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_or4.flv?expire=1740906376&sign=37520dbe730f79b7af0d732f9b142ce7&unique_id=stream-691500607505433258_682_flv_or4&volcSecret=37520dbe730f79b7af0d732f9b142ce7&volcTime=1740906376","hls":"http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_or4/index.m3u8?expire=1740906376&sign=1e96dffde05a71cf1e062a3677741155&volcSecret=1e96dffde05a71cf1e062a3677741155&volcTime=1740906376","cmaf":"","dash":"","lls":"http://pull-lls-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_or4.sdp?expire=1740906376&sign=6babbebc719e3c4df5bdddfc6e2a629a&unique_id=stream-691500607505433258_682_lls_or4&volcSecret=6babbebc719e3c4df5bdddfc6e2a629a&volcTime=1740906376","tsl":"","tile":"","http_ts":"","ll_hls":"","sdk_params":"{\"P2PFastOpenDuration\":-1500,\"BufferDataMs\":1000,\"FastOpenDuration\":-500,\"NetworkAdapt\":{\"HurryStopType\":1,\"SlowMillisecond\":90,\"HurryMillisecond\":3500,\"HurryType\":0,\"HurryStartMs\":4000,\"SlowSpeed\":1,\"HurrySpeed\":1.1,\"HurryTime\":3500,\"Enabled\":0,\"SlowTime\":90},\"VCodec\":\"h264\",\"PlayingIntervalMs\":20000,\"vbitrate\":0,\"resolution\":\"\",\"gop\":4,\"drType\":\"sdr\"}","enableEncryption":false}}}}'
-            version: 0
-          size: ''
+          pull_data:                                                                               # 拉流数据
+            Flv: []                                                                                # FLV数据
+            Hls: []                                                                                # HLS数据
+            codec: ''                                                                              # 编解码器
+            compensatory_data: ''                                                                  # 补偿数据
+            hls_data_unencrypted: {}                                                               # HLS未加密数据
+            kind: 0                                                                                # 类型
+            options:                                                                               # 选项
+              default_quality:                                                                     # 默认质量
+                additional_content: ''                                                             # 附加内容
+                disable: 0                                                                         # 禁用标志
+                fps: 0                                                                             # 帧率
+                level: 0                                                                           # 级别
+                name: "\u6807\u6E05"                                                               # 名称
+                resolution: ''                                                                     # 分辨率
+                sdk_key: origin                                                                    # SDK密钥
+                v_bit_rate: 0                                                                      # 视频比特率
+                v_codec: ''                                                                        # 视频编解码器
+              qualities:                                                                           # 质量列表
+              - additional_content: ''                                                             # 附加内容
+                disable: 0                                                                         # 禁用标志
+                fps: 0                                                                             # 帧率
+                level: 1                                                                           # 级别
+                name: "\u6807\u6E05"                                                               # 名称
+                resolution: ''                                                                     # 分辨率
+                sdk_key: origin                                                                    # SDK密钥
+                v_bit_rate: 0                                                                      # 视频比特率
+                v_codec: '264'                                                                     # 视频编解码器
+              vpass_default: false                                                                 # 视频默认通过
+            stream_data: '{"common":{"ts":"1740301576","session_id":"037-2025022317061645842BB1D723AB138B06","stream":"691500607505433258","rule_ids":"{\"ab_version_trace\":null,\"sched\":\"{\\\"result\\\":{\\\"hit\\\":\\\"determined\\\",\\\"cdn\\\":847}}\"}","common_trace":"{\"StrategyTrace\":{\"Neptune\":{\"PlayStream\":{\"ids\":null}}},\"BusinessType\":\"\",\"BigeventAnchorLevel\":\"\"}","app_id":"100100","major_anchor_level":"","mode":"Normal","lines":{"main":"line_847"},"p2p_params":null,"stream_data_content_encoding":"default","common_sdk_params":{"main":"{}"},"stream_name":"stream-691500607505433258","main_push_id":682,"backup_push_id":0},"data":{"md":{"main":{"flv":"https://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_md.flv?expire=1740906376&sign=5ae0c29aedb9ad114656303bfe824fc0&unique_id=stream-691500607505433258_682_flv_md&volcSecret=5ae0c29aedb9ad114656303bfe824fc0&volcTime=1740906376","hls":"http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_md/index.m3u8?expire=1740906376&sign=dac6a3f29ece599fd3deb672528ff8c2&volcSecret=dac6a3f29ece599fd3deb672528ff8c2&volcTime=1740906376","cmaf":"","dash":"","lls":"http://pull-lls-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_md.sdp?expire=1740906376&sign=795a6d09d502aeee7f09bc5b20ac4d28&unique_id=stream-691500607505433258_682_lls_md&volcSecret=795a6d09d502aeee7f09bc5b20ac4d28&volcTime=1740906376","tsl":"","tile":"","http_ts":"","ll_hls":"","sdk_params":"{\"FastOpenDuration\":-500,\"NetworkAdapt\":{\"SlowTime\":90,\"HurryStartMs\":4000,\"HurrySpeed\":1.1,\"Enabled\":0,\"HurryMillisecond\":3500,\"SlowSpeed\":1,\"HurryType\":0,\"HurryStopType\":1,\"HurryTime\":3500,\"SlowMillisecond\":90},\"PlayingIntervalMs\":20000,\"P2PFastOpenDuration\":-1500,\"BufferDataMs\":1000,\"VCodec\":\"h264\",\"vbitrate\":250000,\"resolution\":\"240P\",\"gop\":4,\"drType\":\"sdr\",\"fps\":15}","enableEncryption":false}},"ao":{"main":{"flv":"http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258.flv?expire=1740906376&only_audio=1&sign=48ee468a79787bab67bb7b3db8070734&unique_id=stream-691500607505433258_682_flv&volcSecret=48ee468a79787bab67bb7b3db8070734&volcTime=1740906376","hls":"","cmaf":"","dash":"","lls":"","tsl":"","tile":"","http_ts":"","ll_hls":"","sdk_params":"{\"FastOpenDuration\":-500,\"NetworkAdapt\":{\"HurryMillisecond\":3500,\"HurryType\":0,\"SlowTime\":90,\"SlowSpeed\":1,\"Enabled\":0,\"HurrySpeed\":1.1,\"HurryStopType\":1,\"HurryTime\":3500,\"SlowMillisecond\":90,\"HurryStartMs\":4000},\"PlayingIntervalMs\":20000,\"P2PFastOpenDuration\":-1500,\"BufferDataMs\":1000,\"VCodec\":\"h264\",\"vbitrate\":0,\"resolution\":\"\",\"gop\":4,\"drType\":\"sdr\"}","enableEncryption":false}},"origin":{"main":{"flv":"http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_or4.flv?expire=1740906376&sign=37520dbe730f79b7af0d732f9b142ce7&unique_id=stream-691500607505433258_682_flv_or4&volcSecret=37520dbe730f79b7af0d732f9b142ce7&volcTime=1740906376","hls":"http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_or4/index.m3u8?expire=1740906376&sign=1e96dffde05a71cf1e062a3677741155&volcSecret=1e96dffde05a71cf1e062a3677741155&volcTime=1740906376","cmaf":"","dash":"","lls":"http://pull-lls-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_or4.sdp?expire=1740906376&sign=6babbebc719e3c4df5bdddfc6e2a629a&unique_id=stream-691500607505433258_682_lls_or4&volcSecret=6babbebc719e3c4df5bdddfc6e2a629a&volcTime=1740906376","tsl":"","tile":"","http_ts":"","ll_hls":"","sdk_params":"{\"P2PFastOpenDuration\":-1500,\"BufferDataMs\":1000,\"FastOpenDuration\":-500,\"NetworkAdapt\":{\"HurryStopType\":1,\"SlowMillisecond\":90,\"HurryMillisecond\":3500,\"HurryType\":0,\"HurryStartMs\":4000,\"SlowSpeed\":1,\"HurrySpeed\":1.1,\"HurryTime\":3500,\"Enabled\":0,\"SlowTime\":90},\"VCodec\":\"h264\",\"PlayingIntervalMs\":20000,\"vbitrate\":0,\"resolution\":\"\",\"gop\":4,\"drType\":\"sdr\"}","enableEncryption":false}}}}'  # 流数据内容
+            version: 0                                                                             # 版本
+          size: ''                                                                                 # 流大小
         provider: 0                                                                                # 直播间推流服务商
         pull_datas: {}                                                                             # 拉流数据
         push_datas: {}                                                                             # 推流数据
@@ -1164,13 +1164,13 @@ external_info:
         stream_orientation: 1                                                                      # 直播间流方向：1-竖屏 2-横屏
         vr_type: 0                                                                                 # VR类型
       sun_daily_icon_content: ''                                                                   # 日常图标内容
-      tags: []
+      tags: []                                                                                     # 标签列表
       title: "\u76F4\u64AD\u4E94\u5206\u949F"                                                      # 直播间标题
       title_recommend: false                                                                       # 是否推荐标题
-      top_fans: []
+      top_fans: []                                                                                 # 顶级粉丝列表
       toutiao_cover_recommend_level: 0                                                             # 头条封面推荐等级
       toutiao_title_recommend_level: 0                                                             # 头条标题推荐等级
-      upper_right_widget_data_list: []
+      upper_right_widget_data_list: []                                                             # 右上角小组件数据列表
       use_filter: false                                                                            # 是否使用滤镜
       user_count: 0                                                                                # 用户数量
       user_share_text: "#\u5728\u6296\u97F3\uFF0C\u8BB0\u5F55\u7F8E\u597D\u751F\u6D3B\
@@ -1182,7 +1182,7 @@ external_info:
       video_feed_tag: "\u76F4\u64AD\u4E2D"                                                         # 视频Feed标签
       visibility_range: 0                                                                          # 可见范围：X-公开 X-私密 X-好友可见
       vs_main_replay_id: 0                                                                         # VS主回放ID
-      vs_roles: []
+      vs_roles: []                                                                                 # VS角色列表
       wait_copy: "\u4E0D\u8981\u6025\uFF0C\u6162\u6162\u6765\u3002\u591A\u4E00\u70B9\
         \u8010\u5FC3"                                                                              # 等待复制
       web_count: 0                                                                                 # 网页观看人数
