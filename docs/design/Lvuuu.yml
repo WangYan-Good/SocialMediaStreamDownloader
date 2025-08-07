@@ -239,7 +239,7 @@ external_info:
           - https://p3-webcast.douyinpic.com/img/webcast/new_user_grade_level_v1_2.png~tplv-obj.image
           - https://p11-webcast.douyinpic.com/img/webcast/new_user_grade_level_v1_2.png~tplv-obj.image
           width: 32                                                                       # 宽度
-        badge_image_list_v2: []                                                           # 勋章图片列表V2
+        badge_image_list_v2:                                                              # 勋章图片列表V2
         - avg_color: ''                                                                   # 平均颜色
           content:                                                                        # 直播间勋章内容
             alternative_text: "\u8363\u8A89\u7B49\u7EA72\u7EA7\u52CB\u7AE0"               # 替代文本
@@ -440,7 +440,7 @@ external_info:
       owner_device_id: 0                                                                           # 主播设备ID
       owner_open_id: ''                                                                            # 主播OpenID
       owner_user_id: 2700838411446480                                                              # 主播用户ID
-      pack_meta: {}                                                                                # 包元数据
+      pack_meta:                                                                                   # 包元数据
         cluster: default                                                                           # 集群
         dc: lf                                                                                     # 数据中心
         env: prod                                                                                  # 环境
@@ -1149,7 +1149,7 @@ external_info:
         pull_datas: {}                                                                             # 拉流数据
         push_datas: {}                                                                             # 推流数据
         push_stream_type: 0                                                                        # 推流类型
-        push_urls: []
+        push_urls: []                                                                              # 推流地址
         resolution_name:                                                                           # 分辨率名称
           FULL_HD1: "\u84DD\u5149"                                                                 # 蓝光
           HD1: "\u8D85\u6E05"                                                                      # 超清
