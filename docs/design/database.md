@@ -1442,18 +1442,18 @@ additional_content
 ### tree 图
 ```shell
 data
-├── room
-│   ├── room_attribute
-│   │   ├── room_admin_user_id
-│   │   ├── room_admin_user_open_id
-│   │   ├── room_assist_label
-│   │   ├── room_deco
-│   │   ├── room_realtime_playback_quality
-│   │   ├── fans_group_admin_user_id
-│   │   ├── fans_group_admin_user_open_id
-│   │   ├── room_filter_word
-│   │   ├── room_live_distribution
-│   │   ├── room_owner
+├── 1.room
+│   ├── 1-1. room_attribute
+│   │   ├── 1-1-1. room_admin_user_id
+│   │   ├── 1-1-2. room_admin_user_open_id
+│   │   ├── 1-1-3. room_assist_label
+│   │   ├── 1-1-4. room_deco
+│   │   ├── 1-1-5. room_realtime_playback_quality
+│   │   ├── 1-1-6. fans_group_admin_user_id
+│   │   ├── 1-1-7. fans_group_admin_user_open_id
+│   │   ├── 1-1-8. room_filter_word
+│   │   ├── 1-1-9. room_live_distribution
+│   │   ├── 1-1-10. room_owner
 │   │   │   ├── badge_image
 │   │   │   ├── commerce_webcast_config_id
 │   │   │   ├── fans_club
@@ -1469,45 +1469,45 @@ data
 │   │   │   │   └── room_admin_privilege
 │   │   │   ├── room_owner_user_dress_own_id
 │   │   │   └── room_owner_dress_wear_id
-│   │   ├── room_pack_meta
-│   |   ├── room_paid_live_data
-│   |   ├── room_auth
-│   |   ├── room_tab
-│   │   ├── room_sharing_music_id
-│   |   └── room_short_touch_area_config
+│   │   ├── 1-1-11. room_pack_meta
+│   |   ├── 1-1-12. room_paid_live_data
+│   |   ├── 1-1-13. room_auth
+│   |   ├── 1-1-14. room_tab
+│   │   ├── 1-1-15. room_sharing_music_id
+│   |   └── 1-1-16. room_short_touch_area_config
 │   |       ├── room_short_touch_area_config_element
 │   |       ├── room_short_touch_area_config_strategy_feat_whitelist
 │   |       ├── room_temp_state_condition_map
 │   |       |   └── room_temp_state_global_condition_ignore_strategy_type
 │   |       └── room_temp_state_global_condition
-│   ├── room_record
-│   ├── live_stream
-│   |   ├── stream_candidate_resolution
-│   |   ├── stream_complete_push_url
-│   |   ├── live_core_sdk_data
+│   ├── 1-2. room_record
+│   ├── 1-3. live_stream
+│   |   ├── 1-3-1. stream_candidate_resolution
+│   |   ├── 1-3-2. stream_complete_push_url
+│   |   ├── 1-3-3. live_core_sdk_data
 │   |   |   └── live_core_sdk_pull_data
 │   |   |       ├── live_core_sdk_pull_flv_data
 │   |   |       ├── live_core_sdk_pull_hls_data
 │   |   |       └── live_core_sdk_pull_data_option
 │   |   |           ├── live_core_sdk_pull_quality_data
 │   |   |           └── live_core_sdk_pull_default_quality_data
-│   |   └── stream_push_url
-│   ├── room_tag
-│   ├── room_top_fans
-│   ├── room_upper_right_widget_data
-│   └── room_vs_role
-├── picture
-│   ├── picture_flex_setting
-│   ├── picture_text_setting
-│   ├── picture_url
-│   └── picture_content
-└── user
-    ├── badge_image
-    ├── commerce_webcast_config_id
-    ├── media_badge_image
-    ├── new_real_time_icon
-    ├── room_owner_real_time_icon
-    └── room_owner_top_fans
+│   |   └── 1-3-4. stream_push_url
+│   ├── 1-4. room_tag
+│   ├── 1-5. room_top_fans
+│   ├── 1-6. room_upper_right_widget_data
+│   └── 1-7. room_vs_role
+├── 2. picture
+│   ├── 2-1. picture_flex_setting
+│   ├── 2-2. picture_text_setting
+│   ├── 2-3. picture_url
+│   └── 2-4. picture_content
+└── 3. user
+    ├── 3-1. badge_image
+    ├── 3-2. commerce_webcast_config_id
+    ├── 3-3. media_badge_image
+    ├── 3-4. new_real_time_icon
+    ├── 3-5. room_owner_real_time_icon
+    └── 3-6. room_owner_top_fans
 ```
 
 ### 二次数据
