@@ -55,7 +55,7 @@
 | status_code                    | tinyint                            |      |     |         |       |                 |
 +--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
 ```
-===
+
 数据 - data
 ```shell
 ##
@@ -357,7 +357,6 @@
 | with_fusion_shop_entry                   | bool              |      |     |         |       |                 |
 +------------------------------------------+-------------------+------+-----+---------+-------+-----------------+
 ```
-===
 
 直播间评论区 - room_comment_box
 ```shell
@@ -1442,76 +1441,77 @@ additional_content
 ### tree 图
 ```shell
 data
-├── 1.room
-│   ├── 1-1. room_attribute
-│   │   ├── 1-1-1. room_admin_user_id
-│   │   ├── 1-1-2. room_admin_user_open_id
-│   │   ├── 1-1-3. room_assist_label
-│   │   ├── 1-1-4. room_deco
-│   │   ├── 1-1-5. room_realtime_playback_quality
-│   │   ├── 1-1-6. fans_group_admin_user_id
-│   │   ├── 1-1-7. fans_group_admin_user_open_id
-│   │   ├── 1-1-8. room_filter_word
-│   │   ├── 1-1-9. room_live_distribution
-│   │   ├── 1-1-10. room_owner
-│   │   │   ├── badge_image
-│   │   │   ├── commerce_webcast_config_id
-│   │   │   ├── fans_club
-│   │   │   │   ├── fans_club_available_gift_id
-│   │   │   │   └── fans_club_badge_icon
-│   │   │   ├── media_badge_image
-│   │   │   ├── new_real_time_icon
-│   │   │   ├── pay_grade_icon
-│   │   │   ├── room_owner_real_time_icon
-│   │   │   ├── room_subscribe
-│   │   │   ├── room_owner_top_fans
-│   │   │   ├── room_owner_user_attr
-│   │   │   │   └── room_admin_privilege
-│   │   │   ├── room_owner_user_dress_own_id
-│   │   │   └── room_owner_dress_wear_id
-│   │   ├── 1-1-11. room_pack_meta
-│   |   ├── 1-1-12. room_paid_live_data
-│   |   ├── 1-1-13. room_auth
-│   |   ├── 1-1-14. room_tab
-│   │   ├── 1-1-15. room_sharing_music_id
-│   |   └── 1-1-16. room_short_touch_area_config
-│   |       ├── room_short_touch_area_config_element
-│   |       ├── room_short_touch_area_config_strategy_feat_whitelist
-│   |       ├── room_temp_state_condition_map
-│   |       |   └── room_temp_state_global_condition_ignore_strategy_type
-│   |       └── room_temp_state_global_condition
-│   ├── 1-2. room_record
-│   ├── 1-3. live_stream
-│   |   ├── 1-3-1. stream_candidate_resolution
-│   |   ├── 1-3-2. stream_complete_push_url
-│   |   ├── 1-3-3. live_core_sdk_data
-│   |   |   └── live_core_sdk_pull_data
-│   |   |       ├── live_core_sdk_pull_flv_data
-│   |   |       ├── live_core_sdk_pull_hls_data
-│   |   |       └── live_core_sdk_pull_data_option
-│   |   |           ├── live_core_sdk_pull_quality_data
-│   |   |           └── live_core_sdk_pull_default_quality_data
-│   |   └── 1-3-4. stream_push_url
-│   ├── 1-4. room_tag
-│   ├── 1-5. room_top_fans
-│   ├── 1-6. room_upper_right_widget_data
-│   └── 1-7. room_vs_role
-├── 2. picture
-│   ├── 2-1. picture_flex_setting
-│   ├── 2-2. picture_text_setting
-│   ├── 2-3. picture_url
-│   └── 2-4. picture_content
-└── 3. user
-    ├── 3-1. badge_image
-    ├── 3-2. commerce_webcast_config_id
-    ├── 3-3. media_badge_image
-    ├── 3-4. new_real_time_icon
-    ├── 3-5. room_owner_real_time_icon
-    └── 3-6. room_owner_top_fans
+├── 1. share_url
+├── 2. favorite_owner
+├── 3. live_record
+├── 4. room_attribute
+│   ├── 4-1. room_admin_user_id
+│   ├── 4-2. room_admin_user_open_id
+│   ├── 4-3. room_assist_label - TBD
+│   ├── 4-4. room_deco - TBD
+│   ├── 4-5. room_realtime_playback_quality - TBD
+│   ├── 4-6. fans_group_admin_user_id
+│   ├── 4-7. fans_group_admin_user_open_id
+│   ├── 4-8. room_filter_word - TBD
+│   ├── 4-9. room_live_distribution - TBD
+│   ├── 4-10. room_owner
+│   │   ├── 4-10-1. badge_image
+│   │   ├── 4-10-2. commerce_webcast_config_id - TBD
+│   │   ├── 4-10-3. fans_club
+│   │   │   ├── 4-10-3-1. fans_club_available_gift_id
+│   │   │   └── 4-10-3-2. fans_club_badge_icon
+│   │   ├── 4-10-4. media_badge_image - TBD
+│   │   ├── 4-10-5. new_real_time_icon - TBD
+│   │   ├── 4-10-6. pay_grade_icon
+│   │   ├── 4-10-7. room_owner_real_time_icon - TBD
+│   │   ├── 4-10-8. room_subscribe
+│   │   ├── 4-10-9. room_owner_top_fans - TBD
+│   │   ├── 4-10-10. room_owner_user_attr
+│   │   │   └── 4-10-10-1. room_admin_privilege
+│   │   ├── 4-10-11. room_owner_user_dress_own_id
+│   │   └── 4-10-12. room_owner_dress_wear_id
+│   ├── 4-11. room_pack_meta
+|   ├── 4-12. room_paid_live_data
+|   ├── 4-13. room_auth
+|   ├── 4-14. room_tab
+│   ├── 4-15. room_sharing_music_id
+|   └── 4-16. room_short_touch_area_config
+|       ├── 4-16-1. room_short_touch_area_config_element
+|       ├── 4-16-2. room_short_touch_area_config_strategy_feat_whitelist
+|       ├── 4-16-3. room_temp_state_condition_map
+|       |   └── 4-16-3-1. room_temp_state_global_condition_ignore_strategy_type
+|       └── 4-16-4. room_temp_state_global_condition
+├── 5. room_record
+├── 6. live_stream
+|   ├── 6-1. stream_candidate_resolution
+|   ├── 6-2. stream_complete_push_url
+|   ├── 6-3. live_core_sdk_data
+|   |   └── 6-3-1. live_core_sdk_pull_data
+|   |       ├── 6-3-1-1. live_core_sdk_pull_flv_data
+|   |       ├── 6-3-1-2. live_core_sdk_pull_hls_data
+|   |       └── 6-3-1-3. live_core_sdk_pull_data_option
+|   |           ├── 6-3-1-3-1. live_core_sdk_pull_quality_data
+|   |           └── 6-3-1-3-2. live_core_sdk_pull_default_quality_data
+|   └── 6-4. stream_push_url
+├── 7. room_tag
+├── 8. room_top_fans
+├── 9. room_upper_right_widget_data
+├── 10. room_vs_role
+├── 11. picture
+│   ├── 11-1. picture_flex_setting
+│   ├── 11-2. picture_text_setting
+│   ├── 11-3. picture_url
+│   └── 11-4. picture_content
+└── 12. user
+    ├── 12-1. badge_image
+    ├── 12-2. commerce_webcast_config_id - TBD
+    ├── 12-3. media_badge_image - TBD
+    ├── 12-4. new_real_time_icon - TBD
+    ├── 12-5. room_owner_real_time_icon - TBD
+    └── 12-6. room_owner_top_fans - TBD
 ```
 
 ### 二次数据
-#### 属性表
 
 1. 分享链接表 - share_url
 ```shell
@@ -1563,7 +1563,6 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+-------------------------------------------------------+---------------------------------+
 | Field                            | Type              | Null | Key | Default | Extra |Topology                                               | Comment                         |
 +----------------------------------+-------------------+------+-----+---------+-------+-------------------------------------------------------+---------------------------------+
-| id                               | varchar(200)      |      |     |         |       | "$.data.room.id"                                      | 直播间ID                         | 
 | AnchorABMap                      | json              |      |     |         |       | "$.data.room.living_room_attrs.rank"                  | 主播AB映射                       | 
 | acquaintance_status              | unsigned tinyint  |      |     |         |       | "$.data.room.acquaintance_status"                     | 直播间熟人状态                    |
 | anchor_scheduled_time_text       | text              |      |     |         |       | "$.data.room.anchor_scheduled_time_text"              | 直播间布局                       |
@@ -1578,7 +1577,6 @@ data
 | business_live                    | unsigned tinyint  |      |     |         |       | "$.data.room.business_live"                           | 商业直播                         |
 | category                         | unsigned tinyint  |      |     |         |       | "$.data.room.category"                                | 分类                            |
 | cell_style                       | unsigned tinyint  |      |     |         |       | "$.data.room.cell_style"                              | 直播间单元样式                   |
-| challenge_info                   | tinytext          |      |     |         |       | "$.data.room.challenge_info"                          | 挑战信息                         |
 | city_top_distance                | tinytext          |      |     |         |       | "$.data.room.city_top_distance"                       | 城市顶部距离                     |
 | client_version                   | varchar(20)       |      |     |         |       | "$.data.room.client_version"                          | 客户端版本                       |
 | placeholder                      | tinytext          |      |     |         |       | "$.data.room.comment_box.placeholder"                 | 评论框占位符                     |
@@ -1586,7 +1584,6 @@ data
 | common_label_list                | tinytext          |      |     |         |       | "$.data.room.common_label_list"                       | 常用标签列表                     |
 | content_tag                      | tinytext          |      |     |         |       | "$.data.room.content_tag"                             | 内容标签                         |
 | create_time                      | timestamp         |      |     |         |       | "$.data.room.create_time"                             | 直播间创建时间                    | 
-| danmaku_detail                   | unsigned int      |      |     |         |       | "$.data.room.danmaku_detail"                          | 弹幕详情                         |
 | distance                         | varchar(100)      |      |     |         |       | "$.data.room.distance"                                | 距离                             |
 | distance_city                    | varchar(100)      |      |     |         |       | "$.data.room.distance_city"                           | 城市距离                         |
 | distance_km                      | varchar(100)      |      |     |         |       | "$.data.room.distance_km"                             | 公里距离                         |
@@ -1620,8 +1617,7 @@ data
 | has_commerce_goods               | bool              |      |     |         |       | "$.data.room.has_commerce_goods"                      | 是否有商品                       |
 | has_promotion_games              | bool              |      |     |         |       | "$.data.room.has_promotion_games"                     | 是否有推广游戏                   |
 | highlight                        | bool              |      |     |         |       | "$.data.room.highlight"                               | 是否高亮                         |
-| hot_sentence_info                | text              |      |     |         |       | "$.data.room.hot_sentence_info"                       | 热门语句信息                     |
-| id                               | varchar(200)      |      |     |         |       | "$.data.room.id"                                      | 直播间 ID                       |
+| id                               | varchar(200)      |      | PRI |         |       | "$.data.room.id"                                      | 直播间 ID                       |
 | introduction                     | text              |      |     |         |       | "$.data.room.introduction"                            | 直播间介绍                       |
 | is_need_check_list               | bool              |      |     |         |       | "$.data.room.is_need_check_list"                      | 是否需要检查列表                 |
 | is_official_channel_room         | bool              |      |     |         |       | "$.data.room.is_official_channel_room"                | 是否为官方频道直播间              |
@@ -1629,10 +1625,7 @@ data
 | is_show_inquiry_ball             | bool              |      |     |         |       | "$.data.room.is_show_inquiry_ball"                    | 是否显示询问球                   |
 | is_show_user_card_switch         | bool              |      |     |         |       | "$.data.room.is_show_user_card_switch"                | 是否显示用户卡片开关              |
 | item_explicit_info               | text              |      |     |         |       | "$.data.room.item_explicit_info"                      | 物品显式信息                     |
-| last_ping_time                   | timestamp         |      |     |         |       | "$.data.room.last_ping_time"                          | 最后ping时间                     |
 | layout                           | unsigned tinyint  |      |     |         |       | "$.data.room.layout"                                  | 直播间布局                       |
-| like_count                       | unsigned bigint   |      |     |         |       | "$.data.room.like_count"                              | 点赞数量                         |
-| linker_map                       | json              |      |     |         |       | "$.data.room.linker_map"                              | 点连接器映射                     |
 | linkmic_display_type             | unsigned tinyint  |      |     |         |       | "$.data.room.linkmic_display_type"                    | 连麦显示类型                     |
 | linkmic_layout                   | unsigned tinyint  |      |     |         |       | "$.data.room.linkmic_layout"                          | 连麦布局                         |
 | live_id                          | varchar(200)      |      |     |         |       | "$.data.room.live_id"                                 | 直播ID                          |
@@ -1648,7 +1641,6 @@ data
 | live_type_vs_live                | bool              |      |     |         |       | "$.data.room.live_type_vs_live"                       | 是否为VS直播                     |
 | live_type_vs_premiere            | bool              |      |     |         |       | "$.data.room.live_type_vs_premiere"                   | 是否为VS首播                     |
 | admin_flag                       | unsigned tinyint  |      |     |         |       | "$.data.room.living_room_attrs.admin_flag"            | 直播间管理员标志                  |
-| room_id                          | varchar(200)      |      |     |         |       | "$.data.room.living_room_attrs.room_id"               | 直播间 ID                       | 
 | location                         | varchar(100)      |      |     |         |       | "$.data.room.location"                                | 直播间位置                        |
 | official_channel_open_id         | varchar(200)      |      |     |         |       | "$.data.room.official_channel_open_id"                | 官方频道OpenID                   |
 | official_channel_uid             | varchar(200)      |      |     |         |       | "$.data.room.official_channel_uid"                    | 官方频道用户ID                   |
@@ -1677,17 +1669,11 @@ data
 | visibility_range                 | unsigned tinyint  |      |     |         |       | "$.data.room.visibility_range"                        | 可见范围：X-公开 X-私密 X-好友可见 |
 | vs_main_replay_id                | varchar(200)      |      |     |         |       | "$.data.room.vs_main_replay_id"                       | VS主回放ID                       |
 | wait_copy                        | tinytext          |      |     |         |       | "$.data.room.wait_copy"                               | 等待复制                         |
-| web_count                        | unsigned bigint   |      |     |         |       | "$.data.room.web_count"                               | 网页观看人数                      |
-| webcast_comment_tcs              | unsigned int      |      |     |         |       | "$.data.room.webcast_comment_tcs"                     | 直播间评论TCs                     |
 | webcast_sdk_version              | varchar(20)       |      |     |         |       | "$.data.room.webcast_sdk_version"                     | 直播间SDK版本                     |
-| with_aggregate_column            | bool              |      |     |         |       | "$.data.room.with_aggregate_column"                   | 是否有聚合栏目                    |
-| with_draw_something              | bool              |      |     |         |       | "$.data.room.with_draw_something"                     | 是否有抽奖                        |
-| with_ktv                         | bool              |      |     |         |       | "$.data.room.with_ktv"                                | 是否有KTV                        |
-| with_linkmic                     | bool              |      |     |         |       | "$.data.room.with_linkmic"                            | 是否有连麦                        |
 +----------------------------------+-------------------+------+-----+---------+-------+-------------------------------------------------------+----------------------------------+
 ```
 
-直播间短接触区域配置 - room_short_touch_area_config
+4-16. 直播间短接触区域配置 - room_short_touch_area_config
 ```shell
 ##
 ## data.room.short_touch_area_config
@@ -1702,7 +1688,7 @@ data
 +----------------------------------+------------------------------------------+------+-----+---------+-------+----------------------------+-----------------------+
 ```
 
-直播间短接触区域配置元素 - room_short_touch_area_config_element
+4-16-1. 直播间短接触区域配置元素 - room_short_touch_area_config_element
 ```shell
 ##
 ## data.room.short_touch_area_config.elements
@@ -1719,7 +1705,7 @@ data
 +----------------------------------+------------------------------------------+------+-----+---------+-------+-------------------------------------------------------------+-----------------------+
 ```
 
-直播间短接触区域配置策略特性白名单 - room_short_touch_area_config_strategy_feat_whitelist
+4-16-2. 直播间短接触区域配置策略特性白名单 - room_short_touch_area_config_strategy_feat_whitelist
 ```shell
 ##
 ## data.room.short_touch_area_config.strategy_feat_whitelist
@@ -1735,7 +1721,7 @@ data
 +----------------------------------+------------------------------------------+------+-----+---------+-------+-------------------------------------------------------------+-----------------------+
 ```
 
-直播间临时状态条件映射 - room_temp_state_condition_map
+4-16-3. 直播间临时状态条件映射 - room_temp_state_condition_map
 ```shell
 ##
 ## data.room.short_touch_area_config.temp_state_condition_map
@@ -1753,7 +1739,7 @@ data
 +----------------------------------+------------------------------------------+------+-----+---------+-------+---------------------------------------------------------------------------------------+------------+
 ```
 
-直播间临时状态全局条件 - room_temp_state_global_condition
+4-16-4. 直播间临时状态全局条件 - room_temp_state_global_condition
 ```shell
 ##
 ## data.room.short_touch_area_config.temp_state_global_condition
@@ -1769,7 +1755,7 @@ data
 +----------------------------------+------------------------------------------+------+-----+---------+-------+--------------------------------------------------------------------------------+------------+
 ```
 
-直播间临时状态全局条件忽略类型 - room_temp_state_global_condition_ignore_strategy_type
+4-16-3-1. 直播间临时状态全局条件忽略类型 - room_temp_state_global_condition_ignore_strategy_type
 ```shell
 ##
 ## data.room.short_touch_area_config.temp_state_global_condition.ignore_strategy_types
@@ -1784,7 +1770,7 @@ data
 +----------------------------------+------------------------------------------+------+-----+---------+-------+-----------------------------------------------------------------------------------------+-------------+
 ```
 
-直播间记录表(动态信息) - room_record
+5. 直播间记录表(动态信息) - room_record
 ```shell
 ##
 ## room
@@ -1857,10 +1843,22 @@ data
 | stream_id                                | varchar(200)      |      |     |         |       | "$.data.room.stream_id"                                | 直播间流ID            |
 | stream_provider                          | unsigned tinyint  |      |     |         |       | "$.data.room.stream_provider"                          | 直播间流提供者         |
 | sun_daily_icon_content                   | text              |      |     |         |       | "$.data.room.sun_daily_icon_content"                   | 日常图标内容          |
+| challenge_info                           | tinytext          |      |     |         |       | "$.data.room.challenge_info"                           | 挑战信息              |
+| danmaku_detail                           | unsigned int      |      |     |         |       | "$.data.room.danmaku_detail"                           | 弹幕详情              |
+| hot_sentence_info                        | text              |      |     |         |       | "$.data.room.hot_sentence_info"                        | 热门语句信息          |
+| last_ping_time                           | timestamp         |      |     |         |       | "$.data.room.last_ping_time"                           | 最后ping时间          |
+| like_count                               | unsigned bigint   |      |     |         |       | "$.data.room.like_count"                               | 点赞数量              |
+| linker_map                               | json              |      |     |         |       | "$.data.room.linker_map"                               | 点连接器映射          |
+| web_count                                | unsigned bigint   |      |     |         |       | "$.data.room.web_count"                                | 网页观看人数          |
+| webcast_comment_tcs                      | unsigned int      |      |     |         |       | "$.data.room.webcast_comment_tcs"                      | 直播间评论TCs         |
+| with_aggregate_column                    | bool              |      |     |         |       | "$.data.room.with_aggregate_column"                    | 是否有聚合栏目        |
+| with_draw_something                      | bool              |      |     |         |       | "$.data.room.with_draw_something"                      | 是否有抽奖            |
+| with_ktv                                 | bool              |      |     |         |       | "$.data.room.with_ktv"                                 | 是否有KTV             |
+| with_linkmic                             | bool              |      |     |         |       | "$.data.room.with_linkmic"                             | 是否有连麦            |
 +------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+----------------------+
 ```
 
-8. 直播间装饰清单 - room_deco
+4-4. 直播间装饰清单 - room_deco
 ```shell
 ##
 ## $.data.room.deco_list
@@ -1876,7 +1874,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+----------------------+
 ```
 
-9. 粉丝群管理员ID表 - fans_group_admin_user_id
+4-6. 粉丝群管理员ID表 - fans_group_admin_user_id
 ```shell
 ##
 ## data.room.fans_group_admin_user_ids
@@ -1892,7 +1890,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
 ```
 
-10. 粉丝群管理员公开ID表 - fans_group_admin_user_open_id
+4-7. 粉丝群管理员公开ID表 - fans_group_admin_user_open_id
 ```shell
 ##
 ## data.room.fans_group_admin_user_open_ids
@@ -1908,7 +1906,7 @@ data
 +-------------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+-----------------------+
 ```
 
-11. 直播间实时回放质量 - room_realtime_playback_qualitie
+4-5. 直播间实时回放质量 - room_realtime_playback_quality
 ```shell
 ##
 ## data.room.extra.realtime_playback_qualities
@@ -1924,7 +1922,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
 ```
 
-12. 直播间过滤关键字 - room_filter_word
+4-8. 直播间过滤关键字 - room_filter_word
 ```shell
 ##
 ## data.room.filter_words
@@ -1940,7 +1938,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+-----------------------+
 ```
 
-13. 直播分发表 - room_live_distribution
+4-9. 直播分发表 - room_live_distribution
 ```shell
 ##
 ## data.room.live_distribution
@@ -1956,7 +1954,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
 ```
 
-15. 主播商业直播配置ID表 - commerce_webcast_config_id
+4-10-2/12-2. 主播商业直播配置ID表 - commerce_webcast_config_id
 ```shell
 ##
 ## data.room.owner.commerce_webcast_config_ids
@@ -1972,7 +1970,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+----------------------+
 ```
 
-16. 粉丝俱乐部信息表 - fans_club
+4-10-3. 粉丝俱乐部信息表 - fans_club
 ```shell
 ##
 ## data.room.owner.fans_club
@@ -1997,7 +1995,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+-----------------------+
 ```
 
-17. 粉丝俱乐部可用礼物ID表 - fans_club_available_gift_id
+4-10-3-1. 粉丝俱乐部可用礼物ID表 - fans_club_available_gift_id
 ```shell
 ##
 ## data.room.owner.fans_club.data.available_gift_ids
@@ -2015,7 +2013,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
 ```
 
-粉丝俱乐部勋章图标表 - fans_club_badge_icon
+4-10-3-2. 粉丝俱乐部勋章图标表 - fans_club_badge_icon
 ```shell
 ##
 ## data.room.owner.fans_club.data
@@ -2033,7 +2031,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
 ```
 
-媒体勋章图片表 - media_badge_image
+4-10-4/12-3. 媒体勋章图片表 - media_badge_image
 ```shell
 +----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
 | Field                            | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
@@ -2041,27 +2039,30 @@ data
 | now                              | timestamp         | YES  | PRI |         |       | "$.extra.now"                                            | 当前时间戳            | 
 | platform                         | varchar(20)       |      | PRI | NULL    |       |           -                                              | 平台                  |
 | room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                         | 直播间ID              | 
-| owner_user_id                    | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"                              | 账号作者ID            |
+| user_id                          | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"/"$.data.user.id"             | 账号作者ID/用户ID     |
 | media_badge_image_index          | unsigned tinyint  | NO   |     | 0       |       |           -                                              | 索引号               |
-| media_badge_image                |                   | NO   |     | NULL    |       | "$.data.room.owner.media_badge_image_list"               | 媒体勋章图片列表      |
+| media_badge_image                | TBD               | NO   |     | NULL    |       | "$.data.room.owner.media_badge_image_list"               | 媒体勋章图片列表      |
 +----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
 ```
 
-新实时图标列表 - new_real_time_icon
+4-10-5/12-4. 新实时图标列表 - new_real_time_icon
 ```shell
+##
+## data.room.owner.new_real_time_icons
+##
 +----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
 | Field                            | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
 +----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
 | now                              | timestamp         | YES  | PRI |         |       | "$.extra.now"                                            | 当前时间戳            | 
 | platform                         | varchar(20)       |      | PRI | NULL    |       |           -                                              | 平台                  |
 | room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                         | 直播间ID              | 
-| owner_user_id                    | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"                              | 账号作者ID            |
+| user_id                          | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"/"$.data.user.id"             | 账号作者ID/用户ID     |
 | real_time_icon_index             | unsigned tinyint  | NO   |     | 0       |       |           -                                              | 索引号               |
-|                                  |                   | NO   |     | NULL    |       | "$.data.room.owner.new_real_time_icons"                  | 新实时图标列表        |
+| new_real_time_icon               | TBD               | NO   |     | NULL    |       | "$.data.room.owner.new_real_time_icons"                  | 新实时图标列表        |
 +----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
 ```
 
-用户表 - user
+12. 用户表 - user
 ```shell
 +------------------------------------------+------------------+------+-----+---------+-------+--------------------------------------------------------+--------------------------+
 | Field                                    | Type             | Null | Key | Default | Extra | Topology                                               | Comment                  |
@@ -2139,7 +2140,7 @@ data
 +------------------------------------------+------------------+------+-----+---------+-------+--------------------------------------------------------+----------------------------+
 ```
 
-14. 直播间 owner 表 - room_owner
+4-10. 直播间 owner 表 - room_owner
 ```shell
 +------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------+----------------------------+
 | Field                                    | Type              | Null | Key | Default | Extra |Topology                                                      | Comment                    |
@@ -2190,7 +2191,7 @@ data
 | remark_name                              | varchar(50)       |      |     |         |       | "$.data.room.owner.follow_info.remark_name"                  | 备注名                     |
 | gender                                   | unsigned tinyint  |      |     | 0       |       | "$.data.room.owner.follow_info.following_count_str"          | 性别（0-未知，1-男，2-女）   |
 | hotsoon_verified                         | bool              |      |     |         |       | "$.data.room.owner.hotsoon_verified"                         | 是否Hotsoon认证             |
-| hotsoon_verified_reason                  | bool              |      |     |         |       | "$.data.room.owner.hotsoon_verified_reason"                  | Hotsoon认证原因             |
+| hotsoon_verified_reason                  | tinytext          |      |     |         |       | "$.data.room.owner.hotsoon_verified_reason"                  | Hotsoon认证原因             |
 | ichat_restrict_type                      | unsigned tinyint  |      |     |         |       | "$.data.room.owner.ichat_restrict_type"                      | iChat限制类型               |
 | id                                       | varchar(200)      |      |     |         |       | "$.data.room.owner.id"                                       | 直播间 owner ID             |
 | income_share_percent                     | unsigned tinyint  |      |     |         |       | "$.data.room.owner.income_share_percent"                     | 收入分成百分比               |
@@ -2263,7 +2264,7 @@ data
 +------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------+-----------------------------+
 ```
 
-直播间owner顶部粉丝 - room_owner_top_fans
+4-10-9/12-6. 直播间owner顶部粉丝 - room_owner_top_fans
 ```shell
 ##
 ## data.room.owner.top_fans
@@ -2274,13 +2275,13 @@ data
 | now                              | timestamp         |      |     |         |       | "$.data.room.create_time"                                                                        | 当前时间戳           | 
 | platform                         | varchar(20)       |      |     | NULL    |       |           -                                                                                      | 平台                 | 
 | room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                                                                 | 直播间ID             | 
-| owner_user_id                    | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"                                                                      | 账号作者ID           |
+| user_id                          | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"/"$.data.user.id"                                                     | 账号作者ID/用户ID    |
 | fans_index                       | unsigned tinyint  |      |     |         |       |           -                                                                                      | 粉丝序号             | 
 | top_fans                         | TBD               |      |     |         |       | "$.data.room.top_fans"                                                                           | 顶级粉丝             |
 +----------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------------+---------------------+
 ```
 
-直播间owner实时图标 - room_owner_real_time_icon
+4-10-7/12-5. 直播间owner实时图标 - room_owner_real_time_icon
 ```shell
 ##
 ## data.room.owner.real_time_icons
@@ -2291,13 +2292,13 @@ data
 | now                              | timestamp         | YES  | PRI |         |       | "$.extra.now"                                            | 当前时间戳            | 
 | platform                         | varchar(20)       |      | PRI | NULL    |       |           -                                              | 平台                  |
 | room_id                          | varchar(200)      |      |     |         |       | "$.data.room.id"                                         | 直播间ID              | 
-| owner_user_id                    | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"                              | 账号作者ID            |
+| user_id                          | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"/"$.data.user.id"             | 账号作者ID/用户ID     |
 | real_time_icon_index             | unsigned tinyint  |      |     |         |       |           -                                              | 实时图标序号          |
 | real_time_icon                   | TBD               |      |     |         |       | "$.data.room.owner.real_time_icons"                      | 实时图标              | 
 +----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
 ```
 
-付费等级图标 - pay_grade_icon
+4-10-6. 付费等级图标 - pay_grade_icon
 ```shell
 ##
 ## data.room.owner.pay_grade.grade_icon_list
@@ -2314,7 +2315,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
 ```
 
-直播间认证信息 - room_auth
+4-13. 直播间认证信息 - room_auth
 ```shell
 ##
 ## data.room.room_auth
@@ -2482,7 +2483,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
 ```
 
-直播间标签表 - room_tab
+4-14. 直播间标签表 - room_tab
 ```shell
 ##
 ## data.room.room_tabs
@@ -2498,7 +2499,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
 ```
 
-直播间分享音乐ID表 - room_sharing_music_id
+4-15. 直播间分享音乐ID表 - room_sharing_music_id
 ```shell
 ##
 ## data.room.sharing_music_id_list
@@ -2515,7 +2516,7 @@ data
 ```
 
 
-直播流数据表 - live_stream
+6. 直播流数据表 - live_stream
 ```shell
 +------------------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------------+----------------------------------+
 | Field                                    | Type              | Null | Key | Default | Extra | Topology                                                   | Comment                          | 
@@ -2559,7 +2560,7 @@ data
 +------------------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------------+----------------------------------+
 ```
 
-直播流候选分辨率 - stream_candidate_resolution
+6-1. 直播流候选分辨率 - stream_candidate_resolution
 ```shell
 ##
 ## data.room.stream_url.candidate_resolution
@@ -2576,7 +2577,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
 ```
 
-直播流完整推流地址 - stream_complete_push_url
+6-2. 直播流完整推流地址 - stream_complete_push_url
 ```shell
 ##
 ## data.room.stream_url.complete_push_urls
@@ -2592,7 +2593,8 @@ data
 | complete_push_url                | text              |      |     |         |       | "$.data.room.stream_url.complete_push_urls"          | 完整推流地址         |
 +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
 ```
-直播核心SDK数据 - live_core_sdk_data
+
+6-3. 直播核心SDK数据 - live_core_sdk_data
 ```shell
 ##
 ## data.room.stream_url.live_core_sdk_data
@@ -2607,7 +2609,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
 ```
 
-直播核心SDK拉流数据 - live_core_sdk_pull_data
+6-3-1. 直播核心SDK拉流数据 - live_core_sdk_pull_data
 ```shell
 ##
 ## data.room.stream_url.live_core_sdk_data.pull_data
@@ -2627,7 +2629,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------------------------+---------------------+
 ```
 
-直播核心SDK拉流flv数据 - live_core_sdk_pull_flv_data
+6-3-1-1. 直播核心SDK拉流flv数据 - live_core_sdk_pull_flv_data
 ```shell
 ##
 ## data.room.stream_url.live_core_sdk_data.pull_data.Flv
@@ -2643,7 +2645,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------------------------+---------------------+
 ```
 
-直播核心SDK拉流Hls数据 - live_core_sdk_pull_hls_data
+6-3-1-2. 直播核心SDK拉流Hls数据 - live_core_sdk_pull_hls_data
 ```shell
 ##
 ## data.room.stream_url.live_core_sdk_data.pull_data.Hls
@@ -2659,7 +2661,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------------------------+---------------------+
 ```
 
-直播核心SDK拉流数据选项 - live_core_sdk_pull_data_option
+6-3-1-3. 直播核心SDK拉流数据选项 - live_core_sdk_pull_data_option
 ```shell
 ##
 ## data.room.stream_url.live_core_sdk_data.pull_data.options
@@ -2674,7 +2676,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------------------------+---------------------+
 ```
 
-直播核心SDK拉流质量数据 - live_core_sdk_pull_quality_data
+6-3-1-3-1. 直播核心SDK拉流质量数据 - live_core_sdk_pull_quality_data
 ```shell
 ##
 ## data.room.stream_url.live_core_sdk_data.pull_data.options.qualities
@@ -2698,7 +2700,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------+---------------------+
 ```
 
-直播核心SDK拉流默认质量数据 - live_core_sdk_pull_default_quality_data
+6-3-1-3-2. 直播核心SDK拉流默认质量数据 - live_core_sdk_pull_default_quality_data
 ```shell
 ##
 ## data.room.stream_url.live_core_sdk_data.pull_data.options.default_quality
@@ -2721,7 +2723,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------------+---------------------+
 ```
 
-直播推流地址 - stream_push_url
+6-4. 直播推流地址 - stream_push_url
 ```shell
 ##
 ## data.room.stream_url.push_urls
@@ -2738,10 +2740,11 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------------+---------------------+
 ```
 
-勋章图片表 - badge_image
+4-10-1/12-1. 勋章图片表 - badge_image
 ```shell
 ##
 ## data.room.owner.badge_image_list
+## data.user.badge_image_list
 ##
 +------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
 | Field                                    | Type              | Null | Key | Default | Extra | Topology                                               | Comment                   |
@@ -2752,7 +2755,7 @@ data
 +------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
 ```
 
-图片内容表 - picture_content
+11-4. 图片内容表 - picture_content
 ```shell
 ##
 ## data.room.owner.badge_image_list.content
@@ -2768,7 +2771,7 @@ data
 +------------------------------------------+-------------------+------+-----+---------+-------+---------------------------------------------------------------+---------------------------+
 ```
 
-图片资源表 - picture
+11. 图片资源表 - picture
 ```shell
 +------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
 | Field                                    | Type              | Null | Key | Default | Extra | Topology                                               | Comment                   |
@@ -2783,7 +2786,7 @@ data
 +------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
 ```
 
-图片弹性设置表 - picture_flex_setting
+11-1. 图片弹性设置表 - picture_flex_setting
 ```shell
 +------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
 | Field                                    | Type              | Null | Key | Default | Extra | Topology                                               | Comment                   |
@@ -2794,7 +2797,7 @@ data
 +------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
 ```
 
-图片文本设置表 - picture_text_setting
+11-2. 图片文本设置表 - picture_text_setting
 ```shell
 +------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
 | Field                                    | Type              | Null | Key | Default | Extra | Topology                                               | Comment                   |
@@ -2805,7 +2808,7 @@ data
 +------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
 ```
 
-图片url表 - picture_url
+11-3. 图片url表 - picture_url
 ```shell
 +------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
 | Field                                    | Type              | Null | Key | Default | Extra | Topology                                               | Comment                   |
@@ -2826,7 +2829,7 @@ data
 +------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------------+
 ```
 
-直播间标签 - room_tag
+7. 直播间标签 - room_tag
 ```shell
 ##
 ## data.room.tags
@@ -2842,7 +2845,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------------+---------------------+
 ```
 
-直播间顶级粉丝 - room_top_fans
+8. 直播间顶级粉丝 - room_top_fans
 ```shell
 ##
 ## data.room.top_fans
@@ -2858,7 +2861,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------------+---------------------+
 ```
 
-直播间右上角小组件数据列表 - room_upper_right_widget_data
+9. 直播间右上角小组件数据列表 - room_upper_right_widget_data
 ```shell
 ##
 ## data.room.upper_right_widget_data_list
@@ -2874,7 +2877,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------------+---------------------+
 ```
 
-直播间VS角色 - room_vs_role
+10. 直播间VS角色 - room_vs_role
 ```shell
 ##
 ## data.room.vs_roles
@@ -2889,9 +2892,6 @@ data
 | vs_role                          | TBD               |      |     |         |       | "$.data.room.vs_roles"                                                                           | VS角色              |
 +----------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------------+---------------------+
 ```
-
-
-#### 关系表
 
 主播用户关系表 - room_owner_and_user
 ```shell
@@ -2933,7 +2933,7 @@ data
 +------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+----------------------------+
 ```
 
-5. 直播间管理员ID表 - room_admin_user_id
+4-1. 直播间管理员ID表 - room_admin_user_id
 ```shell
 ##
 ## data.room.admin_user_ids
@@ -2949,7 +2949,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
 ```
 
-6. 直播间管理员开放ID表 - room_admin_user_open_id
+4-2. 直播间管理员开放ID表 - room_admin_user_open_id
 ```shell
 ##
 ## data.room.admin_user_open_ids
@@ -2965,7 +2965,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
 ```
 
-7. 直播间助手标签列表 - room_assist_label
+4-3. 直播间助手标签列表 - room_assist_label
 ```shell
 ##
 ## data.room.assist_label_list
@@ -2981,7 +2981,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
 ```
 
-直播间订阅信息表 - room_subscribe
+ 4-10-8. 直播间订阅信息表 - room_subscribe
 ```shell
 ##
 ## data.room.owner.subscribe
@@ -3001,7 +3001,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
 ```
 
-直播间用户属性表 - room_owner_user_attr
+4-10-10. 直播间用户属性表 - room_owner_user_attr
 ```shell
 ##
 ## data.room.owner.user_attr
@@ -3019,7 +3019,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
 ```
 
-直播间管理员权限表 - room_admin_privilege
+4-10-10-1. 直播间管理员权限表 - room_admin_privilege
 ```shell
 ##
 ## data.room.owner.user_attr.admin_privileges
@@ -3036,7 +3036,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
 ```
 
-直播间用户拥有的着装ID信息 - room_owner_user_dress_own_id
+4-10-11. 直播间用户拥有的着装ID信息 - room_owner_user_dress_own_id
 ```shell
 ##
 ## data.room.owner.user_dress_info.dress_own_ids
@@ -3053,7 +3053,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
 ```
 
-直播间用户穿戴的着装ID信息 - room_owner_dress_wear_id
+4-10-12. 直播间用户穿戴的着装ID信息 - room_owner_dress_wear_id
 ```shell
 ##
 ## data.room.owner.user_dress_info.dress_wear_ids
@@ -3070,7 +3070,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
 ```
 
-直播间包元数据 - room_pack_meta
+4-11. 直播间包元数据 - room_pack_meta
 ```shell
 ##
 ## data.room.pack_meta
@@ -3090,7 +3090,7 @@ data
 +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
 ```
 
-直播间付费直播数据 - room_paid_live_data
+4-12. 直播间付费直播数据 - room_paid_live_data
 ```shell
 ##
 ## data.room.paid_live_data

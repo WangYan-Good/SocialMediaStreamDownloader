@@ -70,12 +70,13 @@ def set_dict_attr(source:dict=None, attr:str=None, value:any=None):
 
 ##
 ## format output dict
+## TBD
 ##
 def output_dict(source:dict=None, tab:int=1):
   if isinstance(source, dict):
     if len(source) > 1: print()
     for k,v in source.items():
-      get_logger().info("{}{}:".format("\t"*tab,k), end="")
+      get_logger().info("{}{}:".format("\t"*tab,k))
       output_dict(v, tab+1)
   elif isinstance(source, list) or isinstance(source, tuple):
     for item in source:

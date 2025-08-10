@@ -20,16 +20,16 @@ from datetime import datetime
 import yaml as yml
 
 ## <<Third-Part>>
-from backend.src.library.baselib import set_dict_attr, get_dict_attr, output_dict, save_dict_as_file
-from backend.src.base.downloader import Downloader, DEFAULT_BASE_CONFIG_PATH
-from backend.src.platform.douyin.douyin_header import DouyinShareHeader, DouyinLiveInfoHeader
-from backend.src.platform.douyin.douyin_live_config import DouyinLiveConfig
-from backend.src.platform.douyin.douyin_login import DouyinLogin
-from backend.src.platform.douyin.douyin_url_list_config import UrlListConfig
-from backend.src.platform.douyin.douyin_live_external_info import LiveExternal
-from backend.src.platform.douyin.douyin_api import DouyinApi
-from backend.src.database.platform_douyin import DouyinShareUrlTable
-from backend.src.base.log import get_logger
+from backend.src.library.baselib                            import set_dict_attr, get_dict_attr, output_dict, save_dict_as_file
+from backend.src.base.downloader                            import Downloader, DEFAULT_BASE_CONFIG_PATH
+from backend.src.platform.douyin.douyin_header              import DouyinShareHeader, DouyinLiveInfoHeader
+from backend.src.platform.douyin.douyin_live_config         import DouyinLiveConfig
+from backend.src.platform.douyin.douyin_login               import DouyinLogin
+from backend.src.platform.douyin.douyin_url_list_config     import UrlListConfig
+from backend.src.platform.douyin.douyin_live_external_info  import LiveExternal
+from backend.src.platform.douyin.douyin_api                 import DouyinApi
+from backend.src.database.db_table.share_url                import DouyinShareUrlTable
+from backend.src.base.log                                   import get_logger
 
 ## TODO
 from backend.src.platform.douyin.xbogus import XBogus as XB
