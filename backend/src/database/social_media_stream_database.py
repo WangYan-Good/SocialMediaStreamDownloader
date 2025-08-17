@@ -12,7 +12,7 @@ from pymysql.connections import Connection
 
 ## <<Third-Part>>
 from backend.src.library.baselib import output_dict
-from backend.src.base.log import get_logger
+from backend.src.base.log        import get_logger
 from backend.src.library.baselib import set_dict_attr
 
 class SocialMediaStreamDataBase():
@@ -96,7 +96,7 @@ class SocialMediaStreamDataBase():
     if table_name in self.__db_tables_instance:
       return True
     else:
-      get_logger().warning("Database table {} instance is not registered".format(table_name))
+      get_logger().warning("database table {} instance is not registered".format(table_name))
       return False
 
   ##
@@ -109,9 +109,9 @@ class SocialMediaStreamDataBase():
     
     if table_name in self.__db_tables_instance:
       del self.__db_tables_instance[table_name]
-      get_logger().info("Database table {} instance is removed".format(table_name))
+      get_logger().info("database table {} instance is removed".format(table_name))
     else:
-      get_logger().warning("Database table {} instance is not registered".format(table_name))
+      get_logger().warning("database table {} instance is not registered".format(table_name))
     return
 
   ##
@@ -183,17 +183,16 @@ class SocialMediaStreamDataBase():
               WHERE TABLE_SCHEMA = "{}"
               AND TABLE_NAME = "{}";
             '''.format(self.__database, table_name)
-      cursor = self.get_db_connector().cursor()
-      get_logger().debug(sql)
-      cursor.execute(sql)
-      result = cursor.fetchall()
-      self.close_db_connector()
+      with self.get_db_connector() as connector:
+        with connector.cursor() as cursor:
+          get_logger().debug(sql)
+          cursor.execute(sql)
+          result = cursor.fetchall()
       if result[0][0] == 1:
         return True
       else:
         return False
     except Exception as e:
-      self.close_db_connector()
       get_logger().error("ERROR: check if table {} exists is failed! reason: {}".format(table_name, e))
       raise e
   
@@ -201,7 +200,7 @@ class SocialMediaStreamDataBase():
   ## dump database tables
   ##
   def dump_db_tables(self) -> None:
-    get_logger().info("Database tables:")
+    get_logger().info("database tables:")
     if self.__db_tables_instance is None or len(self.__db_tables_instance) == 0:
       get_logger().warning("No database table instance registered")
       return
