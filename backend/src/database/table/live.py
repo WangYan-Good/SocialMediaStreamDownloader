@@ -9,7 +9,7 @@ from datetime import datetime as dat
 
 ## <<Third-Part>>
 from backend.src.database.social_media_stream_database                import SocialMediaStreamDataBase
-from backend.src.database.database_table.social_media_stream_db_table import SocialMediaStreamDataTable
+from backend.src.database.table.social_media_stream_db_table          import SocialMediaStreamDataTable
 from backend.src.base.log                                             import get_logger
 
 class LiveRecordTable(SocialMediaStreamDataTable):
