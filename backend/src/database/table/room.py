@@ -8,14 +8,9 @@ sys.path.append(os.getcwd())
 from backend.src.database.social_media_stream_database                import SocialMediaStreamDataBase
 from backend.src.database.table.social_media_stream_db_table          import SocialMediaStreamDataTable
 
-class RoomAttributeTable(SocialMediaStreamDataTable):
 ##
-## >>=============================== attribute ===============================>>
+## room attribute table
 ##
-
-##
-##
-## room attribute table header
 ## +----------------------------------+-------------------+------+-----+---------+-------+-------------------------------------------------------+---------------------------------+
 ## | Field                            | Type              | Null | Key | Default | Extra |Topology                                               | Comment                         |
 ## +----------------------------------+-------------------+------+-----+---------+-------+-------------------------------------------------------+---------------------------------+
@@ -127,6 +122,10 @@ class RoomAttributeTable(SocialMediaStreamDataTable):
 ## | wait_copy                        | tinytext          | YES  |     | NULL    |       | "$.data.room.wait_copy"                               | 等待复制                         |
 ## | webcast_sdk_version              | varchar(20)       | YES  |     | NULL    |       | "$.data.room.webcast_sdk_version"                     | 直播间SDK版本                     |
 ## +----------------------------------+-------------------+------+-----+---------+-------+-------------------------------------------------------+----------------------------------+YES
+##
+class RoomAttributeTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
 ##
   __ROOM_ATTRIBUTE_TABLE_NAME   = 'room_attribute'
   __ROOM_ATTRIBUTE_TABLE_HEADER = ['AnchorABMap',                   'acquaintance_status',           'anchor_scheduled_time_text',    'anchor_share_text',    'anchor_tab_type', 
@@ -322,13 +321,8 @@ class RoomAttributeTable(SocialMediaStreamDataTable):
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_ROOM_ATTRIBUTE_TABLE
 
-class RoomAdminUserIdTable(SocialMediaStreamDataTable):
 ##
-## >>=============================== attribute ===============================>>
-##
-
-##
-## data.room.admin_user_ids
+## room admin user id
 ##
 ##+---------------------+-------------------+------+-----+---------+-------+------------------------------+---------------------+
 ##| Field               | Type              | Null | Key | Default | Extra | Topology                     | Comment             |
@@ -340,7 +334,10 @@ class RoomAdminUserIdTable(SocialMediaStreamDataTable):
 ##| admin_user_id       | varchar(200)      |      |     | NULL    |       | "$.data.room.admin_user_ids" | 直播间管理员用户ID    | 
 ##+---------------------+-------------------+------+-----+---------+-------+------------------------------+---------------------+
 ##
-
+class RoomAdminUserIdTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
   __ROOM_ADMIN_USER_ID_TABLE_NAME       = 'room_admin_user_id'
   __ROOM_ADMIN_USER_ID_TABLE_HEADER     = ['now',                 'platform',     'room_id',
                                            'admin_user_id_index', 'admin_user_id'
@@ -414,13 +411,8 @@ class RoomAdminUserIdTable(SocialMediaStreamDataTable):
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_ROOM_ADMIN_USER_ID_TABLE
 
-class RoomAdminUserOpenIdTable(SocialMediaStreamDataTable):
 ##
-## >>=============================== attribute ===============================>>
-##
-
-##
-## data.room.admin_user_open_ids
+## room admin user open id table
 ##
 ## +-----------------------+-------------------+------+-----+---------+-------+-----------------------------------+---------------------+
 ## | Field                 | Type              | Null | Key | Default | Extra | Topology                          | Comment             |
@@ -432,7 +424,10 @@ class RoomAdminUserOpenIdTable(SocialMediaStreamDataTable):
 ## | admin_user_open_id    | varchar(200)      |      |     | NULL    |       | "$.data.room.admin_user_open_ids" | 直播间管理员用户ID    | 
 ## +-----------------------+-------------------+------+-----+---------+-------+-----------------------------------+---------------------+
 ##
-
+class RoomAdminUserOpenIdTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
   __ROOM_ADMIN_USER_OPEN_ID_TABLE_NAME       = 'room_admin_user_open_id'
   __ROOM_ADMIN_USER_OPEN_ID_TABLE_HEADER     = ['now',                   'platform',          'room_id',
                                                 'admin_user_open_index', 'admin_user_open_id'
@@ -703,13 +698,8 @@ class RoomDecoTable(SocialMediaStreamDataTable):
 class RoomRealtimePlaybackQualityTable(SocialMediaStreamDataTable):
   pass
 
-class FansGroupAdminUserIdTable(SocialMediaStreamDataTable):
 ##
-## >>=============================== attribute ===============================>>
-##
-
-##
-## data.room.fans_group_admin_user_ids
+## fans group admin user id
 ##
 ## +--------------------------------+-------------------+------+-----+---------+-------+-----------------------------------------+---------------------+
 ## | Field                          | Type              | Null | Key | Default | Extra | Topology                                | Comment             |
@@ -721,7 +711,10 @@ class FansGroupAdminUserIdTable(SocialMediaStreamDataTable):
 ## | fans_group_admin_user_id       | varchar(200)      |      |     | NULL    |       | "$.data.room.fans_group_admin_user_ids" | 粉丝群管理员用户ID   |
 ## +--------------------------------+-------------------+------+-----+---------+-------+-----------------------------------------+---------------------+
 ##
-
+class FansGroupAdminUserIdTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
   __FANS_GROUP_ADMIN_USER_ID_TABLE_NAME       = 'fans_group_admin_user_id'
   __FANS_GROUP_ADMIN_USER_ID_TABLE_HEADER     = ['now',                            'platform',                'room_id',
                                                  'fans_group_admin_user_id_index', 'fans_group_admin_user_id'
@@ -795,8 +788,95 @@ class FansGroupAdminUserIdTable(SocialMediaStreamDataTable):
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_FANS_GROUP_ADMIN_USER_ID_TABLE
 
+##
+## data.room.fans_group_admin_user_open_ids
+##
+## +-------------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------+----------------------+
+## | Field                               | Type              | Null | Key | Default | Extra | Topology                                     | Comment              |
+## +-------------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------+----------------------+
+## | now                                 | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"                                | 当前时间戳            | 
+## | platform                            | varchar(20)       | NO   | PRI |         |       |           -                                  | 平台                  |
+## | room_id                             | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                             | 直播间ID              | 
+## | fans_group_admin_user_open_id_index | unsigned tinyint  |      |     | NULL    |       |           -                                  | 粉丝群管理员OpenID序号 |
+## | fans_group_admin_user_open_id       | varchar(200)      |      |     | NULL    |       | "$.data.room.fans_group_admin_user_open_ids" | 粉丝群管理员OpenID列表 |
+## +-------------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------+-----------------------+
+##
 class FansGroupAdminUserOpenIdTable(SocialMediaStreamDataTable):
-  pass
+##
+## >>=============================== attribute ===============================>>
+##
+  __FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_NAME       = 'fans_group_admin_user_open_id'
+  __FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_HEADER     = ['now',                                 'platform',                     'room_id',
+                                                      'fans_group_admin_user_open_id_index', 'fans_group_admin_user_open_id'
+                                                      ]
+  __FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_PRI_KEY    = ['now', 'platform', 'room_id']
+  __FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_TUPLE      = {item:None for item in __FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_HEADER}
+  __SQL_CREATE_FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE = '''
+                                                     CREATE TABLE IF NOT EXISTS {} (
+                                                       now                                    timestamp(3) NOT NULL,
+                                                       platform                               varchar(20)  NOT NULL,
+                                                       room_id                                varchar(200) NOT NULL,
+                                                       fans_group_admin_user_open_id_index    tinyint      DEFAULT NULL,
+                                                       fans_group_admin_user_open_id          varchar(200) DEFAULT NULL,
+                                                       PRIMARY KEY (now, platform, room_id)
+                                                     )
+                                                     '''.format(__FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_NAME)
+  __SQL_DROP_FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_NAME)
+
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton pattern
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_PRI_KEY
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE
 
 class RoomFilterWordTable(SocialMediaStreamDataTable):
   pass
