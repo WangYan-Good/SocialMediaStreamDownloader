@@ -4,13 +4,9 @@ import sys
 sys.path.append(os.getcwd())
 ##<< Test
 
-## <<Base>>
-from datetime  import datetime as dat
-
 ## <<Third-Part>>
 from backend.src.database.social_media_stream_database                import SocialMediaStreamDataBase
 from backend.src.database.table.social_media_stream_db_table          import SocialMediaStreamDataTable
-from backend.src.base.log                                             import get_logger
 
 class RoomAttributeTable(SocialMediaStreamDataTable):
 ##
@@ -325,6 +321,170 @@ class RoomAttributeTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_ROOM_ATTRIBUTE_TABLE
+
+class RoomAdminUserIdTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+
+##
+## data.room.admin_user_ids
+##
+##+---------------------+-------------------+------+-----+---------+-------+------------------------------+---------------------+
+##| Field               | Type              | Null | Key | Default | Extra | Topology                     | Comment             |
+##+---------------------+-------------------+------+-----+---------+-------+------------------------------+---------------------+
+##| now                 | timestamp(3)      | NO   | PRI |         |       | "$.data.room.create_time"    | 当前时间戳           |
+##| platform            | varchar(20)       | NO   | PRI |         |       |           -                  | 平台                 |
+##| room_id             | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"             | 直播间ID             |
+##| admin_user_id_index | unsigned tinyint  |      |     | NULL    |       |           -                  | 直播间管理员ID序号    |
+##| admin_user_id       | varchar(200)      |      |     | NULL    |       | "$.data.room.admin_user_ids" | 直播间管理员用户ID    | 
+##+---------------------+-------------------+------+-----+---------+-------+------------------------------+---------------------+
+##
+
+  __ROOM_ADMIN_USER_ID_TABLE_NAME       = 'room_admin_user_id'
+  __ROOM_ADMIN_USER_ID_TABLE_HEADER     = ['now',                 'platform',     'room_id',
+                                           'admin_user_id_index', 'admin_user_id'
+                                           ]
+  __ROOM_ADMIN_USER_ID_TABLE_PRI_KEY    = ['now', 'platform', 'room_id']
+  __ROOM_ADMIN_USER_ID_TABLE_TUPLE      = {item:None for item in __ROOM_ADMIN_USER_ID_TABLE_HEADER}
+  __SQL_CREATE_ROOM_ADMIN_USER_ID_TABLE = '''
+                                          CREATE TABLE IF NOT EXISTS {} (
+                                            now                    timestamp(3) NOT NULL,
+                                            platform               varchar(20)  NOT NULL,
+                                            room_id                varchar(200) NOT NULL,
+                                            admin_user_id_index    tinyint      DEFAULT NULL,
+                                            admin_user_id          varchar(200) DEFAULT NULL,
+                                            PRIMARY KEY (now, platform, room_id)
+                                          )
+                                          '''.format(__ROOM_ADMIN_USER_ID_TABLE_NAME)
+  __SQL_DROP_ROOM_ADMIN_USER_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_ADMIN_USER_ID_TABLE_NAME)
+
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton pattern
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__ROOM_ADMIN_USER_ID_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__ROOM_ADMIN_USER_ID_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__ROOM_ADMIN_USER_ID_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__ROOM_ADMIN_USER_ID_TABLE_PRI_KEY
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_ADMIN_USER_ID_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_ROOM_ADMIN_USER_ID_TABLE
+
+class RoomAdminUserOpenIdTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomAssistLabelTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomDecoTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomRealtimePlaybackQualityTable(SocialMediaStreamDataTable):
+  pass
+
+class FansGroupAdminUserIdTable(SocialMediaStreamDataTable):
+  pass
+
+class FansGroupAdminUserOpenIdTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomFilterWordTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomLiveDistributionTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomOwnerTable(SocialMediaStreamDataTable):
+  pass
+
+class BadgeImageTable(SocialMediaStreamDataTable):
+  pass
+
+class CommerceWebcastConfigIdTable(SocialMediaStreamDataTable):
+  pass
+
+class FansClubTable(SocialMediaStreamDataTable):
+  pass
+
+class FansClubAvailableGiftIdTable(SocialMediaStreamDataTable):
+  pass
+
+class FansClubBadgeIconTable(SocialMediaStreamDataTable):
+  pass
+
+class MediaBadgeImageTable(SocialMediaStreamDataTable):
+  pass
+
+class NewRealTimeIconTable(SocialMediaStreamDataTable):
+  pass
+
+class PayGradeIconTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomOwnerRealTimeIconTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomSubscribeTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomOwnerTopFansTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomOwnerUserAttrTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomAdminPrivilegeTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomOwnerUserDressOwnIdTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomOwnerDressWearIdTable(SocialMediaStreamDataTable):
+  pass
 
 class RoomPackMetaTable(SocialMediaStreamDataTable):
 ##
@@ -956,3 +1116,182 @@ class RoomAuthTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_ROOM_AUTH_TABLE
+
+class RoomTabTable(SocialMediaStreamDataTable):
+  '''
+    TBD: no related data type of room_tab
+  '''
+##
+## >>=============================== attribute ===============================>>
+##
+
+##
+## data.room.room_tabs
+## +-----------+-------------------+------+-----+---------+-------+-------------------------+----------------------+
+## | Field     | Type              | Null | Key | Default | Extra | Topology                | Comment              |
+## +-----------+-------------------+------+-----+---------+-------+-------------------------+----------------------+
+## | now       | timestamp         | NO   | PRI |         |       | "$.extra.now"           | 当前时间戳            | 
+## | platform  | varchar(20)       | NO   | PRI |         |       |           -             | 平台                  |
+## | room_id   | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"        | 直播间ID              | 
+## | tab_index | unsigned tinyint  |      |     | NULL    |       |           -             | tab序号               |
+## | room_tab  | TBD               |      |     | NULL    |       | "$.data.room.room_tabs" | 直播间标签列表         |
+## +-----------+-------------------+------+-----+---------+-------+-------------------------+----------------------+
+##
+
+  __ROOM_TAB_TABLE_NAME        = "room_tab"
+  __ROOM_TAB_TABLE_HEADER      = ['now',                  'platform',              'room_id',
+                                             'tab_index',            'room_tab'
+                                             ]
+  __ROOM_TAB_TABLE_PRI_KEY    = ['now','platform','room_id']
+  __ROOM_TAB_TABLE_TUPLE      = {item:None for item in __ROOM_TAB_TABLE_HEADER}
+  __SQL_CREATE_ROOM_TAB_TABLE = '''
+                                           CREATE TABLE IF NOT EXISTS {} (
+                                             now                  timestamp(3)     NOT NULL,
+                                             platform             varchar(20)      NOT NULL,
+                                             room_id              varchar(200)     NOT NULL,
+                                             tab_index            tinyint          DEFAULT NULL,
+                                             room_tab             TBD              DEFAULT NULL
+                                             PRIMARY KEY (now, platform, room_id)
+                                           )
+                                           '''.format(__ROOM_TAB_TABLE_NAME)
+  __SQL_DROP_ROOM_TAB_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_TAB_TABLE_NAME)
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton mode
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__ROOM_TAB_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__ROOM_TAB_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__ROOM_TAB_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__ROOM_TAB_TABLE_PRI_KEY
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_TAB_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_ROOM_TAB_TABLE
+
+class RoomSharingMusicIdTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomShortTouchAreaConfigTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomShortTouchAreaConfigElementTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomShortTouchAreaConfigStrategyFeatWhitelistTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomTempStateConditionMapTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomTempStateGlobalConditionIgnoreStrategyTypeTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomTempStateGlobalConditionTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomRecordTable(SocialMediaStreamDataTable):
+  pass
+
+class LiveStreamTable(SocialMediaStreamDataTable):
+  pass
+
+class StreamCandidateResolutionTable(SocialMediaStreamDataTable):
+  pass
+
+class StreamCompletePushUrlTable(SocialMediaStreamDataTable):
+  pass
+
+class LiveCoreSdkDataTable(SocialMediaStreamDataTable):
+  pass
+
+class LiveCoreSdkPullDataTable(SocialMediaStreamDataTable):
+  pass
+
+class LiveCoreSdkPullFlvDataTable(SocialMediaStreamDataTable):
+  pass
+
+class LiveCoreSdkPullHlsDataTable(SocialMediaStreamDataTable):
+  pass
+
+class LiveCoreSdkPullDataOptionTable(SocialMediaStreamDataTable):
+  pass
+
+class LiveCoreSdkPullQualityDataTable(SocialMediaStreamDataTable):
+  pass
+
+class LiveCoreSdkPullDefaultQualityDataTable(SocialMediaStreamDataTable):
+  pass
+
+class StreamPushUrlTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomTagTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomTopFansTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomUpperRightWidgetDataTable(SocialMediaStreamDataTable):
+  pass
+
+class RoomVsRoleTable(SocialMediaStreamDataTable):
+  pass
+
+class PictureTable(SocialMediaStreamDataTable):
+  pass
+
+class PictureFlexSettingTable(SocialMediaStreamDataTable):
+  pass
+
+class PictureTextSettingTable(SocialMediaStreamDataTable):
+  pass
+
+class PictureUrlTable(SocialMediaStreamDataTable):
+  pass
+
+class PictureContentTable(SocialMediaStreamDataTable):
+  pass
+
+class UserTable(SocialMediaStreamDataTable):
+  pass
