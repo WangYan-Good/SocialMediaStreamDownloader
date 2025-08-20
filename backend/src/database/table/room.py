@@ -878,6 +878,9 @@ class FansGroupAdminUserOpenIdTable(SocialMediaStreamDataTable):
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE
 
+'''
+  TBD: no related data type of room_filter_word
+'''
 class RoomFilterWordTable(SocialMediaStreamDataTable):
   pass
 
@@ -885,9 +888,6 @@ class RoomFilterWordTable(SocialMediaStreamDataTable):
   TBD: no related data type of room_live_distribution
 '''
 class RoomLiveDistributionTable(SocialMediaStreamDataTable):
-  pass
-
-class RoomOwnerTable(SocialMediaStreamDataTable):
   pass
 
 class BadgeImageTable(SocialMediaStreamDataTable):
@@ -950,11 +950,6 @@ class RoomOwnerUserDressOwnIdTable(SocialMediaStreamDataTable):
 class RoomOwnerDressWearIdTable(SocialMediaStreamDataTable):
   pass
 
-class RoomPackMetaTable(SocialMediaStreamDataTable):
-##
-## >>=============================== attribute ===============================>>
-##
-
 ##
 ## room pack meta table
 ## +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
@@ -971,7 +966,10 @@ class RoomPackMetaTable(SocialMediaStreamDataTable):
 ## | trace_id                         | varchar(200)      | YES  |     | NULL    |       | "$.data.room.pack_meta.trace_id"                     | 跟踪ID              |
 ## +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
 ##
-
+class RoomPackMetaTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
   __ROOM_PACK_META_TABLE_NAME       = "room_pack_meta"
   __ROOM_PACK_META_TABLE_HEADER     = ['now',       'platform', 'room_id',
                                        'cluster ',  'dc',       'env',
