@@ -56,14 +56,14 @@ class SocialMediaStreamDataTable(ABC):
     self.__database = db_instance
     
     ##
-    ## register the room attribute table when room_attribute table is exist but not registered
+    ## register the table when room_attribute table is exist but not registered
     ##
     if self.__database.is_table_exist(self.get_name()) and self.__database.is_table_registered(self.get_name()) is False:
       try:
         self.__database.register_table(self.get_name(), self)
-        get_logger().info("room attribute table registered successfully")
+        get_logger().info("{} table registered successfully".format(self.get_name()))
       except Exception as e:
-        get_logger().error("failed to register room attribute table: {}".format(e))
+        get_logger().error("failed to register {} table: {}".format(self.get_name(), e))
         raise e
     else:
       get_logger().info("room_attribute table is already registered or does not exist")
@@ -126,14 +126,14 @@ class SocialMediaStreamDataTable(ABC):
     ##
     try:
         if self.__database.is_table_exist(self.get_name()):
-          get_logger().warning("room attribute table already exists, skipping creation")
+          get_logger().warning("{} table already exists, skipping creation".format(self.get_name()))
           return
     except Exception as e:
-      get_logger().error("failed to create room attribute table: {}".format(e))
+      get_logger().error("failed to create {} table: {}".format(self.get_name(), e))
       raise e
     
     ##
-    ## create the room attribute table
+    ## create table
     ##
     try:
       ##
@@ -146,19 +146,19 @@ class SocialMediaStreamDataTable(ABC):
         with connector.cursor() as cursor:
           cursor.execute(self.get_create_sql_cmd())
           connector.commit()
-          get_logger().info("room attribute table created successfully")
+          get_logger().info("{} table created successfully".format(self.get_name()))
     except Exception as e:
-      get_logger().error("failed to create room attribute table: {}".format(e))
+      get_logger().error("failed to create {} table: {}".format(self.get_name(), e))
       raise e
     
     ##
-    ## register the room attribute table
+    ## register table
     ##
     try:
       self.__database.register_table(self.get_name(), self)
-      get_logger().info("room_attribute table registered successfully")
+      get_logger().info("{} table registered successfully".format(self.get_name()))
     except Exception as e:
-      get_logger().error("failed to register room_attribute table: {}".format(e))
+      get_logger().error("failed to register {} table: {}".format(self.get_name(), e))
       raise e
   
   ##
@@ -166,14 +166,14 @@ class SocialMediaStreamDataTable(ABC):
   ##
   def drop(self) -> None:
     ##
-    ## check if the room attribute table exist
+    ## check if the table exist
     ##
     if not self.__database.is_table_exist(self.get_name()):
       get_logger().warning("{} table does note exist, skipping drop".format(self.get_name()))
       return
     
     ##
-    ## unregister the room attribute table
+    ## unregister the table
     ##
     try:
       self.__database.unregister_table(self.get_name())
@@ -183,7 +183,7 @@ class SocialMediaStreamDataTable(ABC):
       raise e
     
     ##
-    ## drop the room attribute table
+    ## drop the table
     ##
     try:
       with self.__database.get_db_connector() as connector:
@@ -222,7 +222,7 @@ class SocialMediaStreamDataTable(ABC):
       with self.__database.get_db_connector() as connector:
         with connector.cursor() as cursor:
           ##
-          ## insert the room attribute record into room_attribute table
+          ## insert the record into table
           ##
           sql = '''
                 INSERT INTO {} ({})
@@ -231,9 +231,9 @@ class SocialMediaStreamDataTable(ABC):
           with self.__db_lock:
             cursor.execute(sql, tuple(value for value in record.values()))
             connector.commit()
-          get_logger().info("inserted room attribute record successfully")
+          get_logger().info("inserted {} record successfully".format(self.get_name()))
     except Exception as e:
-      get_logger().error("failed to insert room attribute record: {}".format(e))
+      get_logger().error("failed to insert {} record: {}".format(self.get_name(), e))
       raise e
 
   ##
@@ -249,7 +249,7 @@ class SocialMediaStreamDataTable(ABC):
         raise ValueError
     
     ##
-    ## delete the room attribute record from the database
+    ## delete the record from the database
     ##
     try:
       with self.__database.get_db_connector() as connector:
@@ -262,7 +262,7 @@ class SocialMediaStreamDataTable(ABC):
             cursor.execute(sql, tuple(record.get(field) for field in self.get_pri_key()))
             connector.commit()
     except Exception as e:
-      get_logger().error("failed to delete room attribute record: {}".format(e))
+      get_logger().error("failed to delete {} record: {}".format(self.get_name(), e))
       raise e
 
   ##
@@ -298,9 +298,9 @@ class SocialMediaStreamDataTable(ABC):
           with self.__db_lock:
             cursor.execute(sql, tuple(record.get(field) for field in [item for item in record.keys()] + self.get_pri_key()))
             connector.commit()
-          get_logger().info("update room attribute record successfully")
+          get_logger().info("update {} record successfully".format(self.get_name()))
     except Exception as e:
-      get_logger().error("failed to update room attribute record: {}".format(e))
+      get_logger().error("failed to update {} record: {}".format(self.get_name(), e))
       raise e
   
   ##
@@ -316,7 +316,7 @@ class SocialMediaStreamDataTable(ABC):
         raise ValueError
     
     ##
-    ## get the room attribute record from the database
+    ## get the record from the database
     ##
     try:
       with self.__database.get_db_connector() as connector:
@@ -335,9 +335,9 @@ class SocialMediaStreamDataTable(ABC):
           result = cursor.fetchone()
           self.__db_lock.release()
           if result is None:
-            get_logger().warning("room attribute record not found")
+            get_logger().warning("{} record not found".format(self.get_name()))
             return None
       return dict(zip(self.get_header(), result))
     except Exception as e:
-      get_logger().error("failed to get room attribute record: {}".format(e))
+      get_logger().error("failed to get {} record: {}".format(self.get_name(), e))
       raise e

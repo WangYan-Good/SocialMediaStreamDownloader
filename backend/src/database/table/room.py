@@ -890,9 +890,6 @@ class RoomFilterWordTable(SocialMediaStreamDataTable):
 class RoomLiveDistributionTable(SocialMediaStreamDataTable):
   pass
 
-class BadgeImageTable(SocialMediaStreamDataTable):
-  pass
-
 '''
   TBD: no related data type of commerce_webcast_config_id
 '''
