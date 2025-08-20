@@ -2973,11 +2973,11 @@ data
 +--------------------+-------------------+------+-----+---------+-------+---------------------------------+---------------------+
 | Field              | Type              | Null | Key | Default | Extra | Topology                        | Comment             |
 +--------------------+-------------------+------+-----+---------+-------+---------------------------------+---------------------+
-| now                | timestamp         |      |     |         |       | "$.extra.now"                   | 当前时间戳           | 
-| platform           | varchar(20)       |      |     | NULL    |       |           -                     | 平台                 | 
-| room_id            | varchar(200)      |      |     |         |       | "$.data.room.id"                | 直播间ID             | 
-| assist_label_index | unsigned tinyint  |      |     |         |       |           -                     | 直播间辅助标签序号   |
-| assist_label       | TBD               |      |     |         |       | "$.data.room.assist_label_list" | 直播间辅助标签       | 
+| now                | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"                   | 当前时间戳           | 
+| platform           | varchar(20)       | NO   | PRI |         |       |           -                     | 平台                 | 
+| room_id            | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                | 直播间ID             | 
+| assist_label_index | unsigned tinyint  |      |     | NULL    |       |           -                     | 直播间辅助标签序号   |
+| assist_label       | TBD               |      |     | NULL    |       | "$.data.room.assist_label_list" | 直播间辅助标签       | 
 +--------------------+-------------------+------+-----+---------+-------+---------------------------------+---------------------+
 ```
 
