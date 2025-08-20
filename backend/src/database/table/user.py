@@ -14,7 +14,7 @@ from backend.src.database.table.social_media_stream_db_table          import Soc
 ## +------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------+----------------------------+
 ## | Field                                    | Type              | Null | Key | Default | Extra |Topology                                                      | Comment                    |
 ## +------------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------+----------------------------+
-## | now                                      | timestamp         | NO   | PRI |         |       | "$.extra.now"                                                | 当前时间戳                  |
+## | now                                      | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"                                                | 当前时间戳                  |
 ## | platform                                 | varchar(20)       | NO   | PRI |         |       |           -                                                  | 平台                        |
 ## | room_id                                  | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                                             | 直播间ID                    |
 ## | owner_user_id                            | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner_user_id"                                  | 直播间主播ID                |
@@ -341,3 +341,114 @@ class RoomOwnerTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_ROOM_OWNER_TABLE
+
+##
+## fans club
+##
+## +-----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+## | Field                 | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
+## +-----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+## | now                   | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"                                            | 当前时间戳            | 
+## | platform              | varchar(20)       | NO   | PRI |         |       |           -                                              | 平台                  |
+## | room_id               | varchar(200)      |      |     | NULL    |       | "$.data.room.id"                                         | 直播间ID              | 
+## | owner_user_id         | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner_user_id"                              | 账号作者ID            |
+## | anchor_id             | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner.fans_club.data.anchor_id"             | 主播ID                |
+## | anchor_open_id        | varchar(200)      |      |     | NULL    |       | "$.data.room.owner.fans_club.data.anchor_open_id"        | 主播OpenID            |
+## | badge_type            | unsigned tinyint  |      |     | NULL    |       | "$.data.room.owner.fans_club.data.badge_type"            | 勋章类型              |
+## | badge_title           | tinytext          |      |     | NULL    |       | "$.data.room.owner.fans_club.data.badge.title"           | 勋章标题              |
+## | club_name             | varchar(50)       |      |     | NULL    |       | "$.data.room.owner.fans_club.data.club_name"             | 俱乐部名称            |
+## | guard_expired_time    | timestamp         |      |     | NULL    |       | "$.data.room.owner.fans_club.data.guard_expired_time"    | 俱乐部守护过期时间     |
+## | level                 | unsigned smallint |      |     | NULL    |       | "$.data.room.owner.fans_club.data.level"                 | 俱乐部等级            |
+## | user_fans_club_status | unsigned tinyint  |      |     | NULL    |       | "$.data.room.owner.fans_club.data.user_fans_club_status" | 用户粉丝俱乐部状态     |
+## | user_guard_status     | unsigned tinyint  |      |     | NULL    |       | "$.data.room.owner.fans_club.data.user_guard_status"     | 用户守护状态           |
+## | prefer_data           | json              |      |     | NULL    |       | "$.data.room.owner.fans_club.prefer_data"                | 偏好数据               |
+## +-----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+-----------------------+
+##
+class FansClubTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __FANS_CLUB_TABLE_NAME       = 'fans_club'
+  __FANS_CLUB_TABLE_HEADER     = ['now',                'platform',    'room_id',
+                                  'owner_user_id',      'anchor_id',   'anchor_open_id',
+                                  'badge_type',         'badge_title', 'club_name',
+                                  'guard_expired_time', 'level',       'user_fans_club_status',
+                                  'user_guard_status',  'prefer_data'
+                                   ]
+  __FANS_CLUB_TABLE_PRI_KEY    = ['now', 'platform', 'owner_user_id', 'anchor_id']
+  __FANS_CLUB_TABLE_TUPLE      = {item:None for item in __FANS_CLUB_TABLE_HEADER}
+  __SQL_CREATE_FANS_CLUB_TABLE = '''
+                                 CREATE TABLE IF NOT EXISTS {} (
+                                   now                   timestamp(3)  NOT NULL,
+                                   platform              varchar(20)   NOT NULL,
+                                   room_id               varchar(200)  DEFAULT NULL,
+                                   owner_user_id         varchar(200)  NOT NULL,
+                                   anchor_id             varchar(200)  NOT NULL,
+                                   anchor_open_id        varchar(200)  DEFAULT NULL,
+                                   badge_type            tinyint       DEFAULT NULL,
+                                   badge_title           tinytext      DEFAULT NULL,
+                                   club_name             varchar(50)   DEFAULT NULL,
+                                   guard_expired_time    timestamp     DEFAULT NULL,
+                                   level                 smallint      DEFAULT NULL,
+                                   user_fans_club_status tinyint       DEFAULT NULL,
+                                   user_guard_status     tinyint       DEFAULT NULL,
+                                   prefer_data           json          DEFAULT NULL,
+                                   PRIMARY KEY (now, platform, owner_user_id, anchor_id)
+                                   )
+                                   '''.format(__FANS_CLUB_TABLE_NAME)
+  __SQL_DROP_FANS_CLUB_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__FANS_CLUB_TABLE_NAME)
+
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton pattern
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__FANS_CLUB_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__FANS_CLUB_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__FANS_CLUB_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__FANS_CLUB_TABLE_PRI_KEY
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_FANS_CLUB_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_FANS_CLUB_TABLE

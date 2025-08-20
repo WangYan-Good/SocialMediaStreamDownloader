@@ -896,9 +896,6 @@ class RoomLiveDistributionTable(SocialMediaStreamDataTable):
 class CommerceWebcastConfigIdTable(SocialMediaStreamDataTable):
   pass
 
-class FansClubTable(SocialMediaStreamDataTable):
-  pass
-
 class FansClubAvailableGiftIdTable(SocialMediaStreamDataTable):
   pass
 
