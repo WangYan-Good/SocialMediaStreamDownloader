@@ -15,7 +15,8 @@ from backend.src.database.table.room                                  import Roo
                                                                              RoomAuthTable, \
                                                                              RoomAdminUserIdTable, \
                                                                              RoomAdminUserOpenIdTable, \
-                                                                             RoomAssistLabelTable
+                                                                             RoomAssistLabelTable, \
+                                                                             FansGroupAdminUserIdTable
 from backend.src.base.log                                             import get_logger
 
 ##
@@ -1371,11 +1372,203 @@ def test_get_room_assist_label_record(db:SocialMediaStreamDataBase = None):
     raise e
 
 ##
+## >>================================ fans group admin user id test method ===============================>>
+##
+
+def test_create_fans_group_admin_user_id_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if db is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table
+  ##
+  fans_group_admin_user_id = FansGroupAdminUserIdTable(db_instance=db)
+  fans_group_admin_user_id.create()
+  return
+
+##
+## test: drop table
+##
+def test_drop_fans_group_admin_user_id_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## drop table
+  ##
+  fans_group_admin_user_id = FansGroupAdminUserIdTable(db_instance=db)
+  fans_group_admin_user_id.drop()
+  return
+
+##
+## test: check if table exists
+##
+def test_check_fans_group_admin_user_id_exists(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  fans_group_admin_user_id = FansGroupAdminUserIdTable(db)
+  
+  ##
+  ## check if table exists
+  ##
+  if db.is_table_exist(fans_group_admin_user_id.get_name()):
+    get_logger().info("{} table exists!".format(fans_group_admin_user_id.get_name()))
+  else:
+    get_logger().info("{} table not exists!".format(fans_group_admin_user_id.get_name()))
+  return
+
+##
+## test: insert record
+##
+def test_insert_fans_group_admin_user_id_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  fans_group_admin_user_id = FansGroupAdminUserIdTable(db_instance=db)
+  
+  ##
+  ## insert a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798'
+  }
+  
+  try:
+    fans_group_admin_user_id.insert_record(sample_record)
+    get_logger().info("sample record inserted successfully")
+  except Exception as e:
+    get_logger().error("failed to insert sample record: {}".format(e))
+    raise e
+
+##
+## test: delete record
+##
+def test_delete_fans_group_admin_user_id_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  fans_group_admin_user_id = FansGroupAdminUserIdTable(db_instance=db)
+  
+  ##
+  ## delete a sample record
+  ##
+  sample_record = {
+    'now':dat.fromtimestamp(1740301577026/1000.0),
+    'platform':'douyin',
+    'room_id':'7411524533301119798'
+  }
+  
+  try:
+    fans_group_admin_user_id.delete_record(sample_record)
+    get_logger().info("sample record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample record: {}".format(e))
+    raise e
+
+##
+## test: update record
+##
+def test_update_fans_group_admin_user_id_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  fans_group_admin_user_id = FansGroupAdminUserIdTable(db_instance=db)
+  
+  ##
+  ## update a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'fans_group_admin_user_id_index':0,
+    'fans_group_admin_user_id':'123456789'
+  }
+  
+  try:
+    fans_group_admin_user_id.update_record(sample_record)
+    get_logger().info("sample record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample record: {}".format(e))
+    raise e
+
+##
+## test: get record
+## 
+def test_get_fans_group_admin_user_id_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exist
+  ##
+  fans_group_admin_user_id = FansGroupAdminUserIdTable(db)
+  
+  ##
+  ## get a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798'
+  }
+  
+  try:
+    record = fans_group_admin_user_id.get_record(sample_record)
+    if record:
+      get_logger().info("sample room paid live data record retrieved successfully: \n\t{}".format(record))
+    else:
+      get_logger().warning("sample room paid live data record not found")
+  except Exception as e:
+    get_logger().error("failed to retrieve sample room paid live data record: {}".format(e))
+    raise e
+
+##
 ## >>================================ main method ===============================>>
 ##
 if __name__ == "__main__":
   db = SocialMediaStreamDataBase(host='192.168.1.12', user='wangyan', passwd='wuyu1998', database='social_media_stream_downloader')
-  
+  """
   ##
   ## room attribute table
   ##
@@ -1465,3 +1658,18 @@ if __name__ == "__main__":
   test_get_room_assist_label_record(db)
   test_drop_room_assist_label_table(db)
   test_check_room_assist_label_exists(db)
+
+  ##
+  ## fans group admin user id table
+  ##
+  test_create_fans_group_admin_user_id_table(db)
+  test_check_fans_group_admin_user_id_exists(db)
+  test_insert_fans_group_admin_user_id_record(db)
+  test_get_fans_group_admin_user_id_record(db)
+  test_update_fans_group_admin_user_id_record(db)
+  test_get_fans_group_admin_user_id_record(db)
+  test_delete_fans_group_admin_user_id_record(db)
+  test_get_fans_group_admin_user_id_record(db)
+  test_drop_fans_group_admin_user_id_table(db)
+  test_check_fans_group_admin_user_id_exists(db)
+  """
