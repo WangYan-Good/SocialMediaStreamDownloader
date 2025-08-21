@@ -896,9 +896,6 @@ class RoomLiveDistributionTable(SocialMediaStreamDataTable):
 class CommerceWebcastConfigIdTable(SocialMediaStreamDataTable):
   pass
 
-class FansClubAvailableGiftIdTable(SocialMediaStreamDataTable):
-  pass
-
 class FansClubBadgeIconTable(SocialMediaStreamDataTable):
   pass
 
@@ -1041,11 +1038,6 @@ class RoomPackMetaTable(SocialMediaStreamDataTable):
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_ROOM_PACK_META_TABLE
 
-class RoomPaidLiveDataTable(SocialMediaStreamDataTable):
-##
-## >>=============================== attribute ===============================>>
-##
-
 ##
 ## room paid live data header
 ## +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
@@ -1066,7 +1058,10 @@ class RoomPaidLiveDataTable(SocialMediaStreamDataTable):
 ## | view_right                       | unsigned tinyint  | YES  |     | NULL    |       | "$.data.room.paid_live_data.view_right"              | 观看权限             |
 ## +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
 ##
-
+class RoomPaidLiveDataTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
   __ROOM_PAID_LIVE_DATA_TABLE_NAME        = "room_paid_live_data"
   __ROOM_PAID_LIVE_DATA_TABLE_HEADER      = ['now',                  'platform',              'room_id',
                                              'anchor_right',         'delivery',              'duration',
@@ -1148,11 +1143,6 @@ class RoomPaidLiveDataTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_ROOM_PAID_LIVE_DATA_TABLE
-
-class RoomAuthTable(SocialMediaStreamDataTable):
-##
-## >>=============================== attribute ===============================>>
-##
 
 ##
 ## data.room.room_auth
@@ -1319,7 +1309,10 @@ class RoomAuthTable(SocialMediaStreamDataTable):
 ## | WordAssociation                  | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.WordAssociation"                  | 词关联                | 
 ## +----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
 ##
-
+class RoomAuthTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
   __ROOM_AUTH_TABLE_NAME        = "room_auth"
   __ROOM_AUTH_TABLE_HEADER      = ['now',                           'platform',                       'room_id',                      'AIClone',                 'AdminCommentWall',
                                    'AnchorAudioChat',               'AnchorColdMessageTiled',         'AnchorHotMessageAggregated',   'AnchorMission',           'AudioChat',
