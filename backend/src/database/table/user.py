@@ -464,7 +464,7 @@ class FansClubTable(SocialMediaStreamDataTable):
 ## | room_id              | varchar(200)      |      |     |         |       | "$.data.room.id"                                      | 直播间ID              | 
 ## | owner_user_id        | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner_user_id"                           | 账号作者ID            |
 ## | anchor_id            | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner.fans_club.data.anchor_id"          | 主播ID               |
-## | available_gift_index | unsigned     int  |      |     | NULL    |       |           -                                           | 可用礼物序号          |
+## | available_gift_index | unsigned int      |      |     | NULL    |       |           -                                           | 可用礼物序号          |
 ## | available_gift_id    | varchar(200)      |      |     | NULL    |       | "$.data.room.owner.fans_club.data.available_gift_ids" | 可用礼物ID列表        |
 ## +----------------------+-------------------+------+-----+---------+-------+-------------------------------------------------------+----------------------+
 ##
@@ -547,3 +547,98 @@ class FansClubAvailableGiftIdTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_FANS_CLUB_AVAILABLE_GIFT_ID_TABLE
+
+##
+## data.room.owner.fans_club.data
+##
+## +---------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+----------------------+
+## | Field         | Type              | Null | Key | Default | Extra | Topology                                               | Comment              |
+## +---------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+----------------------+
+## | now           | timestamp(3)      | YES  | PRI |         |       | "$.extra.now"                                          | 当前时间戳            | 
+## | platform      | varchar(20)       |      | PRI | NULL    |       |           -                                            | 平台                  |
+## | room_id       | varchar(200)      |      |     |         |       | "$.data.room.id"                                       | 直播间ID              | 
+## | owner_user_id | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"                            | 账号作者ID            |
+## | anchor_id     | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner.fans_club.data.anchor_id"           | 主播ID                |
+## | icon_index    | unsigned int      | NO   |     | NULL    |       | "$.data.room.owner.fans_club.data.badge.icons.'0'"     | 勋章图标0             |
+## | icon_uri      | text              | NO   |     | NULL    |       | "$.data.room.owner.fans_club.data.badge.icons.'0'.uri" | 勋章图标URI           |
+## +---------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+----------------------+
+##
+class FansClubBadgeIconTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __FANS_CLUB_BADGE_ICON_TABLE_NAME       = 'fans_club_badge_icon'
+  __FANS_CLUB_BADGE_ICON_TABLE_HEADER     = ['now',                'platform',    'room_id',
+                                             'owner_user_id',      'anchor_id',   'icon_index',
+                                             'icon_uri'
+                                             ]
+  __FANS_CLUB_BADGE_ICON_TABLE_PRI_KEY    = ['now', 'platform', 'owner_user_id', 'anchor_id']
+  __FANS_CLUB_BADGE_ICON_TABLE_TUPLE      = {item:None for item in __FANS_CLUB_BADGE_ICON_TABLE_HEADER}
+  __SQL_CREATE_FANS_CLUB_BADGE_ICON_TABLE = '''
+                                            CREATE TABLE IF NOT EXISTS {} (
+                                              now                  timestamp(3)     NOT NULL,
+                                              platform             varchar(20)      NOT NULL,
+                                              room_id              varchar(200)     DEFAULT NULL,
+                                              owner_user_id        varchar(200)     NOT NULL,
+                                              anchor_id            varchar(200)     NOT NULL,
+                                              icon_index           int              DEFAULT NULL,
+                                              icon_uri             text             DEFAULT NULL,
+                                              PRIMARY KEY (now, platform, owner_user_id, anchor_id)
+                                              )
+                                              '''.format(__FANS_CLUB_BADGE_ICON_TABLE_NAME)
+  __SQL_DROP_FANS_CLUB_BADGE_ICON_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__FANS_CLUB_BADGE_ICON_TABLE_NAME)
+
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton pattern
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__FANS_CLUB_BADGE_ICON_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__FANS_CLUB_BADGE_ICON_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__FANS_CLUB_BADGE_ICON_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__FANS_CLUB_BADGE_ICON_TABLE_PRI_KEY
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_FANS_CLUB_BADGE_ICON_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_FANS_CLUB_BADGE_ICON_TABLE

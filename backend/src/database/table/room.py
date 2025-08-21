@@ -896,9 +896,6 @@ class RoomLiveDistributionTable(SocialMediaStreamDataTable):
 class CommerceWebcastConfigIdTable(SocialMediaStreamDataTable):
   pass
 
-class FansClubBadgeIconTable(SocialMediaStreamDataTable):
-  pass
-
 '''
   TBD: no related data type of media_badge_image
 '''

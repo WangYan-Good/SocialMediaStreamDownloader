@@ -11,7 +11,8 @@ from datetime                                                         import dat
 from backend.src.database.social_media_stream_database                import SocialMediaStreamDataBase
 from backend.src.database.table.user                                  import RoomOwnerTable, \
                                                                              FansClubTable, \
-                                                                             FansClubAvailableGiftIdTable
+                                                                             FansClubAvailableGiftIdTable, \
+                                                                             FansClubBadgeIconTable
 from backend.src.base.log                                             import get_logger
 
 ##
@@ -601,6 +602,201 @@ def test_get_fans_club_available_gift_id_record(db:SocialMediaStreamDataBase = N
     get_logger().error("failed to retrieve sample record: {}".format(e))
     raise e
 
+##
+## >>================================ fans club badge icon table test method ===============================>>
+##
+
+def test_create_fans_club_badge_icon_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if db is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table
+  ##
+  fans_club_badge_icon = FansClubBadgeIconTable(db_instance=db)
+  fans_club_badge_icon.create()
+  return
+
+##
+## test: drop table
+##
+def test_drop_fans_club_badge_icon_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## drop table
+  ##
+  fans_club_badge_icon = FansClubBadgeIconTable(db_instance=db)
+  fans_club_badge_icon.drop()
+  return
+
+##
+## test: check if table exists
+##
+def test_check_fans_club_badge_icon_exists(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  fans_club_badge_icon = FansClubBadgeIconTable(db)
+  
+  ##
+  ## check if table exists
+  ##
+  if db.is_table_exist(fans_club_badge_icon.get_name()):
+    get_logger().info("{} table exists!".format(fans_club_badge_icon.get_name()))
+  else:
+    get_logger().info("{} table not exists!".format(fans_club_badge_icon.get_name()))
+  return
+
+##
+## test: insert record
+##
+def test_insert_fans_club_badge_icon_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  fans_club_badge_icon = FansClubBadgeIconTable(db_instance=db)
+  
+  ##
+  ## insert a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'owner_user_id': '2700838411446480',
+    'anchor_id': '0'
+  }
+  
+  try:
+    fans_club_badge_icon.insert_record(sample_record)
+    get_logger().info("sample record inserted successfully")
+  except Exception as e:
+    get_logger().error("failed to insert sample record: {}".format(e))
+    raise e
+
+##
+## test: delete record
+##
+def test_delete_fans_club_badge_icon_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  fans_club_badge_icon = FansClubBadgeIconTable(db_instance=db)
+  
+  ##
+  ## delete a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'owner_user_id': '2700838411446480',
+    'anchor_id': '0'
+  }
+  
+  try:
+    fans_club_badge_icon.delete_record(sample_record)
+    get_logger().info("sample record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample record: {}".format(e))
+    raise e
+
+##
+## test: update record
+##
+def test_update_fans_club_badge_icon_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  fans_club_badge_icon = FansClubBadgeIconTable(db_instance=db)
+  
+  ##
+  ## update a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'owner_user_id': '2700838411446480',
+    'anchor_id': '0',
+    'icon_index': 0,
+    'icon_uri': 'webcast/aweme_pay_grade_2x_1_4.png'
+  }
+  
+  try:
+    fans_club_badge_icon.update_record(sample_record)
+    get_logger().info("sample record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample record: {}".format(e))
+    raise e
+
+##
+## test: get record
+## 
+def test_get_fans_club_badge_icon_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exist
+  ##
+  fans_club_badge_icon = FansClubBadgeIconTable(db)
+  
+  ##
+  ## get a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'owner_user_id': '2700838411446480',
+    'anchor_id': '0'
+  }
+  
+  try:
+    record = fans_club_badge_icon.get_record(sample_record)
+    if record:
+      get_logger().info("sample record retrieved successfully: \n\t{}".format(record))
+    else:
+      get_logger().warning("sample record not found")
+  except Exception as e:
+    get_logger().error("failed to retrieve sample record: {}".format(e))
+    raise e
 
 ##
 ## >>================================ main method ===============================>>
@@ -649,4 +845,18 @@ if __name__ == "__main__":
   test_get_fans_club_available_gift_id_record(db)
   test_drop_fans_club_available_gift_id_table(db)
   test_check_fans_club_available_gift_id_exists(db)
+
+  ##
+  ## fans club badge icon table
+  ##
+  test_create_fans_club_badge_icon_table(db)
+  test_check_fans_club_badge_icon_exists(db)
+  test_insert_fans_club_badge_icon_record(db)
+  test_get_fans_club_badge_icon_record(db)
+  test_update_fans_club_badge_icon_record(db)
+  test_get_fans_club_badge_icon_record(db)
+  test_delete_fans_club_badge_icon_record(db)
+  test_get_fans_club_badge_icon_record(db)
+  test_drop_fans_club_badge_icon_table(db)
+  test_check_fans_club_badge_icon_exists(db)
   """
