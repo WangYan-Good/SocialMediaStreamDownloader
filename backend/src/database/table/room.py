@@ -908,17 +908,108 @@ class MediaBadgeImageTable(SocialMediaStreamDataTable):
 class NewRealTimeIconTable(SocialMediaStreamDataTable):
   pass
 
-class PayGradeIconTable(SocialMediaStreamDataTable):
-  pass
-
 '''
   TBD: no related data type of room_owner_real_time_icon
 '''
 class RoomOwnerRealTimeIconTable(SocialMediaStreamDataTable):
   pass
 
+##
+## data.room.owner.subscribe
+##
+## +---------------+-------------------+------+-----+---------+-------+---------------------------------------------+---------------------+
+## | Field         | Type              | Null | Key | Default | Extra | Topology                                    | Comment             |
+## +---------------+-------------------+------+-----+---------+-------+---------------------------------------------+---------------------+
+## | now           | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"                               | 当前时间戳           | 
+## | platform      | varchar(20)       | NO   | PRI |         |       |           -                                 | 平台                 | 
+## | room_id       | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                            | 直播间ID             | 
+## | owner_user_id | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner_user_id"                 | 直播间主播ID         |
+## | buy_type      | unsigned tinyint  |      |     | NULL    |       | "$.data.room.owner.subscribe.buy_type"      | 购买类型             |
+## | identity_type | unsigned tinyint  |      |     | NULL    |       | "$.data.room.owner.subscribe.identity_type" | 身份类型             |
+## | is_member     | bool              |      |     | NULL    |       | "$.data.room.owner.subscribe.is_member"     | 是否为会员           |
+## | level         | unsigned smallint |      |     | NULL    |       | "$.data.room.owner.subscribe.level"         | 订阅等级             |
+## | open          | unsigned tinyint  |      |     | NULL    |       | "$.data.room.owner.subscribe.open"          | 是否开放             |
+## +---------------+-------------------+------+-----+---------+-------+---------------------------------------------+---------------------+
+##
 class RoomSubscribeTable(SocialMediaStreamDataTable):
-  pass
+##
+## >>=============================== attribute ===============================>>
+##
+  __ROOM_SUBSCRIBE_TABLE_TABLE_NAME       = 'room_subscribe'
+  __ROOM_SUBSCRIBE_TABLE_TABLE_HEADER     = ['now', 'platform', 'room_id', 'owner_user_id', 'buy_type', 'identity_type', 'is_member', 'level', 'open']
+  __ROOM_SUBSCRIBE_TABLE_TABLE_PRI_KEY    = ['now', 'platform', 'room_id']
+  __ROOM_SUBSCRIBE_TABLE_TABLE_TUPLE      = {item:None for item in __ROOM_SUBSCRIBE_TABLE_TABLE_HEADER}
+  __SQL_CREATE_ROOM_SUBSCRIBE_TABLE_TABLE = '''
+                                            CREATE TABLE IF NOT EXISTS {} (
+                                              now           timestamp(3)      NOT NULL,
+                                              platform      varchar(20)       NOT NULL,
+                                              room_id       varchar(200)      NOT NULL,
+                                              owner_user_id varchar(200)      NOT NULL,
+                                              buy_type      tinyint           DEFAULT NULL,
+                                              identity_type tinyint           DEFAULT NULL,
+                                              is_member     bool              DEFAULT NULL,
+                                              level         smallint          DEFAULT NULL,
+                                              open          tinyint           DEFAULT NULL,
+                                              PRIMARY KEY (now, platform, room_id, owner_user_id)
+                                            )
+                                            '''.format(__ROOM_SUBSCRIBE_TABLE_TABLE_NAME)
+  __SQL_DROP_ROOM_SUBSCRIBE_TABLE_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_SUBSCRIBE_TABLE_TABLE_NAME)
+
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton mode
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+  
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get live record table name
+  ##
+  def get_name(self) -> str:
+    return self.__ROOM_SUBSCRIBE_TABLE_TABLE_NAME
+  
+  ##
+  ## get live record table header
+  ##
+  def get_header(self) -> list:
+    return self.__ROOM_SUBSCRIBE_TABLE_TABLE_HEADER
+
+  ##
+  ## get live record table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__ROOM_SUBSCRIBE_TABLE_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__ROOM_SUBSCRIBE_TABLE_TABLE_PRI_KEY
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_SUBSCRIBE_TABLE_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_ROOM_SUBSCRIBE_TABLE_TABLE
+
 
 '''
   TBD: no related data type of room_owner_top_fans

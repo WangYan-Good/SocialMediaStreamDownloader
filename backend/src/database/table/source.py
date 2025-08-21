@@ -91,3 +91,7 @@ class BadgeImageTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_BADGE_IMAGE_TABLE
+
+
+class PayGradeIconTable(SocialMediaStreamDataTable):
+  pass

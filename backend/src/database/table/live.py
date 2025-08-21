@@ -12,10 +12,6 @@ from backend.src.database.social_media_stream_database                import Soc
 from backend.src.database.table.social_media_stream_db_table          import SocialMediaStreamDataTable
 from backend.src.base.log                                             import get_logger
 
-class LiveRecordTable(SocialMediaStreamDataTable):
-##
-## >>=============================== attribute ===============================>>
-##
 
 ##
 ## live record table header
@@ -30,6 +26,10 @@ class LiveRecordTable(SocialMediaStreamDataTable):
 ## | finish_time                      | timestamp         |      |     | NULL    |       | "$.data.room.finish_time"  | 结束时间              | 
 ## | status_code                      | unsigned tinyint  |      |     | NULL    |       | "$.status_code"            | 网络请求状态          | 
 ## +----------------------------------+-------------------+------+-----+---------+-------+----------------------------+----------------------+
+##
+class LiveRecordTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
 ##
   __LIVE_RECORD_TABLE_NAME       = 'live_record'
   __LIVE_RECORD_TABLE_HEADER     = ['now', 'platform', 'room_id', 'user_id', 'start_time', 'finish_time', 'status_code']
