@@ -1017,9 +1017,6 @@ class RoomSubscribeTable(SocialMediaStreamDataTable):
 class RoomOwnerTopFansTable(SocialMediaStreamDataTable):
   pass
 
-class RoomAdminPrivilegeTable(SocialMediaStreamDataTable):
-  pass
-
 class RoomOwnerUserDressOwnIdTable(SocialMediaStreamDataTable):
   pass
 
