@@ -627,7 +627,7 @@ if __name__ == "__main__":
   test_get_room_owner_dress_wear_id_record(db)
   test_drop_room_owner_dress_wear_id_table(db)
   test_check_room_owner_dress_wear_id_exists(db)
-  """
+
   ##
   ## room sharing music id table
   ##
@@ -641,3 +641,4 @@ if __name__ == "__main__":
   test_get_room_sharing_music_id_record(db)
   test_drop_room_sharing_music_id_table(db)
   test_check_room_sharing_music_id_exists(db)
+  """

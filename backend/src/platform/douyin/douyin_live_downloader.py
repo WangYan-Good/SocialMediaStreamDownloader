@@ -28,7 +28,7 @@ from backend.src.platform.douyin.douyin_login               import DouyinLogin
 from backend.src.platform.douyin.douyin_url_list_config     import UrlListConfig
 from backend.src.platform.douyin.douyin_live_external_info  import LiveExternal
 from backend.src.platform.douyin.douyin_api                 import DouyinApi
-from backend.src.database.db_table.share_url                import DouyinShareUrlTable
+from backend.src.database.table.share_url                   import DouyinShareUrlTable
 from backend.src.base.log                                   import get_logger
 
 ## TODO

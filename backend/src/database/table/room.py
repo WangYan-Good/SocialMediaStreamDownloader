@@ -1038,7 +1038,7 @@ class RoomPackMetaTable(SocialMediaStreamDataTable):
 ##
   __ROOM_PACK_META_TABLE_NAME       = "room_pack_meta"
   __ROOM_PACK_META_TABLE_HEADER     = ['now',       'platform', 'room_id',
-                                       'cluster ',  'dc',       'env',
+                                       'cluster',   'dc',       'env',
                                        'extras',    'scene',    'trace_id'
                                        ]
   __ROOM_PACK_META_TABLE_PRI_KEY    = ['now','platform','room_id']
@@ -1733,8 +1733,90 @@ class RoomTabTable(SocialMediaStreamDataTable):
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_ROOM_TAB_TABLE
 
+##
+## data.room.short_touch_area_config
+##
+## +---------------------+--------------+------+-----+---------+-------+-----------------------------------------------------------+-----------------------+
+## | Field               | Type         | Null | Key | Default | Extra | Topology                                                  | Comment               |
+## +---------------------+--------------+------+-----+---------+-------+-----------------------------------------------------------+-----------------------+
+## | now                 | timestamp(3) | NO   | PRI |         |       | "$.extra.now"                                             | 当前时间戳             |
+## | platform            | varchar(20)  | NO   | PRI |         |       |           -                                               | 平台                  | 
+## | room_id             | varchar(200) | NO   | PRI |         |       | "$.data.room.id"                                          | 直播间ID              | 
+## | forbidden_types_map | json         |      |     | NULL    |       | "$.data.room.short_touch_area_config.forbidden_types_map" | 禁止类型映射表         |
+## +---------------------+--------------+------+-----+---------+-------+-----------------------------------------------------------+-----------------------+
+##
 class RoomShortTouchAreaConfigTable(SocialMediaStreamDataTable):
-  pass
+##
+## >>=============================== attribute ===============================>>
+##
+  __ROOM_SHORT_TOUCH_AREA_CONFIG_TABLE_NAME       = "room_short_touch_area_config"
+  __ROOM_SHORT_TOUCH_AREA_CONFIG_TABLE_HEADER     = ['now',       'platform', 'room_id', 'forbidden_types_map']
+  __ROOM_SHORT_TOUCH_AREA_CONFIG_TABLE_PRI_KEY    = ['now','platform','room_id']
+  __ROOM_SHORT_TOUCH_AREA_CONFIG_TABLE_TUPLE      = {item:None for item in __ROOM_SHORT_TOUCH_AREA_CONFIG_TABLE_HEADER}
+  __SQL_CREATE_ROOM_SHORT_TOUCH_AREA_CONFIG_TABLE = '''
+                                                    CREATE TABLE IF NOT EXISTS {} (
+                                                      now                    timestamp(3) NOT NULL,
+                                                      platform               varchar(20)  NOT NULL,
+                                                      room_id                varchar(200) NOT NULL,
+                                                      forbidden_types_map    json         DEFAULT NULL,
+                                                      PRIMARY KEY (now, platform, room_id)
+                                                    )
+                                                    '''.format(__ROOM_SHORT_TOUCH_AREA_CONFIG_TABLE_NAME)
+  __SQL_DROP_ROOM_SHORT_TOUCH_AREA_CONFIG_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_SHORT_TOUCH_AREA_CONFIG_TABLE_NAME)
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton mode
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__ROOM_SHORT_TOUCH_AREA_CONFIG_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__ROOM_SHORT_TOUCH_AREA_CONFIG_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__ROOM_SHORT_TOUCH_AREA_CONFIG_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__ROOM_SHORT_TOUCH_AREA_CONFIG_TABLE_PRI_KEY
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_SHORT_TOUCH_AREA_CONFIG_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_ROOM_SHORT_TOUCH_AREA_CONFIG_TABLE
 
 class RoomShortTouchAreaConfigElementTable(SocialMediaStreamDataTable):
   pass
