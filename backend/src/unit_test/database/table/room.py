@@ -25,7 +25,8 @@ from backend.src.database.table.room                                  import Roo
                                                                              RoomShortTouchAreaConfigTable, \
                                                                              RoomShortTouchAreaConfigElementTable, \
                                                                              RoomShortTouchAreaConfigStrategyFeatWhitelistTable, \
-                                                                             RoomTempStateConditionMapTable
+                                                                             RoomTempStateConditionMapTable, \
+                                                                             RoomTempStateGlobalConditionIgnoreStrategyTypeTable
 from backend.src.base.log                                             import get_logger
 
 ##
@@ -2752,6 +2753,197 @@ def test_get_room_temp_state_condition_map_record(db:SocialMediaStreamDataBase =
     raise e
 
 ##
+## >>================================ room temp state global condition ignore strategy type table test method ===============================>>
+##
+
+def test_create_room_temp_state_global_condition_ignore_strategy_type_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if db is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table
+  ##
+  room_temp_state_global_condition_ignore_strategy_type = RoomTempStateGlobalConditionIgnoreStrategyTypeTable(db_instance=db)
+  room_temp_state_global_condition_ignore_strategy_type.create()
+  return
+
+##
+## test: drop table
+##
+def test_drop_room_temp_state_global_condition_ignore_strategy_type_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## drop table
+  ##
+  room_temp_state_global_condition_ignore_strategy_type = RoomTempStateGlobalConditionIgnoreStrategyTypeTable(db_instance=db)
+  room_temp_state_global_condition_ignore_strategy_type.drop()
+  return
+
+##
+## test: check if table exists
+##
+def test_check_room_temp_state_global_condition_ignore_strategy_type_exists(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  room_temp_state_global_condition_ignore_strategy_type = RoomTempStateGlobalConditionIgnoreStrategyTypeTable(db)
+  
+  ##
+  ## check if table exists
+  ##
+  if db.is_table_exist(room_temp_state_global_condition_ignore_strategy_type.get_name()):
+    get_logger().info("{} table exists!".format(room_temp_state_global_condition_ignore_strategy_type.get_name()))
+  else:
+    get_logger().info("{} table not exists!".format(room_temp_state_global_condition_ignore_strategy_type.get_name()))
+  return
+
+##
+## test: insert record
+##
+def test_insert_room_temp_state_global_condition_ignore_strategy_type_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_temp_state_global_condition_ignore_strategy_type = RoomTempStateGlobalConditionIgnoreStrategyTypeTable(db_instance=db)
+  
+  ##
+  ## insert a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798'
+  }
+  
+  try:
+    room_temp_state_global_condition_ignore_strategy_type.insert_record(sample_record)
+    get_logger().info("sample record inserted successfully")
+  except Exception as e:
+    get_logger().error("failed to insert sample record: {}".format(e))
+    raise e
+
+##
+## test: delete record
+##
+def test_delete_room_temp_state_global_condition_ignore_strategy_type_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_temp_state_global_condition_ignore_strategy_type = RoomTempStateGlobalConditionIgnoreStrategyTypeTable(db_instance=db)
+
+  ##
+  ## delete a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798'
+  }
+  
+  try:
+    room_temp_state_global_condition_ignore_strategy_type.delete_record(sample_record)
+    get_logger().info("sample record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample record: {}".format(e))
+    raise e
+
+##
+## test: update record
+##
+def test_update_room_temp_state_global_condition_ignore_strategy_type_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_temp_state_global_condition_ignore_strategy_type = RoomTempStateGlobalConditionIgnoreStrategyTypeTable(db_instance=db)
+
+  ##
+  ## update a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'strategy_type': 2
+  }
+  
+  try:
+    room_temp_state_global_condition_ignore_strategy_type.update_record(sample_record)
+    get_logger().info("sample record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample record: {}".format(e))
+    raise e
+
+##
+## test: get record
+## 
+def test_get_room_temp_state_global_condition_ignore_strategy_type_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exist
+  ##
+  room_temp_state_global_condition_ignore_strategy_type = RoomTempStateGlobalConditionIgnoreStrategyTypeTable(db)
+
+  ##
+  ## get a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798'
+  }
+  
+  try:
+    record = room_temp_state_global_condition_ignore_strategy_type.get_record(sample_record)
+    if record:
+      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(room_temp_state_global_condition_ignore_strategy_type.get_name(), record))
+    else:
+      get_logger().warning("sample {} record not found".format(room_temp_state_global_condition_ignore_strategy_type.get_name()))
+  except Exception as e:
+    get_logger().error("failed to retrieve sample {} record: {}".format(room_temp_state_global_condition_ignore_strategy_type.get_name(), e))
+    raise e
+
+##
 ## >>================================ main method ===============================>>
 ##
 if __name__ == "__main__":
@@ -2944,4 +3136,18 @@ if __name__ == "__main__":
   test_get_room_temp_state_condition_map_record(db)
   test_drop_room_temp_state_condition_map_table(db)
   test_check_room_temp_state_condition_map_exists(db)
+
+  ##
+  ## room temp state global condition ignore strategy type table
+  ##
+  test_create_room_temp_state_global_condition_ignore_strategy_type_table(db)
+  test_check_room_temp_state_global_condition_ignore_strategy_type_exists(db)
+  test_insert_room_temp_state_global_condition_ignore_strategy_type_record(db)
+  test_get_room_temp_state_global_condition_ignore_strategy_type_record(db)
+  test_update_room_temp_state_global_condition_ignore_strategy_type_record(db)
+  test_get_room_temp_state_global_condition_ignore_strategy_type_record(db)
+  test_delete_room_temp_state_global_condition_ignore_strategy_type_record(db)
+  test_get_room_temp_state_global_condition_ignore_strategy_type_record(db)
+  test_drop_room_temp_state_global_condition_ignore_strategy_type_table(db)
+  test_check_room_temp_state_global_condition_ignore_strategy_type_exists(db)
   """
