@@ -2256,9 +2256,251 @@ class RoomTempStateGlobalConditionTable(SocialMediaStreamDataTable):
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_ROOM_TEMP_STATE_GLOBAL_CONDITION_TABLE
 
-
+##
+## room
+##
+## +-------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------+
+## | Field                               | Type              | Null | Key | Default | Extra | Topology                                               | Comment             |
+## +-------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------+
+## | now                                 | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"                                          | 当前时间戳           | 
+## | platform                            | varchar(20)       | NO   | PRI |         |       |           -                                            | 平台                 | 
+## | id                                  | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                                       | 直播间ID             | 
+## | rank                                | unsigned smallint |      |     | NULL    |       | "$.data.room.AnchorABMap"                              | 排名/等级            |
+## | silence_flag                        | unsigned tinyint  |      |     | NULL    |       | "$.data.room.living_room_attrs.silence_flag"           | 直播间静音状态       | 
+## | view_stats_display_long             | tinytext          |      |     | NULL    |       | "$.data.room.room_view_stats.display_long"             | 直播间观看人数       | 
+## | view_stats_display_long_anchor      | tinytext          |      |     | NULL    |       | "$.data.room.room_view_stats.display_long_anchor"      | 主播观看人数         | 
+## | view_stats_display_middle           | tinytext          |      |     | NULL    |       | "$.data.room.room_view_stats.display_middle"           | 直播间观看人数（中）  |
+## | view_stats_display_middle_anchor    | tinytext          |      |     | NULL    |       | "$.data.room.room_view_stats.display_middle_anchor"    | 主播观看人数（中）    |
+## | view_stats_display_short            | tinytext          |      |     | NULL    |       | "$.data.room.room_view_stats.display_short"            | 直播间观看人数（短）  |
+## | view_stats_display_short_anchor     | tinytext          |      |     | NULL    |       | "$.data.room.room_view_stats.display_short_anchor"     | 主播观看人数（短）    |
+## | view_stats_display_type             | unsigned tinyint  |      |     | NULL    |       | "$.data.room.room_view_stats.display_type"             | 直播间观看人数显示类型 |
+## | view_stats_display_value            | unsigned int      |      |     | NULL    |       | "$.data.room.room_view_stats.display_value"            | 直播间观看人数        |
+## | view_stats_display_version          | varchar(20)       |      |     | NULL    |       | "$.data.room.room_view_stats.display_version"          | 直播间观看人数显示版本 |
+## | view_stats_incremental              | bool              |      |     | NULL    |       | "$.data.room.room_view_stats.incremental"              | 是否增量更新          |
+## | view_stats_is_hidden                | bool              |      |     | NULL    |       | "$.data.room.room_view_stats.is_hidden"                | 是否隐藏状态          |
+## | user_share_text                     | text              |      |     | NULL    |       | "$.data.Froom.user_share_text"                         | 用户分享文本          |
+## | screen_capture_sharing_title        | tinytext          |      |     | NULL    |       | "$.data.room.screen_capture_sharing_title"             | 屏幕截图分享标题       |
+## | short_title                         | tinytext          |      |     | NULL    |       | "$.data.room.short_title"                              | 屏幕直播间短          |
+## | lottery_finish_time                 | timestamp         |      |     | NULL    |       | "$.data.room.lottery_finish_time"                      | 抽奖结束时间          |
+## | luckymoney_num                      | unsigned int      |      |     | NULL    |       | "$.data.room.luckymoney_num"                           | 幸运红包数量          |
+## | mosaic_status                       | unsigned int      |      |     | NULL    |       | "$.data.room.mosaic_status"                            | 马赛克状态            |
+## | mosaic_tip                          | tinytext          |      |     | NULL    |       | "$.data.room.mosaic_tip"                               | 马赛克提示            |
+## | popularity                          | unsigned bigint   |      |     | NULL    |       | "$.data.room.popularity"                               | 人气                 |
+## | popularity_str                      | varchar(20)       |      |     | NULL    |       | "$.data.room.popularity_str"                           | 人气字符串            |
+## | pre_enter_time                      | timestamp         |      |     | NULL    |       | "$.data.room.pre_enter_time"                           | 预进入时间            |
+## | preview_copy                        | tinytext          |      |     | NULL    |       | "$.data.room.preview_copy"                             | 预览复制文本          |
+## | preview_flow_tag                    | unsigned tinyint  |      |     | NULL    |       | "$.data.room.preview_flow_tag"                         | 预览流量标签          |
+## | private_info                        | text              |      |     | NULL    |       | "$.data.room.private_info"                             | 私有信息              |
+## | ranklist_audience_type              | unsigned tinyint  |      |     | NULL    |       | "$.data.room.ranklist_audience_type"                   | 排行榜观众类型        |
+## | real_distance                       | varchar(100)      |      |     | NULL    |       | "$.data.room.real_distance"                            | 实际距离              |
+## | redpacket_audience_auth             | unsigned tinyint  |      |     | NULL    |       | "$.data.room.redpacket_audience_auth"                  | 红包观众认证          |
+## | relation_tag                        | tinytext          |      |     | NULL    |       | "$.data.room.relation_tag"                             | 关系标签              |
+## | replay                              | bool              |      |     | NULL    |       | "$.data.room.replay"                                   | 是否为回放            |
+## | replay_location                     | unsigned tinyint  |      |     | NULL    |       | "$.data.room.replay_location"                          | 回放位置              |
+## | room_audit_status                   | unsigned tinyint  |      |     | NULL    |       | "$.data.room.room_audit_status"                        | 直播间审核状态        |
+## | room_create_ab_param                | text              |      |     | NULL    |       | "$.data.room.room_create_ab_param"                     | 直播间创建AB参数      |
+## | sofa_layout                         | unsigned tinyint  |      |     | NULL    |       | "$.data.room.sofa_layout"                              | 沙发布局              |
+## | stamps                              | tinytext          |      |     | NULL    |       | "$.data.room.stamps"                                   | 印章                 |
+## | comment_count                       | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.comment_count"                      | 评论数量              |
+## | digg_count                          | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.digg_count"                         | 点赞数量              |
+## | dou_plus_promotion                  | tinytext          |      |     | NULL    |       | "$.data.room.stats.dou_plus_promotion"                 | DouPlus推广          |
+## | enter_count                         | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.enter_count"                        | 进入数量              |
+## | fan_ticket                          | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.fan_ticket"                         | 粉丝票数量            |
+## | follow_count                        | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.follow_count"                       | 关注数量              |
+## | gift_uv_count                       | unsigned int      |      |     | NULL    |       | "$.data.room.stats.gift_uv_count"                      | 礼物UV数量            |
+## | like_count                          | unsigned int      |      |     | NULL    |       | "$.data.room.stats.like_count"                         | 喜欢数量              |
+## | money                               | unsigned int      |      |     | NULL    |       | "$.data.room.stats.money"                              | 金额                  |
+## | total_user                          | unsigned int      |      |     | NULL    |       | "$.data.room.stats.total_user"                         | 用户数量              |
+## | total_user_desp                     | text              |      |     | NULL    |       | "$.data.room.stats.total_user_desp"                    | 总用户描述            |
+## | total_user_str                      | varchar(100)      |      |     | NULL    |       | "$.data.room.stats.total_user_str"                     | 总用户描述            |
+## | up_right_stats_str                  | varchar(100)      |      |     | NULL    |       | "$.data.room.stats.up_right_stats_str"                 | 右上角统计字符串      |
+## | up_right_stats_str_complete         | tinytext          |      |     | NULL    |       | "$.data.room.stats.up_right_stats_str_complete"        | 完整的右上角统计字符串 |
+## | user_count_composition_city         | unsigned tinyint  |      |     | NULL    |       | "$.data.room.stats.user_count_composition.city"        | 城市                 |
+## | user_count_composition_my_follow    | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.user_count_composition.my_follow"   | 我的关注              |
+## | user_count_composition_other        | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.user_count_composition.other"       | 其他                 |
+## | user_count_composition_video_detail | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.user_count_composition.video_detail"| 视频详情              |
+## | user_count_str                      | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.user_count_str"                     | 用户数量字符串        |
+## | watermelon                          | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.watermelon"                         | 西瓜                 |
+## | welfare_donation_amount             | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.welfare_donation_amount"            | 福利捐赠金额          |
+## | status                              | unsigned tinyint  |      |     | NULL    |       | "$.data.room.status"                                   | 直播状态             | 
+## | stream_close_time                   | timestamp         |      |     | NULL    |       | "$.data.room.stream_close_time"                        | 直播间流关闭时间戳     |
+## | stream_id                           | varchar(200)      |      |     | NULL    |       | "$.data.room.stream_id"                                | 直播间流ID            |
+## | stream_provider                     | unsigned tinyint  |      |     | NULL    |       | "$.data.room.stream_provider"                          | 直播间流提供者         |
+## | sun_daily_icon_content              | text              |      |     | NULL    |       | "$.data.room.sun_daily_icon_content"                   | 日常图标内容          |
+## | challenge_info                      | tinytext          |      |     | NULL    |       | "$.data.room.challenge_info"                           | 挑战信息              |
+## | danmaku_detail                      | unsigned int      |      |     | NULL    |       | "$.data.room.danmaku_detail"                           | 弹幕详情              |
+## | hot_sentence_info                   | text              |      |     | NULL    |       | "$.data.room.hot_sentence_info"                        | 热门语句信息          |
+## | last_ping_time                      | timestamp         |      |     | NULL    |       | "$.data.room.last_ping_time"                           | 最后ping时间          |
+## | room_like_count                     | unsigned bigint   |      |     | NULL    |       | "$.data.room.like_count"                               | 点赞数量              |
+## | linker_map                          | json              |      |     | NULL    |       | "$.data.room.linker_map"                               | 点连接器映射          |
+## | web_count                           | unsigned bigint   |      |     | NULL    |       | "$.data.room.web_count"                                | 网页观看人数          |
+## | webcast_comment_tcs                 | unsigned int      |      |     | NULL    |       | "$.data.room.webcast_comment_tcs"                      | 直播间评论TCs         |
+## | with_aggregate_column               | bool              |      |     | NULL    |       | "$.data.room.with_aggregate_column"                    | 是否有聚合栏目        |
+## | with_draw_something                 | bool              |      |     | NULL    |       | "$.data.room.with_draw_something"                      | 是否有抽奖            |
+## | with_ktv                            | bool              |      |     | NULL    |       | "$.data.room.with_ktv"                                 | 是否有KTV             |
+## | with_linkmic                        | bool              |      |     | NULL    |       | "$.data.room.with_linkmic"                             | 是否有连麦            |
+## +-------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+----------------------+
+##
 class RoomRecordTable(SocialMediaStreamDataTable):
-  pass
+##
+## >>=============================== attribute ===============================>>
+##
+  __ROOM_RECORD_TABLE_NAME       = "room_record"
+  __ROOM_RECORD_TABLE_HEADER     = ['now',                              'platform',                            'id',                           '`rank`',                             'silence_flag',
+                                    'view_stats_display_long',          'view_stats_display_long_anchor',      'view_stats_display_middle',    'view_stats_display_middle_anchor', 'view_stats_display_short', 
+                                    'view_stats_display_short_anchor',  'view_stats_display_type',             'view_stats_display_value',     'view_stats_display_version',       'view_stats_incremental',
+                                    'view_stats_is_hidden',             'user_share_text',                     'screen_capture_sharing_title', 'short_title',                      'lottery_finish_time',
+                                    'luckymoney_num',                   'mosaic_status',                       'mosaic_tip',                   'popularity',                       'popularity_str',
+                                    'pre_enter_time',                   'preview_copy',                        'preview_flow_tag',             'private_info',                     'ranklist_audience_type',
+                                    'real_distance',                    'redpacket_audience_auth',             'relation_tag',                 'replay',                           'replay_location',
+                                    'room_audit_status',                'room_create_ab_param',                'sofa_layout',                  'stamps',                           'comment_count',
+                                    'digg_count',                       'dou_plus_promotion',                  'enter_count',                  'fan_ticket',                       'follow_count',
+                                    'gift_uv_count',                    'like_count',                          'money',                        'total_user',                       'total_user_desp',
+                                    'total_user_str',                   'up_right_stats_str',                  'up_right_stats_str_complete',  'user_count_composition_city',      'user_count_composition_my_follow',
+                                    'user_count_composition_other',     'user_count_composition_video_detail', 'user_count_str',               'watermelon',                       'welfare_donation_amount',
+                                    'status',                           'stream_close_time',                   'stream_id',                    'stream_provider',                  'sun_daily_icon_content',
+                                    'challenge_info',                   'danmaku_detail',                      'hot_sentence_info',            'last_ping_time',                   'room_like_count',
+                                    'linker_map',                       'web_count',                           'webcast_comment_tcs',          'with_aggregate_column',            'with_draw_something',
+                                    'with_ktv',                         'with_linkmic'
+                                    ]
+  __ROOM_RECORD_TABLE_PRI_KEY    = ['now', 'platform', 'id']
+  __ROOM_RECORD_TABLE_TUPLE      = {item:None for item in __ROOM_RECORD_TABLE_HEADER}
+  __SQL_CREATE_ROOM_RECORD_TABLE = '''
+                                   CREATE TABLE IF NOT EXISTS {} (
+                                     now                                  timestamp(3)         NOT NULL,
+                                     platform                             varchar(20)          NOT NULL,
+                                     id                                   varchar(200)         NOT NULL,
+                                     `rank`                               smallint             DEFAULT NULL,
+                                     silence_flag                         tinyint              DEFAULT NULL,
+                                     view_stats_display_long              tinytext             DEFAULT NULL,
+                                     view_stats_display_long_anchor       tinytext             DEFAULT NULL,
+                                     view_stats_display_middle            tinytext             DEFAULT NULL,
+                                     view_stats_display_middle_anchor     tinytext             DEFAULT NULL,
+                                     view_stats_display_short             tinytext             DEFAULT NULL,
+                                     view_stats_display_short_anchor      tinytext             DEFAULT NULL,
+                                     view_stats_display_type              tinyint              DEFAULT NULL,
+                                     view_stats_display_value             int                  DEFAULT NULL,
+                                     view_stats_display_version           varchar(20)          DEFAULT NULL,
+                                     view_stats_incremental               bool                 DEFAULT NULL,
+                                     view_stats_is_hidden                 bool                 DEFAULT NULL,
+                                     user_share_text                      text                 DEFAULT NULL,
+                                     screen_capture_sharing_title         tinytext             DEFAULT NULL,
+                                     short_title                          tinytext             DEFAULT NULL,
+                                     lottery_finish_time                  timestamp            DEFAULT NULL,
+                                     luckymoney_num                       int                  DEFAULT NULL,
+                                     mosaic_status                        int                  DEFAULT NULL,
+                                     mosaic_tip                           tinytext             DEFAULT NULL,
+                                     popularity                           bigint               DEFAULT NULL,
+                                     popularity_str                       varchar(20)          DEFAULT NULL,
+                                     pre_enter_time                       timestamp            DEFAULT NULL,
+                                     preview_copy                         tinytext             DEFAULT NULL,
+                                     preview_flow_tag                     tinyint              DEFAULT NULL,
+                                     private_info                         text                 DEFAULT NULL,
+                                     ranklist_audience_type               tinyint              DEFAULT NULL,
+                                     real_distance                        varchar(100)         DEFAULT NULL,
+                                     redpacket_audience_auth              tinyint              DEFAULT NULL,
+                                     relation_tag                         tinytext             DEFAULT NULL,
+                                     replay                               bool                 DEFAULT NULL,
+                                     replay_location                      tinyint              DEFAULT NULL,
+                                     room_audit_status                    tinyint              DEFAULT NULL,
+                                     room_create_ab_param                 text                 DEFAULT NULL,
+                                     sofa_layout                          tinyint              DEFAULT NULL,
+                                     stamps                               tinytext             DEFAULT NULL,
+                                     comment_count                        bigint               DEFAULT NULL,
+                                     digg_count                           bigint               DEFAULT NULL,
+                                     dou_plus_promotion                   tinytext             DEFAULT NULL,
+                                     enter_count                          bigint               DEFAULT NULL,
+                                     fan_ticket                           bigint               DEFAULT NULL,
+                                     follow_count                         bigint               DEFAULT NULL,
+                                     gift_uv_count                        int                  DEFAULT NULL,
+                                     like_count                           int                  DEFAULT NULL,
+                                     money                                int                  DEFAULT NULL,
+                                     total_user                           int                  DEFAULT NULL,
+                                     total_user_desp                      text                 DEFAULT NULL,
+                                     total_user_str                       varchar(100)         DEFAULT NULL,
+                                     up_right_stats_str                   varchar(100)         DEFAULT NULL,
+                                     up_right_stats_str_complete          tinytext             DEFAULT NULL,
+                                     user_count_composition_city          tinyint              DEFAULT NULL,
+                                     user_count_composition_my_follow     bigint               DEFAULT NULL,
+                                     user_count_composition_other         bigint               DEFAULT NULL,
+                                     user_count_composition_video_detail  bigint               DEFAULT NULL,
+                                     user_count_str                       bigint               DEFAULT NULL,
+                                     watermelon                           bigint               DEFAULT NULL,
+                                     welfare_donation_amount              bigint               DEFAULT NULL,
+                                     status                               tinyint              DEFAULT NULL,
+                                     stream_close_time                    timestamp            DEFAULT NULL,
+                                     stream_id                            varchar(200)         DEFAULT NULL,
+                                     stream_provider                      tinyint              DEFAULT NULL,
+                                     sun_daily_icon_content               text                 DEFAULT NULL,
+                                     challenge_info                       tinytext             DEFAULT NULL,
+                                     danmaku_detail                       int                  DEFAULT NULL,
+                                     hot_sentence_info                    text                 DEFAULT NULL,
+                                     last_ping_time                       timestamp            DEFAULT NULL,
+                                     room_like_count                      bigint               DEFAULT NULL,
+                                     linker_map                           json                 DEFAULT NULL,
+                                     web_count                            bigint               DEFAULT NULL,
+                                     webcast_comment_tcs                  int                  DEFAULT NULL,
+                                     with_aggregate_column                bool                 DEFAULT NULL,
+                                     with_draw_something                  bool                 DEFAULT NULL,
+                                     with_ktv                             bool                 DEFAULT NULL,
+                                     with_linkmic                         bool                 DEFAULT NULL,
+                                     PRIMARY KEY (now, platform, id)
+                                    )
+                                    '''.format(__ROOM_RECORD_TABLE_NAME)
+  __SQL_DROP_ROOM_RECORD_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_RECORD_TABLE_NAME)
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton mode
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__ROOM_RECORD_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__ROOM_RECORD_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__ROOM_RECORD_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__ROOM_RECORD_TABLE_PRI_KEY
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_RECORD_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_ROOM_RECORD_TABLE
 
 class LiveStreamTable(SocialMediaStreamDataTable):
   pass
