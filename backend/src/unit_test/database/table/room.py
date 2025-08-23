@@ -28,7 +28,8 @@ from backend.src.database.table.room                                  import Roo
                                                                              RoomTempStateConditionMapTable, \
                                                                              RoomTempStateGlobalConditionIgnoreStrategyTypeTable, \
                                                                              RoomTempStateGlobalConditionTable, \
-                                                                             RoomRecordTable
+                                                                             RoomRecordTable, \
+                                                                             LiveStreamTable
 from backend.src.base.log                                             import get_logger
 
 ##
@@ -3329,6 +3330,189 @@ def test_get_room_record(db:SocialMediaStreamDataBase = None):
     get_logger().error("failed to retrieve sample {} record: {}".format(room_record.get_name(), e))
     raise e
 
+##
+## >>================================ live stream table test method ===============================>>
+##
+
+def test_create_live_stream_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if db is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table
+  ##
+  live_stream = LiveStreamTable(db_instance=db)
+  live_stream.create()
+  return
+
+##
+## test: drop table
+##
+def test_drop_live_stream_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## drop table
+  ##
+  live_stream = LiveStreamTable(db_instance=db)
+  live_stream.drop()
+  return
+
+##
+## test: check if table exists
+##
+def test_check_live_stream_exists(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+
+  live_stream = LiveStreamTable(db)
+
+  ##
+  ## check if table exists
+  ##
+  if db.is_table_exist(live_stream.get_name()):
+    get_logger().info("{} table exists!".format(live_stream.get_name()))
+  else:
+    get_logger().info("{} table not exists!".format(live_stream.get_name()))
+  return
+
+##
+## test: insert record
+##
+def test_insert_live_stream_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  live_stream = LiveStreamTable(db_instance=db)
+
+  ##
+  ## insert a sample record
+  ##
+  sample_record = {
+    'id': '691500607505433258'
+  }
+  
+  try:
+    live_stream.insert_record(sample_record)
+    get_logger().info("sample record inserted successfully")
+  except Exception as e:
+    get_logger().error("failed to insert sample record: {}".format(e))
+    raise e
+
+##
+## test: delete record
+##
+def test_delete_live_stream_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  live_stream = LiveStreamTable(db_instance=db)
+
+  ##
+  ## delete a sample record
+  ##
+  sample_record = {
+    'id': '691500607505433258'
+  }
+  
+  try:
+    live_stream.delete_record(sample_record)
+    get_logger().info("sample record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample record: {}".format(e))
+    raise e
+
+##
+## test: update record
+##
+def test_update_live_stream_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  live_stream = LiveStreamTable(db_instance=db)
+
+  ##
+  ## update a sample record
+  ##
+  sample_record = {
+    'id': '691500607505433258',
+    'hls_pull_url_params': '{"P2PFastOpenDuration":-1500,"BufferDataMs":1000,"FastOpenDuration":-500,"NetworkAdapt":{"HurryStopType":1,"SlowMillisecond":90,"HurryMillisecond":3500,"HurryType":0,"HurryStartMs":4000,"SlowSpeed":1,"HurrySpeed":1.1,"HurryTime":3500,"Enabled":0,"SlowTime":90},"VCodec":"h264","PlayingIntervalMs":20000}'
+  }
+  
+  try:
+    live_stream.update_record(sample_record)
+    get_logger().info("sample record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample record: {}".format(e))
+    raise e
+
+##
+## test: get record
+##
+def test_get_live_stream_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exist
+  ##
+  live_stream = LiveStreamTable(db)
+
+  ##
+  ## get a sample record
+  ##
+  sample_record = {
+    'id': '691500607505433258'
+  }
+  
+  try:
+    record = live_stream.get_record(sample_record)
+    if record:
+      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(live_stream.get_name(), record))
+    else:
+      get_logger().warning("sample {} record not found".format(live_stream.get_name()))
+  except Exception as e:
+    get_logger().error("failed to retrieve sample {} record: {}".format(live_stream.get_name(), e))
+    raise e
+
 
 ##
 ## >>================================ main method ===============================>>
@@ -3565,4 +3749,18 @@ if __name__ == "__main__":
   test_get_room_record(db)
   test_drop_room_record_table(db)
   test_check_room_record_exists(db)
+
+  ##
+  ## live stream table
+  ##
+  test_create_live_stream_table(db)
+  test_check_live_stream_exists(db)
+  test_insert_live_stream_record(db)
+  test_get_live_stream_record(db)
+  test_update_live_stream_record(db)
+  test_get_live_stream_record(db)
+  test_delete_live_stream_record(db)
+  test_get_live_stream_record(db)
+  test_drop_live_stream_table(db)
+  test_check_live_stream_exists(db)
   """
