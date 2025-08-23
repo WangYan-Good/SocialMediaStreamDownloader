@@ -330,7 +330,7 @@ class RoomAttributeTable(SocialMediaStreamDataTable):
 ##| now                 | timestamp(3)      | NO   | PRI |         |       | "$.data.room.create_time"    | 当前时间戳           |
 ##| platform            | varchar(20)       | NO   | PRI |         |       |           -                  | 平台                 |
 ##| room_id             | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"             | 直播间ID             |
-##| admin_user_id_index | unsigned tinyint  |      |     | NULL    |       |           -                  | 直播间管理员ID序号    |
+##| admin_user_id_index | unsigned tinyint  | NO   | PRI |         |       |           -                  | 直播间管理员ID序号    |
 ##| admin_user_id       | varchar(200)      |      |     | NULL    |       | "$.data.room.admin_user_ids" | 直播间管理员用户ID    | 
 ##+---------------------+-------------------+------+-----+---------+-------+------------------------------+---------------------+
 ##
@@ -342,16 +342,16 @@ class RoomAdminUserIdTable(SocialMediaStreamDataTable):
   __ROOM_ADMIN_USER_ID_TABLE_HEADER     = ['now',                 'platform',     'room_id',
                                            'admin_user_id_index', 'admin_user_id'
                                            ]
-  __ROOM_ADMIN_USER_ID_TABLE_PRI_KEY    = ['now', 'platform', 'room_id']
+  __ROOM_ADMIN_USER_ID_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'admin_user_id_index']
   __ROOM_ADMIN_USER_ID_TABLE_TUPLE      = {item:None for item in __ROOM_ADMIN_USER_ID_TABLE_HEADER}
   __SQL_CREATE_ROOM_ADMIN_USER_ID_TABLE = '''
                                           CREATE TABLE IF NOT EXISTS {} (
                                             now                    timestamp(3) NOT NULL,
                                             platform               varchar(20)  NOT NULL,
                                             room_id                varchar(200) NOT NULL,
-                                            admin_user_id_index    tinyint      DEFAULT NULL,
+                                            admin_user_id_index    tinyint      NOT NULL,
                                             admin_user_id          varchar(200) DEFAULT NULL,
-                                            PRIMARY KEY (now, platform, room_id)
+                                            PRIMARY KEY (now, platform, room_id, admin_user_id_index)
                                           )
                                           '''.format(__ROOM_ADMIN_USER_ID_TABLE_NAME)
   __SQL_DROP_ROOM_ADMIN_USER_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_ADMIN_USER_ID_TABLE_NAME)
@@ -420,7 +420,7 @@ class RoomAdminUserIdTable(SocialMediaStreamDataTable):
 ## | now                   | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"                     | 当前时间戳           | 
 ## | platform              | varchar(20)       | NO   | PRI |         |       |           -                       | 平台                 | 
 ## | room_id               | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                  | 直播间ID             |
-## | admin_user_open_index | unsigned tinyint  |      |     | NULL    |       |           -                       | 直播间管理员用户ID序号|
+## | admin_user_open_index | unsigned tinyint  | NO   | PRI |         |       |           -                       | 直播间管理员用户ID序号|
 ## | admin_user_open_id    | varchar(200)      |      |     | NULL    |       | "$.data.room.admin_user_open_ids" | 直播间管理员用户ID    | 
 ## +-----------------------+-------------------+------+-----+---------+-------+-----------------------------------+---------------------+
 ##
@@ -432,16 +432,16 @@ class RoomAdminUserOpenIdTable(SocialMediaStreamDataTable):
   __ROOM_ADMIN_USER_OPEN_ID_TABLE_HEADER     = ['now',                   'platform',          'room_id',
                                                 'admin_user_open_index', 'admin_user_open_id'
                                                 ]
-  __ROOM_ADMIN_USER_OPEN_ID_TABLE_PRI_KEY    = ['now', 'platform', 'room_id']
+  __ROOM_ADMIN_USER_OPEN_ID_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'admin_user_open_index']
   __ROOM_ADMIN_USER_OPEN_ID_TABLE_TUPLE      = {item:None for item in __ROOM_ADMIN_USER_OPEN_ID_TABLE_HEADER}
   __SQL_CREATE_ROOM_ADMIN_USER_OPEN_ID_TABLE = '''
                                                CREATE TABLE IF NOT EXISTS {} (
                                                  now                      timestamp(3) NOT NULL,
                                                  platform                 varchar(20)  NOT NULL,
                                                  room_id                  varchar(200) NOT NULL,
-                                                 admin_user_open_index    tinyint      DEFAULT NULL,
+                                                 admin_user_open_index    tinyint      NOT NULL,
                                                  admin_user_open_id       varchar(200) DEFAULT NULL,
-                                                 PRIMARY KEY (now, platform, room_id)
+                                                 PRIMARY KEY (now, platform, room_id, admin_user_open_index)
                                                )
                                                '''.format(__ROOM_ADMIN_USER_OPEN_ID_TABLE_NAME)
   __SQL_DROP_ROOM_ADMIN_USER_OPEN_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_ADMIN_USER_OPEN_ID_TABLE_NAME)
@@ -707,7 +707,7 @@ class RoomRealtimePlaybackQualityTable(SocialMediaStreamDataTable):
 ## | now                            | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"                           | 当前时间戳           | 
 ## | platform                       | varchar(20)       | NO   | PRI |         |       |           -                             | 平台                 |
 ## | room_id                        | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                        | 直播间ID             | 
-## | fans_group_admin_user_id_index | unsigned tinyint  |      |     | NULL    |       |           -                             | 粉丝群管理员ID序号   |
+## | fans_group_admin_user_id_index | unsigned tinyint  | NO   | PRI |         |       |           -                             | 粉丝群管理员ID序号   |
 ## | fans_group_admin_user_id       | varchar(200)      |      |     | NULL    |       | "$.data.room.fans_group_admin_user_ids" | 粉丝群管理员用户ID   |
 ## +--------------------------------+-------------------+------+-----+---------+-------+-----------------------------------------+---------------------+
 ##
@@ -719,16 +719,16 @@ class FansGroupAdminUserIdTable(SocialMediaStreamDataTable):
   __FANS_GROUP_ADMIN_USER_ID_TABLE_HEADER     = ['now',                            'platform',                'room_id',
                                                  'fans_group_admin_user_id_index', 'fans_group_admin_user_id'
                                                  ]
-  __FANS_GROUP_ADMIN_USER_ID_TABLE_PRI_KEY    = ['now', 'platform', 'room_id']
+  __FANS_GROUP_ADMIN_USER_ID_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'fans_group_admin_user_id_index']
   __FANS_GROUP_ADMIN_USER_ID_TABLE_TUPLE      = {item:None for item in __FANS_GROUP_ADMIN_USER_ID_TABLE_HEADER}
   __SQL_CREATE_FANS_GROUP_ADMIN_USER_ID_TABLE = '''
                                                 CREATE TABLE IF NOT EXISTS {} (
                                                   now                               timestamp(3) NOT NULL,
                                                   platform                          varchar(20)  NOT NULL,
                                                   room_id                           varchar(200) NOT NULL,
-                                                  fans_group_admin_user_id_index    tinyint      DEFAULT NULL,
+                                                  fans_group_admin_user_id_index    tinyint      NOT NULL,
                                                   fans_group_admin_user_id          varchar(200) DEFAULT NULL,
-                                                  PRIMARY KEY (now, platform, room_id)
+                                                  PRIMARY KEY (now, platform, room_id, fans_group_admin_user_id_index)
                                                 )
                                                 '''.format(__FANS_GROUP_ADMIN_USER_ID_TABLE_NAME)
   __SQL_DROP_FANS_GROUP_ADMIN_USER_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__FANS_GROUP_ADMIN_USER_ID_TABLE_NAME)
@@ -797,7 +797,7 @@ class FansGroupAdminUserIdTable(SocialMediaStreamDataTable):
 ## | now                                 | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"                                | 当前时间戳            | 
 ## | platform                            | varchar(20)       | NO   | PRI |         |       |           -                                  | 平台                  |
 ## | room_id                             | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                             | 直播间ID              | 
-## | fans_group_admin_user_open_id_index | unsigned tinyint  |      |     | NULL    |       |           -                                  | 粉丝群管理员OpenID序号 |
+## | fans_group_admin_user_open_id_index | unsigned tinyint  | NO   | PRI |         |       |           -                                  | 粉丝群管理员OpenID序号 |
 ## | fans_group_admin_user_open_id       | varchar(200)      |      |     | NULL    |       | "$.data.room.fans_group_admin_user_open_ids" | 粉丝群管理员OpenID列表 |
 ## +-------------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------+-----------------------+
 ##
@@ -809,20 +809,19 @@ class FansGroupAdminUserOpenIdTable(SocialMediaStreamDataTable):
   __FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_HEADER     = ['now',                                 'platform',                     'room_id',
                                                       'fans_group_admin_user_open_id_index', 'fans_group_admin_user_open_id'
                                                       ]
-  __FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_PRI_KEY    = ['now', 'platform', 'room_id']
+  __FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'fans_group_admin_user_open_id_index']
   __FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_TUPLE      = {item:None for item in __FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_HEADER}
   __SQL_CREATE_FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE = '''
                                                      CREATE TABLE IF NOT EXISTS {} (
                                                        now                                    timestamp(3) NOT NULL,
                                                        platform                               varchar(20)  NOT NULL,
                                                        room_id                                varchar(200) NOT NULL,
-                                                       fans_group_admin_user_open_id_index    tinyint      DEFAULT NULL,
+                                                       fans_group_admin_user_open_id_index    tinyint      NOT NULL,
                                                        fans_group_admin_user_open_id          varchar(200) DEFAULT NULL,
-                                                       PRIMARY KEY (now, platform, room_id)
+                                                       PRIMARY KEY (now, platform, room_id, fans_group_admin_user_open_id_index)
                                                      )
                                                      '''.format(__FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_NAME)
   __SQL_DROP_FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_NAME)
-
 
 ##
 ## >>============================= private method =============================>>
@@ -1015,12 +1014,6 @@ class RoomSubscribeTable(SocialMediaStreamDataTable):
   TBD: no related data type of room_owner_top_fans
 '''
 class RoomOwnerTopFansTable(SocialMediaStreamDataTable):
-  pass
-
-class RoomOwnerUserDressOwnIdTable(SocialMediaStreamDataTable):
-  pass
-
-class RoomOwnerDressWearIdTable(SocialMediaStreamDataTable):
   pass
 
 ##
@@ -1739,9 +1732,6 @@ class RoomTabTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_ROOM_TAB_TABLE
-
-class RoomSharingMusicIdTable(SocialMediaStreamDataTable):
-  pass
 
 class RoomShortTouchAreaConfigTable(SocialMediaStreamDataTable):
   pass

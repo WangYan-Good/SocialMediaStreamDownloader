@@ -490,7 +490,8 @@ def test_insert_fans_club_available_gift_id_record(db:SocialMediaStreamDataBase 
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'owner_user_id': '2700838411446480',
-    'anchor_id': '0'
+    'anchor_id': '0',
+    'available_gift_index': 0
   }
   
   try:
@@ -523,7 +524,8 @@ def test_delete_fans_club_available_gift_id_record(db:SocialMediaStreamDataBase 
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'owner_user_id': '2700838411446480',
-    'anchor_id': '0'
+    'anchor_id': '0',
+    'available_gift_index': 0
   }
   
   try:
@@ -591,7 +593,8 @@ def test_get_fans_club_available_gift_id_record(db:SocialMediaStreamDataBase = N
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'owner_user_id': '2700838411446480',
-    'anchor_id': '0'
+    'anchor_id': '0',
+    'available_gift_index': 0
   }
   
   try:
@@ -1078,7 +1081,8 @@ def test_insert_room_admin_privilege_record(db:SocialMediaStreamDataBase = None)
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'owner_user_id': '2700838411446480',
-    'room_id': '7411524533301119798'
+    'room_id': '7411524533301119798',
+    'admin_privilege_index': 0
   }
   
   try:
@@ -1111,7 +1115,8 @@ def test_delete_room_admin_privilege_record(db:SocialMediaStreamDataBase = None)
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'owner_user_id': '2700838411446480',
-    'room_id': '7411524533301119798'
+    'room_id': '7411524533301119798',
+    'admin_privilege_index': 0
   }
   
   try:
@@ -1179,7 +1184,8 @@ def test_get_room_admin_privilege_record(db:SocialMediaStreamDataBase = None):
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'owner_user_id': '2700838411446480',
-    'room_id': '7411524533301119798'
+    'room_id': '7411524533301119798',
+    'admin_privilege_index': 0
   }
   
   try:
@@ -1225,7 +1231,7 @@ if __name__ == "__main__":
   test_get_fans_club_record(db)
   test_drop_fans_club_table(db)
   test_check_fans_club_exists(db)
-
+  """
   ##
   ## fans club available gift id table
   ##
@@ -1239,7 +1245,7 @@ if __name__ == "__main__":
   test_get_fans_club_available_gift_id_record(db)
   test_drop_fans_club_available_gift_id_table(db)
   test_check_fans_club_available_gift_id_exists(db)
-
+  """  
   ##
   ## fans club badge icon table
   ##

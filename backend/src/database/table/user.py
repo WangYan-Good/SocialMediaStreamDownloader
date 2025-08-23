@@ -464,7 +464,7 @@ class FansClubTable(SocialMediaStreamDataTable):
 ## | room_id              | varchar(200)      |      |     |         |       | "$.data.room.id"                                      | 直播间ID              | 
 ## | owner_user_id        | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner_user_id"                           | 账号作者ID            |
 ## | anchor_id            | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner.fans_club.data.anchor_id"          | 主播ID               |
-## | available_gift_index | unsigned int      |      |     | NULL    |       |           -                                           | 可用礼物序号          |
+## | available_gift_index | unsigned int      | NO   | PRI |         |       |           -                                           | 可用礼物序号          |
 ## | available_gift_id    | varchar(200)      |      |     | NULL    |       | "$.data.room.owner.fans_club.data.available_gift_ids" | 可用礼物ID列表        |
 ## +----------------------+-------------------+------+-----+---------+-------+-------------------------------------------------------+----------------------+
 ##
@@ -477,7 +477,7 @@ class FansClubAvailableGiftIdTable(SocialMediaStreamDataTable):
                                                     'owner_user_id',      'anchor_id',   'available_gift_index',
                                                     'available_gift_id'
                                                      ]
-  __FANS_CLUB_AVAILABLE_GIFT_ID_TABLE_PRI_KEY    = ['now', 'platform', 'owner_user_id', 'anchor_id']
+  __FANS_CLUB_AVAILABLE_GIFT_ID_TABLE_PRI_KEY    = ['now', 'platform', 'owner_user_id', 'anchor_id', 'available_gift_index']
   __FANS_CLUB_AVAILABLE_GIFT_ID_TABLE_TUPLE      = {item:None for item in __FANS_CLUB_AVAILABLE_GIFT_ID_TABLE_HEADER}
   __SQL_CREATE_FANS_CLUB_AVAILABLE_GIFT_ID_TABLE = '''
                                                    CREATE TABLE IF NOT EXISTS {} (
@@ -486,9 +486,9 @@ class FansClubAvailableGiftIdTable(SocialMediaStreamDataTable):
                                                      room_id              varchar(200)     DEFAULT NULL,
                                                      owner_user_id        varchar(200)     NOT NULL,
                                                      anchor_id            varchar(200)     NOT NULL,
-                                                     available_gift_index int              DEFAULT NULL,
+                                                     available_gift_index int              NOT NULL,
                                                      available_gift_id    varchar(200)     DEFAULT NULL,
-                                                     PRIMARY KEY (now, platform, owner_user_id, anchor_id)
+                                                     PRIMARY KEY (now, platform, owner_user_id, anchor_id, available_gift_index)
                                                      )
                                                      '''.format(__FANS_CLUB_AVAILABLE_GIFT_ID_TABLE_NAME)
   __SQL_DROP_FANS_CLUB_AVAILABLE_GIFT_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__FANS_CLUB_AVAILABLE_GIFT_ID_TABLE_NAME)
@@ -554,13 +554,13 @@ class FansClubAvailableGiftIdTable(SocialMediaStreamDataTable):
 ## +---------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+----------------------+
 ## | Field         | Type              | Null | Key | Default | Extra | Topology                                               | Comment              |
 ## +---------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+----------------------+
-## | now           | timestamp(3)      | YES  | PRI |         |       | "$.extra.now"                                          | 当前时间戳            | 
-## | platform      | varchar(20)       |      | PRI | NULL    |       |           -                                            | 平台                  |
-## | room_id       | varchar(200)      |      |     |         |       | "$.data.room.id"                                       | 直播间ID              | 
-## | owner_user_id | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"                            | 账号作者ID            |
-## | anchor_id     | varchar(200)      | NO   | PRI | NULL    |       | "$.data.room.owner.fans_club.data.anchor_id"           | 主播ID                |
-## | icon_index    | unsigned int      | NO   |     | NULL    |       | "$.data.room.owner.fans_club.data.badge.icons.'0'"     | 勋章图标0             |
-## | icon_uri      | text              | NO   |     | NULL    |       | "$.data.room.owner.fans_club.data.badge.icons.'0'.uri" | 勋章图标URI           |
+## | now           | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"                                          | 当前时间戳            | 
+## | platform      | varchar(20)       | NO   | PRI |         |       |           -                                            | 平台                  |
+## | room_id       | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                                       | 直播间ID              | 
+## | owner_user_id | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner_user_id"                            | 账号作者ID            |
+## | anchor_id     | varchar(200)      |      |     | NULL    |       | "$.data.room.owner.fans_club.data.anchor_id"           | 主播ID                |
+## | icon_index    | unsigned int      | NO   | PRI |         |       | "$.data.room.owner.fans_club.data.badge.icons.'0'"     | 勋章图标0             |
+## | icon_uri      | text              |      |     | NULL    |       | "$.data.room.owner.fans_club.data.badge.icons.'0'.uri" | 勋章图标URI           |
 ## +---------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+----------------------+
 ##
 class FansClubBadgeIconTable(SocialMediaStreamDataTable):
@@ -572,18 +572,18 @@ class FansClubBadgeIconTable(SocialMediaStreamDataTable):
                                              'owner_user_id',      'anchor_id',   'icon_index',
                                              'icon_uri'
                                              ]
-  __FANS_CLUB_BADGE_ICON_TABLE_PRI_KEY    = ['now', 'platform', 'owner_user_id', 'anchor_id']
+  __FANS_CLUB_BADGE_ICON_TABLE_PRI_KEY    = ['now', 'platform', 'room_id' 'owner_user_id', 'icon_index']
   __FANS_CLUB_BADGE_ICON_TABLE_TUPLE      = {item:None for item in __FANS_CLUB_BADGE_ICON_TABLE_HEADER}
   __SQL_CREATE_FANS_CLUB_BADGE_ICON_TABLE = '''
                                             CREATE TABLE IF NOT EXISTS {} (
                                               now                  timestamp(3)     NOT NULL,
                                               platform             varchar(20)      NOT NULL,
-                                              room_id              varchar(200)     DEFAULT NULL,
+                                              room_id              varchar(200)     NOT NULL,
                                               owner_user_id        varchar(200)     NOT NULL,
-                                              anchor_id            varchar(200)     NOT NULL,
-                                              icon_index           int              DEFAULT NULL,
+                                              anchor_id            varchar(200)     DEFAULT NULL,
+                                              icon_index           int              NOT NULL,
                                               icon_uri             text             DEFAULT NULL,
-                                              PRIMARY KEY (now, platform, owner_user_id, anchor_id)
+                                              PRIMARY KEY (now, platform, room_id, owner_user_id, icon_index)
                                               )
                                               '''.format(__FANS_CLUB_BADGE_ICON_TABLE_NAME)
   __SQL_DROP_FANS_CLUB_BADGE_ICON_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__FANS_CLUB_BADGE_ICON_TABLE_NAME)
@@ -748,7 +748,7 @@ class RoomOwnerUserAttrTable(SocialMediaStreamDataTable):
 ## | platform              | varchar(20)       | NO   | PRI |         |       |           -                                    | 平台                 | 
 ## | room_id               | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                               | 直播间ID             | 
 ## | owner_user_id         | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner_user_id"                    | 直播间主播ID         |
-## | admin_privilege_index | unsigned tinyint  |      |     | NULL    |       |           -                                    | 管理员权限序号       | 
+## | admin_privilege_index | unsigned tinyint  | NO   | PRI |         |       |           -                                    | 管理员权限序号       | 
 ## | admin_privilege       | text              |      |     | NULL    |       | "$.data.room.owner.user_attr.admin_privileges" | 管理员权限列表       |
 ## +-----------------------+-------------------+------+-----+---------+-------+------------------------------------------------+---------------------+
 ##
@@ -760,7 +760,7 @@ class RoomAdminPrivilegeTable(SocialMediaStreamDataTable):
   __ROOM_ADMIN_PRIVILEGE_TABLE_HEADER     = ['now',                'platform',                 'room_id',
                                              'owner_user_id',      'admin_privilege_index',    'admin_privilege'
                                              ]
-  __ROOM_ADMIN_PRIVILEGE_TABLE_PRI_KEY    = ['now', 'platform', 'owner_user_id', 'room_id']
+  __ROOM_ADMIN_PRIVILEGE_TABLE_PRI_KEY    = ['now', 'platform', 'owner_user_id', 'room_id', 'admin_privilege_index']
   __ROOM_ADMIN_PRIVILEGE_TABLE_TUPLE      = {item:None for item in __ROOM_ADMIN_PRIVILEGE_TABLE_HEADER}
   __SQL_CREATE_ROOM_ADMIN_PRIVILEGE_TABLE = '''
                                             CREATE TABLE IF NOT EXISTS {} (
@@ -768,9 +768,9 @@ class RoomAdminPrivilegeTable(SocialMediaStreamDataTable):
                                               platform               varchar(20)      NOT NULL,
                                               room_id                varchar(200)     NOT NULL,
                                               owner_user_id          varchar(200)     NOT NULL,
-                                              admin_privilege_index  tinyint          DEFAULT NULL,
-                                              admin_privilege        text            DEFAULT NULL,
-                                              PRIMARY KEY (now, platform, owner_user_id, room_id)
+                                              admin_privilege_index  tinyint          NOT NULL,
+                                              admin_privilege        text             DEFAULT NULL,
+                                              PRIMARY KEY (now, platform, owner_user_id, room_id, admin_privilege_index)
                                               )
                                               '''.format(__ROOM_ADMIN_PRIVILEGE_TABLE_NAME)
   __SQL_DROP_ROOM_ADMIN_PRIVILEGE_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_ADMIN_PRIVILEGE_TABLE_NAME)

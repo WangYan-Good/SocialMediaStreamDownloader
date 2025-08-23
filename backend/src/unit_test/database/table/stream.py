@@ -1,0 +1,211 @@
+##>> Test
+import os
+import sys
+sys.path.append(os.getcwd())
+##<< Test
+
+## <<Base>>
+from datetime                                                         import datetime as dat
+
+## <<Third-Part>>
+from backend.src.database.social_media_stream_database                import SocialMediaStreamDataBase
+from backend.src.database.table.stream                                import LiveStreamTable
+from backend.src.base.log                                             import get_logger
+
+##
+## >>================================ live stream table test method ===============================>>
+##
+
+##
+## test: create live_stream table
+##
+def test_create_live_stream_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create live_stream table
+  ##
+  live_stream = LiveStreamTable(db_instance=db)
+  live_stream.create()
+  return
+
+##
+## test: drop live_stream table
+##
+def test_drop_live_stream_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database is valid
+  ##
+  if db is None:
+    get_logger().error("db_instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## drop live_stream table
+  ##
+  live_stream = LiveStreamTable(db)
+  live_stream.drop()
+  return
+
+##
+## test: check if live_stream table exists
+##
+def test_check_live_stream_table_exists(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid {} instance".format(type(db)))
+    raise ValueError
+  
+  ##
+  ## check if live stream table exists
+  ##
+  live_stream = LiveStreamTable(db)
+  if db.is_table_exist(live_stream.get_name()):
+    get_logger().info("{} table exists!".format(live_stream.get_name()))
+  else:
+    get_logger().info("{} table not exists!".format(live_stream.get_name()))
+  return
+
+##
+## test: insert live stream record
+##
+def test_insert_live_stream_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid {} instance".format(type(db)))
+    raise ValueError
+  
+  ##
+  ## create live_stream table if not exists
+  ##
+  live_stream = LiveStreamTable(db)
+  sample_record = {
+    "id": "691500607505433258",
+  }
+  
+  ##
+  ## insert a sample live stream record
+  ##
+  try:
+    live_stream.insert_record(sample_record)
+    get_logger().info("sample live stream record inserted successfully")
+  except Exception as e:
+    get_logger().error("failed to insert sample {} record: {}".format(live_stream.get_name(), e))
+    raise e
+
+##
+## test: delete live stream record
+##
+def test_delete_live_stream_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create live_stream table if not exist
+  ##
+  live_stream = LiveStreamTable(db)
+  
+  ##
+  ## delete a sample live stream record
+  ##
+  sample_record = {
+    'id':'691500607505433258'
+  }
+  
+  try:
+    live_stream.delete_record(sample_record)
+    get_logger().info("sample live stream record delete successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample live stream record: {}".format(e))
+    raise e
+
+##
+## test: update live stream record
+##
+def test_update_live_stream_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+
+  ##
+  ## create live_stream table if not exist
+  ##
+  live_stream = LiveStreamTable(db)
+
+  ##
+  ## update a sample live stream record
+  ##
+  sample_record = {
+    "id": "691500607505433258",
+    "default_resolution":"FULL_HD1"
+  }
+
+  try:
+    live_stream.update_record(sample_record)
+    get_logger().info("sample live stream record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample live stream: {}".format(e))
+    raise e
+
+##
+## test: get live stream record
+##
+def test_get_live_stream_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create live_stream table if not exist
+  ##
+  live_stream = LiveStreamTable(db)
+  
+  ##
+  ## get a sample live stream record
+  ##
+  sample_record = {
+    'id':'691500607505433258'
+  }
+  
+  try:
+    record = live_stream.get_record(sample_record)
+    if record:
+      get_logger().info("sample live stream record retrieved successfully: \n\t{}".format(record))
+    else:
+      get_logger().warning("sample live record not found")
+  except Exception as e:
+    get_logger().error("failed to retrieve sample live stream record: {}".format(e))
+    raise e
+
+##
+## >>================================ main method ===============================>>
+##
+if __name__ == "__main__":
+  db = SocialMediaStreamDataBase(host='192.168.1.12', user='wangyan', passwd='wuyu1998', database='social_media_stream_downloader')
+  test_create_live_stream_table(db)
+  test_insert_live_stream_record(db)
+  test_update_live_stream_record(db)
+  test_get_live_stream_record(db)
+  test_delete_live_stream_record(db)
+  test_check_live_stream_table_exists(db)
+  test_drop_live_stream_table(db)
+  test_check_live_stream_table_exists(db)

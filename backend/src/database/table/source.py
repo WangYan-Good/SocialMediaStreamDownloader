@@ -92,6 +92,269 @@ class BadgeImageTable(SocialMediaStreamDataTable):
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_BADGE_IMAGE_TABLE
 
-
+##
+## data.room.owner.pay_grade.grade_icon_list
+##
+## +----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+## | Field                | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
+## +----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+## | now                  | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"                                            | 当前时间戳            | 
+## | platform             | varchar(20)       | NO   | PRI |         |       |           -                                              | 平台                  |
+## | room_id              | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                                         | 直播间ID              | 
+## | owner_user_id        | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner_user_id"                              | 账号作者ID            |
+## | pay_grade_icon_index | unsigned tinyint  | NO   | PRI |         |       |           -                                              | 索引号               |
+## | pay_grade_icon       | TBD               |      |     | NULL    |       | "$.data.room.owner.pay_grade.grade_icon_list"            | 付费等级图标列表      |
+## +----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+##
 class PayGradeIconTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __PAY_GRADE_ICON_TABLE_NAME       = 'pay_grade_icon'
+  __PAY_GRADE_ICON_TABLE_HEADER     = ['uri', 'version', 'badge_image_index']
+  __PAY_GRADE_ICON_TABLE_PRI_KEY    = ['badge_image_index']
+  __PAY_GRADE_ICON_TABLE_TUPLE      = {item:None for item in __PAY_GRADE_ICON_TABLE_HEADER}
+  __SQL_CREATE_PAY_GRADE_ICON_TABLE = '''
+                                   CREATE TABLE IF NOT EXISTS {} (
+                                     badge_image_index  int          NOT NULL,
+                                     version            varchar(20)  DEFAULT NULL,
+                                     uri                text         DEFAULT NULL,
+                                     PRIMARY KEY (badge_image_index)
+                                   )
+                                   '''.format(__PAY_GRADE_ICON_TABLE_NAME)
+  __SQL_DROP_PAY_GRADE_ICON_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__PAY_GRADE_ICON_TABLE_NAME)
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton pattern
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__PAY_GRADE_ICON_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__PAY_GRADE_ICON_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__PAY_GRADE_ICON_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__PAY_GRADE_ICON_TABLE_PRI_KEY
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_PAY_GRADE_ICON_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_PAY_GRADE_ICON_TABLE
+
+##
+## data.room.owner.user_dress_info.dress_own_ids
+##
+## +-----------------+-------------------+------+-----+---------+-------+---------------------------------------------------+---------------------+
+## | Field           | Type              | Null | Key | Default | Extra | Topology                                          | Comment             |
+## +-----------------+-------------------+------+-----+---------+-------+---------------------------------------------------+---------------------+
+## | now             | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"                                     | 当前时间戳           | 
+## | platform        | varchar(20)       | NO   | PRI |         |       |           -                                       | 平台                 | 
+## | room_id         | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                                  | 直播间ID             | 
+## | owner_user_id   | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner_user_id"                       | 直播间主播ID         |
+## | dress_own_index | unsigned tinyint  | NO   | PRI |         |       |           -                                       | 用户拥有的着装序号   | 
+## | dress_own_id    | varchar(200)      |      |     | NULL    |       | "$.data.room.owner.user_dress_info.dress_own_ids" | 用户拥有的着装ID     |
+## +-----------------+-------------------+------+-----+---------+-------+---------------------------------------------------+---------------------+
+##
+class RoomOwnerUserDressOwnIdTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __ROOM_OWNER_USER_DRESS_OWN_ID_TABLE_NAME       = 'room_owner_user_dress_own_id'
+  __ROOM_OWNER_USER_DRESS_OWN_ID_TABLE_HEADER     = ['now', 'platform', 'room_id', 'owner_user_id', 'dress_own_index', 'dress_own_id']
+  __ROOM_OWNER_USER_DRESS_OWN_ID_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'owner_user_id', 'dress_own_index']
+  __ROOM_OWNER_USER_DRESS_OWN_ID_TABLE_TUPLE      = {item:None for item in __ROOM_OWNER_USER_DRESS_OWN_ID_TABLE_HEADER}
+  __SQL_CREATE_ROOM_OWNER_USER_DRESS_OWN_ID_TABLE = '''
+                                                    CREATE TABLE IF NOT EXISTS {} (
+                                                      now                timestamp(3)  NOT NULL,
+                                                      platform           varchar(20)   NOT NULL,
+                                                      room_id            varchar(200)  NOT NULL,
+                                                      owner_user_id      varchar(200)  NOT NULL,
+                                                      dress_own_index    tinyint       NOT NULL,
+                                                      dress_own_id       varchar(200)  DEFAULT NULL,
+                                                      PRIMARY KEY (now, platform, room_id, owner_user_id, dress_own_index)
+                                                    )
+                                                    '''.format(__ROOM_OWNER_USER_DRESS_OWN_ID_TABLE_NAME)
+  __SQL_DROP_ROOM_OWNER_USER_DRESS_OWN_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_OWNER_USER_DRESS_OWN_ID_TABLE_NAME)
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton pattern
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__ROOM_OWNER_USER_DRESS_OWN_ID_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__ROOM_OWNER_USER_DRESS_OWN_ID_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__ROOM_OWNER_USER_DRESS_OWN_ID_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__ROOM_OWNER_USER_DRESS_OWN_ID_TABLE_PRI_KEY
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_OWNER_USER_DRESS_OWN_ID_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_ROOM_OWNER_USER_DRESS_OWN_ID_TABLE
+
+##
+## data.room.owner.user_dress_info.dress_wear_ids
+##
+## +------------------+-------------------+------+-----+---------+-------+----------------------------------------------------+---------------------+
+## | Field            | Type              | Null | Key | Default | Extra | Topology                                           | Comment             |
+## +------------------+-------------------+------+-----+---------+-------+----------------------------------------------------+---------------------+
+## | now              | timestamp         | NO   | PRI |         |       | "$.extra.now"                                      | 当前时间戳           | 
+## | platform         | varchar(20)       | NO   | PRI |         |       |           -                                        | 平台                 | 
+## | room_id          | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                                   | 直播间ID             | 
+## | owner_user_id    | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner_user_id"                        | 直播间主播ID         |
+## | dress_wear_index | unsigned tinyint  | NO   | PRI |         |       |           -                                        | 用户穿戴的着装序号   | 
+## | dress_wear_id    | varchar(200)      |      |     | NULL    |       | "$.data.room.owner.user_dress_info.dress_wear_ids" | 用户穿戴的着装ID     |
+## +------------------+-------------------+------+-----+---------+-------+----------------------------------------------------+---------------------+
+##
+class RoomOwnerDressWearIdTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __ROOM_OWNER_DRESS_WEAR_ID_TABLE_NAME       = 'room_owner_dress_wear_id'
+  __ROOM_OWNER_DRESS_WEAR_ID_TABLE_HEADER     = ['now', 'platform', 'room_id', 'owner_user_id', 'dress_wear_index', 'dress_wear_id']
+  __ROOM_OWNER_DRESS_WEAR_ID_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'owner_user_id', 'dress_wear_index']
+  __ROOM_OWNER_DRESS_WEAR_ID_TABLE_TUPLE      = {item:None for item in __ROOM_OWNER_DRESS_WEAR_ID_TABLE_HEADER}
+  __SQL_CREATE_ROOM_OWNER_DRESS_WEAR_ID_TABLE = '''
+                                                    CREATE TABLE IF NOT EXISTS {} (
+                                                      now                timestamp(3)  NOT NULL,
+                                                      platform           varchar(20)   NOT NULL,
+                                                      room_id            varchar(200)  NOT NULL,
+                                                      owner_user_id      varchar(200)  NOT NULL,
+                                                      dress_wear_index   tinyint       NOT NULL,
+                                                      dress_wear_id      varchar(200)  DEFAULT NULL,
+                                                      PRIMARY KEY (now, platform, room_id, owner_user_id, dress_wear_index)
+                                                    )
+                                                    '''.format(__ROOM_OWNER_DRESS_WEAR_ID_TABLE_NAME)
+  __SQL_DROP_ROOM_OWNER_DRESS_WEAR_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_OWNER_DRESS_WEAR_ID_TABLE_NAME)
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton pattern
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__ROOM_OWNER_DRESS_WEAR_ID_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__ROOM_OWNER_DRESS_WEAR_ID_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__ROOM_OWNER_DRESS_WEAR_ID_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__ROOM_OWNER_DRESS_WEAR_ID_TABLE_PRI_KEY
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_OWNER_DRESS_WEAR_ID_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_ROOM_OWNER_DRESS_WEAR_ID_TABLE
+
+class RoomSharingMusicIdTable(SocialMediaStreamDataTable):
   pass

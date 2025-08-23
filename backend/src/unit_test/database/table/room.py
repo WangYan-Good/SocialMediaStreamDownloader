@@ -878,7 +878,8 @@ def test_insert_room_admin_user_id_record(db:SocialMediaStreamDataBase = None):
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798'
+    'room_id': '7411524533301119798',
+    'admin_user_id_index': 0
   }
   
   try:
@@ -910,7 +911,8 @@ def test_delete_room_admin_user_id_record(db:SocialMediaStreamDataBase = None):
   sample_record = {
     'now':dat.fromtimestamp(1740301577026/1000.0),
     'platform':'douyin',
-    'room_id':'7411524533301119798'
+    'room_id':'7411524533301119798',
+    'admin_user_id_index': 0
   }
   
   try:
@@ -976,7 +978,8 @@ def test_get_room_admin_user_id_record(db:SocialMediaStreamDataBase = None):
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798'
+    'room_id': '7411524533301119798',
+    'admin_user_id_index': 0
   }
   
   try:
@@ -1070,7 +1073,8 @@ def test_insert_room_admin_user_open_id_record(db:SocialMediaStreamDataBase = No
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798'
+    'room_id': '7411524533301119798',
+    'admin_user_open_index': 0
   }
   
   try:
@@ -1102,7 +1106,8 @@ def test_delete_room_admin_user_open_id_record(db:SocialMediaStreamDataBase = No
   sample_record = {
     'now':dat.fromtimestamp(1740301577026/1000.0),
     'platform':'douyin',
-    'room_id':'7411524533301119798'
+    'room_id':'7411524533301119798',
+    'admin_user_open_index': 0
   }
   
   try:
@@ -1168,7 +1173,8 @@ def test_get_room_admin_user_open_id_record(db:SocialMediaStreamDataBase = None)
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798'
+    'room_id': '7411524533301119798',
+    'admin_user_open_index': 0
   }
   
   try:
@@ -1454,7 +1460,8 @@ def test_insert_fans_group_admin_user_id_record(db:SocialMediaStreamDataBase = N
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798'
+    'room_id': '7411524533301119798',
+    'fans_group_admin_user_id_index':0
   }
   
   try:
@@ -1486,7 +1493,8 @@ def test_delete_fans_group_admin_user_id_record(db:SocialMediaStreamDataBase = N
   sample_record = {
     'now':dat.fromtimestamp(1740301577026/1000.0),
     'platform':'douyin',
-    'room_id':'7411524533301119798'
+    'room_id':'7411524533301119798',
+    'fans_group_admin_user_id_index':0
   }
   
   try:
@@ -1552,7 +1560,8 @@ def test_get_fans_group_admin_user_id_record(db:SocialMediaStreamDataBase = None
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798'
+    'room_id': '7411524533301119798',
+    'fans_group_admin_user_id_index':0
   }
   
   try:
@@ -1646,7 +1655,8 @@ def test_insert_fans_group_admin_user_open_id_record(db:SocialMediaStreamDataBas
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798'
+    'room_id': '7411524533301119798',
+    'fans_group_admin_user_open_id_index': 0
   }
   
   try:
@@ -1678,7 +1688,8 @@ def test_delete_fans_group_admin_user_open_id_record(db:SocialMediaStreamDataBas
   sample_record = {
     'now':dat.fromtimestamp(1740301577026/1000.0),
     'platform':'douyin',
-    'room_id':'7411524533301119798'
+    'room_id':'7411524533301119798',
+    'fans_group_admin_user_open_id_index': 0
   }
   
   try:
@@ -1744,7 +1755,8 @@ def test_get_fans_group_admin_user_open_id_record(db:SocialMediaStreamDataBase =
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798'
+    'room_id': '7411524533301119798',
+    'fans_group_admin_user_open_id_index': 0
   }
   
   try:
@@ -2006,7 +2018,7 @@ if __name__ == "__main__":
   test_get_room_auth_record(db)
   test_drop_room_auth_data(db)
   test_check_room_auth_exists(db)
-  
+
   ##
   ## room admin user id table
   ##
@@ -2020,7 +2032,7 @@ if __name__ == "__main__":
   test_get_room_admin_user_id_record(db)
   test_drop_room_admin_user_id_data(db)
   test_check_room_admin_user_id_exists(db)
-  
+
   ##
   ## room admin user open id table
   ##
@@ -2034,7 +2046,7 @@ if __name__ == "__main__":
   test_check_room_admin_user_open_id_exists(db)
   test_drop_room_admin_user_open_id_data(db)
   test_check_room_admin_user_open_id_exists(db)
-  
+
   ##
   ## room assist label table
   ##
