@@ -290,16 +290,16 @@ class RoomOwnerDressWearIdTable(SocialMediaStreamDataTable):
   __ROOM_OWNER_DRESS_WEAR_ID_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'owner_user_id', 'dress_wear_index']
   __ROOM_OWNER_DRESS_WEAR_ID_TABLE_TUPLE      = {item:None for item in __ROOM_OWNER_DRESS_WEAR_ID_TABLE_HEADER}
   __SQL_CREATE_ROOM_OWNER_DRESS_WEAR_ID_TABLE = '''
-                                                    CREATE TABLE IF NOT EXISTS {} (
-                                                      now                timestamp(3)  NOT NULL,
-                                                      platform           varchar(20)   NOT NULL,
-                                                      room_id            varchar(200)  NOT NULL,
-                                                      owner_user_id      varchar(200)  NOT NULL,
-                                                      dress_wear_index   tinyint       NOT NULL,
-                                                      dress_wear_id      varchar(200)  DEFAULT NULL,
-                                                      PRIMARY KEY (now, platform, room_id, owner_user_id, dress_wear_index)
-                                                    )
-                                                    '''.format(__ROOM_OWNER_DRESS_WEAR_ID_TABLE_NAME)
+                                                CREATE TABLE IF NOT EXISTS {} (
+                                                  now                timestamp(3)  NOT NULL,
+                                                  platform           varchar(20)   NOT NULL,
+                                                  room_id            varchar(200)  NOT NULL,
+                                                  owner_user_id      varchar(200)  NOT NULL,
+                                                  dress_wear_index   tinyint       NOT NULL,
+                                                  dress_wear_id      varchar(200)  DEFAULT NULL,
+                                                  PRIMARY KEY (now, platform, room_id, owner_user_id, dress_wear_index)
+                                                )
+                                                '''.format(__ROOM_OWNER_DRESS_WEAR_ID_TABLE_NAME)
   __SQL_DROP_ROOM_OWNER_DRESS_WEAR_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_OWNER_DRESS_WEAR_ID_TABLE_NAME)
 
 ##
@@ -356,5 +356,89 @@ class RoomOwnerDressWearIdTable(SocialMediaStreamDataTable):
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_ROOM_OWNER_DRESS_WEAR_ID_TABLE
 
+##
+## data.room.sharing_music_id_list
+##
+## +---------------------+------------------+------+-----+---------+-------+-------------------------------------+----------------------+
+## | Field               | Type             | Null | Key | Default | Extra | Topology                            | Comment              |
+## +---------------------+------------------+------+-----+---------+-------+-------------------------------------+----------------------+
+## | now                 | timestamp(3)     | NO   | PRI |         |       | "$.extra.now"                       | 当前时间戳            | 
+## | platform            | varchar(20)      | NO   | PRI |         |       |           -                         | 平台                  |
+## | room_id             | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                    | 直播间ID              | 
+## | sharing_music_index | unsigned int     | NO   | PRI |         |       |           -                         | 分享音乐ID序号        |
+## | sharing_music_id    | varchar(200)     |      |     | NULL    |       | "$.data.room.sharing_music_id_list" | 分享音乐ID            | 
+## +---------------------+------------------+------+-----+---------+-------+-------------------------------------+----------------------+
+##
 class RoomSharingMusicIdTable(SocialMediaStreamDataTable):
-  pass
+##
+## >>=============================== attribute ===============================>>
+##
+  __ROOM_SHARING_MUSIC_ID_TABLE_NAME       = 'room_sharing_music_id'
+  __ROOM_SHARING_MUSIC_ID_TABLE_HEADER     = ['now', 'platform', 'room_id', 'sharing_music_index', 'sharing_music_id']
+  __ROOM_SHARING_MUSIC_ID_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'sharing_music_index']
+  __ROOM_SHARING_MUSIC_ID_TABLE_TUPLE      = {item:None for item in __ROOM_SHARING_MUSIC_ID_TABLE_HEADER}
+  __SQL_CREATE_ROOM_SHARING_MUSIC_ID_TABLE = '''
+                                              CREATE TABLE IF NOT EXISTS {} (
+                                                now                 timestamp(3)  NOT NULL,
+                                                platform            varchar(20)   NOT NULL,
+                                                room_id             varchar(200)  NOT NULL,
+                                                sharing_music_index int           NOT NULL,
+                                                sharing_music_id    varchar(200)  DEFAULT NULL,
+                                                PRIMARY KEY (now, platform, room_id, sharing_music_index)
+                                              )
+                                              '''.format(__ROOM_SHARING_MUSIC_ID_TABLE_NAME)
+  __SQL_DROP_ROOM_SHARING_MUSIC_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_SHARING_MUSIC_ID_TABLE_NAME)
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton pattern
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__ROOM_SHARING_MUSIC_ID_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__ROOM_SHARING_MUSIC_ID_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__ROOM_SHARING_MUSIC_ID_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__ROOM_SHARING_MUSIC_ID_TABLE_PRI_KEY
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_SHARING_MUSIC_ID_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_ROOM_SHARING_MUSIC_ID_TABLE
