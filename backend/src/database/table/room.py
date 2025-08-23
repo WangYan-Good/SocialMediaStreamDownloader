@@ -2169,8 +2169,93 @@ class RoomTempStateGlobalConditionIgnoreStrategyTypeTable(SocialMediaStreamDataT
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_ROOM_TEMP_STATE_GLOBAL_CONDITION_IGNORE_STRATEGY_TYPE_TABLE
 
+##
+## data.room.short_touch_area_config.temp_state_global_condition
+##
+## +--------------+------------------+------+-----+---------+-------+--------------------------------------------------------------------------------+------------+
+## | Field        | Type             | Null | Key | Default | Extra | Topology                                                                       | Comment    |
+## +--------------+------------------+------+-----+---------+-------+--------------------------------------------------------------------------------+------------+
+## | now          | timestamp        | NO   | PRI |         |       | "$.extra.now"                                                                  | 当前时间戳 |
+## | platform     | varchar(20)      | NO   | PRI |         |       |           -                                                                    | 平台       | 
+## | room_id      | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                                                               | 直播间ID   |
+## | allow_count  | unsigned tinyint |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_global_condition.allow_count"  | 允许总数   |
+## | duration_gap | unsigned int     |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_global_condition.duration_gap" | 持续间隔   |
+## +--------------+------------------+------+-----+---------+-------+--------------------------------------------------------------------------------+------------+
+##
 class RoomTempStateGlobalConditionTable(SocialMediaStreamDataTable):
-  pass
+##
+## >>=============================== attribute ===============================>>
+##
+  __ROOM_TEMP_STATE_GLOBAL_CONDITION_TABLE_NAME       = "room_temp_state_global_condition"
+  __ROOM_TEMP_STATE_GLOBAL_CONDITION_TABLE_HEADER     = ['now', 'platform', 'room_id', 'allow_count', 'duration_gap']
+  __ROOM_TEMP_STATE_GLOBAL_CONDITION_TABLE_PRI_KEY    = ['now', 'platform', 'room_id']
+  __ROOM_TEMP_STATE_GLOBAL_CONDITION_TABLE_TUPLE      = {item:None for item in __ROOM_TEMP_STATE_GLOBAL_CONDITION_TABLE_HEADER}
+  __SQL_CREATE_ROOM_TEMP_STATE_GLOBAL_CONDITION_TABLE = '''
+                                                        CREATE TABLE IF NOT EXISTS {} (
+                                                          now                    timestamp(3) NOT NULL,
+                                                          platform               varchar(20)  NOT NULL,
+                                                          room_id                varchar(200) NOT NULL,
+                                                          allow_count            tinyint      DEFAULT NULL,
+                                                          duration_gap           int          DEFAULT NULL,
+                                                          PRIMARY KEY (now, platform, room_id)
+                                                        )
+                                                        '''.format(__ROOM_TEMP_STATE_GLOBAL_CONDITION_TABLE_NAME)
+  __SQL_DROP_ROOM_TEMP_STATE_GLOBAL_CONDITION_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_TEMP_STATE_GLOBAL_CONDITION_TABLE_NAME)
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton mode
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__ROOM_TEMP_STATE_GLOBAL_CONDITION_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__ROOM_TEMP_STATE_GLOBAL_CONDITION_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__ROOM_TEMP_STATE_GLOBAL_CONDITION_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__ROOM_TEMP_STATE_GLOBAL_CONDITION_TABLE_PRI_KEY
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_TEMP_STATE_GLOBAL_CONDITION_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_ROOM_TEMP_STATE_GLOBAL_CONDITION_TABLE
+
 
 class RoomRecordTable(SocialMediaStreamDataTable):
   pass
