@@ -22,7 +22,8 @@ from backend.src.database.table.room                                  import Roo
                                                                              FansGroupAdminUserIdTable, \
                                                                              FansGroupAdminUserOpenIdTable, \
                                                                              RoomSubscribeTable, \
-                                                                             RoomShortTouchAreaConfigTable
+                                                                             RoomShortTouchAreaConfigTable, \
+                                                                             RoomShortTouchAreaConfigElementTable
 from backend.src.base.log                                             import get_logger
 
 ##
@@ -2161,6 +2162,202 @@ def test_get_room_short_touch_area_config_record(db:SocialMediaStreamDataBase = 
     raise e
 
 ##
+## >>================================ room short touch area config element table test method ===============================>>
+##
+
+def test_create_room_short_touch_area_config_element_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if db is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table
+  ##
+  room_short_touch_area_config_element = RoomShortTouchAreaConfigElementTable(db_instance=db)
+  room_short_touch_area_config_element.create()
+  return
+
+##
+## test: drop table
+##
+def test_drop_room_short_touch_area_config_element_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## drop table
+  ##
+  room_short_touch_area_config_element = RoomShortTouchAreaConfigElementTable(db_instance=db)
+  room_short_touch_area_config_element.drop()
+  return
+
+##
+## test: check if table exists
+##
+def test_check_room_short_touch_area_config_element_exists(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  room_short_touch_area_config_element = RoomShortTouchAreaConfigElementTable(db)
+  
+  ##
+  ## check if table exists
+  ##
+  if db.is_table_exist(room_short_touch_area_config_element.get_name()):
+    get_logger().info("{} table exists!".format(room_short_touch_area_config_element.get_name()))
+  else:
+    get_logger().info("{} table not exists!".format(room_short_touch_area_config_element.get_name()))
+  return
+
+##
+## test: insert record
+##
+def test_insert_room_short_touch_area_config_element_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_short_touch_area_config_element = RoomShortTouchAreaConfigElementTable(db_instance=db)
+  
+  ##
+  ## insert a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'element_index': 0
+  }
+  
+  try:
+    room_short_touch_area_config_element.insert_record(sample_record)
+    get_logger().info("sample record inserted successfully")
+  except Exception as e:
+    get_logger().error("failed to insert sample record: {}".format(e))
+    raise e
+
+##
+## test: delete record
+##
+def test_delete_room_short_touch_area_config_element_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_short_touch_area_config_element = RoomShortTouchAreaConfigElementTable(db_instance=db)
+
+  ##
+  ## delete a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'element_index': 0
+  }
+  
+  try:
+    room_short_touch_area_config_element.delete_record(sample_record)
+    get_logger().info("sample record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample record: {}".format(e))
+    raise e
+
+##
+## test: update record
+##
+def test_update_room_short_touch_area_config_element_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_short_touch_area_config_element = RoomShortTouchAreaConfigElementTable(db_instance=db)
+
+  ##
+  ## update a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'element_index': 0,
+    'priority': 1,
+    'type': 3
+  }
+  
+  try:
+    room_short_touch_area_config_element.update_record(sample_record)
+    get_logger().info("sample record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample record: {}".format(e))
+    raise e
+
+##
+## test: get record
+## 
+def test_get_room_short_touch_area_config_element_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exist
+  ##
+  room_short_touch_area_config_element = RoomShortTouchAreaConfigElementTable(db)
+
+  ##
+  ## get a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'element_index': 0
+  }
+  
+  try:
+    record = room_short_touch_area_config_element.get_record(sample_record)
+    if record:
+      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(room_short_touch_area_config_element.get_name(), record))
+    else:
+      get_logger().warning("sample {} record not found".format(room_short_touch_area_config_element.get_name()))
+  except Exception as e:
+    get_logger().error("failed to retrieve sample {} record: {}".format(room_short_touch_area_config_element.get_name(), e))
+    raise e
+
+##
 ## >>================================ main method ===============================>>
 ##
 if __name__ == "__main__":
@@ -2312,3 +2509,16 @@ if __name__ == "__main__":
   test_drop_room_short_touch_area_config_table(db)
   test_check_room_short_touch_area_config_exists(db)
   """
+  ##
+  ## room short touch area config element table
+  ##
+  test_create_room_short_touch_area_config_element_table(db)
+  test_check_room_short_touch_area_config_element_exists(db)
+  test_insert_room_short_touch_area_config_element_record(db)
+  test_get_room_short_touch_area_config_element_record(db)
+  test_update_room_short_touch_area_config_element_record(db)
+  test_get_room_short_touch_area_config_element_record(db)
+  test_delete_room_short_touch_area_config_element_record(db)
+  test_get_room_short_touch_area_config_element_record(db)
+  test_drop_room_short_touch_area_config_element_table(db)
+  test_check_room_short_touch_area_config_element_exists(db)
