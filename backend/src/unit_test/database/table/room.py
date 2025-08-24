@@ -5370,7 +5370,7 @@ def test_delete_room_top_fans_record(db:SocialMediaStreamDataBase = None):
   ##
   ## create table if not exists
   ##
-  room_top_fans = RoomopFansTable(db_instance=db)
+  room_top_fans = RoomTopFansTable(db_instance=db)
 
   ##
   ## delete a sample record
@@ -5403,7 +5403,7 @@ def test_update_room_top_fans_record(db:SocialMediaStreamDataBase = None):
   ##
   ## create table if not exists
   ##
-  room_top_fans = RoomopFansTable(db_instance=db)
+  room_top_fans = RoomTopFansTable(db_instance=db)
 
   ##
   ## update a sample record
