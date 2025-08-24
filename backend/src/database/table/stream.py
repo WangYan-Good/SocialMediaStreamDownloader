@@ -7,7 +7,6 @@ sys.path.append(os.getcwd())
 ## <<Third-Part>>
 from backend.src.database.social_media_stream_database                import SocialMediaStreamDataBase
 from backend.src.database.table.social_media_stream_db_table          import SocialMediaStreamDataTable
-from backend.src.base.log                                             import get_logger
 
 ##
 ## live stream table header
