@@ -2659,62 +2659,476 @@ class LiveStreamTable(SocialMediaStreamDataTable):
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_LIVE_STREAM_TABLE
 
+##
+## data.room.stream_url.candidate_resolution
+##
+## +----------------------+-------------------+------+-----+---------+-------+-----------------------------------------------+---------------------+
+## | Field                | Type              | Null | Key | Default | Extra | Topology                                      | Comment             |
+## +----------------------+-------------------+------+-----+---------+-------+-----------------------------------------------+---------------------+
+## | now                  | timestamp(3)      | NO   | PRI |         |       | "$.data.room.create_time"                     | 当前时间戳           | 
+## | platform             | varchar(20)       | NO   | PRI |         |       |           -                                   | 平台                 | 
+## | room_id              | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                              | 直播间ID             | 
+## | stream_id            | varchar(200)      | NO   | PRI |         |       | "$.data.room.stream_id"                       | 直播间流ID           |
+## | resolution_index     | unsigned tinyint  | NO   | PRI |         |       |           -                                   | 分辨率索引           | 
+## | candidate_resolution | varchar(20)       |      |     | NULL    |       | "$.data.room.stream_url.candidate_resolution" | 候选分辨率           | 
+## +----------------------+-------------------+------+-----+---------+-------+-----------------------------------------------+---------------------+
+##
 class StreamCandidateResolutionTable(SocialMediaStreamDataTable):
-  pass
+##
+## >>=============================== attribute ===============================>>
+##
+  __STREAM_CANDIDATE_RESOLUTION_TABLE_NAME       = "stream_candidate_resolution"
+  __STREAM_CANDIDATE_RESOLUTION_TABLE_HEADER     = ['now', 'platform', 'room_id', 'stream_id', 'resolution_index', 'candidate_resolution']
+  __STREAM_CANDIDATE_RESOLUTION_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'stream_id', 'resolution_index']
+  __STREAM_CANDIDATE_RESOLUTION_TABLE_TUPLE      = {item:None for item in __STREAM_CANDIDATE_RESOLUTION_TABLE_HEADER}
+  __SQL_CREATE_STREAM_CANDIDATE_RESOLUTION_TABLE = '''
+                                                   CREATE TABLE IF NOT EXISTS {} (
+                                                     now                    timestamp(3) NOT NULL,
+                                                     platform               varchar(20)  NOT NULL,
+                                                     room_id                varchar(200) NOT NULL,
+                                                     stream_id              varchar(200) NOT NULL,
+                                                     resolution_index       tinyint      NOT NULL,
+                                                     candidate_resolution   varchar(20)  DEFAULT NULL,
+                                                     PRIMARY KEY (now, platform, room_id, stream_id, resolution_index)
+                                                   )
+                                                   '''.format(__STREAM_CANDIDATE_RESOLUTION_TABLE_NAME)
+  __SQL_DROP_STREAM_CANDIDATE_RESOLUTION_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__STREAM_CANDIDATE_RESOLUTION_TABLE_NAME)
 
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton mode
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__STREAM_CANDIDATE_RESOLUTION_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__STREAM_CANDIDATE_RESOLUTION_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__STREAM_CANDIDATE_RESOLUTION_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__STREAM_CANDIDATE_RESOLUTION_TABLE_PRI_KEY
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_STREAM_CANDIDATE_RESOLUTION_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_STREAM_CANDIDATE_RESOLUTION_TABLE
+
+
+##
+## data.room.stream_url.complete_push_urls
+##
+## +-------------------------+-------------------+------+-----+---------+-------+---------------------------------------------+---------------------+
+## | Field                   | Type              | Null | Key | Default | Extra | Topology                                    | Comment             |
+## +-------------------------+-------------------+------+-----+---------+-------+---------------------------------------------+---------------------+
+## | now                     | timestamp(3)      | NO   | PRI |         |       | "$.data.room.create_time"                   | 当前时间戳           | 
+## | platform                | varchar(20)       | NO   | PRI |         |       |           -                                 | 平台                 | 
+## | room_id                 | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                            | 直播间ID             |
+## | stream_id               | varchar(200)      | NO   | PRI |         |       | "$.data.room.stream_id"                     | 直播间流ID           |
+## | complete_push_url_index | unsigned tinyint  | NO   | PRI |         |       |           -                                 | 完整推流地址序号     | 
+## | complete_push_url       | text              |      |     | NULL    |       | "$.data.room.stream_url.complete_push_urls" | 完整推流地址         |
+## +-------------------------+-------------------+------+-----+---------+-------+---------------------------------------------+---------------------+
+##
 class StreamCompletePushUrlTable(SocialMediaStreamDataTable):
   pass
 
+##
+## data.room.stream_url.live_core_sdk_data
+##
+## +----------+--------------+------+-----+---------+-------+--------------------------------------------------+---------------------+
+## | Field    | Type         | Null | Key | Default | Extra | Topology                                         | Comment             |
+## +----------+--------------+------+-----+---------+-------+--------------------------------------------------+---------------------+
+## | now      | timestamp(3) | NO   | PRI |         |       | "$.data.room.create_time"                        | 当前时间戳           | 
+## | platform | varchar(20)  | NO   | PRI |         |       |           -                                      | 平台                 | 
+## | room_id  | varchar(200) | NO   | PRI |         |       | "$.data.room.id"                                 | 直播间ID             |
+## | size     | varchar(100) |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.size" | 流大小              |
+## +----------+--------------+------+-----+---------+-------+--------------------------------------------------+---------------------+
+##
 class LiveCoreSdkDataTable(SocialMediaStreamDataTable):
   pass
 
+##
+## data.room.stream_url.live_core_sdk_data.pull_data
+##
+## +----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------------------------+---------------------+
+## | Field                | Type              | Null | Key | Default | Extra | Topology                                                                   | Comment             |
+## +----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------------------------+---------------------+
+## | now                  | timestamp(3)      | NO   | PRI |         |       | "$.data.room.create_time"                                                  | 当前时间戳           | 
+## | platform             | varchar(20)       | NO   | PRI |         |       |           -                                                                | 平台                 | 
+## | room_id              | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                                                           | 直播间ID             |
+## | codec                | varchar(100)      |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.codec"                | 编解码器             |
+## | compensatory_data    | text              |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.compensatory_data"    | 补偿数据             |
+## | hls_data_unencrypted | json              |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.hls_data_unencrypted" | HLS未加密数据        |
+## | kind                 | unsigned tinyint  |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.kind"                 | 类型                |
+## | stream_data          | text              |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.stream_data"          | 流数据内容           |
+## | version              | varchar(20)       |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.version"              | 版本                |
+## +----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------------------------+---------------------+
+##
 class LiveCoreSdkPullDataTable(SocialMediaStreamDataTable):
   pass
 
+##
+## data.room.stream_url.live_core_sdk_data.pull_data.Flv
+##
+## +-----------+------------------+------+-----+---------+-------+-----------------------------------------------------------+---------------------+
+## | Field     | Type             | Null | Key | Default | Extra | Topology                                                  | Comment             |
+## +-----------+------------------+------+-----+---------+-------+-----------------------------------------------------------+---------------------+
+## | now       | timestamp(3)     | NO   | PRI |         |       | "$.data.room.create_time"                                 | 当前时间戳           | 
+## | platform  | varchar(20)      | NO   | PRI |         |       |           -                                               | 平台                 | 
+## | room_id   | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                                          | 直播间ID             |
+## | Flv_index | unsigned tinyint | NO   | PRI |         |       |           -                                               | Flv序号              | 
+## | Flv       | text             |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.Flv" | Flv数据             |
+## +-----------+------------------+------+-----+---------+-------+-----------------------------------------------------------+---------------------+
+##
 class LiveCoreSdkPullFlvDataTable(SocialMediaStreamDataTable):
   pass
 
+##
+## data.room.stream_url.live_core_sdk_data.pull_data.Hls
+##
+## +-----------+------------------+------+-----+---------+-------+-----------------------------------------------------------+---------------------+
+## | Field     | Type             | Null | Key | Default | Extra | Topology                                                  | Comment             |
+## +-----------+------------------+------+-----+---------+-------+-----------------------------------------------------------+---------------------+
+## | now       | timestamp(3)     | NO   | PRI |         |       | "$.data.room.create_time"                                 | 当前时间戳           | 
+## | platform  | varchar(20)      | NO   | PRI |         |       |           -                                               | 平台                 | 
+## | room_id   | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                                          | 直播间ID             |
+## | Hls_index | unsigned tinyint | NO   | PRI |         |       |           -                                               | Hls序号              | 
+## | Hls       | text             |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.Hls" | Hls数据             |
+## +-----------+------------------+------+-----+---------+-------+-----------------------------------------------------------+---------------------+
+##
 class LiveCoreSdkPullHlsDataTable(SocialMediaStreamDataTable):
   pass
 
+##
+## data.room.stream_url.live_core_sdk_data.pull_data.options
+##
+## +---------------+--------------+------+-----+---------+-------+----------------------------------------------------------------------------+---------------------+
+## | Field         | Type         | Null | Key | Default | Extra | Topology                                                                   | Comment             |
+## +---------------+--------------+------+-----+---------+-------+----------------------------------------------------------------------------+---------------------+
+## | now           | timestamp(3) | NO   | PRI |         |       | "$.data.room.create_time"                                                  | 当前时间戳           | 
+## | platform      | varchar(20)  | NO   | PRI |         |       |           -                                                                | 平台                 | 
+## | room_id       | varchar(200) | NO   | PRI |         |       | "$.data.room.id"                                                           | 直播间ID             |
+## | vpass_default | bool         |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.vpass_default"| 视频默认通过         |
+## +---------------+--------------+------+-----+---------+-------+----------------------------------------------------------------------------+---------------------+
+##
 class LiveCoreSdkPullDataOptionTable(SocialMediaStreamDataTable):
   pass
 
+##
+## data.room.stream_url.live_core_sdk_data.pull_data.options.qualities
+##
+## +--------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------+---------------------+
+## | Field              | Type              | Null | Key | Default | Extra | Topology                                                                                   | Comment             |
+## +--------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------+---------------------+
+## | now                | timestamp(3)      | NO   | PRI |         |       | "$.data.room.create_time"                                                                  | 当前时间戳           | 
+## | platform           | varchar(20)       | NO   | PRI |         |       |           -                                                                                | 平台                 | 
+## | room_id            | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                                                                           | 直播间ID             |
+## | quality_index      | unsigned tinyint  | NO   | PRI |         |       |           -                                                                                | 视频流质量序号        |
+## | additional_content | text              |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.qualities.additional_content" | 附加内容             |
+## | disable            | unsigned tinyint  |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.qualities.disable"            | 默认质量禁用标志     |
+## | fps                | unsigned tinyint  |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.qualities.fps"                | 帧率                |
+## | level              | unsigned smallint |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.qualities.level"              | 级别                |
+## | name               | varchar(50)       |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.qualities.name"               | 名称                |
+## | resolution         | varchao(50)       |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.qualities.resolution"         | 分辨率              |
+## | sdk_key            | varchar(100)      |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.qualities.sdk_key"            | SDK密钥             |
+## | v_bit_rate         | unsigned tinyint  |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.qualities.v_bit_rate"         | 视频比特率           |
+## | v_codec            | varchar(100)      |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.qualities.v_codec"            | 视频编解码器         |
+## +--------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------+---------------------+
+##
 class LiveCoreSdkPullQualityDataTable(SocialMediaStreamDataTable):
   pass
 
+##
+## data.room.stream_url.live_core_sdk_data.pull_data.options.default_quality
+##
+## +--------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------------+---------------------+
+## | Field              | Type              | Null | Key | Default | Extra | Topology                                                                                         | Comment             |
+## +--------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------------+---------------------+
+## | now                | timestamp(3)      | NO   | PRI |         |       | "$.data.room.create_time"                                                                        | 当前时间戳           | 
+## | platform           | varchar(20)       | NO   | PRI |         |       |           -                                                                                      | 平台                 | 
+## | room_id            | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                                                                                 | 直播间ID             |
+## | additional_content | text              |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.default_quality.additional_content" | 附加内容            |
+## | disable            | unsigned tinyint  |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.default_quality.disable"            | 默认质量禁用标志     |
+## | fps                | unsigned tinyint  |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.default_quality.fps"                | 帧率                |
+## | level              | unsigned smallint |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.default_quality.level"              | 级别                |
+## | name               | varchar(50)       |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.default_quality.name"               | 名称                |
+## | resolution         | varchao(50)       |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.default_quality.resolution"         | 分辨率              |
+## | sdk_key            | varchar(100)      |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.default_quality.sdk_key"            | SDK密钥             |
+## | v_bit_rate         | unsigned tinyint  |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.default_quality.v_bit_rate"         | 视频比特率           |
+## | v_codec            | varchar(100)      |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.default_quality.v_codec"            | 视频编解码器         |
+## +--------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------------+---------------------+
+##
 class LiveCoreSdkPullDefaultQualityDataTable(SocialMediaStreamDataTable):
   pass
 
+##
+## data.room.stream_url.push_urls
+##
+## +----------------+------------------+------+-----+---------+-------+------------------------------------+---------------------+
+## | Field          | Type             | Null | Key | Default | Extra | Topology                           | Comment             |
+## +----------------+------------------+------+-----+---------+-------+------------------------------------+---------------------+
+## | now            | timestamp(3)     | NO   | PRI |         |       | "$.data.room.create_time"          | 当前时间戳           | 
+## | platform       | varchar(20)      | NO   | PRI |         |       |           -                        | 平台                 | 
+## | room_id        | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                   | 直播间ID             |
+## | stream_id      | varchar(200)     | NO   | PRI |         |       | "$.data.room.stream_url.id"        | 直播流ID             |
+## | push_url_index | unsigned tinyint | NO   | PRI |         |       |           -                        | 推流地址序号         | 
+## | push_url       | text             |      |     | NULL    |       | "$.data.room.stream_url.push_urls" | 推流地址             |
+## +----------------+------------------+------+-----+---------+-------+------------------------------------+---------------------+
+##
 class StreamPushUrlTable(SocialMediaStreamDataTable):
   pass
 
+##
+## data.room.tags
+##
+## +-----------+------------------+------+-----+---------+-------+---------------------------+---------------------+
+## | Field     | Type             | Null | Key | Default | Extra | Topology                  | Comment             |
+## +-----------+------------------+------+-----+---------+-------+---------------------------+---------------------+
+## | now       | timestamp(3)     | NO   | PRI |         |       | "$.data.room.create_time" | 当前时间戳           | 
+## | platform  | varchar(20)      | NO   | PRI |         |       |           -               | 平台                 | 
+## | room_id   | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"          | 直播间ID             |
+## | tag_index | unsigned tinyint | NO   | PRI |         |       |           -               | 标签序号             | 
+## | tag       | tinytext         |      |     | NULL    |       | "$.data.room.tags"        | 标签列表             |
+## +-----------+------------------+------+-----+---------+-------+---------------------------+---------------------+
+##
 class RoomTagTable(SocialMediaStreamDataTable):
   pass
 
+##
+## data.room.top_fans
+##
+## +------------+-------------------+------+-----+---------+-------+---------------------------+---------------------+
+## | Field      | Type              | Null | Key | Default | Extra | Topology                  | Comment             |
+## +------------+-------------------+------+-----+---------+-------+---------------------------+---------------------+
+## | now        | timestamp(3)      | NO   | PRI |         |       | "$.data.room.create_time" | 当前时间戳           | 
+## | platform   | varchar(20)       | NO   | PRI |         |       |           -               | 平台                 | 
+## | room_id    | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"          | 直播间ID             |
+## | fans_index | unsigned tinyint  | NO   | PRI |         |       |           -               | 粉丝序号             | 
+## | top_fans   | TBD               |      |     | NULL    |       | "$.data.room.top_fans"    | 顶级粉丝             |
+## +------------+-------------------+------+-----+---------+-------+---------------------------+---------------------+
+##
 class RoomTopFansTable(SocialMediaStreamDataTable):
   pass
 
+##
+## data.room.upper_right_widget_data_list
+##
+## +-------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------+---------------------+
+## | Field                         | Type              | Null | Key | Default | Extra | Topology                                   | Comment             |
+## +-------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------+---------------------+
+## | now                           | timestamp(3)      | NO   | PRI |         |       | "$.data.room.create_time"                  | 当前时间戳           | 
+## | platform                      | varchar(20)       | NO   | PRI |         |       |           -                                | 平台                 | 
+## | room_id                       | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                           | 直播间ID             |
+## | upper_right_widget_data_index | unsigned tinyint  | NO   | PRI |         |       |           -                                | 右上角小组件数据序号  | 
+## | upper_right_widget_data       | TBD               |      |     | NULL    |       | "$.data.room.upper_right_widget_data_list" | 右上角小组件数据     |
+## +-------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------+---------------------+
+##
 class RoomUpperRightWidgetDataTable(SocialMediaStreamDataTable):
   pass
 
+##
+## data.room.vs_roles
+##
+## +---------------+------------------+------+-----+---------+-------+---------------------------+---------------------+
+## | Field         | Type             | Null | Key | Default | Extra | Topology                  | Comment             |
+## +---------------+------------------+------+-----+---------+-------+---------------------------+---------------------+
+## | now           | timestamp(3)     | NO   | PRI |         |       | "$.data.room.create_time" | 当前时间戳           | 
+## | platform      | varchar(20)      | NO   | PRI |         |       |           -               | 平台                 | 
+## | room_id       | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"          | 直播间ID             |
+## | vs_role_index | unsigned tinyint | NO   | PRI |         |       |           -               | VS角色序号          | 
+## | vs_role       | TBD              |      |     | NULL    |       | "$.data.room.vs_roles"    | VS角色              |
+## +---------------+------------------+------+-----+---------+-------+---------------------------+---------------------+
+##
 class RoomVsRoleTable(SocialMediaStreamDataTable):
   pass
 
+##
+## picture
+##
+## +--------------+------------------+------+-----+---------+-------+-----------------------------------------+---------------------------+
+## | Field        | Type             | Null | Key | Default | Extra | Topology                                | Comment                   |
+## +--------------+------------------+------+-----+---------+-------+-----------------------------------------+---------------------------+
+## | avg_color    | varchar(7)       |      |     |         |       | "$.data.room.guide_button.avg_color"    | 平均颜色                  |
+## | height       | unsigned int     |      |     |         |       | "$.data.room.guide_button.height"       | 高度                      |
+## | image_type   | unsigned tinyint |      |     |         |       | "$.data.room.guide_button.image_type"   | 图片类型                  |
+## | is_animated  | bool             |      |     |         |       | "$.data.room.guide_button.is_animated"  | 是否为动画                |
+## | open_web_url | text             |      |     |         |       | "$.data.room.guide_button.open_web_url" | 开放网页URL               |
+## | uri          | text             |      | PRI |         |       | "$.data.room.guide_button.uri"          | 统一资源识别符             |
+## | width        | unsigned int     |      |     |         |       | "$.data.room.guide_button.width"        | 宽度                      |
+## +--------------+------------------+------+-----+---------+-------+-----------------------------------------+---------------------------+
+##
 class PictureTable(SocialMediaStreamDataTable):
   pass
 
+##
+## picture_flex_setting
+##
+## +--------------------+------------------+------+-----+---------+-------+----------------------------------------------+---------------------------+
+## | Field              | Type             | Null | Key | Default | Extra | Topology                                     | Comment                   |
+## +--------------------+------------------+------+-----+---------+-------+----------------------------------------------+---------------------------+
+## | uri                | text             |      |     | NULL    |       | "$.data.room.guide_button.uri"               | 统一资源识别符             |
+## | flex_setting_index | unsigned tinyint | NO   | PRI |         |       | -                                            | 弹性设置序号               |
+## | flex_setting       | tinytext         |      |     | NULL    |       | "$.data.room.guide_button.flex_setting_list" | 弹性设置                   |
+## +--------------------+------------------+------+-----+---------+-------+----------------------------------------------+---------------------------+
+##
 class PictureFlexSettingTable(SocialMediaStreamDataTable):
   pass
 
+##
+## picture_text_setting
+##
+## +--------------------+------------------+------+-----+---------+-------+----------------------------------------------+---------------------------+
+## | Field              | Type             | Null | Key | Default | Extra | Topology                                     | Comment                   |
+## +--------------------+------------------+------+-----+---------+-------+----------------------------------------------+---------------------------+
+## | uri                | text             |      |     | NULL    |       | "$.data.room.guide_button.uri"               | 统一资源识别符             |
+## | text_setting_index | unsigned tinyint | NO   | PRI |         |       | -                                            | 文本设置序号               |
+## | text_setting       | tinytext         |      |     | NULL    |       | "$.data.room.guide_button.text_setting_list" | 文本设置                   |
+## +--------------------+------------------+------+-----+---------+-------+----------------------------------------------+---------------------------+
+##
 class PictureTextSettingTable(SocialMediaStreamDataTable):
   pass
 
+##
+## picture_url
+##
+## +-----------+------------------+------+-----+---------+-------+-------------------------------------+---------------------------+
+## | Field     | Type             | Null | Key | Default | Extra | Topology                            | Comment                   |
+## +-----------+------------------+------+-----+---------+-------+-------------------------------------+---------------------------+
+## | uri       | text             |      |     | NULL    |       | "$.data.room.guide_button.uri"      | 统一资源识别符             |
+## | url_index | unsigned tinyint | NO   | PRI |         |       | -                                   | url索引号                 |
+## | url       | text             |      |     | NULL    |       | "$.data.room.guide_button.url_list" | url                       |
+## +-----------+------------------+------+-----+---------+-------+-------------------------------------+---------------------------+
+##
 class PictureUrlTable(SocialMediaStreamDataTable):
   pass
 
+##
+## data.room.owner.badge_image_list.content
+##
+## +------------------+-------------------+------+-----+---------+-------+---------------------------------------------------------------+---------------------------+
+## | Field            | Type              | Null | Key | Default | Extra | Topology                                                      | Comment                   |
+## +------------------+-------------------+------+-----+---------+-------+---------------------------------------------------------------+---------------------------+
+## | uri              | unsigned tinyint  |      |     |         |       | "$.data.room.owner.badge_image_list.uri"                      | 统一资源识别符             |
+## | alternative_text | text              |      |     |         |       | "$.data.room.owner.badge_image_list.content.alternative_text" | 替代文本                  |
+## | font_color       | varchar(7)        |      |     |         |       | "$.data.room.owner.badge_image_list.content.font_color"       | 字体颜色                  |
+## | level            | unsigned smallint |      |     |         |       | "$.data.room.owner.badge_image_list.content.level"            | 等级                      |
+## | name             | varchar(50)       |      |     |         |       | "$.data.room.owner.badge_image_list.content.name"             | 名称                      |
+## +------------------+-------------------+------+-----+---------+-------+---------------------------------------------------------------+---------------------------+
+##
 class PictureContentTable(SocialMediaStreamDataTable):
   pass
 
+##
+## user
+##
+## +------------------------------------------+------------------+------+-----+---------+-------+--------------------------------------------------------+--------------------------+
+## | Field                                    | Type             | Null | Key | Default | Extra | Topology                                               | Comment                  |
+## +------------------------------------------+------------------+------+-----+---------+-------+--------------------------------------------------------+--------------------------+
+## | id                                       | varchar(200)     | NO   | PRI |         |       | "$.data.user.id"                                       | 直播间ID                  |
+## | gender                                   | unsigned tinyint |      |     | NULL    |       | "$.data.user.gender"                                   | 性别（0-未知，1-男，2-女）  |
+## | allow_be_located                         | bool             |      |     | NULL    |       | "$.data.user.owner.allow_be_located"                   | 是否允许被定位             |
+## | age_range                                | unsigned tinyint |      |     | NULL    |       | "$.data.user.age_range"                                | 年龄范围                   |
+## | adversary_authorization_info             | unsigned tinyint |      |     | NULL    |       | "$.data.user.adversary_authorization_info"             | 对手授权信息               |
+## | adversary_user_status                    | unsigned tinyint |      |     | NULL    |       | "$.data.user.adversary_user_status"                    | 对手用户状态               |
+## | allow_find_by_contacts                   | bool             |      |     | NULL    |       | "$.data.user.allow_find_by_contacts"                   | 是否允许通过联系人查找      |
+## | allow_others_download_video              | bool             |      |     | NULL    |       | "$.data.user.allow_others_download_video"              | 是否允许其他人下载视频       |
+## | allow_others_download_when_sharing_video | bool             |      |     | NULL    |       | "$.data.user.allow_others_download_when_sharing_video" | 是否允许其他人下载分享的视频  |
+## | allow_share_show_profile                 | bool             |      |     | NULL    |       | "$.data.user.allow_share_show_profile"                 | 是否允许分享展示个人资料     |
+## | allow_show_in_gossip                     | bool             |      |     | NULL    |       | "$.data.user.allow_show_in_gossip"                     | 是否允许在八卦中展示         |
+## | allow_show_my_action                     | bool             |      |     | NULL    |       | "$.data.user.allow_show_my_action"                     | 是否允许展示我的动态         |
+## | allow_strange_comment                    | bool             |      |     | NULL    |       | "$.data.user.allow_strange_comment"                    | 是否允许陌生人评论           |
+## | allow_unfollower_comment                 | bool             |      |     | NULL    |       | "$.data.user.allow_unfollower_comment"                 | 是否允许非关注者评论         |
+## | allow_use_linkmic                        | bool             |      |     | NULL    |       | "$.data.user.allow_use_linkmic"                        | 是否允许使用连麦            |
+## | authorization_info                       | unsigned tinyint |      |     | NULL    |       | "$.data.user.authorization_info"                       | 授权信息                   |
+## | bg_img_url                               | text             |      |     | NULL    |       | "$.data.user.bg_img_url"                               | 背景图片URL                 |
+## | birthday                                 | timestamp        |      |     | NULL    |       | "$.data.user.birthday"                                 | 生日时间戳                  |
+## | birthday_description                     | tinytext         |      |     | NULL    |       | "$.data.user.birthday_description"                     | 生日描述                   |
+## | birthday_valid                           | bool             |      |     | NULL    |       | "$.data.user.birthday_valid"                           | 生日是否有效                |
+## | block_status                             | unsigned tinyint |      |     | NULL    |       | "$.data.user.block_status"                             | 屏蔽状态：0-未屏蔽 1-已屏蔽  |
+## | city                                     | varchar(100)     |      |     | NULL    |       | "$.data.user.city"                                     | 城市                       |
+## | comment_restrict                         | unsigned tinyint |      |     | NULL    |       | "$.data.user.comment_restrict"                         | 评论限制                    |
+## | constellation                            | varchar(20)      |      |     | NULL    |       | "$.data.user.constellation"                            | 星座                       |
+## | consume_diamond_level                    | unsigned smallint|      |     | NULL    |       | "$.data.user.consume_diamond_level"                    | 消费钻石等级                |
+## | create_time                              | timestamp        |      |     | NULL    |       | "$.data.user.create_time"                              | 账号创建时间戳              |
+## | desensitized_nickname                    | varchar(50)      |      |     | NULL    |       | "$.data.user.desensitized_nickname"                    | 脱敏昵称                   |
+## | disable_ichat                            | bool             |      |     | NULL    |       | "$.data.user.disable_ichat"                            | 是否禁用iChat               |
+## | display_id                               | varchar(200)     |      |     | NULL    |       | "$.data.user.display_id"                               | 显示ID                     |
+## | enable_ichat_img                         | unsigned tinyint |      |     | NULL    |       | "$.data.user.enable_ichat_img"                         | 是否启用iChat图片           |
+## | fold_stranger_chat                       | bool             |      |     | NULL    |       | "$.data.user.fold_stranger_chat"                       | 是否折叠陌生人聊天          |
+## | nickname                                 | varchar(50)      |      |     | NULL    |       | "$.data.user.nickname"                                 | 昵称                       |
+## | pay_score                                | unsigned int     |      |     | NULL    |       | "$.data.user.pay_score"                                | 支付分                     |
+## | pay_scores                               | unsigned int     |      |     | NULL    |       | "$.data.user.pay_scores"                               | 支付分                     |
+## | need_profile_guide                       | bool             |      |     | NULL    |       | "$.data.user.need_profile_guide"                       | 是否需要个人资料引导         |
+## | hotsoon_verified                         | bool             |      |     | NULL    |       | "$.data.user.hotsoon_verified"                         | 是否Hotsoon认证             |
+## | hotsoon_verified_reason                  | bool             |      |     | NULL    |       | "$.data.user.hotsoon_verified_reason"                  | Hotsoon认证原因             |
+## | ichat_restrict_type                      | unsigned tinyint |      |     | NULL    |       | "$.data.user.ichat_restrict_type"                      | iChat限制类型               |
+## | income_share_percent                     | unsigned tinyint |      |     | NULL    |       | "$.data.user.income_share_percent"                     | 收入分成百分比              |
+## | push_comment_status                      | bool             |      |     | NULL    |       | "$.data.user.push_comment_status"                      | 是否推送评论状态             |
+## | push_digg                                | bool             |      |     | NULL    |       | "$.data.user.push_digg"                                | 是否推送点赞                |
+## | push_follow                              | bool             |      |     | NULL    |       | "$.data.user.push_follow"                              | 是否推送关注                |
+## | push_friend_action                       | bool             |      |     | NULL    |       | "$.data.user.push_friend_action"                       | 是否推送好友操作            |
+## | push_ichat                               | bool             |      |     | NULL    |       | "$.data.user.push_ichat"                               | 是否推送iChat               |
+## | push_status                              | bool             |      |     | NULL    |       | "$.data.user.push_status"                              | 是否推送状态                |
+## | push_video_post                          | bool             |      |     | NULL    |       | "$.data.user.push_video_post"                          | 是否推送视频发布            |
+## | push_video_recommend                     | bool             |      |     | NULL    |       | "$.data.user.push_video_recommend"                     | 是否推送视频推荐            |
+## | remark_name                              | varchar(50)      |      |     | NULL    |       | "$.data.user.remark_name"                              | 备注名                     |
+## | sec_uid                                  | varchar(200)     |      |     | NULL    |       | "$.data.user.sec_uid"                                  | 安全用户ID                 |
+## | secret                                   | unsigned tinyint |      |     | NULL    |       | "$.data.user.secret"                                   | 是否私密                    |
+## | share_qrcode_uri                         | text             |      |     | NULL    |       | "$.data.user.share_qrcode_uri"                         | 分享二维码URI               |
+## | short_id                                 | varchar(200)     |      |     | NULL    |       | "$.data.user.short_id"                                 | 短ID                       |
+## | signature                                | text             |      |     | NULL    |       | "$.data.user.signature"                                | 个性签名                    |
+## | special_id                               | varchar(200)     |      |     | NULL    |       | "$.data.user.special_id"                               | 特殊ID                     |
+## | status                                   | unsigned tinyint |      |     | NULL    |       | "$.data.user.status"                                   | 用户状态：0-注销 1-正常     |
+## | telephone                                | varchar(20)      |      |     | NULL    |       | "$.data.user.telephone"                                | 电话号码                    |
+## | total_recharge_diamond_count             | unsigned bigint  |      |     | NULL    |       | "$.data.user.total_recharge_diamond_count"             | 总充值钻石数量              |
+## | user_canceled                            | bool             |      |     | NULL    |       | "$.data.user.user_canceled"                            | 用户是否已取消              |
+## | user_open_id                             | varchar(200)     |      |     | NULL    |       | "$.data.user.user_open_id"                             | 用户开放ID                  |
+## | user_role                                | unsigned tinyint |      |     | NULL    |       | "$.data.user.user_role"                                | 用户角色                    |
+## | verified                                 | bool             |      |     | NULL    |       | "$.data.user.verified"                                 | 是否认证                    |
+## | verified_content                         | tinytext         |      |     | NULL    |       | "$.data.user.verified_content"                         | 认证内容                    |
+## | verified_mobile                          | bool             |      |     | NULL    |       | "$.data.user.verified_mobile"                          | 是否认证手机                |
+## | verified_reason                          | tinytext         |      |     | NULL    |       | "$.data.user.verified_reason"                          | 认证原因                    |
+## | watch_duration_month                     | unsigned tinyint |      |     | NULL    |       | "$.data.user.watch_duration_month"                     | 观看时长（月）              |
+## | web_rid                                  | varchar(200)     |      |     | NULL    |       | "$.data.user.web_rid"                                  | Web用户ID                  |
+## | webcast_uid                              | varchar(200)     |      |     | NULL    |       | "$.data.user.webcast_uid"                              | Webcast用户ID              |
+## | with_car_management_permission           | bool             |      |     | NULL    |       | "$.data.user.with_car_management_permission"           | 是否具有汽车管理权限         |
+## | with_commerce_permission                 | bool             |      |     | NULL    |       | "$.data.user.with_commerce_permission"                 | 是否具有商业权限            |
+## | with_fusion_shop_entry                   | bool             |      |     | NULL    |       | "$.data.user.with_fusion_shop_entry"                   | 是否具有融合店铺入口         |
+## +------------------------------------------+------------------+------+-----+---------+-------+--------------------------------------------------------+----------------------------+
+##
 class UserTable(SocialMediaStreamDataTable):
   pass
