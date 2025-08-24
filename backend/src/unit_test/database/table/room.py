@@ -4877,7 +4877,7 @@ def test_get_live_core_sdk_pull_data_option_record(db:SocialMediaStreamDataBase 
   except Exception as e:
     get_logger().error("failed to retrieve sample {} record: {}".format(live_core_sdk_pull_data_option.get_name(), e))
     raise e
-
+"""
 ##
 ## >>================================ room record table test method ===============================>>
 ##
@@ -5068,7 +5068,7 @@ def test_get_room_record_record(db:SocialMediaStreamDataBase = None):
   except Exception as e:
     get_logger().error("failed to retrieve sample {} record: {}".format(room_record.get_name(), e))
     raise e
-
+"""
 ##
 ## >>================================ room tag table test method ===============================>>
 ##
@@ -5262,6 +5262,201 @@ def test_get_room_tag_record(db:SocialMediaStreamDataBase = None):
       get_logger().warning("sample {} record not found".format(room_tag.get_name()))
   except Exception as e:
     get_logger().error("failed to retrieve sample {} record: {}".format(room_tag.get_name(), e))
+    raise e
+
+##
+## >>================================ room top fans table test method ===============================>>
+##
+
+def test_create_room_top_fans_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if db is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table
+  ##
+  room_top_fans = RoomTopFansTable(db_instance=db)
+  room_top_fans.create()
+  return
+
+##
+## test: drop table
+##
+def test_drop_room_top_fans_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## drop table
+  ##
+  room_top_fans = RoomTopFansTable(db_instance=db)
+  room_top_fans.drop()
+  return
+
+##
+## test: check if table exists
+##
+def test_check_room_top_fans_exists(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+
+  room_top_fans = RoomTopFansTable(db)
+
+  ##
+  ## check if table exists
+  ##
+  if db.is_table_exist(room_top_fans.get_name()):
+    get_logger().info("{} table exists!".format(room_top_fans.get_name()))
+  else:
+    get_logger().info("{} table not exists!".format(room_top_fans.get_name()))
+  return
+
+##
+## test: insert record
+##
+def test_insert_room_top_fans_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_top_fans = RoomTopFansTable(db_instance=db)
+
+  ##
+  ## insert a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'fans_index': 0
+  }
+  
+  try:
+    room_top_fans.insert_record(sample_record)
+    get_logger().info("sample record inserted successfully")
+  except Exception as e:
+    get_logger().error("failed to insert sample record: {}".format(e))
+    raise e
+
+##
+## test: delete record
+##
+def test_delete_room_top_fans_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_top_fans = RoomopFansTable(db_instance=db)
+
+  ##
+  ## delete a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'fans_index': 0
+  }
+  
+  try:
+    room_top_fans.delete_record(sample_record)
+    get_logger().info("sample record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample record: {}".format(e))
+    raise e
+
+##
+## test: update record
+##
+def test_update_room_top_fans_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_top_fans = RoomopFansTable(db_instance=db)
+
+  ##
+  ## update a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'fans_index': 0,
+    'top_fans': 'TBD'
+  }
+  
+  try:
+    room_top_fans.update_record(sample_record)
+    get_logger().info("sample record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample record: {}".format(e))
+    raise e
+
+##
+## test: get record
+##
+def test_get_room_top_fans_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exist
+  ##
+  room_top_fans = RoomTopFansTable(db)
+
+  ##
+  ## get a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'fans_index': 0
+  }
+  
+  try:
+    record = room_top_fans.get_record(sample_record)
+    if record:
+      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(room_top_fans.get_name(), record))
+    else:
+      get_logger().warning("sample {} record not found".format(room_top_fans.get_name()))
+  except Exception as e:
+    get_logger().error("failed to retrieve sample {} record: {}".format(room_top_fans.get_name(), e))
     raise e
 
 ##
@@ -5639,4 +5834,18 @@ if __name__ == "__main__":
   test_get_room_tag_record(db)
   test_drop_room_tag_table(db)
   test_check_room_tag_exists(db)
+
+  ##
+  ## TODO: room top fans table
+  ##
+  test_create_room_top_fans_table(db)
+  test_check_room_top_fans_exists(db)
+  test_insert_room_top_fans_record(db)
+  test_get_room_top_fans_record(db)
+  test_update_room_top_fans_record(db)
+  test_get_room_top_fans_record(db)
+  test_delete_room_top_fans_record(db)
+  test_get_room_top_fans_record(db)
+  test_drop_room_top_fans_table(db)
+  test_check_room_top_fans_exists(db)
   """
