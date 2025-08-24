@@ -15,7 +15,8 @@ from backend.src.database.table.source                                import Bad
                                                                              PictureTable, \
                                                                              PictureFlexSettingTable, \
                                                                              PictureTextSettingTable, \
-                                                                             PictureUrlTable
+                                                                             PictureUrlTable, \
+                                                                             PictureContentTable
 from backend.src.base.log                                             import get_logger
 
 ##
@@ -1335,6 +1336,190 @@ def test_get_picture_url_record(db:SocialMediaStreamDataBase = None):
     raise e
 
 ##
+## >>================================ picture content table test method ===============================>>
+##
+
+def test_create_picture_content_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if db is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table
+  ##
+  picture_content_table = PictureContentTable(db_instance=db)
+  picture_content_table.create()
+  return
+
+##
+## test: drop table
+##
+def test_drop_picture_content_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## drop table
+  ##
+  picture_content_table = PictureContentTable(db_instance=db)
+  picture_content_table.drop()
+  return
+
+##
+## test: check if table exists
+##
+def test_check_picture_content_exists(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+
+  picture_content_table = PictureContentTable(db)
+
+  ##
+  ## check if table exists
+  ##
+  if db.is_table_exist(picture_content_table.get_name()):
+    get_logger().info("{} table exists!".format(picture_content_table.get_name()))
+  else:
+    get_logger().info("{} table not exists!".format(picture_content_table.get_name()))
+  return
+
+##
+## test: insert record
+##
+def test_insert_picture_content_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  picture_content = PictureContentTable(db_instance=db)
+
+  ##
+  ## insert a sample record
+  ##
+  sample_record = {
+    'uri_index': 0
+  }
+  
+  try:
+    picture_content.insert_record(sample_record)
+    get_logger().info("sample record inserted successfully")
+  except Exception as e:
+    get_logger().error("failed to insert sample record: {}".format(e))
+    raise e
+
+##
+## test: delete record
+##
+def test_delete_picture_content_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  picture_content = PictureContentTable(db_instance=db)
+  
+  ##
+  ## delete a sample record
+  ##
+  sample_record = {
+    'uri_index': 0
+  }
+  
+  try:
+    picture_content.delete_record(sample_record)
+    get_logger().info("sample record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample record: {}".format(e))
+    raise e
+
+##
+## test: update record
+##
+def test_update_picture_content_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  picture_content = PictureContentTable(db_instance=db)
+  
+  ##
+  ## update a sample record
+  ##
+  sample_record = {
+    'uri_index': 0,
+    'uri': 'xxx',
+    'level': 100
+  }
+  
+  try:
+    picture_content.update_record(sample_record)
+    get_logger().info("sample record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample record: {}".format(e))
+    raise e
+
+##
+## test: get record
+## 
+def test_get_picture_content_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exist
+  ##
+  picture_content = PictureContentTable(db_instance=db)
+
+  ##
+  ## get a sample record
+  ##
+  sample_record = {
+    'uri_index': 0
+  }
+  
+  try:
+    record = picture_content.get_record(sample_record)
+    if record:
+      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(picture_content.get_name(), record))
+    else:
+      get_logger().warning("sample {} record not found".format(picture_content.get_name()))
+  except Exception as e:
+    get_logger().error("failed to retrieve sample {} record: {}".format(picture_content.get_name(), e))
+    raise e
+
+##
 ## >>================================ main method ===============================>>
 ##
 if __name__ == "__main__":
@@ -1437,4 +1622,18 @@ if __name__ == "__main__":
   test_get_picture_url_record(db)
   test_drop_picture_url_table(db)
   test_check_picture_url_exists(db)
+
+  ##
+  ## picture content table
+  ##
+  test_create_picture_content_table(db)
+  test_check_picture_content_exists(db)
+  test_insert_picture_content_record(db)
+  test_get_picture_content_record(db)
+  test_update_picture_content_record(db)
+  test_get_picture_content_record(db)
+  test_delete_picture_content_record(db)
+  test_get_picture_content_record(db)
+  test_drop_picture_content_table(db)
+  test_check_picture_content_exists(db)
   """
