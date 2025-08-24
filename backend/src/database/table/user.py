@@ -829,3 +829,234 @@ class RoomAdminPrivilegeTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_ROOM_ADMIN_PRIVILEGE_TABLE
+
+##
+## user
+##
+## +------------------------------------------+------------------+------+-----+---------+-------+--------------------------------------------------------+--------------------------+
+## | Field                                    | Type             | Null | Key | Default | Extra | Topology                                               | Comment                  |
+## +------------------------------------------+------------------+------+-----+---------+-------+--------------------------------------------------------+--------------------------+
+## | id                                       | varchar(200)     | NO   | PRI |         |       | "$.data.user.id"                                       | 直播间ID                  |
+## | gender                                   | unsigned tinyint |      |     | NULL    |       | "$.data.user.gender"                                   | 性别（0-未知，1-男，2-女）  |
+## | allow_be_located                         | bool             |      |     | NULL    |       | "$.data.user.owner.allow_be_located"                   | 是否允许被定位             |
+## | age_range                                | unsigned tinyint |      |     | NULL    |       | "$.data.user.age_range"                                | 年龄范围                   |
+## | adversary_authorization_info             | unsigned tinyint |      |     | NULL    |       | "$.data.user.adversary_authorization_info"             | 对手授权信息               |
+## | adversary_user_status                    | unsigned tinyint |      |     | NULL    |       | "$.data.user.adversary_user_status"                    | 对手用户状态               |
+## | allow_find_by_contacts                   | bool             |      |     | NULL    |       | "$.data.user.allow_find_by_contacts"                   | 是否允许通过联系人查找      |
+## | allow_others_download_video              | bool             |      |     | NULL    |       | "$.data.user.allow_others_download_video"              | 是否允许其他人下载视频       |
+## | allow_others_download_when_sharing_video | bool             |      |     | NULL    |       | "$.data.user.allow_others_download_when_sharing_video" | 是否允许其他人下载分享的视频  |
+## | allow_share_show_profile                 | bool             |      |     | NULL    |       | "$.data.user.allow_share_show_profile"                 | 是否允许分享展示个人资料     |
+## | allow_show_in_gossip                     | bool             |      |     | NULL    |       | "$.data.user.allow_show_in_gossip"                     | 是否允许在八卦中展示         |
+## | allow_show_my_action                     | bool             |      |     | NULL    |       | "$.data.user.allow_show_my_action"                     | 是否允许展示我的动态         |
+## | allow_strange_comment                    | bool             |      |     | NULL    |       | "$.data.user.allow_strange_comment"                    | 是否允许陌生人评论           |
+## | allow_unfollower_comment                 | bool             |      |     | NULL    |       | "$.data.user.allow_unfollower_comment"                 | 是否允许非关注者评论         |
+## | allow_use_linkmic                        | bool             |      |     | NULL    |       | "$.data.user.allow_use_linkmic"                        | 是否允许使用连麦            |
+## | authorization_info                       | unsigned tinyint |      |     | NULL    |       | "$.data.user.authorization_info"                       | 授权信息                   |
+## | bg_img_url                               | text             |      |     | NULL    |       | "$.data.user.bg_img_url"                               | 背景图片URL                 |
+## | birthday                                 | timestamp        |      |     | NULL    |       | "$.data.user.birthday"                                 | 生日时间戳                  |
+## | birthday_description                     | tinytext         |      |     | NULL    |       | "$.data.user.birthday_description"                     | 生日描述                   |
+## | birthday_valid                           | bool             |      |     | NULL    |       | "$.data.user.birthday_valid"                           | 生日是否有效                |
+## | block_status                             | unsigned tinyint |      |     | NULL    |       | "$.data.user.block_status"                             | 屏蔽状态：0-未屏蔽 1-已屏蔽  |
+## | city                                     | varchar(100)     |      |     | NULL    |       | "$.data.user.city"                                     | 城市                       |
+## | comment_restrict                         | unsigned tinyint |      |     | NULL    |       | "$.data.user.comment_restrict"                         | 评论限制                    |
+## | constellation                            | varchar(20)      |      |     | NULL    |       | "$.data.user.constellation"                            | 星座                       |
+## | consume_diamond_level                    | unsigned smallint|      |     | NULL    |       | "$.data.user.consume_diamond_level"                    | 消费钻石等级                |
+## | create_time                              | timestamp        |      |     | NULL    |       | "$.data.user.create_time"                              | 账号创建时间戳              |
+## | desensitized_nickname                    | varchar(50)      |      |     | NULL    |       | "$.data.user.desensitized_nickname"                    | 脱敏昵称                   |
+## | disable_ichat                            | bool             |      |     | NULL    |       | "$.data.user.disable_ichat"                            | 是否禁用iChat               |
+## | display_id                               | varchar(200)     |      |     | NULL    |       | "$.data.user.display_id"                               | 显示ID                     |
+## | enable_ichat_img                         | unsigned tinyint |      |     | NULL    |       | "$.data.user.enable_ichat_img"                         | 是否启用iChat图片           |
+## | fold_stranger_chat                       | bool             |      |     | NULL    |       | "$.data.user.fold_stranger_chat"                       | 是否折叠陌生人聊天          |
+## | nickname                                 | varchar(50)      |      |     | NULL    |       | "$.data.user.nickname"                                 | 昵称                       |
+## | pay_score                                | unsigned int     |      |     | NULL    |       | "$.data.user.pay_score"                                | 支付分                     |
+## | pay_scores                               | unsigned int     |      |     | NULL    |       | "$.data.user.pay_scores"                               | 支付分                     |
+## | need_profile_guide                       | bool             |      |     | NULL    |       | "$.data.user.need_profile_guide"                       | 是否需要个人资料引导         |
+## | hotsoon_verified                         | bool             |      |     | NULL    |       | "$.data.user.hotsoon_verified"                         | 是否Hotsoon认证             |
+## | hotsoon_verified_reason                  | bool             |      |     | NULL    |       | "$.data.user.hotsoon_verified_reason"                  | Hotsoon认证原因             |
+## | ichat_restrict_type                      | unsigned tinyint |      |     | NULL    |       | "$.data.user.ichat_restrict_type"                      | iChat限制类型               |
+## | income_share_percent                     | unsigned tinyint |      |     | NULL    |       | "$.data.user.income_share_percent"                     | 收入分成百分比              |
+## | push_comment_status                      | bool             |      |     | NULL    |       | "$.data.user.push_comment_status"                      | 是否推送评论状态             |
+## | push_digg                                | bool             |      |     | NULL    |       | "$.data.user.push_digg"                                | 是否推送点赞                |
+## | push_follow                              | bool             |      |     | NULL    |       | "$.data.user.push_follow"                              | 是否推送关注                |
+## | push_friend_action                       | bool             |      |     | NULL    |       | "$.data.user.push_friend_action"                       | 是否推送好友操作            |
+## | push_ichat                               | bool             |      |     | NULL    |       | "$.data.user.push_ichat"                               | 是否推送iChat               |
+## | push_status                              | bool             |      |     | NULL    |       | "$.data.user.push_status"                              | 是否推送状态                |
+## | push_video_post                          | bool             |      |     | NULL    |       | "$.data.user.push_video_post"                          | 是否推送视频发布            |
+## | push_video_recommend                     | bool             |      |     | NULL    |       | "$.data.user.push_video_recommend"                     | 是否推送视频推荐            |
+## | remark_name                              | varchar(50)      |      |     | NULL    |       | "$.data.user.remark_name"                              | 备注名                     |
+## | sec_uid                                  | varchar(200)     |      |     | NULL    |       | "$.data.user.sec_uid"                                  | 安全用户ID                 |
+## | secret                                   | unsigned tinyint |      |     | NULL    |       | "$.data.user.secret"                                   | 是否私密                    |
+## | share_qrcode_uri                         | text             |      |     | NULL    |       | "$.data.user.share_qrcode_uri"                         | 分享二维码URI               |
+## | short_id                                 | varchar(200)     |      |     | NULL    |       | "$.data.user.short_id"                                 | 短ID                       |
+## | signature                                | text             |      |     | NULL    |       | "$.data.user.signature"                                | 个性签名                    |
+## | special_id                               | varchar(200)     |      |     | NULL    |       | "$.data.user.special_id"                               | 特殊ID                     |
+## | status                                   | unsigned tinyint |      |     | NULL    |       | "$.data.user.status"                                   | 用户状态：0-注销 1-正常     |
+## | telephone                                | varchar(20)      |      |     | NULL    |       | "$.data.user.telephone"                                | 电话号码                    |
+## | total_recharge_diamond_count             | unsigned bigint  |      |     | NULL    |       | "$.data.user.total_recharge_diamond_count"             | 总充值钻石数量              |
+## | user_canceled                            | bool             |      |     | NULL    |       | "$.data.user.user_canceled"                            | 用户是否已取消              |
+## | user_open_id                             | varchar(200)     |      |     | NULL    |       | "$.data.user.user_open_id"                             | 用户开放ID                  |
+## | user_role                                | unsigned tinyint |      |     | NULL    |       | "$.data.user.user_role"                                | 用户角色                    |
+## | verified                                 | bool             |      |     | NULL    |       | "$.data.user.verified"                                 | 是否认证                    |
+## | verified_content                         | tinytext         |      |     | NULL    |       | "$.data.user.verified_content"                         | 认证内容                    |
+## | verified_mobile                          | bool             |      |     | NULL    |       | "$.data.user.verified_mobile"                          | 是否认证手机                |
+## | verified_reason                          | tinytext         |      |     | NULL    |       | "$.data.user.verified_reason"                          | 认证原因                    |
+## | watch_duration_month                     | unsigned tinyint |      |     | NULL    |       | "$.data.user.watch_duration_month"                     | 观看时长（月）              |
+## | web_rid                                  | varchar(200)     |      |     | NULL    |       | "$.data.user.web_rid"                                  | Web用户ID                  |
+## | webcast_uid                              | varchar(200)     |      |     | NULL    |       | "$.data.user.webcast_uid"                              | Webcast用户ID              |
+## | with_car_management_permission           | bool             |      |     | NULL    |       | "$.data.user.with_car_management_permission"           | 是否具有汽车管理权限         |
+## | with_commerce_permission                 | bool             |      |     | NULL    |       | "$.data.user.with_commerce_permission"                 | 是否具有商业权限            |
+## | with_fusion_shop_entry                   | bool             |      |     | NULL    |       | "$.data.user.with_fusion_shop_entry"                   | 是否具有融合店铺入口         |
+## +------------------------------------------+------------------+------+-----+---------+-------+--------------------------------------------------------+----------------------------+
+##
+class UserTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __USER_TABLE_NAME       = "user"
+  __USER_TABLE_HEADER     = ['id',                    'gender',                       'allow_be_located',               'age_range',                                'adversary_authorization_info',
+                             'adversary_user_status', 'allow_find_by_contacts',       'allow_others_download_video',    'allow_others_download_when_sharing_video', 'allow_share_show_profile',
+                             'allow_show_in_gossip',  'allow_show_my_action',         'allow_strange_comment',          'allow_unfollower_comment',                 'allow_use_linkmic',
+                             'authorization_info',    'bg_img_url',                   'birthday',                       'birthday_description',                     'birthday_valid',
+                             'block_status',          'city',                         'comment_restrict',               'constellation',                            'consume_diamond_level',
+                             'create_time',           'desensitized_nickname',        'disable_ichat',                  'display_id',                               'enable_ichat_img',
+                             'fold_stranger_chat',    'nickname',                     'pay_score',                      'pay_scores',                               'need_profile_guide',
+                             'hotsoon_verified',      'hotsoon_verified_reason',      'ichat_restrict_type',            'income_share_percent',                     'push_comment_status',
+                             'push_digg',             'push_follow',                  'push_friend_action',             'push_ichat',                               'push_status',
+                             'push_video_post',       'push_video_recommend',         'remark_name',                    'sec_uid',                                  'secret',
+                             'share_qrcode_uri',      'short_id',                     'signature',                      'special_id',                               'status',
+                             'telephone',             'total_recharge_diamond_count', 'user_canceled',                  'user_open_id',                             'user_role',
+                             'verified',              'verified_content',             'verified_mobile',                'verified_reason',                          'watch_duration_month',
+                             'web_rid',               'webcast_uid',                  'with_car_management_permission', 'with_commerce_permission',                 'with_fusion_shop_entry'
+                             ]
+  __USER_TABLE_PRI_KEY    = ['id']
+  __USER_TABLE_TUPLE      = {item:None for item in __USER_TABLE_HEADER}
+  __SQL_CREATE_USER_TABLE = '''
+                            CREATE TABLE IF NOT EXISTS {} (
+                              id                                        varchar(200)      NOT NULL,
+                              gender                                    tinyint           DEFAULT NULL,
+                              allow_be_located                          bool              DEFAULT NULL,
+                              age_range                                 tinyint           DEFAULT NULL,
+                              adversary_authorization_info              tinyint           DEFAULT NULL,
+                              adversary_user_status                     tinyint           DEFAULT NULL,
+                              allow_find_by_contacts                    bool              DEFAULT NULL,
+                              allow_others_download_video               bool              DEFAULT NULL,
+                              allow_others_download_when_sharing_video  bool              DEFAULT NULL,
+                              allow_share_show_profile                  bool              DEFAULT NULL,
+                              allow_show_in_gossip                      bool              DEFAULT NULL,
+                              allow_show_my_action                      bool              DEFAULT NULL,
+                              allow_strange_comment                     bool              DEFAULT NULL,
+                              allow_unfollower_comment                  bool              DEFAULT NULL,
+                              allow_use_linkmic                         bool              DEFAULT NULL,
+                              authorization_info                        tinyint           DEFAULT NULL,
+                              bg_img_url                                text              DEFAULT NULL,
+                              birthday                                  timestamp         DEFAULT NULL,
+                              birthday_description                      tinytext          DEFAULT NULL,
+                              birthday_valid                            bool              DEFAULT NULL,
+                              block_status                              tinyint           DEFAULT NULL,
+                              city                                      varchar(100)      DEFAULT NULL,
+                              comment_restrict                          tinyint           DEFAULT NULL,
+                              constellation                             varchar(20)       DEFAULT NULL,
+                              consume_diamond_level                     smallint          DEFAULT NULL,
+                              create_time                               timestamp         DEFAULT NULL,
+                              desensitized_nickname                     varchar(50)       DEFAULT NULL,
+                              disable_ichat                             bool              DEFAULT NULL,
+                              display_id                                varchar(200)      DEFAULT NULL,
+                              enable_ichat_img                          tinyint           DEFAULT NULL,
+                              fold_stranger_chat                        bool              DEFAULT NULL,
+                              nickname                                  varchar(50)       DEFAULT NULL,
+                              pay_score                                 int               DEFAULT NULL,
+                              pay_scores                                int               DEFAULT NULL,
+                              need_profile_guide                        bool              DEFAULT NULL,
+                              hotsoon_verified                          bool              DEFAULT NULL,
+                              hotsoon_verified_reason                   bool              DEFAULT NULL,
+                              ichat_restrict_type                       tinyint           DEFAULT NULL,
+                              income_share_percent                      tinyint           DEFAULT NULL,
+                              push_comment_status                       bool              DEFAULT NULL,
+                              push_digg                                 bool              DEFAULT NULL,
+                              push_follow                               bool              DEFAULT NULL,
+                              push_friend_action                        bool              DEFAULT NULL,
+                              push_ichat                                bool              DEFAULT NULL,
+                              push_status                               bool              DEFAULT NULL,
+                              push_video_post                           bool              DEFAULT NULL,
+                              push_video_recommend                      bool              DEFAULT NULL,
+                              remark_name                               varchar(50)       DEFAULT NULL,
+                              sec_uid                                   varchar(200)      DEFAULT NULL,
+                              secret                                    tinyint           DEFAULT NULL,
+                              share_qrcode_uri                          text              DEFAULT NULL,
+                              short_id                                  varchar(200)      DEFAULT NULL,
+                              signature                                 text              DEFAULT NULL,
+                              special_id                                varchar(200)      DEFAULT NULL,
+                              status                                    tinyint           DEFAULT NULL,
+                              telephone                                 varchar(20)       DEFAULT NULL,
+                              total_recharge_diamond_count              bigint            DEFAULT NULL,
+                              user_canceled                             bool              DEFAULT NULL,
+                              user_open_id                              varchar(200)      DEFAULT NULL,
+                              user_role                                 tinyint           DEFAULT NULL,
+                              verified                                  bool              DEFAULT NULL,
+                              verified_content                          tinytext          DEFAULT NULL,
+                              verified_mobile                           bool              DEFAULT NULL,
+                              verified_reason                           tinytext          DEFAULT NULL,
+                              watch_duration_month                      tinyint           DEFAULT NULL,
+                              web_rid                                   varchar(200)      DEFAULT NULL,
+                              webcast_uid                               varchar(200)      DEFAULT NULL,
+                              with_car_management_permission            bool              DEFAULT NULL,
+                              with_commerce_permission                  bool              DEFAULT NULL,
+                              with_fusion_shop_entry                    bool              DEFAULT NULL,
+                              PRIMARY KEY (id)
+                            )
+                            '''.format(__USER_TABLE_NAME)
+  __SQL_DROP_USER_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__USER_TABLE_NAME)
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton mode
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__USER_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__USER_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__USER_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__USER_TABLE_PRI_KEY
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_USER_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_USER_TABLE

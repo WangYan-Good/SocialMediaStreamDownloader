@@ -14,7 +14,8 @@ from backend.src.database.table.user                                  import Roo
                                                                              FansClubAvailableGiftIdTable, \
                                                                              FansClubBadgeIconTable, \
                                                                              RoomOwnerUserAttrTable, \
-                                                                             RoomAdminPrivilegeTable
+                                                                             RoomAdminPrivilegeTable, \
+                                                                             UserTable
 from backend.src.base.log                                             import get_logger
 
 ##
