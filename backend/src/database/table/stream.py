@@ -1088,7 +1088,7 @@ class LiveCoreSdkPullDefaultQualityDataTable(SocialMediaStreamDataTable):
                                                                  sdk_key                 varchar(100) DEFAULT NULL,
                                                                  v_bit_rate              tinyint      DEFAULT NULL,
                                                                  v_codec                 varchar(100) DEFAULT NULL,
-                                                                 PRIMARY KEY (now, platform, room_id, quality_index)
+                                                                 PRIMARY KEY (now, platform, room_id)
                                                                )
                                                                '''.format(__LIVE_CORE_SDK_PULL_DEFAULT_QUALITY_DATA_TABLE_NAME)
   __SQL_DROP_LIVE_CORE_SDK_PULL_DEFAULT_QUALITY_DATA_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__LIVE_CORE_SDK_PULL_DEFAULT_QUALITY_DATA_TABLE_NAME)
