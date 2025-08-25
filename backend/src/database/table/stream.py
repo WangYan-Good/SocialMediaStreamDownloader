@@ -1177,7 +1177,7 @@ class StreamPushUrlTable(SocialMediaStreamDataTable):
                                          stream_id               varchar(200) NOT NULL,
                                          push_url_index          tinyint      NOT NULL,
                                          push_url                text         DEFAULT NULL,
-                                         PRIMARY KEY (now, platform, room_id, quality_index)
+                                         PRIMARY KEY (now, platform, room_id, stream_id, push_url_index)
                                        )
                                        '''.format(__STREAM_PUSH_URL_TABLE_NAME)
   __SQL_DROP_STREAM_PUSH_URL_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__STREAM_PUSH_URL_TABLE_NAME)
