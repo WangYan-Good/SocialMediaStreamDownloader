@@ -16,7 +16,8 @@ from backend.src.database.table.stream                                import Liv
                                                                              LiveCoreSdkPullDataTable, \
                                                                              LiveCoreSdkPullFlvDataTable, \
                                                                              LiveCoreSdkPullHlsDataTable, \
-                                                                             LiveCoreSdkPullDataOptionTable
+                                                                             LiveCoreSdkPullDataOptionTable, \
+                                                                             LiveCoreSdkPullQualityDataTable
 from backend.src.base.log                                             import get_logger
 
 ##
@@ -1374,7 +1375,7 @@ def test_get_live_core_sdk_pull_hls_data_record(db:SocialMediaStreamDataBase = N
     raise e
 
 ##
-## >>================================ live core sdk pull flv data table test method ===============================>>
+## >>================================ live core sdk pull data option table test method ===============================>>
 ##
 
 def test_create_live_core_sdk_pull_data_option_table(db:SocialMediaStreamDataBase = None):
@@ -1565,6 +1566,201 @@ def test_get_live_core_sdk_pull_data_option_record(db:SocialMediaStreamDataBase 
     raise e
 
 ##
+## >>================================ live core sdk pull quality data table test method ===============================>>
+##
+
+def test_create_live_core_sdk_pull_quality_data_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if db is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table
+  ##
+  live_core_sdk_pull_quality_data_table = LiveCoreSdkPullQualityDataTable(db_instance=db)
+  live_core_sdk_pull_quality_data_table.create()
+  return
+
+##
+## test: drop table
+##
+def test_drop_live_core_sdk_pull_quality_data_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## drop table
+  ##
+  live_core_sdk_pull_quality_data_table = LiveCoreSdkPullQualityDataTable(db_instance=db)
+  live_core_sdk_pull_quality_data_table.drop()
+  return
+
+##
+## test: check if table exists
+##
+def test_check_live_core_sdk_pull_quality_data_table_exists(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+
+  live_core_sdk_pull_quality_data_table = LiveCoreSdkPullQualityDataTable(db)
+
+  ##
+  ## check if table exists
+  ##
+  if db.is_table_exist(live_core_sdk_pull_quality_data_table.get_name()):
+    get_logger().info("{} table exists!".format(live_core_sdk_pull_quality_data_table.get_name()))
+  else:
+    get_logger().info("{} table not exists!".format(live_core_sdk_pull_quality_data_table.get_name()))
+  return
+
+##
+## test: insert record
+##
+def test_insert_live_core_sdk_pull_quality_data_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  live_core_sdk_pull_quality_data = LiveCoreSdkPullQualityDataTable(db_instance=db)
+
+  ##
+  ## insert a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'quality_index': 0
+  }
+  
+  try:
+    live_core_sdk_pull_quality_data.insert_record(sample_record)
+    get_logger().info("sample record inserted successfully")
+  except Exception as e:
+    get_logger().error("failed to insert sample record: {}".format(e))
+    raise e
+
+##
+## test: delete record
+##
+def test_delete_live_core_sdk_pull_quality_data_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  live_core_sdk_pull_quality_data = LiveCoreSdkPullQualityDataTable(db_instance=db)
+
+  ##
+  ## delete a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'quality_index': 0
+  }
+  
+  try:
+    live_core_sdk_pull_quality_data.delete_record(sample_record)
+    get_logger().info("sample record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample record: {}".format(e))
+    raise e
+
+##
+## test: update record
+##
+def test_update_live_core_sdk_pull_quality_data_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  live_core_sdk_pull_quality_data = LiveCoreSdkPullQualityDataTable(db_instance=db)
+  
+  ##
+  ## update a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'quality_index': 0,
+    'name': 'Luvvv'
+  }
+  
+  try:
+    live_core_sdk_pull_quality_data.update_record(sample_record)
+    get_logger().info("sample record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample record: {}".format(e))
+    raise e
+
+##
+## test: get record
+## 
+def test_get_live_core_sdk_pull_quality_data_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exist
+  ##
+  live_core_sdk_pull_quality_data = LiveCoreSdkPullQualityDataTable(db_instance=db)
+
+  ##
+  ## get a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'quality_index': 0
+  }
+  
+  try:
+    record = live_core_sdk_pull_quality_data.get_record(sample_record)
+    if record:
+      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(live_core_sdk_pull_quality_data.get_name(), record))
+    else:
+      get_logger().warning("sample {} record not found".format(live_core_sdk_pull_quality_data.get_name()))
+  except Exception as e:
+    get_logger().error("failed to retrieve sample {} record: {}".format(live_core_sdk_pull_quality_data.get_name(), e))
+    raise e
+
+##
 ## >>================================ main method ===============================>>
 ##
 if __name__ == "__main__":
@@ -1678,4 +1874,18 @@ if __name__ == "__main__":
   test_get_live_core_sdk_pull_data_option_record(db)
   test_drop_live_core_sdk_pull_data_option_table(db)
   test_check_live_core_sdk_pull_data_option_table_exists(db)
+
+  ##
+  ## live core sdk pull quality data table
+  ##
+  test_create_live_core_sdk_pull_quality_data_table(db)
+  test_check_live_core_sdk_pull_quality_data_table_exists(db)
+  test_insert_live_core_sdk_pull_quality_data_record(db)
+  test_get_live_core_sdk_pull_quality_data_record(db)
+  test_update_live_core_sdk_pull_quality_data_record(db)
+  test_get_live_core_sdk_pull_quality_data_record(db)
+  test_delete_live_core_sdk_pull_quality_data_record(db)
+  test_get_live_core_sdk_pull_quality_data_record(db)
+  test_drop_live_core_sdk_pull_quality_data_table(db)
+  test_check_live_core_sdk_pull_quality_data_table_exists(db)
   """
