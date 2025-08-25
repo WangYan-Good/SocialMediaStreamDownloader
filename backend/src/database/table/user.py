@@ -572,7 +572,7 @@ class FansClubBadgeIconTable(SocialMediaStreamDataTable):
                                              'owner_user_id',      'anchor_id',   'icon_index',
                                              'icon_uri'
                                              ]
-  __FANS_CLUB_BADGE_ICON_TABLE_PRI_KEY    = ['now', 'platform', 'room_id' 'owner_user_id', 'icon_index']
+  __FANS_CLUB_BADGE_ICON_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'owner_user_id', 'icon_index']
   __FANS_CLUB_BADGE_ICON_TABLE_TUPLE      = {item:None for item in __FANS_CLUB_BADGE_ICON_TABLE_HEADER}
   __SQL_CREATE_FANS_CLUB_BADGE_ICON_TABLE = '''
                                             CREATE TABLE IF NOT EXISTS {} (

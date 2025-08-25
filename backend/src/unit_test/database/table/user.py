@@ -689,8 +689,9 @@ def test_insert_fans_club_badge_icon_record(db:SocialMediaStreamDataBase = None)
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
+    'room_id': '7411524533301119798',
     'owner_user_id': '2700838411446480',
-    'anchor_id': '0'
+    'icon_index': 0
   }
   
   try:
@@ -722,8 +723,9 @@ def test_delete_fans_club_badge_icon_record(db:SocialMediaStreamDataBase = None)
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
+    'room_id': '7411524533301119798',
     'owner_user_id': '2700838411446480',
-    'anchor_id': '0'
+    'icon_index': 0
   }
   
   try:
@@ -755,6 +757,7 @@ def test_update_fans_club_badge_icon_record(db:SocialMediaStreamDataBase = None)
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
+    'room_id': '7411524533301119798',
     'owner_user_id': '2700838411446480',
     'anchor_id': '0',
     'icon_index': 0,
@@ -790,8 +793,9 @@ def test_get_fans_club_badge_icon_record(db:SocialMediaStreamDataBase = None):
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
+    'room_id': '7411524533301119798',
     'owner_user_id': '2700838411446480',
-    'anchor_id': '0'
+    'icon_index': 0
   }
   
   try:
@@ -1387,7 +1391,7 @@ def test_get_user_record(db:SocialMediaStreamDataBase = None):
 ##
 if __name__ == "__main__":
   db = SocialMediaStreamDataBase(host='192.168.1.12', user='wangyan', passwd='wuyu1998', database='social_media_stream_downloader')
-  """
+
   ##
   ## room owner table
   ##
@@ -1485,4 +1489,3 @@ if __name__ == "__main__":
   test_get_user_record(db)
   test_drop_user_table(db)
   test_check_user_exists(db)
-  """
