@@ -2157,7 +2157,10 @@ def test_get_stream_push_url_record(db:SocialMediaStreamDataBase = None):
 ##
 if __name__ == "__main__":
   db = SocialMediaStreamDataBase(host='192.168.1.12', user='wangyan', passwd='wuyu1998', database='social_media_stream_downloader')
-  """
+
+  ##
+  ## live stream table
+  ##
   test_create_live_stream_table(db)
   test_check_live_stream_table_exists(db)
   test_insert_live_stream_record(db)
@@ -2308,4 +2311,3 @@ if __name__ == "__main__":
   test_get_stream_push_url_record(db)
   test_drop_stream_push_url_table(db)
   test_check_stream_push_url_table_exists(db)
-  """

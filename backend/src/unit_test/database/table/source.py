@@ -1524,7 +1524,7 @@ def test_get_picture_content_record(db:SocialMediaStreamDataBase = None):
 ##
 if __name__ == "__main__":
   db = SocialMediaStreamDataBase(host='192.168.1.12', user='wangyan', passwd='wuyu1998', database='social_media_stream_downloader')
-  """
+
   ##
   ## room owner table
   ##
@@ -1636,4 +1636,3 @@ if __name__ == "__main__":
   test_get_picture_content_record(db)
   test_drop_picture_content_table(db)
   test_check_picture_content_exists(db)
-  """

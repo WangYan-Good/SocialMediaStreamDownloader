@@ -229,7 +229,10 @@ def test_update_live_record(db:SocialMediaStreamDataBase = None):
 ##
 if __name__ == "__main__":
   db = SocialMediaStreamDataBase(host='192.168.1.12', user='wangyan', passwd='wuyu1998', database='social_media_stream_downloader')
-  """
+
+  ##
+  ## live record table
+  ##
   test_check_live_record_table_exists(db)
   test_create_live_record_table(db)
   test_insert_live_record(db)
@@ -238,4 +241,3 @@ if __name__ == "__main__":
   test_update_live_record(db)
   test_delete_live_record(db)
   test_drop_live_record_table(db)
-  """

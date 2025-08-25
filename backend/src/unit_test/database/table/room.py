@@ -5464,7 +5464,7 @@ def test_get_room_top_fans_record(db:SocialMediaStreamDataBase = None):
 ##
 if __name__ == "__main__":
   db = SocialMediaStreamDataBase(host='192.168.1.12', user='wangyan', passwd='wuyu1998', database='social_media_stream_downloader')
-  """
+
   ##
   ## room attribute table
   ##
@@ -5848,4 +5848,3 @@ if __name__ == "__main__":
   test_get_room_top_fans_record(db)
   test_drop_room_top_fans_table(db)
   test_check_room_top_fans_exists(db)
-  """
