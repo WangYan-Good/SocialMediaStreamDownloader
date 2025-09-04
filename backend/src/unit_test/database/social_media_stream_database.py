@@ -1,0 +1,71 @@
+##>> Test
+import os
+import sys
+sys.path.append(os.getcwd())
+##<< Test
+
+## <<Third-Part>>
+from backend.src.database.social_media_stream_database import SocialMediaStreamDataBase
+from backend.src.base.log                              import get_logger
+
+##
+## >>================================ test method ===============================>>
+##
+
+##
+## test: execute search sql
+##
+def test_search_sec_user_id(live_share_url:str):
+  sql = '''
+          SELECT sec_user_id
+          FROM share_url
+          WHERE live_share_url = "{}";
+        '''.format(live_share_url)
+  db = SocialMediaStreamDataBase(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
+  cursor = db.get_db_connector().cursor()
+  get_logger().debug(sql)
+  cursor.execute(sql)
+  result = cursor.fetchall()
+  get_logger().debug(result)
+  db.close_db_connector()
+
+##
+## test: insert owner id into owner_liked table
+##
+def test_insert_owner_into_liked_table(owner_user_id:str, platform:str):
+  try:
+    sql = '''
+            insert into favorite_owner (owner_user_id, platform) values ("{}", "{}");
+          '''.format(owner_user_id, platform)
+    db = SocialMediaStreamDataBase(host='192.168.1.9', user='wangyan', passwd='wuyu1998', database='social_media_stream_downloader')
+    connector = db.get_db_connector()
+    cursor = connector.cursor()
+    cursor.execute(sql)
+    connector.commit()
+    db.close_db_connector()
+    get_logger().info("insert {} into liked table succeed!".format(owner_user_id))
+  except Exception as e:
+    db.close_db_connector()
+    get_logger().error("insert {} into liked table failed {}".format(owner_user_id, e))
+
+##
+## test: search liked owner nickname
+##    
+def test_search_nickname_from_liked_table(owner_user_id:str):
+  pass
+
+##
+## test: check if live_record table exists
+##
+def test_check_live_record_table_exists():
+  db = SocialMediaStreamDataBase(host='192.168.1.12', user='wangyan', passwd='wuyu1998', database='social_media_stream_downloader')
+  if db.is_table_exist("live_record"):
+    get_logger().info("live_record table exists!")
+  else:
+    get_logger().info("live_record table not exists!")
+  return
+
+if __name__ == "__main__":
+  # test_search_sec_user_id("https://v.douyin.com/ikRBs7Sy/")
+  # test_insert_owner_into_liked_table("3171420333409886", "douyin")
+  test_check_live_record_table_exists()

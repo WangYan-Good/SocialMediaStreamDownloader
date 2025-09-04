@@ -76,13 +76,15 @@ def output_dict(source:dict=None, tab:int=1):
   if isinstance(source, dict):
     if len(source) > 1: print()
     for k,v in source.items():
-      get_logger().info("{}{}:".format("\t"*tab,k))
+      # get_logger().info("{}{}:".format("\t"*tab,k))
+      print("{}{}:".format("\t"*tab,k))
       output_dict(v, tab+1)
   elif isinstance(source, list) or isinstance(source, tuple):
     for item in source:
       output_dict(item, tab+1)
   else:
-    get_logger().info("{}".format(source))
+    # get_logger().info("{}".format(source))
+    print("{}{}".format("\t"*tab, source))
 
 ##
 ## save dict as file

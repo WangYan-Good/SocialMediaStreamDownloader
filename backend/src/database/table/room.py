@@ -14,7 +14,7 @@ from backend.src.database.table.social_media_stream_db_table          import Soc
 ## +----------------------------------+-------------------+------+-----+---------+-------+-------------------------------------------------------+---------------------------------+
 ## | Field                            | Type              | Null | Key | Default | Extra |Topology                                               | Comment                         |
 ## +----------------------------------+-------------------+------+-----+---------+-------+-------------------------------------------------------+---------------------------------+
-## | AnchorABMap                      | json              | YES  |     | NULL    |       | "$.data.room.living_room_attrs.rank"                  | 主播AB映射                       | 
+## | AnchorABMap                      | json              | YES  |     | NULL    |       | "$.data.room.AnchorABMap"                             | 主播AB映射                       | 
 ## | acquaintance_status              | unsigned tinyint  | YES  |     | NULL    |       | "$.data.room.acquaintance_status"                     | 直播间熟人状态                    |
 ## | anchor_scheduled_time_text       | text              | YES  |     | NULL    |       | "$.data.room.anchor_scheduled_time_text"              | 直播间布局                       |
 ## | anchor_share_text                | text              | YES  |     | NULL    |       | "$.data.room.anchor_share_text"                       | 主播分享文本                     |
@@ -349,10 +349,10 @@ class RoomAdminUserIdTable(SocialMediaStreamDataTable):
                                             now                    timestamp(3) NOT NULL,
                                             platform               varchar(20)  NOT NULL,
                                             room_id                varchar(200) NOT NULL,
-                                            admin_user_id_index    tinyint      NOT NULL,
+                                            admin_user_id_index    tinyint      NOT NULL AUTO_INCREMENT,
                                             admin_user_id          varchar(200) DEFAULT NULL,
                                             PRIMARY KEY (now, platform, room_id, admin_user_id_index)
-                                          )
+                                          )AUTO_INCREMENT=0
                                           '''.format(__ROOM_ADMIN_USER_ID_TABLE_NAME)
   __SQL_DROP_ROOM_ADMIN_USER_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_ADMIN_USER_ID_TABLE_NAME)
 
@@ -439,10 +439,10 @@ class RoomAdminUserOpenIdTable(SocialMediaStreamDataTable):
                                                  now                      timestamp(3) NOT NULL,
                                                  platform                 varchar(20)  NOT NULL,
                                                  room_id                  varchar(200) NOT NULL,
-                                                 admin_user_open_index    tinyint      NOT NULL,
+                                                 admin_user_open_index    tinyint      NOT NULL AUTO_INCREMENT,
                                                  admin_user_open_id       varchar(200) DEFAULT NULL,
                                                  PRIMARY KEY (now, platform, room_id, admin_user_open_index)
-                                               )
+                                               )AUTO_INCREMENT=0
                                                '''.format(__ROOM_ADMIN_USER_OPEN_ID_TABLE_NAME)
   __SQL_DROP_ROOM_ADMIN_USER_OPEN_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_ADMIN_USER_OPEN_ID_TABLE_NAME)
 
@@ -530,15 +530,15 @@ class RoomAssistLabelTable(SocialMediaStreamDataTable):
   __ROOM_ASSIST_LABEL_TABLE_PRI_KEY    = ['now', 'platform', 'room_id']
   __ROOM_ASSIST_LABEL_TABLE_TUPLE      = {item:None for item in __ROOM_ASSIST_LABEL_TABLE_HEADER}
   __SQL_CREATE_ROOM_ASSIST_LABEL_TABLE = '''
-                                              CREATE TABLE IF NOT EXISTS {} (
-                                                now                   timestamp(3) NOT NULL,
-                                                platform              varchar(20)  NOT NULL,
-                                                room_id               varchar(200) NOT NULL,
-                                                assist_label_index    tinyint      DEFAULT NULL,
-                                                assist_label          TBD          DEFAULT NULL,
-                                                PRIMARY KEY (now, platform, room_id)
-                                              )
-                                              '''.format(__ROOM_ASSIST_LABEL_TABLE_NAME)
+                                            CREATE TABLE IF NOT EXISTS {} (
+                                              now                   timestamp(3) NOT NULL,
+                                              platform              varchar(20)  NOT NULL,
+                                              room_id               varchar(200) NOT NULL,
+                                              assist_label_index    tinyint      DEFAULT NULL AUTO_INCREMENT,
+                                              assist_label          TBD          DEFAULT NULL,
+                                              PRIMARY KEY (now, platform, room_id)
+                                            )AUTO_INCREMENT=0
+                                          '''.format(__ROOM_ASSIST_LABEL_TABLE_NAME)
   __SQL_DROP_ROOM_ASSIST_LABEL_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_ASSIST_LABEL_TABLE_NAME)
 
 
@@ -629,10 +629,10 @@ class RoomDecoTable(SocialMediaStreamDataTable):
                                    now           timestamp(3) NOT NULL,
                                    platform      varchar(20)  NOT NULL,
                                    room_id       varchar(200) NOT NULL,
-                                   deco_index    tinyint      DEFAULT NULL,
+                                   deco_index    tinyint      DEFAULT NULL AUTO_INCREMENT,
                                    deco          TBD          DEFAULT NULL,
                                    PRIMARY KEY (now, platform, room_id)
-                                 )
+                                 )AUTO_INCREMENT=0
                                  '''.format(__ROOM_DECO_TABLE_NAME)
   __SQL_DROP_ROOM_DECO_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_DECO_TABLE_NAME)
 
@@ -725,10 +725,10 @@ class FansGroupAdminUserIdTable(SocialMediaStreamDataTable):
                                                   now                               timestamp(3) NOT NULL,
                                                   platform                          varchar(20)  NOT NULL,
                                                   room_id                           varchar(200) NOT NULL,
-                                                  fans_group_admin_user_id_index    tinyint      NOT NULL,
+                                                  fans_group_admin_user_id_index    tinyint      NOT NULL AUTO_INCREMENT,
                                                   fans_group_admin_user_id          varchar(200) DEFAULT NULL,
                                                   PRIMARY KEY (now, platform, room_id, fans_group_admin_user_id_index)
-                                                )
+                                                )AUTO_INCREMENT=0
                                                 '''.format(__FANS_GROUP_ADMIN_USER_ID_TABLE_NAME)
   __SQL_DROP_FANS_GROUP_ADMIN_USER_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__FANS_GROUP_ADMIN_USER_ID_TABLE_NAME)
 
@@ -815,10 +815,10 @@ class FansGroupAdminUserOpenIdTable(SocialMediaStreamDataTable):
                                                        now                                    timestamp(3) NOT NULL,
                                                        platform                               varchar(20)  NOT NULL,
                                                        room_id                                varchar(200) NOT NULL,
-                                                       fans_group_admin_user_open_id_index    tinyint      NOT NULL,
+                                                       fans_group_admin_user_open_id_index    tinyint      NOT NULL AUTO_INCREMENT,
                                                        fans_group_admin_user_open_id          varchar(200) DEFAULT NULL,
                                                        PRIMARY KEY (now, platform, room_id, fans_group_admin_user_open_id_index)
-                                                     )
+                                                     )AUTO_INCREMENT=0
                                                      '''.format(__FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_NAME)
   __SQL_DROP_FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_NAME)
 
@@ -2265,7 +2265,7 @@ class RoomTempStateGlobalConditionTable(SocialMediaStreamDataTable):
 ## | now                                 | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"                                          | 当前时间戳           | 
 ## | platform                            | varchar(20)       | NO   | PRI |         |       |           -                                            | 平台                 | 
 ## | id                                  | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                                       | 直播间ID             | 
-## | rank                                | unsigned smallint |      |     | NULL    |       | "$.data.room.AnchorABMap"                              | 排名/等级            |
+## | rank                                | unsigned smallint |      |     | NULL    |       | "$.data.room.living_room_attrs.rank"                   | 排名/等级            |
 ## | silence_flag                        | unsigned tinyint  |      |     | NULL    |       | "$.data.room.living_room_attrs.silence_flag"           | 直播间静音状态       | 
 ## | view_stats_display_long             | tinytext          |      |     | NULL    |       | "$.data.room.room_view_stats.display_long"             | 直播间观看人数       | 
 ## | view_stats_display_long_anchor      | tinytext          |      |     | NULL    |       | "$.data.room.room_view_stats.display_long_anchor"      | 主播观看人数         | 
