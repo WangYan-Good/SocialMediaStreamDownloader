@@ -10,6 +10,7 @@ from datetime                                                         import dat
 ## <<Third-Part>>
 from backend.src.database.social_media_stream_database                import SocialMediaStreamDataBase
 from backend.src.database.table.source                                import BadgeImageTable, \
+                                                                             RoomOwnerUserDressOwnIdTable, \
                                                                              RoomOwnerDressWearIdTable, \
                                                                              RoomSharingMusicIdTable, \
                                                                              PictureTable, \
@@ -53,7 +54,7 @@ def test_drop_badge_image_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   badge_image = BadgeImageTable(db_instance=db)
-  badge_image.drop()
+  badge_image.drop(confirm=True)
   return
 
 ##
@@ -98,7 +99,6 @@ def test_insert_badge_image_record(db:SocialMediaStreamDataBase = None):
   ## insert a sample record
   ##
   sample_record = {
-    'badge_image_index': 0,
     'version': '123456789',
     'uri': '1080x1080/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f'
   }
@@ -130,7 +130,7 @@ def test_delete_badge_image_record(db:SocialMediaStreamDataBase = None):
   ## delete a sample record
   ##
   sample_record = {
-    'badge_image_index': 0
+    'badge_image_index': 1
   }
   
   try:
@@ -160,7 +160,7 @@ def test_update_badge_image_record(db:SocialMediaStreamDataBase = None):
   ## update a sample record
   ##
   sample_record = {
-    'badge_image_index': 0,
+    'badge_image_index': 1,
     'version': '123',
     'uri': '720x720/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f'
   }
@@ -192,7 +192,7 @@ def test_get_badge_image_record(db:SocialMediaStreamDataBase = None):
   ## get a sample record
   ##
   sample_record = {
-    'badge_image_index': 0
+    'badge_image_index': 1
   }
   
   try:
@@ -203,6 +203,201 @@ def test_get_badge_image_record(db:SocialMediaStreamDataBase = None):
       get_logger().warning("sample {} record not found".format(badge_image.get_name()))
   except Exception as e:
     get_logger().error("failed to retrieve sample {} record: {}".format(badge_image.get_name(), e))
+    raise e
+
+##
+## >>================================ room owner user dress own id table test method ===============================>>
+##
+def test_create_room_owner_user_dress_own_id_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if db is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table
+  ##
+  room_owner_user_dress_own_id = RoomOwnerUserDressOwnIdTable(db_instance=db)
+  room_owner_user_dress_own_id.create()
+  return
+
+##
+## test: drop table
+##
+def test_drop_room_owner_user_dress_own_id_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## drop table
+  ##
+  room_owner_user_dress_own_id = RoomOwnerUserDressOwnIdTable(db_instance=db)
+  room_owner_user_dress_own_id.drop(confirm=True)
+  return
+
+##
+## test: check if table exists
+##
+def test_check_room_owner_user_dress_own_id_exists(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  room_owner_user_dress_own_id = RoomOwnerUserDressOwnIdTable(db)
+  
+  ##
+  ## check if table exists
+  ##
+  if db.is_table_exist(room_owner_user_dress_own_id.get_name()):
+    get_logger().info("{} table exists!".format(room_owner_user_dress_own_id.get_name()))
+  else:
+    get_logger().info("{} table not exists!".format(room_owner_user_dress_own_id.get_name()))
+  return
+
+##
+## test: insert record
+##
+def test_insert_room_owner_user_dress_own_id_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_owner_user_dress_own_id = RoomOwnerUserDressOwnIdTable(db_instance=db)
+  
+  ##
+  ## insert a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'owner_user_id': '2700838411446480',
+    'dress_own_id': '000001'
+  }
+  
+  try:
+    room_owner_user_dress_own_id.insert_record(sample_record)
+    get_logger().info("sample record inserted successfully")
+  except Exception as e:
+    get_logger().error("failed to insert sample record: {}".format(e))
+    raise e
+
+##
+## test: delete record
+##
+def test_delete_room_owner_user_dress_own_id_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_owner_user_dress_own_id = RoomOwnerUserDressOwnIdTable(db_instance=db)
+  
+  ##
+  ## delete a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'owner_user_id': '2700838411446480',
+    'dress_own_index': 1,
+    'dress_own_id': '000001'
+  }
+  
+  try:
+    room_owner_user_dress_own_id.delete_record(sample_record)
+    get_logger().info("sample record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample record: {}".format(e))
+    raise e
+
+##
+## test: update record
+##
+def test_update_room_owner_user_dress_own_id_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_owner_user_dress_own_id = RoomOwnerUserDressOwnIdTable(db_instance=db)
+  
+  ##
+  ## update a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'owner_user_id': '2700838411446480',
+    'dress_own_index': 1,
+    'dress_own_id': '000002'
+  }
+  
+  try:
+    room_owner_user_dress_own_id.update_record(sample_record)
+    get_logger().info("sample record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample record: {}".format(e))
+    raise e
+
+##
+## test: get record
+## 
+def test_get_room_owner_user_dress_own_id_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exist
+  ##
+  room_owner_user_dress_own_id = RoomOwnerUserDressOwnIdTable(db)
+  
+  ##
+  ## get a sample record
+  ##
+  sample_record = {
+    'dress_own_index': 1
+  }
+  
+  try:
+    record = room_owner_user_dress_own_id.get_record(sample_record)
+    if record:
+      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(room_owner_user_dress_own_id.get_name(), record))
+    else:
+      get_logger().warning("sample {} record not found".format(room_owner_user_dress_own_id.get_name()))
+  except Exception as e:
+    get_logger().error("failed to retrieve sample {} record: {}".format(room_owner_user_dress_own_id.get_name(), e))
     raise e
 
 ##
@@ -239,7 +434,7 @@ def test_drop_room_owner_dress_wear_id_table(db:SocialMediaStreamDataBase = None
   ## drop table
   ##
   room_owner_dress_wear_id = RoomOwnerDressWearIdTable(db_instance=db)
-  room_owner_dress_wear_id.drop()
+  room_owner_dress_wear_id.drop(confirm=True)
   return
 
 ##
@@ -287,8 +482,7 @@ def test_insert_room_owner_dress_wear_id_record(db:SocialMediaStreamDataBase = N
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'owner_user_id': '2700838411446480',
-    'dress_wear_index': 0
+    'owner_user_id': '2700838411446480'
   }
   
   try:
@@ -322,7 +516,7 @@ def test_delete_room_owner_dress_wear_id_record(db:SocialMediaStreamDataBase = N
     'platform': 'douyin',
     'room_id': '7411524533301119798',
     'owner_user_id': '2700838411446480',
-    'dress_wear_index': 0
+    'dress_wear_index': 1
   }
   
   try:
@@ -356,7 +550,7 @@ def test_update_room_owner_dress_wear_id_record(db:SocialMediaStreamDataBase = N
     'platform': 'douyin',
     'room_id': '7411524533301119798',
     'owner_user_id': '2700838411446480',
-    'dress_wear_index': 0,
+    'dress_wear_index': 1,
     'dress_wear_id': '123456789'
   }
   
@@ -388,10 +582,7 @@ def test_get_room_owner_dress_wear_id_record(db:SocialMediaStreamDataBase = None
   ##
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'owner_user_id': '2700838411446480',
-    'dress_wear_index': 0
+    'dress_wear_index': 1
   }
   
   try:
@@ -438,7 +629,7 @@ def test_drop_room_sharing_music_id_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   room_sharing_music_id = RoomSharingMusicIdTable(db_instance=db)
-  room_sharing_music_id.drop()
+  room_sharing_music_id.drop(confirm=True)
   return
 
 ##
@@ -485,8 +676,7 @@ def test_insert_room_sharing_music_id_record(db:SocialMediaStreamDataBase = None
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'sharing_music_index': 0
+    'room_id': '7411524533301119798'
   }
   
   try:
@@ -517,9 +707,7 @@ def test_delete_room_sharing_music_id_record(db:SocialMediaStreamDataBase = None
   ##
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'sharing_music_index': 0
+    'sharing_music_index': 1
   }
   
   try:
@@ -552,7 +740,7 @@ def test_update_room_sharing_music_id_record(db:SocialMediaStreamDataBase = None
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'sharing_music_index': 0,
+    'sharing_music_index': 1,
     'sharing_music_id': '123456789'
   }
   
@@ -584,9 +772,7 @@ def test_get_room_sharing_music_id_record(db:SocialMediaStreamDataBase = None):
   ##
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'sharing_music_index': 0
+    'sharing_music_index': 1
   }
   
   try:
@@ -633,7 +819,7 @@ def test_drop_picture_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   picture_table = PictureTable(db_instance=db)
-  picture_table.drop()
+  picture_table.drop(confirm=True)
   return
 
 ##
@@ -678,7 +864,7 @@ def test_insert_picture_record(db:SocialMediaStreamDataBase = None):
   ## insert a sample record
   ##
   sample_record = {
-    'picture_index': 0
+    'avg_color': 'abc'
   }
   
   try:
@@ -708,7 +894,7 @@ def test_delete_picture_record(db:SocialMediaStreamDataBase = None):
   ## delete a sample record
   ##
   sample_record = {
-    'picture_index': 0
+    'picture_index': 1
   }
   
   try:
@@ -738,7 +924,7 @@ def test_update_picture_record(db:SocialMediaStreamDataBase = None):
   ## update a sample record
   ##
   sample_record = {
-    'picture_index': 0,
+    'picture_index': 1,
     'height': 15,
     'width': 20
   }
@@ -770,7 +956,7 @@ def test_get_picture_record(db:SocialMediaStreamDataBase = None):
   ## get a sample record
   ##
   sample_record = {
-    'picture_index': 0
+    'picture_index': 1
   }
   
   try:
@@ -817,7 +1003,7 @@ def test_drop_picture_flex_setting_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   picture_flex_setting_table = PictureFlexSettingTable(db_instance=db)
-  picture_flex_setting_table.drop()
+  picture_flex_setting_table.drop(confirm=True)
   return
 
 ##
@@ -862,7 +1048,7 @@ def test_insert_picture_flex_setting_record(db:SocialMediaStreamDataBase = None)
   ## insert a sample record
   ##
   sample_record = {
-    'flex_setting_index': 0
+    'uri': 'abc'
   }
   
   try:
@@ -892,7 +1078,7 @@ def test_delete_picture_flex_setting_record(db:SocialMediaStreamDataBase = None)
   ## delete a sample record
   ##
   sample_record = {
-    'flex_setting_index': 0
+    'flex_setting_index': 1
   }
   
   try:
@@ -922,7 +1108,7 @@ def test_update_picture_flex_setting_record(db:SocialMediaStreamDataBase = None)
   ## update a sample record
   ##
   sample_record = {
-    'flex_setting_index': 0,
+    'flex_setting_index': 1,
     'uri': 'xxx',
     'flex_setting': 'TBD'
   }
@@ -954,7 +1140,7 @@ def test_get_picture_flex_setting_record(db:SocialMediaStreamDataBase = None):
   ## get a sample record
   ##
   sample_record = {
-    'flex_setting_index': 0
+    'flex_setting_index': 1
   }
   
   try:
@@ -1001,7 +1187,7 @@ def test_drop_picture_text_setting_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   picture_text_setting_table = PictureTextSettingTable(db_instance=db)
-  picture_text_setting_table.drop()
+  picture_text_setting_table.drop(confirm=True)
   return
 
 ##
@@ -1046,7 +1232,7 @@ def test_insert_picture_text_setting_record(db:SocialMediaStreamDataBase = None)
   ## insert a sample record
   ##
   sample_record = {
-    'text_setting_index': 0
+    'uri': 'abc'
   }
   
   try:
@@ -1076,7 +1262,7 @@ def test_delete_picture_text_setting_record(db:SocialMediaStreamDataBase = None)
   ## delete a sample record
   ##
   sample_record = {
-    'text_setting_index': 0
+    'text_setting_index': 1
   }
   
   try:
@@ -1106,7 +1292,7 @@ def test_update_picture_text_setting_record(db:SocialMediaStreamDataBase = None)
   ## update a sample record
   ##
   sample_record = {
-    'text_setting_index': 0,
+    'text_setting_index': 1,
     'uri': 'xxx',
     'text_setting': 'TBD'
   }
@@ -1138,7 +1324,7 @@ def test_get_picture_text_setting_record(db:SocialMediaStreamDataBase = None):
   ## get a sample record
   ##
   sample_record = {
-    'text_setting_index': 0
+    'text_setting_index': 1
   }
   
   try:
@@ -1185,7 +1371,7 @@ def test_drop_picture_url_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   picture_url_table = PictureUrlTable(db_instance=db)
-  picture_url_table.drop()
+  picture_url_table.drop(confirm=True)
   return
 
 ##
@@ -1230,7 +1416,7 @@ def test_insert_picture_url_record(db:SocialMediaStreamDataBase = None):
   ## insert a sample record
   ##
   sample_record = {
-    'url_index': 0
+    'uri': 'abc'
   }
   
   try:
@@ -1260,7 +1446,7 @@ def test_delete_picture_url_record(db:SocialMediaStreamDataBase = None):
   ## delete a sample record
   ##
   sample_record = {
-    'url_index': 0
+    'url_index': 1
   }
   
   try:
@@ -1290,7 +1476,7 @@ def test_update_picture_url_record(db:SocialMediaStreamDataBase = None):
   ## update a sample record
   ##
   sample_record = {
-    'url_index': 0,
+    'url_index': 1,
     'uri': 'xxx',
     'url': 'TBD'
   }
@@ -1322,7 +1508,7 @@ def test_get_picture_url_record(db:SocialMediaStreamDataBase = None):
   ## get a sample record
   ##
   sample_record = {
-    'url_index': 0
+    'url_index': 1
   }
   
   try:
@@ -1369,7 +1555,7 @@ def test_drop_picture_content_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   picture_content_table = PictureContentTable(db_instance=db)
-  picture_content_table.drop()
+  picture_content_table.drop(confirm=True)
   return
 
 ##
@@ -1414,7 +1600,7 @@ def test_insert_picture_content_record(db:SocialMediaStreamDataBase = None):
   ## insert a sample record
   ##
   sample_record = {
-    'uri_index': 0
+    'uri': 'abc'
   }
   
   try:
@@ -1444,7 +1630,7 @@ def test_delete_picture_content_record(db:SocialMediaStreamDataBase = None):
   ## delete a sample record
   ##
   sample_record = {
-    'uri_index': 0
+    'uri_index': 1
   }
   
   try:
@@ -1474,7 +1660,7 @@ def test_update_picture_content_record(db:SocialMediaStreamDataBase = None):
   ## update a sample record
   ##
   sample_record = {
-    'uri_index': 0,
+    'uri_index': 1,
     'uri': 'xxx',
     'level': 100
   }
@@ -1506,7 +1692,7 @@ def test_get_picture_content_record(db:SocialMediaStreamDataBase = None):
   ## get a sample record
   ##
   sample_record = {
-    'uri_index': 0
+    'uri_index': 1
   }
   
   try:
@@ -1538,6 +1724,20 @@ if __name__ == "__main__":
   test_get_badge_image_record(db)
   test_drop_badge_image_table(db)
   test_check_badge_image_exists(db)
+
+  ##
+  ## room owner user dress own id table
+  ##
+  test_create_room_owner_user_dress_own_id_table(db)
+  test_check_room_owner_user_dress_own_id_exists(db)
+  test_insert_room_owner_user_dress_own_id_record(db)
+  test_get_room_owner_user_dress_own_id_record(db)
+  test_update_room_owner_user_dress_own_id_record(db)
+  test_get_room_owner_user_dress_own_id_record(db)
+  test_delete_room_owner_user_dress_own_id_record(db)
+  test_get_room_owner_user_dress_own_id_record(db)
+  test_drop_room_owner_user_dress_own_id_table(db)
+  test_check_room_owner_user_dress_own_id_exists(db)
 
   ##
   ## room owner dress wear id table

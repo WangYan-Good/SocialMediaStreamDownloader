@@ -70,6 +70,7 @@ class LiveStreamTable(SocialMediaStreamDataTable):
                                      'stream_control_type',  'stream_orientation',      'vr_type'
                                      ]
   __LIVE_STREAM_TABLE_PRI_KEY     = ['id']
+  __TABLE_AUTO_INCREMENT          = []
   __LIVE_STREAM_TABLE_TUPLE       = {item:None for item in __LIVE_STREAM_TABLE_HEADER}
   __SQL_CREATE_LIVE_STREAM_TABLE  = '''
                                     CREATE TABLE IF NOT EXISTS {} (
@@ -157,6 +158,12 @@ class LiveStreamTable(SocialMediaStreamDataTable):
     return self.__LIVE_STREAM_TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
   ## get SQL command of create table
   ##
   def get_create_sql_cmd(self) -> str:
@@ -167,6 +174,13 @@ class LiveStreamTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_LIVE_STREAM_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
 
 """
 ##
@@ -228,6 +242,7 @@ class LiveStreamTable(SocialMediaStreamDataTable):
                                     'vr_type',
                                     ]
   __LIVE_STREAM_TABLE_PRI_KEY    = ['id']
+  __TABLE_AUTO_INCREMENT         = []
   __LIVE_STREAM_TABLE_TUPLE      = {item:None for item in __LIVE_STREAM_TABLE_HEADER}
   __SQL_CREATE_LIVE_STREAM_TABLE = '''
                                    CREATE TABLE IF NOT EXISTS {} (
@@ -315,6 +330,12 @@ class LiveStreamTable(SocialMediaStreamDataTable):
     return self.__LIVE_STREAM_TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
   ## get SQL command of create table
   ##
   def get_create_sql_cmd(self) -> str:
@@ -325,6 +346,13 @@ class LiveStreamTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_LIVE_STREAM_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
 """
 ##
 ## data.room.stream_url.candidate_resolution
@@ -336,7 +364,7 @@ class LiveStreamTable(SocialMediaStreamDataTable):
 ## | platform             | varchar(20)       | NO   | PRI |         |       |           -                                   | 平台                 | 
 ## | room_id              | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                              | 直播间ID             | 
 ## | stream_id            | varchar(200)      | NO   | PRI |         |       | "$.data.room.stream_id"                       | 直播间流ID           |
-## | resolution_index     | unsigned tinyint  | NO   | PRI |         |       |           -                                   | 分辨率索引           | 
+## | resolution_index     | unsigned bigint   | NO   | PRI |         |       |           -                                   | 分辨率索引           | 
 ## | candidate_resolution | varchar(20)       |      |     | NULL    |       | "$.data.room.stream_url.candidate_resolution" | 候选分辨率           | 
 ## +----------------------+-------------------+------+-----+---------+-------+-----------------------------------------------+---------------------+
 ##
@@ -347,6 +375,7 @@ class StreamCandidateResolutionTable(SocialMediaStreamDataTable):
   __STREAM_CANDIDATE_RESOLUTION_TABLE_NAME       = "stream_candidate_resolution"
   __STREAM_CANDIDATE_RESOLUTION_TABLE_HEADER     = ['now', 'platform', 'room_id', 'stream_id', 'resolution_index', 'candidate_resolution']
   __STREAM_CANDIDATE_RESOLUTION_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'stream_id', 'resolution_index']
+  __TABLE_AUTO_INCREMENT                         = ['resolution_index']
   __STREAM_CANDIDATE_RESOLUTION_TABLE_TUPLE      = {item:None for item in __STREAM_CANDIDATE_RESOLUTION_TABLE_HEADER}
   __SQL_CREATE_STREAM_CANDIDATE_RESOLUTION_TABLE = '''
                                                    CREATE TABLE IF NOT EXISTS {} (
@@ -354,9 +383,10 @@ class StreamCandidateResolutionTable(SocialMediaStreamDataTable):
                                                      platform               varchar(20)  NOT NULL,
                                                      room_id                varchar(200) NOT NULL,
                                                      stream_id              varchar(200) NOT NULL,
-                                                     resolution_index       tinyint      NOT NULL,
+                                                     resolution_index       bigint       NOT NULL AUTO_INCREMENT,
                                                      candidate_resolution   varchar(20)  DEFAULT NULL,
-                                                     PRIMARY KEY (now, platform, room_id, stream_id, resolution_index)
+                                                     PRIMARY KEY (resolution_index),
+                                                     UNIQUE KEY unique_record (now, platform, room_id, stream_id, resolution_index)
                                                    )
                                                    '''.format(__STREAM_CANDIDATE_RESOLUTION_TABLE_NAME)
   __SQL_DROP_STREAM_CANDIDATE_RESOLUTION_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__STREAM_CANDIDATE_RESOLUTION_TABLE_NAME)
@@ -404,6 +434,12 @@ class StreamCandidateResolutionTable(SocialMediaStreamDataTable):
     return self.__STREAM_CANDIDATE_RESOLUTION_TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
   ## get SQL command of create table
   ##
   def get_create_sql_cmd(self) -> str:
@@ -414,6 +450,13 @@ class StreamCandidateResolutionTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_STREAM_CANDIDATE_RESOLUTION_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
 
 ##
 ## data.room.stream_url.complete_push_urls
@@ -421,11 +464,11 @@ class StreamCandidateResolutionTable(SocialMediaStreamDataTable):
 ## +-------------------------+-------------------+------+-----+---------+-------+---------------------------------------------+---------------------+
 ## | Field                   | Type              | Null | Key | Default | Extra | Topology                                    | Comment             |
 ## +-------------------------+-------------------+------+-----+---------+-------+---------------------------------------------+---------------------+
-## | now                     | timestamp(3)      | NO   | PRI |         |       | "$.data.room.create_time"                   | 当前时间戳           | 
+## | now                     | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"                               | 当前时间戳           | 
 ## | platform                | varchar(20)       | NO   | PRI |         |       |           -                                 | 平台                 | 
 ## | room_id                 | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                            | 直播间ID             |
 ## | stream_id               | varchar(200)      | NO   | PRI |         |       | "$.data.room.stream_id"                     | 直播间流ID           |
-## | complete_push_url_index | unsigned tinyint  | NO   | PRI |         |       |           -                                 | 完整推流地址序号     | 
+## | complete_push_url_index | unsigned bigint   | NO   | PRI |         |       |           -                                 | 完整推流地址序号     | 
 ## | complete_push_url       | text              |      |     | NULL    |       | "$.data.room.stream_url.complete_push_urls" | 完整推流地址         |
 ## +-------------------------+-------------------+------+-----+---------+-------+---------------------------------------------+---------------------+
 ##
@@ -436,6 +479,7 @@ class StreamCompletePushUrlTable(SocialMediaStreamDataTable):
   __STREAM_COMPLETE_PUSH_URL_TABLE_NAME       = "stream_complete_push_url"
   __STREAM_COMPLETE_PUSH_URL_TABLE_HEADER     = ['now', 'platform', 'room_id', 'stream_id', 'complete_push_url_index', 'complete_push_url']
   __STREAM_COMPLETE_PUSH_URL_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'stream_id', 'complete_push_url_index']
+  __TABLE_AUTO_INCREMENT                      = ['complete_push_url_index']
   __STREAM_COMPLETE_PUSH_URL_TABLE_TUPLE      = {item:None for item in __STREAM_COMPLETE_PUSH_URL_TABLE_HEADER}
   __SQL_CREATE_STREAM_COMPLETE_PUSH_URL_TABLE = '''
                                                    CREATE TABLE IF NOT EXISTS {} (
@@ -443,9 +487,10 @@ class StreamCompletePushUrlTable(SocialMediaStreamDataTable):
                                                      platform                varchar(20)  NOT NULL,
                                                      room_id                 varchar(200) NOT NULL,
                                                      stream_id               varchar(200) NOT NULL,
-                                                     complete_push_url_index tinyint      NOT NULL,
+                                                     complete_push_url_index bigint       NOT NULL AUTO_INCREMENT,
                                                      complete_push_url       varchar(20)  DEFAULT NULL,
-                                                     PRIMARY KEY (now, platform, room_id, stream_id, complete_push_url_index)
+                                                     PRIMARY KEY (complete_push_url_index),
+                                                     UNIQUE KEY unique_record (now, platform, room_id, stream_id, complete_push_url_index)
                                                    )
                                                    '''.format(__STREAM_COMPLETE_PUSH_URL_TABLE_NAME)
   __SQL_DROP_STREAM_COMPLETE_PUSH_URL_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__STREAM_COMPLETE_PUSH_URL_TABLE_NAME)
@@ -493,6 +538,12 @@ class StreamCompletePushUrlTable(SocialMediaStreamDataTable):
     return self.__STREAM_COMPLETE_PUSH_URL_TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
   ## get SQL command of create table
   ##
   def get_create_sql_cmd(self) -> str:
@@ -503,6 +554,13 @@ class StreamCompletePushUrlTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_STREAM_COMPLETE_PUSH_URL_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
 
 ##
 ## data.room.stream_url.live_core_sdk_data
@@ -523,6 +581,7 @@ class LiveCoreSdkDataTable(SocialMediaStreamDataTable):
   __LIVE_CORE_SDK_DATA_TABLE_NAME       = "live_core_sdk_data"
   __LIVE_CORE_SDK_DATA_TABLE_HEADER     = ['now', 'platform', 'room_id', 'size']
   __LIVE_CORE_SDK_DATA_TABLE_PRI_KEY    = ['now', 'platform', 'room_id']
+  __TABLE_AUTO_INCREMENT                = []
   __LIVE_CORE_SDK_DATA_TABLE_TUPLE      = {item:None for item in __LIVE_CORE_SDK_DATA_TABLE_HEADER}
   __SQL_CREATE_LIVE_CORE_SDK_DATA_TABLE = '''
                                           CREATE TABLE IF NOT EXISTS {} (
@@ -578,6 +637,12 @@ class LiveCoreSdkDataTable(SocialMediaStreamDataTable):
     return self.__LIVE_CORE_SDK_DATA_TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
   ## get SQL command of create table
   ##
   def get_create_sql_cmd(self) -> str:
@@ -588,6 +653,13 @@ class LiveCoreSdkDataTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_LIVE_CORE_SDK_DATA_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
 
 ##
 ## data.room.stream_url.live_core_sdk_data.pull_data
@@ -613,6 +685,7 @@ class LiveCoreSdkPullDataTable(SocialMediaStreamDataTable):
   __LIVE_CORE_SDK_PULL_DATA_TABLE_NAME       = "live_core_sdk_pull_data"
   __LIVE_CORE_SDK_PULL_DATA_TABLE_HEADER     = ['now', 'platform', 'room_id', 'codec', 'compensatory_data', 'hls_data_unencrypted', 'kind', 'stream_data', 'version']
   __LIVE_CORE_SDK_PULL_DATA_TABLE_PRI_KEY    = ['now', 'platform', 'room_id']
+  __TABLE_AUTO_INCREMENT                     = []
   __LIVE_CORE_SDK_PULL_DATA_TABLE_TUPLE      = {item:None for item in __LIVE_CORE_SDK_PULL_DATA_TABLE_HEADER}
   __SQL_CREATE_LIVE_CORE_SDK_PULL_DATA_TABLE = '''
                                                CREATE TABLE IF NOT EXISTS {} (
@@ -673,6 +746,12 @@ class LiveCoreSdkPullDataTable(SocialMediaStreamDataTable):
     return self.__LIVE_CORE_SDK_PULL_DATA_TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
   ## get SQL command of create table
   ##
   def get_create_sql_cmd(self) -> str:
@@ -683,6 +762,13 @@ class LiveCoreSdkPullDataTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_LIVE_CORE_SDK_PULL_DATA_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
 
 
 ##
@@ -694,7 +780,7 @@ class LiveCoreSdkPullDataTable(SocialMediaStreamDataTable):
 ## | now       | timestamp(3)     | NO   | PRI |         |       | "$.data.room.create_time"                                 | 当前时间戳           | 
 ## | platform  | varchar(20)      | NO   | PRI |         |       |           -                                               | 平台                 | 
 ## | room_id   | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                                          | 直播间ID             |
-## | Flv_index | unsigned tinyint | NO   | PRI |         |       |           -                                               | Flv序号              | 
+## | Flv_index | unsigned bigint  | NO   | PRI |         |       |           -                                               | Flv序号              | 
 ## | Flv       | text             |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.Flv" | Flv数据             |
 ## +-----------+------------------+------+-----+---------+-------+-----------------------------------------------------------+---------------------+
 ##
@@ -705,15 +791,17 @@ class LiveCoreSdkPullFlvDataTable(SocialMediaStreamDataTable):
   __LIVE_CORE_SDK_PULL_FLV_DATA_TABLE_NAME       = "live_core_sdk_pull_flv_data"
   __LIVE_CORE_SDK_PULL_FLV_DATA_TABLE_HEADER     = ['now', 'platform', 'room_id', 'Flv_index', 'Flv']
   __LIVE_CORE_SDK_PULL_FLV_DATA_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'Flv_index']
+  __TABLE_AUTO_INCREMENT                         = ['Flv_index']
   __LIVE_CORE_SDK_PULL_FLV_DATA_TABLE_TUPLE      = {item:None for item in __LIVE_CORE_SDK_PULL_FLV_DATA_TABLE_HEADER}
   __SQL_CREATE_LIVE_CORE_SDK_PULL_FLV_DATA_TABLE = '''
                                                    CREATE TABLE IF NOT EXISTS {} (
                                                      now                     timestamp(3) NOT NULL,
                                                      platform                varchar(20)  NOT NULL,
                                                      room_id                 varchar(200) NOT NULL,
-                                                     Flv_index               tinyint      NOT NULL,
+                                                     Flv_index               bigint       NOT NULL AUTO_INCREMENT,
                                                      Flv                     text         DEFAULT NULL,
-                                                     PRIMARY KEY (now, platform, room_id, Flv_index)
+                                                     PRIMARY KEY (Flv_index),
+                                                     UNIQUE KEY unique_record (now, platform, room_id, Flv_index)
                                                    )
                                                    '''.format(__LIVE_CORE_SDK_PULL_FLV_DATA_TABLE_NAME)
   __SQL_DROP_LIVE_CORE_SDK_PULL_FLV_DATA_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__LIVE_CORE_SDK_PULL_FLV_DATA_TABLE_NAME)
@@ -761,6 +849,12 @@ class LiveCoreSdkPullFlvDataTable(SocialMediaStreamDataTable):
     return self.__LIVE_CORE_SDK_PULL_FLV_DATA_TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
   ## get SQL command of create table
   ##
   def get_create_sql_cmd(self) -> str:
@@ -771,6 +865,13 @@ class LiveCoreSdkPullFlvDataTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_LIVE_CORE_SDK_PULL_FLV_DATA_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
 
 ##
 ## data.room.stream_url.live_core_sdk_data.pull_data.Hls
@@ -781,7 +882,7 @@ class LiveCoreSdkPullFlvDataTable(SocialMediaStreamDataTable):
 ## | now       | timestamp(3)     | NO   | PRI |         |       | "$.data.room.create_time"                                 | 当前时间戳           | 
 ## | platform  | varchar(20)      | NO   | PRI |         |       |           -                                               | 平台                 | 
 ## | room_id   | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                                          | 直播间ID             |
-## | Hls_index | unsigned tinyint | NO   | PRI |         |       |           -                                               | Hls序号              | 
+## | Hls_index | unsigned bigint  | NO   | PRI |         |       |           -                                               | Hls序号              | 
 ## | Hls       | text             |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.Hls" | Hls数据             |
 ## +-----------+------------------+------+-----+---------+-------+-----------------------------------------------------------+---------------------+
 ##
@@ -792,15 +893,17 @@ class LiveCoreSdkPullHlsDataTable(SocialMediaStreamDataTable):
   __LIVE_CORE_SDK_PULL_HLS_DATA_TABLE_NAME       = "live_core_sdk_pull_hls_data"
   __LIVE_CORE_SDK_PULL_HLS_DATA_TABLE_HEADER     = ['now', 'platform', 'room_id', 'Hls_index', 'Hls']
   __LIVE_CORE_SDK_PULL_HLS_DATA_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'Hls_index']
+  __TABLE_AUTO_INCREMENT                         = ['Hls_index']
   __LIVE_CORE_SDK_PULL_HLS_DATA_TABLE_TUPLE      = {item:None for item in __LIVE_CORE_SDK_PULL_HLS_DATA_TABLE_HEADER}
   __SQL_CREATE_LIVE_CORE_SDK_PULL_HLS_DATA_TABLE = '''
                                                    CREATE TABLE IF NOT EXISTS {} (
                                                      now                     timestamp(3) NOT NULL,
                                                      platform                varchar(20)  NOT NULL,
                                                      room_id                 varchar(200) NOT NULL,
-                                                     Hls_index               tinyint      NOT NULL,
+                                                     Hls_index               bigint       NOT NULL AUTO_INCREMENT,
                                                      Hls                     text         DEFAULT NULL,
-                                                     PRIMARY KEY (now, platform, room_id, Hls_index)
+                                                     PRIMARY KEY (Hls_index),
+                                                     UNIQUE KEY unique_record (now, platform, room_id, Hls_index)
                                                    )
                                                    '''.format(__LIVE_CORE_SDK_PULL_HLS_DATA_TABLE_NAME)
   __SQL_DROP_LIVE_CORE_SDK_PULL_HLS_DATA_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__LIVE_CORE_SDK_PULL_HLS_DATA_TABLE_NAME)
@@ -848,6 +951,12 @@ class LiveCoreSdkPullHlsDataTable(SocialMediaStreamDataTable):
     return self.__LIVE_CORE_SDK_PULL_HLS_DATA_TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
   ## get SQL command of create table
   ##
   def get_create_sql_cmd(self) -> str:
@@ -858,6 +967,13 @@ class LiveCoreSdkPullHlsDataTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_LIVE_CORE_SDK_PULL_HLS_DATA_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
 
 ##
 ## data.room.stream_url.live_core_sdk_data.pull_data.options
@@ -878,6 +994,7 @@ class LiveCoreSdkPullDataOptionTable(SocialMediaStreamDataTable):
   __LIVE_CORE_SDK_PULL_DATA_OPTION_TABLE_NAME       = "live_core_sdk_pull_data_option"
   __LIVE_CORE_SDK_PULL_DATA_OPTION_TABLE_HEADER     = ['now', 'platform', 'room_id', 'vpass_default']
   __LIVE_CORE_SDK_PULL_DATA_OPTION_TABLE_PRI_KEY    = ['now', 'platform', 'room_id']
+  __TABLE_AUTO_INCREMENT                            = []
   __LIVE_CORE_SDK_PULL_DATA_OPTION_TABLE_TUPLE      = {item:None for item in __LIVE_CORE_SDK_PULL_DATA_OPTION_TABLE_HEADER}
   __SQL_CREATE_LIVE_CORE_SDK_PULL_DATA_OPTION_TABLE = '''
                                                       CREATE TABLE IF NOT EXISTS {} (
@@ -933,6 +1050,12 @@ class LiveCoreSdkPullDataOptionTable(SocialMediaStreamDataTable):
     return self.__LIVE_CORE_SDK_PULL_DATA_OPTION_TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
   ## get SQL command of create table
   ##
   def get_create_sql_cmd(self) -> str:
@@ -943,6 +1066,13 @@ class LiveCoreSdkPullDataOptionTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_LIVE_CORE_SDK_PULL_DATA_OPTION_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
 
 ##
 ## data.room.stream_url.live_core_sdk_data.pull_data.options.qualities
@@ -953,7 +1083,7 @@ class LiveCoreSdkPullDataOptionTable(SocialMediaStreamDataTable):
 ## | now                | timestamp(3)      | NO   | PRI |         |       | "$.data.room.create_time"                                                                  | 当前时间戳           | 
 ## | platform           | varchar(20)       | NO   | PRI |         |       |           -                                                                                | 平台                 | 
 ## | room_id            | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                                                                           | 直播间ID             |
-## | quality_index      | unsigned tinyint  | NO   | PRI |         |       |           -                                                                                | 视频流质量序号        |
+## | quality_index      | unsigned bigint   | NO   | PRI |         |       |           -                                                                                | 视频流质量序号        |
 ## | additional_content | text              |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.qualities.additional_content" | 附加内容             |
 ## | disable            | unsigned tinyint  |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.qualities.disable"            | 默认质量禁用标志     |
 ## | fps                | unsigned tinyint  |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.qualities.fps"                | 帧率                |
@@ -972,13 +1102,14 @@ class LiveCoreSdkPullQualityDataTable(SocialMediaStreamDataTable):
   __LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_NAME       = "live_core_sdk_pull_quality_data"
   __LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_HEADER     = ['now', 'platform', 'room_id', 'quality_index', 'disable', 'fps', 'level', 'name', 'resolution', 'sdk_key', 'v_bit_rate', 'v_codec']
   __LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'quality_index']
+  __TABLE_AUTO_INCREMENT                             = ['quality_index']
   __LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_TUPLE      = {item:None for item in __LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_HEADER}
   __SQL_CREATE_LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE = '''
                                                        CREATE TABLE IF NOT EXISTS {} (
                                                          now                     timestamp(3) NOT NULL,
                                                          platform                varchar(20)  NOT NULL,
                                                          room_id                 varchar(200) NOT NULL,
-                                                         quality_index           tinyint      NOT NULL,
+                                                         quality_index           bigint       NOT NULL AUTO_INCREMENT,
                                                          disable                 tinyint      DEFAULT NULL,
                                                          fps                     tinyint      DEFAULT NULL,
                                                          level                   smallint     DEFAULT NULL,
@@ -987,7 +1118,8 @@ class LiveCoreSdkPullQualityDataTable(SocialMediaStreamDataTable):
                                                          sdk_key                 varchar(100) DEFAULT NULL,
                                                          v_bit_rate              tinyint      DEFAULT NULL,
                                                          v_codec                 varchar(100) DEFAULT NULL,
-                                                         PRIMARY KEY (now, platform, room_id, quality_index)
+                                                         PRIMARY KEY (quality_index),
+                                                         UNIQUE KEY unique_record (now, platform, room_id, quality_index)
                                                        )
                                                        '''.format(__LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_NAME)
   __SQL_DROP_LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_NAME)
@@ -1035,6 +1167,12 @@ class LiveCoreSdkPullQualityDataTable(SocialMediaStreamDataTable):
     return self.__LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
   ## get SQL command of create table
   ##
   def get_create_sql_cmd(self) -> str:
@@ -1045,6 +1183,13 @@ class LiveCoreSdkPullQualityDataTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
 
 ##
 ## data.room.stream_url.live_core_sdk_data.pull_data.options.default_quality
@@ -1073,6 +1218,7 @@ class LiveCoreSdkPullDefaultQualityDataTable(SocialMediaStreamDataTable):
   __LIVE_CORE_SDK_PULL_DEFAULT_QUALITY_DATA_TABLE_NAME       = "live_core_sdk_pull_default_quality_data"
   __LIVE_CORE_SDK_PULL_DEFAULT_QUALITY_DATA_TABLE_HEADER     = ['now', 'platform', 'room_id', 'additional_content', 'disable', 'fps', 'level', 'name', 'resolution', 'sdk_key', 'v_bit_rate', 'v_codec']
   __LIVE_CORE_SDK_PULL_DEFAULT_QUALITY_DATA_TABLE_PRI_KEY    = ['now', 'platform', 'room_id']
+  __TABLE_AUTO_INCREMENT                                     = []
   __LIVE_CORE_SDK_PULL_DEFAULT_QUALITY_DATA_TABLE_TUPLE      = {item:None for item in __LIVE_CORE_SDK_PULL_DEFAULT_QUALITY_DATA_TABLE_HEADER}
   __SQL_CREATE_LIVE_CORE_SDK_PULL_DEFAULT_QUALITY_DATA_TABLE = '''
                                                                CREATE TABLE IF NOT EXISTS {} (
@@ -1136,6 +1282,12 @@ class LiveCoreSdkPullDefaultQualityDataTable(SocialMediaStreamDataTable):
     return self.__LIVE_CORE_SDK_PULL_DEFAULT_QUALITY_DATA_TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
   ## get SQL command of create table
   ##
   def get_create_sql_cmd(self) -> str:
@@ -1146,6 +1298,13 @@ class LiveCoreSdkPullDefaultQualityDataTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_LIVE_CORE_SDK_PULL_DEFAULT_QUALITY_DATA_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
 
 ##
 ## data.room.stream_url.push_urls
@@ -1156,8 +1315,8 @@ class LiveCoreSdkPullDefaultQualityDataTable(SocialMediaStreamDataTable):
 ## | now            | timestamp(3)     | NO   | PRI |         |       | "$.data.room.create_time"          | 当前时间戳           | 
 ## | platform       | varchar(20)      | NO   | PRI |         |       |           -                        | 平台                 | 
 ## | room_id        | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                   | 直播间ID             |
-## | stream_id      | varchar(200)     | NO   | PRI |         |       | "$.data.room.stream_url.id"        | 直播流ID             |
-## | push_url_index | unsigned tinyint | NO   | PRI |         |       |           -                        | 推流地址序号         | 
+## | stream_url_id  | varchar(200)     | NO   | PRI |         |       | "$.data.room.stream_url.id"        | 直播流ID             |
+## | push_url_index | unsigned bigint  | NO   | PRI |         |       |           -                        | 推流地址序号         | 
 ## | push_url       | text             |      |     | NULL    |       | "$.data.room.stream_url.push_urls" | 推流地址             |
 ## +----------------+------------------+------+-----+---------+-------+------------------------------------+---------------------+
 ##
@@ -1166,18 +1325,20 @@ class StreamPushUrlTable(SocialMediaStreamDataTable):
 ## >>=============================== attribute ===============================>>
 ##
   __STREAM_PUSH_URL_TABLE_NAME       = "stream_push_url"
-  __STREAM_PUSH_URL_TABLE_HEADER     = ['now', 'platform', 'room_id', 'stream_id', 'push_url_index', 'push_url']
-  __STREAM_PUSH_URL_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'stream_id', 'push_url_index']
+  __STREAM_PUSH_URL_TABLE_HEADER     = ['now', 'platform', 'room_id', 'stream_url_id', 'push_url_index', 'push_url']
+  __STREAM_PUSH_URL_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'stream_url_id', 'push_url_index']
+  __TABLE_AUTO_INCREMENT             = ['push_url_index']
   __STREAM_PUSH_URL_TABLE_TUPLE      = {item:None for item in __STREAM_PUSH_URL_TABLE_HEADER}
   __SQL_CREATE_STREAM_PUSH_URL_TABLE = '''
                                        CREATE TABLE IF NOT EXISTS {} (
                                          now                     timestamp(3) NOT NULL,
                                          platform                varchar(20)  NOT NULL,
                                          room_id                 varchar(200) NOT NULL,
-                                         stream_id               varchar(200) NOT NULL,
-                                         push_url_index          tinyint      NOT NULL,
+                                         stream_url_id           varchar(200) NOT NULL,
+                                         push_url_index          bigint       NOT NULL AUTO_INCREMENT,
                                          push_url                text         DEFAULT NULL,
-                                         PRIMARY KEY (now, platform, room_id, stream_id, push_url_index)
+                                         PRIMARY KEY (push_url_index),
+                                         UNIQUE KEY unique_record (now, platform, room_id, stream_url_id, push_url_index)
                                        )
                                        '''.format(__STREAM_PUSH_URL_TABLE_NAME)
   __SQL_DROP_STREAM_PUSH_URL_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__STREAM_PUSH_URL_TABLE_NAME)
@@ -1225,6 +1386,12 @@ class StreamPushUrlTable(SocialMediaStreamDataTable):
     return self.__STREAM_PUSH_URL_TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
   ## get SQL command of create table
   ##
   def get_create_sql_cmd(self) -> str:
@@ -1235,3 +1402,10 @@ class StreamPushUrlTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_STREAM_PUSH_URL_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()

@@ -141,3 +141,26 @@ python 中如何通过 `threading.Lock()` 实现表级别的互斥操作，即
 - 读操作之间不互斥
 - 读写操作互斥
 - 写操作之间互斥
+
+### 4. 数据库表插入记录时的索引问题
+
+#### 4.1 插入数据
+数据库表在创建时，针对有自动索引的表，在插入时，需要忽略 `index` 这一列，有数据库自身完成自加行为。
+
+#### 4.2 关于 auto_increment 自增指定数值问题
+摘选自 [MySQL里AUTO_INCREMENT表里插入0值的问题 - 简书](https://www.jianshu.com/p/7fa6330e9ebc)
+在mysql中对于设置了自增属性auto_increment的字段自增值是从1开始的，写入0会被当做null值处理从而写入当前最大值的下一个值（即表示定义中auto_increment的值）。
+如果需要修改自增值的起始位置可以通过 " alter table table_name(表名) auto_increment=xxxx; "进行修改，但是这个值必须比当前表内数据的最大值要大，否则修改不会生效。
+如果需要修改自增值从0开始而不是从1开始，可以设置线程级别的参数" set sql_mode='NO_AUTO_VALUE_ON_ZERO' ; "来实现 ( 可小写 )
+```sql
+set sql_mode='no_auto_value_on_zero';
+CREATE TABLE auth_function (
+  id BIGINT(20) AUTO_INCREMENT NOT NULL,
+  name varchar(64) NOT NULL,
+  parent_id BIGINT(20) NOT NULL,
+  url varchar(128) NOT NULL,
+  serial_num int NOT NULL,
+  accordion int NOT NULL,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+```

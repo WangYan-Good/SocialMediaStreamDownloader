@@ -59,7 +59,7 @@ def test_drop_live_stream_table(db:SocialMediaStreamDataBase = None):
   ## drop live_stream table
   ##
   live_stream = LiveStreamTable(db)
-  live_stream.drop()
+  live_stream.drop(confirm=True)
   return
 
 ##
@@ -240,7 +240,7 @@ def test_drop_stream_candidate_resolution_table(db:SocialMediaStreamDataBase = N
   ## drop table
   ##
   stream_candidate_resolution_table = StreamCandidateResolutionTable(db_instance=db)
-  stream_candidate_resolution_table.drop()
+  stream_candidate_resolution_table.drop(confirm=True)
   return
 
 ##
@@ -288,8 +288,7 @@ def test_insert_stream_candidate_resolution_record(db:SocialMediaStreamDataBase 
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'stream_id': '691500607505433258',
-    'resolution_index': 0
+    'stream_id': '691500607505433258'
   }
   
   try:
@@ -323,7 +322,7 @@ def test_delete_stream_candidate_resolution_record(db:SocialMediaStreamDataBase 
     'platform': 'douyin',
     'room_id': '7411524533301119798',
     'stream_id': '691500607505433258',
-    'resolution_index': 0
+    'resolution_index': 1
   }
   
   try:
@@ -357,7 +356,7 @@ def test_update_stream_candidate_resolution_record(db:SocialMediaStreamDataBase 
     'platform': 'douyin',
     'room_id': '7411524533301119798',
     'stream_id': '691500607505433258',
-    'resolution_index': 0,
+    'resolution_index': 1,
     'candidate_resolution': 'FULL1_HLD'
   }
   
@@ -388,11 +387,7 @@ def test_get_stream_candidate_resolution_record(db:SocialMediaStreamDataBase = N
   ## get a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'stream_id': '691500607505433258',
-    'resolution_index': 0
+    'resolution_index': 1
   }
   
   try:
@@ -409,6 +404,9 @@ def test_get_stream_candidate_resolution_record(db:SocialMediaStreamDataBase = N
 ## >>================================ stream complete push url table test method ===============================>>
 ##
 
+##
+## >>================================ stream complete push url table test method ===============================>>
+##
 def test_create_stream_complete_push_url_table(db:SocialMediaStreamDataBase = None):
   ##
   ## check if db is valid
@@ -439,7 +437,7 @@ def test_drop_stream_complete_push_url_table(db:SocialMediaStreamDataBase = None
   ## drop table
   ##
   stream_complete_push_url_table = StreamCompletePushUrlTable(db_instance=db)
-  stream_complete_push_url_table.drop()
+  stream_complete_push_url_table.drop(confirm=True)
   return
 
 ##
@@ -487,8 +485,7 @@ def test_insert_stream_complete_push_url_record(db:SocialMediaStreamDataBase = N
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'stream_id': '691500607505433258',
-    'complete_push_url_index': 0
+    'stream_id': '691500607505433258'
   }
   
   try:
@@ -522,7 +519,7 @@ def test_delete_stream_complete_push_url_record(db:SocialMediaStreamDataBase = N
     'platform': 'douyin',
     'room_id': '7411524533301119798',
     'stream_id': '691500607505433258',
-    'complete_push_url_index': 0
+    'complete_push_url_index': 1
   }
   
   try:
@@ -556,7 +553,7 @@ def test_update_stream_complete_push_url_record(db:SocialMediaStreamDataBase = N
     'platform': 'douyin',
     'room_id': '7411524533301119798',
     'stream_id': '691500607505433258',
-    'complete_push_url_index': 0,
+    'complete_push_url_index': 1,
     'complete_push_url': 'TBD'
   }
   
@@ -588,10 +585,7 @@ def test_get_stream_complete_push_url_record(db:SocialMediaStreamDataBase = None
   ##
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'stream_id': '691500607505433258',
-    'complete_push_url_index': 0
+    'complete_push_url_index': 1
   }
   
   try:
@@ -638,7 +632,7 @@ def test_drop_live_core_sdk_data_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   live_core_sdk_data_table = LiveCoreSdkDataTable(db_instance=db)
-  live_core_sdk_data_table.drop()
+  live_core_sdk_data_table.drop(confirm=True)
   return
 
 ##
@@ -829,7 +823,7 @@ def test_drop_live_core_sdk_pull_data_table(db:SocialMediaStreamDataBase = None)
   ## drop table
   ##
   live_core_sdk_pull_data_table = LiveCoreSdkPullDataTable(db_instance=db)
-  live_core_sdk_pull_data_table.drop()
+  live_core_sdk_pull_data_table.drop(confirm=True)
   return
 
 ##
@@ -1020,7 +1014,7 @@ def test_drop_live_core_sdk_pull_flv_data_table(db:SocialMediaStreamDataBase = N
   ## drop table
   ##
   live_core_sdk_pull_flv_data_table = LiveCoreSdkPullFlvDataTable(db_instance=db)
-  live_core_sdk_pull_flv_data_table.drop()
+  live_core_sdk_pull_flv_data_table.drop(confirm=True)
   return
 
 ##
@@ -1067,8 +1061,7 @@ def test_insert_live_core_sdk_pull_flv_data_record(db:SocialMediaStreamDataBase 
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'Flv_index': 0
+    'room_id': '7411524533301119798'
   }
   
   try:
@@ -1101,7 +1094,7 @@ def test_delete_live_core_sdk_pull_flv_data_record(db:SocialMediaStreamDataBase 
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'Flv_index': 0
+    'Flv_index': 1
   }
   
   try:
@@ -1134,7 +1127,7 @@ def test_update_live_core_sdk_pull_flv_data_record(db:SocialMediaStreamDataBase 
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'Flv_index': 0,
+    'Flv_index': 1,
     'Flv': '123456789'
   }
   
@@ -1168,7 +1161,7 @@ def test_get_live_core_sdk_pull_flv_data_record(db:SocialMediaStreamDataBase = N
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'Flv_index': 0
+    'Flv_index': 1
   }
   
   try:
@@ -1215,7 +1208,7 @@ def test_drop_live_core_sdk_pull_hls_data_table(db:SocialMediaStreamDataBase = N
   ## drop table
   ##
   live_core_sdk_pull_hls_data_table = LiveCoreSdkPullHlsDataTable(db_instance=db)
-  live_core_sdk_pull_hls_data_table.drop()
+  live_core_sdk_pull_hls_data_table.drop(confirm=True)
   return
 
 ##
@@ -1262,8 +1255,7 @@ def test_insert_live_core_sdk_pull_hls_data_record(db:SocialMediaStreamDataBase 
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'Hls_index': 0
+    'room_id': '7411524533301119798'
   }
   
   try:
@@ -1296,7 +1288,7 @@ def test_delete_live_core_sdk_pull_hls_data_record(db:SocialMediaStreamDataBase 
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'Hls_index': 0
+    'Hls_index': 1
   }
   
   try:
@@ -1329,7 +1321,7 @@ def test_update_live_core_sdk_pull_hls_data_record(db:SocialMediaStreamDataBase 
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'Hls_index': 0,
+    'Hls_index': 1,
     'Hls': '123456789'
   }
   
@@ -1363,7 +1355,7 @@ def test_get_live_core_sdk_pull_hls_data_record(db:SocialMediaStreamDataBase = N
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'Hls_index': 0
+    'Hls_index': 1
   }
   
   try:
@@ -1410,7 +1402,7 @@ def test_drop_live_core_sdk_pull_data_option_table(db:SocialMediaStreamDataBase 
   ## drop table
   ##
   live_core_sdk_pull_data_option_table = LiveCoreSdkPullDataOptionTable(db_instance=db)
-  live_core_sdk_pull_data_option_table.drop()
+  live_core_sdk_pull_data_option_table.drop(confirm=True)
   return
 
 ##
@@ -1601,7 +1593,7 @@ def test_drop_live_core_sdk_pull_quality_data_table(db:SocialMediaStreamDataBase
   ## drop table
   ##
   live_core_sdk_pull_quality_data_table = LiveCoreSdkPullQualityDataTable(db_instance=db)
-  live_core_sdk_pull_quality_data_table.drop()
+  live_core_sdk_pull_quality_data_table.drop(confirm=True)
   return
 
 ##
@@ -1648,8 +1640,7 @@ def test_insert_live_core_sdk_pull_quality_data_record(db:SocialMediaStreamDataB
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'quality_index': 0
+    'room_id': '7411524533301119798'
   }
   
   try:
@@ -1682,7 +1673,7 @@ def test_delete_live_core_sdk_pull_quality_data_record(db:SocialMediaStreamDataB
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'quality_index': 0
+    'quality_index': 1
   }
   
   try:
@@ -1715,7 +1706,7 @@ def test_update_live_core_sdk_pull_quality_data_record(db:SocialMediaStreamDataB
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'quality_index': 0,
+    'quality_index': 1,
     'name': 'Luvvv'
   }
   
@@ -1749,7 +1740,7 @@ def test_get_live_core_sdk_pull_quality_data_record(db:SocialMediaStreamDataBase
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'quality_index': 0
+    'quality_index': 1
   }
   
   try:
@@ -1796,7 +1787,7 @@ def test_drop_live_core_sdk_pull_default_quality_data_table(db:SocialMediaStream
   ## drop table
   ##
   live_core_sdk_pull_default_quality_data_table = LiveCoreSdkPullDefaultQualityDataTable(db_instance=db)
-  live_core_sdk_pull_default_quality_data_table.drop()
+  live_core_sdk_pull_default_quality_data_table.drop(confirm=True)
   return
 
 ##
@@ -1987,7 +1978,7 @@ def test_drop_stream_push_url_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   stream_push_url_table = StreamPushUrlTable(db_instance=db)
-  stream_push_url_table.drop()
+  stream_push_url_table.drop(confirm=True)
   return
 
 ##
@@ -2030,13 +2021,14 @@ def test_insert_stream_push_url_record(db:SocialMediaStreamDataBase = None):
 
   ##
   ## insert a sample record
+  ## 'push_url_index' auto increment
   ##
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'stream_id': '691500607505433258',
-    'push_url_index': 0
+    'stream_url_id': '691500607505433258',
+    'push_url': 'abc'
   }
   
   try:
@@ -2069,7 +2061,7 @@ def test_delete_stream_push_url_record(db:SocialMediaStreamDataBase = None):
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'stream_id': '691500607505433258',
+    'stream_url_id': '691500607505433258',
     'push_url_index': 0
   }
   
@@ -2103,7 +2095,7 @@ def test_update_stream_push_url_record(db:SocialMediaStreamDataBase = None):
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'stream_id': '691500607505433258',
+    'stream_url_id': '691500607505433258',
     'push_url_index': 0,
     'push_url': 'TBD'
   }
@@ -2138,7 +2130,7 @@ def test_get_stream_push_url_record(db:SocialMediaStreamDataBase = None):
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'stream_id': '691500607505433258',
+    'stream_url_id': '691500607505433258',
     'push_url_index': 0
   }
   

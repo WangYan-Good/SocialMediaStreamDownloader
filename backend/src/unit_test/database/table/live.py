@@ -49,7 +49,7 @@ def test_drop_live_record_table(db:SocialMediaStreamDataBase = None):
   ## drop live_record table
   ##
   live_record = LiveRecordTable(db_instance=db)
-  live_record.drop()
+  live_record.drop(confirm=True)
   return
 
 ##

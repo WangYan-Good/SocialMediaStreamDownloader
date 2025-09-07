@@ -72,7 +72,7 @@ def test_drop_room_attribute_table(db:SocialMediaStreamDataBase = None):
   ## drop room_attribute table
   ##
   room_attribute = RoomAttributeTable(db)
-  room_attribute.drop()
+  room_attribute.drop(confirm=True)
   return
 
 ##
@@ -256,7 +256,7 @@ def test_drop_room_pack_meta_table(db:SocialMediaStreamDataBase = None):
   ## drop room pack meta table
   ##
   room_pack_meta = RoomPackMetaTable(db_instance=db)
-  room_pack_meta.drop()
+  room_pack_meta.drop(confirm=True)
   return
 
 ##
@@ -459,7 +459,7 @@ def test_drop_room_paid_live_data(db:SocialMediaStreamDataBase = None):
   ## drop room pack meta table
   ##
   room_room_paid_live_data = RoomPaidLiveDataTable(db_instance=db)
-  room_room_paid_live_data.drop()
+  room_room_paid_live_data.drop(confirm=True)
   return
 
 ##
@@ -652,7 +652,7 @@ def test_drop_room_auth_data(db:SocialMediaStreamDataBase = None):
   ## drop room pack meta table
   ##
   room_auth = RoomAuthTable(db_instance=db)
-  room_auth.drop()
+  room_auth.drop(confirm=True)
   return
 
 ##
@@ -845,7 +845,7 @@ def test_drop_room_admin_user_id_data(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   room_admin_user_id = RoomAdminUserIdTable(db_instance=db)
-  room_admin_user_id.drop()
+  room_admin_user_id.drop(confirm=True)
   return
 
 ##
@@ -888,12 +888,12 @@ def test_insert_room_admin_user_id_record(db:SocialMediaStreamDataBase = None):
   
   ##
   ## insert a sample record
+  ## 'admin_user_id_index' auto increment
   ##
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'admin_user_id_index': 0
+    'room_id': '7411524533301119798'
   }
   
   try:
@@ -926,7 +926,7 @@ def test_delete_room_admin_user_id_record(db:SocialMediaStreamDataBase = None):
     'now':dat.fromtimestamp(1740301577026/1000.0),
     'platform':'douyin',
     'room_id':'7411524533301119798',
-    'admin_user_id_index': 0
+    'admin_user_id_index': 1
   }
   
   try:
@@ -959,7 +959,7 @@ def test_update_room_admin_user_id_record(db:SocialMediaStreamDataBase = None):
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'admin_user_id_index':0,
+    'admin_user_id_index':1,
     'admin_user_id':'123456789'
   }
   
@@ -993,7 +993,7 @@ def test_get_room_admin_user_id_record(db:SocialMediaStreamDataBase = None):
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'admin_user_id_index': 0
+    'admin_user_id_index': 1
   }
   
   try:
@@ -1040,7 +1040,7 @@ def test_drop_room_admin_user_open_id_data(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   room_admin_user_open_id = RoomAdminUserOpenIdTable(db_instance=db)
-  room_admin_user_open_id.drop()
+  room_admin_user_open_id.drop(confirm=True)
   return
 
 ##
@@ -1083,12 +1083,12 @@ def test_insert_room_admin_user_open_id_record(db:SocialMediaStreamDataBase = No
   
   ##
   ## insert a sample record
+  ## 'admin_user_open_index': auto increment
   ##
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'admin_user_open_index': 0
+    'room_id': '7411524533301119798'
   }
   
   try:
@@ -1121,7 +1121,7 @@ def test_delete_room_admin_user_open_id_record(db:SocialMediaStreamDataBase = No
     'now':dat.fromtimestamp(1740301577026/1000.0),
     'platform':'douyin',
     'room_id':'7411524533301119798',
-    'admin_user_open_index': 0
+    'admin_user_open_id_index': 1
   }
   
   try:
@@ -1154,7 +1154,7 @@ def test_update_room_admin_user_open_id_record(db:SocialMediaStreamDataBase = No
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'admin_user_open_index':0,
+    'admin_user_open_id_index':1,
     'admin_user_open_id':'123456789'
   }
   
@@ -1188,7 +1188,7 @@ def test_get_room_admin_user_open_id_record(db:SocialMediaStreamDataBase = None)
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'admin_user_open_index': 0
+    'admin_user_open_id_index':1
   }
   
   try:
@@ -1235,7 +1235,7 @@ def test_drop_room_assist_label_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   room_assist_label = RoomAssistLabelTable(db_instance=db)
-  room_assist_label.drop()
+  room_assist_label.drop(confirm=True)
   return
 
 ##
@@ -1314,7 +1314,8 @@ def test_delete_room_assist_label_record(db:SocialMediaStreamDataBase = None):
   sample_record = {
     'now':dat.fromtimestamp(1740301577026/1000.0),
     'platform':'douyin',
-    'room_id':'7411524533301119798'
+    'room_id':'7411524533301119798',
+    'assist_label_index': 1
   }
   
   try:
@@ -1347,7 +1348,7 @@ def test_update_room_assist_label_record(db:SocialMediaStreamDataBase = None):
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'assist_label_index':0,
+    'assist_label_index':1,
     'assist_label':'owner'
   }
   
@@ -1380,7 +1381,8 @@ def test_get_room_assist_label_record(db:SocialMediaStreamDataBase = None):
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798'
+    'room_id': '7411524533301119798',
+    'assist_label_index': 1
   }
   
   try:
@@ -1427,7 +1429,7 @@ def test_drop_fans_group_admin_user_id_table(db:SocialMediaStreamDataBase = None
   ## drop table
   ##
   fans_group_admin_user_id = FansGroupAdminUserIdTable(db_instance=db)
-  fans_group_admin_user_id.drop()
+  fans_group_admin_user_id.drop(confirm=True)
   return
 
 ##
@@ -1474,8 +1476,7 @@ def test_insert_fans_group_admin_user_id_record(db:SocialMediaStreamDataBase = N
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'fans_group_admin_user_id_index':0
+    'room_id': '7411524533301119798'
   }
   
   try:
@@ -1508,7 +1509,7 @@ def test_delete_fans_group_admin_user_id_record(db:SocialMediaStreamDataBase = N
     'now':dat.fromtimestamp(1740301577026/1000.0),
     'platform':'douyin',
     'room_id':'7411524533301119798',
-    'fans_group_admin_user_id_index':0
+    'fans_group_admin_user_id_index':1
   }
   
   try:
@@ -1541,7 +1542,7 @@ def test_update_fans_group_admin_user_id_record(db:SocialMediaStreamDataBase = N
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'fans_group_admin_user_id_index':0,
+    'fans_group_admin_user_id_index':1,
     'fans_group_admin_user_id':'123456789'
   }
   
@@ -1575,7 +1576,7 @@ def test_get_fans_group_admin_user_id_record(db:SocialMediaStreamDataBase = None
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'fans_group_admin_user_id_index':0
+    'fans_group_admin_user_id_index':1
   }
   
   try:
@@ -1622,7 +1623,7 @@ def test_drop_fans_group_admin_user_open_id_table(db:SocialMediaStreamDataBase =
   ## drop table
   ##
   fans_group_admin_user_open_id = FansGroupAdminUserOpenIdTable(db_instance=db)
-  fans_group_admin_user_open_id.drop()
+  fans_group_admin_user_open_id.drop(confirm=True)
   return
 
 ##
@@ -1669,8 +1670,7 @@ def test_insert_fans_group_admin_user_open_id_record(db:SocialMediaStreamDataBas
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'fans_group_admin_user_open_id_index': 0
+    'room_id': '7411524533301119798'
   }
   
   try:
@@ -1703,7 +1703,7 @@ def test_delete_fans_group_admin_user_open_id_record(db:SocialMediaStreamDataBas
     'now':dat.fromtimestamp(1740301577026/1000.0),
     'platform':'douyin',
     'room_id':'7411524533301119798',
-    'fans_group_admin_user_open_id_index': 0
+    'fans_group_admin_user_open_id_index': 1
   }
   
   try:
@@ -1736,7 +1736,7 @@ def test_update_fans_group_admin_user_open_id_record(db:SocialMediaStreamDataBas
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'fans_group_admin_user_open_id_index':0,
+    'fans_group_admin_user_open_id_index':1,
     'fans_group_admin_user_open_id':'123456789'
   }
   
@@ -1770,7 +1770,7 @@ def test_get_fans_group_admin_user_open_id_record(db:SocialMediaStreamDataBase =
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'fans_group_admin_user_open_id_index': 0
+    'fans_group_admin_user_open_id_index': 1
   }
   
   try:
@@ -1817,7 +1817,7 @@ def test_drop_room_subscribe_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   room_subscribe = RoomSubscribeTable(db_instance=db)
-  room_subscribe.drop()
+  room_subscribe.drop(confirm=True)
   return
 
 ##
@@ -2013,7 +2013,7 @@ def test_drop_room_short_touch_area_config_table(db:SocialMediaStreamDataBase = 
   ## drop table
   ##
   room_short_touch_area_config = RoomShortTouchAreaConfigTable(db_instance=db)
-  room_short_touch_area_config.drop()
+  room_short_touch_area_config.drop(confirm=True)
   return
 
 ##
@@ -2204,7 +2204,7 @@ def test_drop_room_short_touch_area_config_element_table(db:SocialMediaStreamDat
   ## drop table
   ##
   room_short_touch_area_config_element = RoomShortTouchAreaConfigElementTable(db_instance=db)
-  room_short_touch_area_config_element.drop()
+  room_short_touch_area_config_element.drop(confirm=True)
   return
 
 ##
@@ -2251,8 +2251,7 @@ def test_insert_room_short_touch_area_config_element_record(db:SocialMediaStream
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'element_index': 0
+    'room_id': '7411524533301119798'
   }
   
   try:
@@ -2285,7 +2284,7 @@ def test_delete_room_short_touch_area_config_element_record(db:SocialMediaStream
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'element_index': 0
+    'element_index': 1
   }
   
   try:
@@ -2318,7 +2317,7 @@ def test_update_room_short_touch_area_config_element_record(db:SocialMediaStream
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'element_index': 0,
+    'element_index': 1,
     'priority': 1,
     'type': 3
   }
@@ -2352,8 +2351,7 @@ def test_get_room_short_touch_area_config_element_record(db:SocialMediaStreamDat
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'element_index': 0
+    'room_id': '7411524533301119798'
   }
   
   try:
@@ -2400,7 +2398,7 @@ def test_drop_room_short_touch_area_config_strategy_feat_whitelist_table(db:Soci
   ## drop table
   ##
   room_short_touch_area_config_strategy_feat_whitelist = RoomShortTouchAreaConfigStrategyFeatWhitelistTable(db_instance=db)
-  room_short_touch_area_config_strategy_feat_whitelist.drop()
+  room_short_touch_area_config_strategy_feat_whitelist.drop(confirm=True)
   return
 
 ##
@@ -2447,8 +2445,7 @@ def test_insert_room_short_touch_area_config_strategy_feat_whitelist_record(db:S
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'whitelist_index': 0
+    'room_id': '7411524533301119798'
   }
   
   try:
@@ -2481,7 +2478,7 @@ def test_delete_room_short_touch_area_config_strategy_feat_whitelist_record(db:S
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'whitelist_index': 0
+    'whitelist_index': 1
   }
   
   try:
@@ -2514,7 +2511,7 @@ def test_update_room_short_touch_area_config_strategy_feat_whitelist_record(db:S
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'whitelist_index': 0,
+    'whitelist_index': 1,
     'whitelist_tag': 'abc'
   }
   
@@ -2548,7 +2545,7 @@ def test_get_room_short_touch_area_config_strategy_feat_whitelist_record(db:Soci
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'whitelist_index': 0
+    'whitelist_index': 1
   }
   
   try:
@@ -2595,7 +2592,7 @@ def test_drop_room_temp_state_condition_map_table(db:SocialMediaStreamDataBase =
   ## drop table
   ##
   room_temp_state_condition_map = RoomTempStateConditionMapTable(db_instance=db)
-  room_temp_state_condition_map.drop()
+  room_temp_state_condition_map.drop(confirm=True)
   return
 
 ##
@@ -2642,8 +2639,7 @@ def test_insert_room_temp_state_condition_map_record(db:SocialMediaStreamDataBas
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'map_index': 0
+    'room_id': '7411524533301119798'
   }
   
   try:
@@ -2676,7 +2672,7 @@ def test_delete_room_temp_state_condition_map_record(db:SocialMediaStreamDataBas
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'map_index': 0
+    'map_index': 1
   }
   
   try:
@@ -2709,7 +2705,7 @@ def test_update_room_temp_state_condition_map_record(db:SocialMediaStreamDataBas
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'map_index': 0,
+    'map_index': 1,
     'minimum_gap': 1,
     'priority': 2,
     'strategy_type': 3
@@ -2745,7 +2741,7 @@ def test_get_room_temp_state_condition_map_record(db:SocialMediaStreamDataBase =
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'map_index': 0
+    'map_index': 1
   }
   
   try:
@@ -2792,7 +2788,7 @@ def test_drop_room_temp_state_global_condition_ignore_strategy_type_table(db:Soc
   ## drop table
   ##
   room_temp_state_global_condition_ignore_strategy_type = RoomTempStateGlobalConditionIgnoreStrategyTypeTable(db_instance=db)
-  room_temp_state_global_condition_ignore_strategy_type.drop()
+  room_temp_state_global_condition_ignore_strategy_type.drop(confirm=True)
   return
 
 ##
@@ -2983,7 +2979,7 @@ def test_drop_room_temp_state_global_condition_table(db:SocialMediaStreamDataBas
   ## drop table
   ##
   room_temp_state_global_condition = RoomTempStateGlobalConditionTable(db_instance=db)
-  room_temp_state_global_condition.drop()
+  room_temp_state_global_condition.drop(confirm=True)
   return
 
 ##
@@ -3175,7 +3171,7 @@ def test_drop_room_record_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   room_record = RoomRecordTable(db_instance=db)
-  room_record.drop()
+  room_record.drop(confirm=True)
   return
 
 ##
@@ -3333,1550 +3329,6 @@ def test_get_room_record(db:SocialMediaStreamDataBase = None):
     get_logger().error("failed to retrieve sample {} record: {}".format(room_record.get_name(), e))
     raise e
 
-##
-## >>================================ live stream table test method ===============================>>
-##
-
-def test_create_live_stream_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if db is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table
-  ##
-  live_stream = LiveStreamTable(db_instance=db)
-  live_stream.create()
-  return
-
-##
-## test: drop table
-##
-def test_drop_live_stream_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## drop table
-  ##
-  live_stream = LiveStreamTable(db_instance=db)
-  live_stream.drop()
-  return
-
-##
-## test: check if table exists
-##
-def test_check_live_stream_exists(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-
-  live_stream = LiveStreamTable(db)
-
-  ##
-  ## check if table exists
-  ##
-  if db.is_table_exist(live_stream.get_name()):
-    get_logger().info("{} table exists!".format(live_stream.get_name()))
-  else:
-    get_logger().info("{} table not exists!".format(live_stream.get_name()))
-  return
-
-##
-## test: insert record
-##
-def test_insert_live_stream_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  live_stream = LiveStreamTable(db_instance=db)
-
-  ##
-  ## insert a sample record
-  ##
-  sample_record = {
-    'id': '691500607505433258'
-  }
-  
-  try:
-    live_stream.insert_record(sample_record)
-    get_logger().info("sample record inserted successfully")
-  except Exception as e:
-    get_logger().error("failed to insert sample record: {}".format(e))
-    raise e
-
-##
-## test: delete record
-##
-def test_delete_live_stream_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  live_stream = LiveStreamTable(db_instance=db)
-
-  ##
-  ## delete a sample record
-  ##
-  sample_record = {
-    'id': '691500607505433258'
-  }
-  
-  try:
-    live_stream.delete_record(sample_record)
-    get_logger().info("sample record deleted successfully")
-  except Exception as e:
-    get_logger().error("failed to delete sample record: {}".format(e))
-    raise e
-
-##
-## test: update record
-##
-def test_update_live_stream_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  live_stream = LiveStreamTable(db_instance=db)
-
-  ##
-  ## update a sample record
-  ##
-  sample_record = {
-    'id': '691500607505433258',
-    'hls_pull_url_params': '{"P2PFastOpenDuration":-1500,"BufferDataMs":1000,"FastOpenDuration":-500,"NetworkAdapt":{"HurryStopType":1,"SlowMillisecond":90,"HurryMillisecond":3500,"HurryType":0,"HurryStartMs":4000,"SlowSpeed":1,"HurrySpeed":1.1,"HurryTime":3500,"Enabled":0,"SlowTime":90},"VCodec":"h264","PlayingIntervalMs":20000}'
-  }
-  
-  try:
-    live_stream.update_record(sample_record)
-    get_logger().info("sample record updated successfully")
-  except Exception as e:
-    get_logger().error("failed to update sample record: {}".format(e))
-    raise e
-
-##
-## test: get record
-##
-def test_get_live_stream_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exist
-  ##
-  live_stream = LiveStreamTable(db)
-
-  ##
-  ## get a sample record
-  ##
-  sample_record = {
-    'id': '691500607505433258'
-  }
-  
-  try:
-    record = live_stream.get_record(sample_record)
-    if record:
-      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(live_stream.get_name(), record))
-    else:
-      get_logger().warning("sample {} record not found".format(live_stream.get_name()))
-  except Exception as e:
-    get_logger().error("failed to retrieve sample {} record: {}".format(live_stream.get_name(), e))
-    raise e
-
-##
-## >>================================ stream candidate resolution table test method ===============================>>
-##
-
-def test_create_stream_candidate_resolution_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if db is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table
-  ##
-  stream_candidate_resolution = StreamCandidateResolutionTable(db_instance=db)
-  stream_candidate_resolution.create()
-  return
-
-##
-## test: drop table
-##
-def test_drop_stream_candidate_resolution_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## drop table
-  ##
-  stream_candidate_resolution = StreamCandidateResolutionTable(db_instance=db)
-  stream_candidate_resolution.drop()
-  return
-
-##
-## test: check if table exists
-##
-def test_check_stream_candidate_resolution_exists(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-
-  stream_candidate_resolution = StreamCandidateResolutionTable(db)
-
-  ##
-  ## check if table exists
-  ##
-  if db.is_table_exist(stream_candidate_resolution.get_name()):
-    get_logger().info("{} table exists!".format(stream_candidate_resolution.get_name()))
-  else:
-    get_logger().info("{} table not exists!".format(stream_candidate_resolution.get_name()))
-  return
-
-##
-## test: insert record
-##
-def test_insert_stream_candidate_resolution_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  stream_candidate_resolution = StreamCandidateResolutionTable(db_instance=db)
-
-  ##
-  ## insert a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'stream_id': '691500607505433258',
-    'resolution_index': 0
-  }
-  
-  try:
-    stream_candidate_resolution.insert_record(sample_record)
-    get_logger().info("sample record inserted successfully")
-  except Exception as e:
-    get_logger().error("failed to insert sample record: {}".format(e))
-    raise e
-
-##
-## test: delete record
-##
-def test_delete_stream_candidate_resolution_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  stream_candidate_resolution = StreamCandidateResolutionTable(db_instance=db)
-
-  ##
-  ## delete a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'stream_id': '691500607505433258',
-    'resolution_index': 0
-  }
-  
-  try:
-    stream_candidate_resolution.delete_record(sample_record)
-    get_logger().info("sample record deleted successfully")
-  except Exception as e:
-    get_logger().error("failed to delete sample record: {}".format(e))
-    raise e
-
-##
-## test: update record
-##
-def test_update_stream_candidate_resolution_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  stream_candidate_resolution = StreamCandidateResolutionTable(db_instance=db)
-
-  ##
-  ## update a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'stream_id': '691500607505433258',
-    'resolution_index': 0,
-    'candidate_resolution': 'FULL_HD1'
-  }
-  
-  try:
-    stream_candidate_resolution.update_record(sample_record)
-    get_logger().info("sample record updated successfully")
-  except Exception as e:
-    get_logger().error("failed to update sample record: {}".format(e))
-    raise e
-
-##
-## test: get record
-##
-def test_get_stream_candidate_resolution_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exist
-  ##
-  stream_candidate_resolution = StreamCandidateResolutionTable(db)
-
-  ##
-  ## get a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'stream_id': '691500607505433258',
-    'resolution_index': 0
-  }
-  
-  try:
-    record = stream_candidate_resolution.get_record(sample_record)
-    if record:
-      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(stream_candidate_resolution.get_name(), record))
-    else:
-      get_logger().warning("sample {} record not found".format(stream_candidate_resolution.get_name()))
-  except Exception as e:
-    get_logger().error("failed to retrieve sample {} record: {}".format(stream_candidate_resolution.get_name(), e))
-    raise e
-
-##
-## >>================================ stream complete push url table test method ===============================>>
-##
-
-def test_create_stream_complete_push_url_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if db is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table
-  ##
-  stream_complete_push_url = StreamCompletePushUrlTable(db_instance=db)
-  stream_complete_push_url.create()
-  return
-
-##
-## test: drop table
-##
-def test_drop_stream_complete_push_url_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## drop table
-  ##
-  stream_complete_push_url = StreamCompletePushUrlTable(db_instance=db)
-  stream_complete_push_url.drop()
-  return
-
-##
-## test: check if table exists
-##
-def test_check_stream_complete_push_url_exists(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-
-  stream_complete_push_url = StreamCompletePushUrlTable(db)
-
-  ##
-  ## check if table exists
-  ##
-  if db.is_table_exist(stream_complete_push_url.get_name()):
-    get_logger().info("{} table exists!".format(stream_complete_push_url.get_name()))
-  else:
-    get_logger().info("{} table not exists!".format(stream_complete_push_url.get_name()))
-  return
-
-##
-## test: insert record
-##
-def test_insert_stream_complete_push_url_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  stream_complete_push_url = StreamCompletePushUrlTable(db_instance=db)
-
-  ##
-  ## insert a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'stream_id': '691500607505433258',
-    'complete_push_url_index': 0
-  }
-  
-  try:
-    stream_complete_push_url.insert_record(sample_record)
-    get_logger().info("sample record inserted successfully")
-  except Exception as e:
-    get_logger().error("failed to insert sample record: {}".format(e))
-    raise e
-
-##
-## test: delete record
-##
-def test_delete_stream_complete_push_url_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  stream_complete_push_url = StreamCompletePushUrlTable(db_instance=db)
-
-  ##
-  ## delete a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'stream_id': '691500607505433258',
-    'complete_push_url_index': 0
-  }
-  
-  try:
-    stream_complete_push_url.delete_record(sample_record)
-    get_logger().info("sample record deleted successfully")
-  except Exception as e:
-    get_logger().error("failed to delete sample record: {}".format(e))
-    raise e
-
-##
-## test: update record
-##
-def test_update_stream_complete_push_url_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  stream_complete_push_url = StreamCompletePushUrlTable(db_instance=db)
-
-  ##
-  ## update a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'stream_id': '691500607505433258',
-    'complete_push_url_index': 0,
-    'complete_push_url': 'TBD'
-  }
-  
-  try:
-    stream_complete_push_url.update_record(sample_record)
-    get_logger().info("sample record updated successfully")
-  except Exception as e:
-    get_logger().error("failed to update sample record: {}".format(e))
-    raise e
-
-##
-## test: get record
-##
-def test_get_stream_complete_push_url_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exist
-  ##
-  stream_complete_push_url = StreamCompletePushUrlTable(db)
-
-  ##
-  ## get a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'stream_id': '691500607505433258',
-    'complete_push_url_index': 0
-  }
-  
-  try:
-    record = stream_complete_push_url.get_record(sample_record)
-    if record:
-      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(stream_complete_push_url.get_name(), record))
-    else:
-      get_logger().warning("sample {} record not found".format(stream_complete_push_url.get_name()))
-  except Exception as e:
-    get_logger().error("failed to retrieve sample {} record: {}".format(stream_complete_push_url.get_name(), e))
-    raise e
-
-##
-## >>================================ live core sdk data table test method ===============================>>
-##
-
-def test_create_live_core_sdk_data_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if db is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table
-  ##
-  live_core_sdk_data = LiveCoreSdkDataTable(db_instance=db)
-  live_core_sdk_data.create()
-  return
-
-##
-## test: drop table
-##
-def test_drop_live_core_sdk_data_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## drop table
-  ##
-  live_core_sdk_data = LiveCoreSdkDataTable(db_instance=db)
-  live_core_sdk_data.drop()
-  return
-
-##
-## test: check if table exists
-##
-def test_check_live_core_sdk_data_exists(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-
-  live_core_sdk_data = LiveCoreSdkDataTable(db)
-
-  ##
-  ## check if table exists
-  ##
-  if db.is_table_exist(live_core_sdk_data.get_name()):
-    get_logger().info("{} table exists!".format(live_core_sdk_data.get_name()))
-  else:
-    get_logger().info("{} table not exists!".format(live_core_sdk_data.get_name()))
-  return
-
-##
-## test: insert record
-##
-def test_insert_live_core_sdk_data_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  live_core_sdk_data = LiveCoreSdkDataTable(db_instance=db)
-
-  ##
-  ## insert a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798'
-  }
-  
-  try:
-    live_core_sdk_data.insert_record(sample_record)
-    get_logger().info("sample record inserted successfully")
-  except Exception as e:
-    get_logger().error("failed to insert sample record: {}".format(e))
-    raise e
-
-##
-## test: delete record
-##
-def test_delete_live_core_sdk_data_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  live_core_sdk_data = LiveCoreSdkDataTable(db_instance=db)
-
-  ##
-  ## delete a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798'
-  }
-  
-  try:
-    live_core_sdk_data.delete_record(sample_record)
-    get_logger().info("sample record deleted successfully")
-  except Exception as e:
-    get_logger().error("failed to delete sample record: {}".format(e))
-    raise e
-
-##
-## test: update record
-##
-def test_update_live_core_sdk_data_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  live_core_sdk_data = LiveCoreSdkDataTable(db_instance=db)
-
-  ##
-  ## update a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'size': '100'
-  }
-  
-  try:
-    live_core_sdk_data.update_record(sample_record)
-    get_logger().info("sample record updated successfully")
-  except Exception as e:
-    get_logger().error("failed to update sample record: {}".format(e))
-    raise e
-
-##
-## test: get record
-##
-def test_get_live_core_sdk_data_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exist
-  ##
-  live_core_sdk_data = LiveCoreSdkDataTable(db)
-
-  ##
-  ## get a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798'
-  }
-  
-  try:
-    record = live_core_sdk_data.get_record(sample_record)
-    if record:
-      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(live_core_sdk_data.get_name(), record))
-    else:
-      get_logger().warning("sample {} record not found".format(live_core_sdk_data.get_name()))
-  except Exception as e:
-    get_logger().error("failed to retrieve sample {} record: {}".format(live_core_sdk_data.get_name(), e))
-    raise e
-
-##
-## >>================================ live core sdk pull data table test method ===============================>>
-##
-
-def test_create_live_core_sdk_pull_data_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if db is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table
-  ##
-  live_core_sdk_pull_data = LiveCoreSdkPullDataTable(db_instance=db)
-  live_core_sdk_pull_data.create()
-  return
-
-##
-## test: drop table
-##
-def test_drop_live_core_sdk_pull_data_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## drop table
-  ##
-  live_core_sdk_pull_data = LiveCoreSdkPullDataTable(db_instance=db)
-  live_core_sdk_pull_data.drop()
-  return
-
-##
-## test: check if table exists
-##
-def test_check_live_core_sdk_pull_data_exists(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-
-  live_core_sdk_pull_data = LiveCoreSdkPullDataTable(db)
-
-  ##
-  ## check if table exists
-  ##
-  if db.is_table_exist(live_core_sdk_pull_data.get_name()):
-    get_logger().info("{} table exists!".format(live_core_sdk_pull_data.get_name()))
-  else:
-    get_logger().info("{} table not exists!".format(live_core_sdk_pull_data.get_name()))
-  return
-
-##
-## test: insert record
-##
-def test_insert_live_core_sdk_pull_data_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  live_core_sdk_pull_data = LiveCoreSdkPullDataTable(db_instance=db)
-
-  ##
-  ## insert a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798'
-  }
-  
-  try:
-    live_core_sdk_pull_data.insert_record(sample_record)
-    get_logger().info("sample record inserted successfully")
-  except Exception as e:
-    get_logger().error("failed to insert sample record: {}".format(e))
-    raise e
-
-##
-## test: delete record
-##
-def test_delete_live_core_sdk_pull_data_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  live_core_sdk_pull_data = LiveCoreSdkPullDataTable(db_instance=db)
-
-  ##
-  ## delete a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798'
-  }
-  
-  try:
-    live_core_sdk_pull_data.delete_record(sample_record)
-    get_logger().info("sample record deleted successfully")
-  except Exception as e:
-    get_logger().error("failed to delete sample record: {}".format(e))
-    raise e
-
-##
-## test: update record
-##
-def test_update_live_core_sdk_pull_data_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  live_core_sdk_pull_data = LiveCoreSdkPullDataTable(db_instance=db)
-
-  ##
-  ## update a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'version': 'abc'
-  }
-  
-  try:
-    live_core_sdk_pull_data.update_record(sample_record)
-    get_logger().info("sample record updated successfully")
-  except Exception as e:
-    get_logger().error("failed to update sample record: {}".format(e))
-    raise e
-
-##
-## test: get record
-##
-def test_get_live_core_sdk_pull_data_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exist
-  ##
-  live_core_sdk_pull_data = LiveCoreSdkPullDataTable(db)
-
-  ##
-  ## get a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798'
-  }
-  
-  try:
-    record = live_core_sdk_pull_data.get_record(sample_record)
-    if record:
-      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(live_core_sdk_pull_data.get_name(), record))
-    else:
-      get_logger().warning("sample {} record not found".format(live_core_sdk_pull_data.get_name()))
-  except Exception as e:
-    get_logger().error("failed to retrieve sample {} record: {}".format(live_core_sdk_pull_data.get_name(), e))
-    raise e
-
-##
-## >>================================ live core sdk pull Flv data table test method ===============================>>
-##
-
-def test_create_live_core_sdk_pull_flv_data_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if db is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table
-  ##
-  live_core_sdk_pull_flv_data = LiveCoreSdkPullFlvDataTable(db_instance=db)
-  live_core_sdk_pull_flv_data.create()
-  return
-
-##
-## test: drop table
-##
-def test_drop_live_core_sdk_pull_flv_data_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## drop table
-  ##
-  live_core_sdk_pull_flv_data = LiveCoreSdkPullFlvDataTable(db_instance=db)
-  live_core_sdk_pull_flv_data.drop()
-  return
-
-##
-## test: check if table exists
-##
-def test_check_live_core_sdk_pull_flv_data_exists(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-
-  live_core_sdk_pull_flv_data = LiveCoreSdkPullFlvDataTable(db)
-
-  ##
-  ## check if table exists
-  ##
-  if db.is_table_exist(live_core_sdk_pull_flv_data.get_name()):
-    get_logger().info("{} table exists!".format(live_core_sdk_pull_flv_data.get_name()))
-  else:
-    get_logger().info("{} table not exists!".format(live_core_sdk_pull_flv_data.get_name()))
-  return
-
-##
-## test: insert record
-##
-def test_insert_live_core_sdk_pull_flv_data_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  live_core_sdk_pull_flv_data = LiveCoreSdkPullFlvDataTable(db_instance=db)
-
-  ##
-  ## insert a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'Flv_index': 0
-  }
-  
-  try:
-    live_core_sdk_pull_flv_data.insert_record(sample_record)
-    get_logger().info("sample record inserted successfully")
-  except Exception as e:
-    get_logger().error("failed to insert sample record: {}".format(e))
-    raise e
-
-##
-## test: delete record
-##
-def test_delete_live_core_sdk_pull_flv_data_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  live_core_sdk_pull_flv_data = LiveCoreSdkPullFlvDataTable(db_instance=db)
-
-  ##
-  ## delete a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'Flv_index': 0
-  }
-  
-  try:
-    live_core_sdk_pull_flv_data.delete_record(sample_record)
-    get_logger().info("sample record deleted successfully")
-  except Exception as e:
-    get_logger().error("failed to delete sample record: {}".format(e))
-    raise e
-
-##
-## test: update record
-##
-def test_update_live_core_sdk_pull_flv_data_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  live_core_sdk_pull_flv_data = LiveCoreSdkPullFlvDataTable(db_instance=db)
-
-  ##
-  ## update a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'Flv_index': 0,
-    'Flv': 'abc'
-  }
-  
-  try:
-    live_core_sdk_pull_flv_data.update_record(sample_record)
-    get_logger().info("sample record updated successfully")
-  except Exception as e:
-    get_logger().error("failed to update sample record: {}".format(e))
-    raise e
-
-##
-## test: get record
-##
-def test_get_live_core_sdk_pull_flv_data_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exist
-  ##
-  live_core_sdk_pull_flv_data = LiveCoreSdkPullFlvDataTable(db)
-
-  ##
-  ## get a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'Flv_index': 0,
-  }
-  
-  try:
-    record = live_core_sdk_pull_flv_data.get_record(sample_record)
-    if record:
-      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(live_core_sdk_pull_flv_data.get_name(), record))
-    else:
-      get_logger().warning("sample {} record not found".format(live_core_sdk_pull_flv_data.get_name()))
-  except Exception as e:
-    get_logger().error("failed to retrieve sample {} record: {}".format(live_core_sdk_pull_flv_data.get_name(), e))
-    raise e
-
-##
-## >>================================ live core sdk pull Hls data table test method ===============================>>
-##
-
-def test_create_live_core_sdk_pull_hls_data_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if db is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table
-  ##
-  live_core_sdk_pull_hls_data = LiveCoreSdkPullHlsDataTable(db_instance=db)
-  live_core_sdk_pull_hls_data.create()
-  return
-
-##
-## test: drop table
-##
-def test_drop_live_core_sdk_pull_hls_data_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## drop table
-  ##
-  live_core_sdk_pull_hls_data = LiveCoreSdkPullHlsDataTable(db_instance=db)
-  live_core_sdk_pull_hls_data.drop()
-  return
-
-##
-## test: check if table exists
-##
-def test_check_live_core_sdk_pull_hls_data_exists(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-
-  live_core_sdk_pull_hls_data = LiveCoreSdkPullHlsDataTable(db)
-
-  ##
-  ## check if table exists
-  ##
-  if db.is_table_exist(live_core_sdk_pull_hls_data.get_name()):
-    get_logger().info("{} table exists!".format(live_core_sdk_pull_hls_data.get_name()))
-  else:
-    get_logger().info("{} table not exists!".format(live_core_sdk_pull_hls_data.get_name()))
-  return
-
-##
-## test: insert record
-##
-def test_insert_live_core_sdk_pull_hls_data_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  live_core_sdk_pull_hls_data = LiveCoreSdkPullHlsDataTable(db_instance=db)
-
-  ##
-  ## insert a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'Hls_index': 0
-  }
-  
-  try:
-    live_core_sdk_pull_hls_data.insert_record(sample_record)
-    get_logger().info("sample record inserted successfully")
-  except Exception as e:
-    get_logger().error("failed to insert sample record: {}".format(e))
-    raise e
-
-##
-## test: delete record
-##
-def test_delete_live_core_sdk_pull_hls_data_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  live_core_sdk_pull_hls_data = LiveCoreSdkPullHlsDataTable(db_instance=db)
-
-  ##
-  ## delete a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'Hls_index': 0
-  }
-  
-  try:
-    live_core_sdk_pull_hls_data.delete_record(sample_record)
-    get_logger().info("sample record deleted successfully")
-  except Exception as e:
-    get_logger().error("failed to delete sample record: {}".format(e))
-    raise e
-
-##
-## test: update record
-##
-def test_update_live_core_sdk_pull_hls_data_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  live_core_sdk_pull_hls_data = LiveCoreSdkPullHlsDataTable(db_instance=db)
-
-  ##
-  ## update a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'Hls_index': 0,
-    'Hls': 'abc'
-  }
-  
-  try:
-    live_core_sdk_pull_hls_data.update_record(sample_record)
-    get_logger().info("sample record updated successfully")
-  except Exception as e:
-    get_logger().error("failed to update sample record: {}".format(e))
-    raise e
-
-##
-## test: get record
-##
-def test_get_live_core_sdk_pull_hls_data_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exist
-  ##
-  live_core_sdk_pull_hls_data = LiveCoreSdkPullHlsDataTable(db)
-
-  ##
-  ## get a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'Hls_index': 0,
-  }
-  
-  try:
-    record = live_core_sdk_pull_hls_data.get_record(sample_record)
-    if record:
-      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(live_core_sdk_pull_hls_data.get_name(), record))
-    else:
-      get_logger().warning("sample {} record not found".format(live_core_sdk_pull_hls_data.get_name()))
-  except Exception as e:
-    get_logger().error("failed to retrieve sample {} record: {}".format(live_core_sdk_pull_hls_data.get_name(), e))
-    raise e
-
-##
-## >>================================ live core sdk pull data option table test method ===============================>>
-##
-
-def test_create_live_core_sdk_pull_data_option_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if db is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table
-  ##
-  live_core_sdk_pull_data_option = LiveCoreSdkPullDataOptionTable(db_instance=db)
-  live_core_sdk_pull_data_option.create()
-  return
-
-##
-## test: drop table
-##
-def test_drop_live_core_sdk_pull_data_option_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## drop table
-  ##
-  live_core_sdk_pull_data_option = LiveCoreSdkPullDataOptionTable(db_instance=db)
-  live_core_sdk_pull_data_option.drop()
-  return
-
-##
-## test: check if table exists
-##
-def test_check_live_core_sdk_pull_data_option_exists(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-
-  live_core_sdk_pull_data_option = LiveCoreSdkPullDataOptionTable(db)
-
-  ##
-  ## check if table exists
-  ##
-  if db.is_table_exist(live_core_sdk_pull_data_option.get_name()):
-    get_logger().info("{} table exists!".format(live_core_sdk_pull_data_option.get_name()))
-  else:
-    get_logger().info("{} table not exists!".format(live_core_sdk_pull_data_option.get_name()))
-  return
-
-##
-## test: insert record
-##
-def test_insert_live_core_sdk_pull_data_option_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  live_core_sdk_pull_data_option = LiveCoreSdkPullDataOptionTable(db_instance=db)
-
-  ##
-  ## insert a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798'
-  }
-  
-  try:
-    live_core_sdk_pull_data_option.insert_record(sample_record)
-    get_logger().info("sample record inserted successfully")
-  except Exception as e:
-    get_logger().error("failed to insert sample record: {}".format(e))
-    raise e
-
-##
-## test: delete record
-##
-def test_delete_live_core_sdk_pull_data_option_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  live_core_sdk_pull_data_option = LiveCoreSdkPullDataOptionTable(db_instance=db)
-
-  ##
-  ## delete a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798'
-  }
-  
-  try:
-    live_core_sdk_pull_data_option.delete_record(sample_record)
-    get_logger().info("sample record deleted successfully")
-  except Exception as e:
-    get_logger().error("failed to delete sample record: {}".format(e))
-    raise e
-
-##
-## test: update record
-##
-def test_update_live_core_sdk_pull_data_option_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  live_core_sdk_pull_data_option = LiveCoreSdkPullDataOptionTable(db_instance=db)
-
-  ##
-  ## update a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'vpass_default': False
-  }
-  
-  try:
-    live_core_sdk_pull_data_option.update_record(sample_record)
-    get_logger().info("sample record updated successfully")
-  except Exception as e:
-    get_logger().error("failed to update sample record: {}".format(e))
-    raise e
-
-##
-## test: get record
-##
-def test_get_live_core_sdk_pull_data_option_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exist
-  ##
-  live_core_sdk_pull_data_option = LiveCoreSdkPullDataOptionTable(db)
-
-  ##
-  ## get a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'Hls_index': 0,
-  }
-  
-  try:
-    record = live_core_sdk_pull_data_option.get_record(sample_record)
-    if record:
-      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(live_core_sdk_pull_data_option.get_name(), record))
-    else:
-      get_logger().warning("sample {} record not found".format(live_core_sdk_pull_data_option.get_name()))
-  except Exception as e:
-    get_logger().error("failed to retrieve sample {} record: {}".format(live_core_sdk_pull_data_option.get_name(), e))
-    raise e
 """
 ##
 ## >>================================ room record table test method ===============================>>
@@ -4912,7 +3364,7 @@ def test_drop_room_record_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   room_record = RoomRecordTable(db_instance=db)
-  room_record.drop()
+  room_record.drop(confirm=True)
   return
 
 ##
@@ -5103,7 +3555,7 @@ def test_drop_room_tag_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   room_tag = RoomTagTable(db_instance=db)
-  room_tag.drop()
+  room_tag.drop(confirm=True)
   return
 
 ##
@@ -5150,8 +3602,7 @@ def test_insert_room_tag_record(db:SocialMediaStreamDataBase = None):
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'tag_index': 0
+    'room_id': '7411524533301119798'
   }
   
   try:
@@ -5184,7 +3635,7 @@ def test_delete_room_tag_record(db:SocialMediaStreamDataBase = None):
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'tag_index': 0
+    'tag_index': 1
   }
   
   try:
@@ -5217,7 +3668,7 @@ def test_update_room_tag_record(db:SocialMediaStreamDataBase = None):
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'tag_index': 0,
+    'tag_index': 1,
     'tag': 'helloworld'
   }
   
@@ -5251,7 +3702,7 @@ def test_get_room_tag_record(db:SocialMediaStreamDataBase = None):
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'tag_index': 0
+    'tag_index': 1
   }
   
   try:
@@ -5298,7 +3749,7 @@ def test_drop_room_top_fans_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   room_top_fans = RoomTopFansTable(db_instance=db)
-  room_top_fans.drop()
+  room_top_fans.drop(confirm=True)
   return
 
 ##
@@ -5345,8 +3796,7 @@ def test_insert_room_top_fans_record(db:SocialMediaStreamDataBase = None):
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'fans_index': 0
+    'room_id': '7411524533301119798'
   }
   
   try:
@@ -5379,7 +3829,7 @@ def test_delete_room_top_fans_record(db:SocialMediaStreamDataBase = None):
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'fans_index': 0
+    'fans_index': 1
   }
   
   try:
@@ -5412,7 +3862,7 @@ def test_update_room_top_fans_record(db:SocialMediaStreamDataBase = None):
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'fans_index': 0,
+    'fans_index': 1,
     'top_fans': 'TBD'
   }
   
@@ -5446,7 +3896,7 @@ def test_get_room_top_fans_record(db:SocialMediaStreamDataBase = None):
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'fans_index': 0
+    'fans_index': 1
   }
   
   try:
@@ -5500,7 +3950,7 @@ if __name__ == "__main__":
   test_delete_room_paid_live_data_record(db)
   test_drop_room_paid_live_data(db)
   test_check_room_paid_live_data_exists(db)
-  
+
   ##
   ## room auth table
   ##
@@ -5512,6 +3962,11 @@ if __name__ == "__main__":
   test_get_room_auth_record(db)
   test_drop_room_auth_data(db)
   test_check_room_auth_exists(db)
+
+  ##
+  ## RoomTabTable
+  ## TBD
+  ##
 
   ##
   ## room admin user id table
@@ -5540,9 +3995,10 @@ if __name__ == "__main__":
   test_check_room_admin_user_open_id_exists(db)
   test_drop_room_admin_user_open_id_data(db)
   test_check_room_admin_user_open_id_exists(db)
-
+  """
   ##
   ## room assist label table
+  ## TBD
   ##
   test_create_room_assist_label_table(db)
   test_check_room_assist_label_exists(db)
@@ -5554,6 +4010,12 @@ if __name__ == "__main__":
   test_get_room_assist_label_record(db)
   test_drop_room_assist_label_table(db)
   test_check_room_assist_label_exists(db)
+  
+  ##
+  ## room deco table
+  ## TBD
+  ##
+  """
 
   ##
   ## fans group admin user id table
@@ -5696,132 +4158,6 @@ if __name__ == "__main__":
   test_check_room_record_exists(db)
 
   ##
-  ## live stream table
-  ##
-  test_create_live_stream_table(db)
-  test_check_live_stream_exists(db)
-  test_insert_live_stream_record(db)
-  test_get_live_stream_record(db)
-  test_update_live_stream_record(db)
-  test_get_live_stream_record(db)
-  test_delete_live_stream_record(db)
-  test_get_live_stream_record(db)
-  test_drop_live_stream_table(db)
-  test_check_live_stream_exists(db)
-
-  ##
-  ## stream candidate resolution
-  ##
-  test_create_stream_candidate_resolution_table(db)
-  test_check_stream_candidate_resolution_exists(db)
-  test_insert_stream_candidate_resolution_record(db)
-  test_get_stream_candidate_resolution_record(db)
-  test_update_stream_candidate_resolution_record(db)
-  test_get_stream_candidate_resolution_record(db)
-  test_delete_stream_candidate_resolution_record(db)
-  test_get_stream_candidate_resolution_record(db)
-  test_drop_stream_candidate_resolution_table(db)
-  test_check_stream_candidate_resolution_exists(db)
-
-  ##
-  ## stream complete push url
-  ##
-  test_create_stream_complete_push_url_table(db)
-  test_check_stream_complete_push_url_exists(db)
-  test_insert_stream_complete_push_url_record(db)
-  test_get_stream_complete_push_url_record(db)
-  test_update_stream_complete_push_url_record(db)
-  test_get_stream_complete_push_url_record(db)
-  test_delete_stream_complete_push_url_record(db)
-  test_get_stream_complete_push_url_record(db)
-  test_drop_stream_complete_push_url_table(db)
-  test_check_stream_complete_push_url_exists(db)
-
-  ##
-  ## live core sdk data table
-  ##
-  test_create_live_core_sdk_data_table(db)
-  test_check_live_core_sdk_data_exists(db)
-  test_insert_live_core_sdk_data_record(db)
-  test_get_live_core_sdk_data_record(db)
-  test_update_live_core_sdk_data_record(db)
-  test_get_live_core_sdk_data_record(db)
-  test_delete_live_core_sdk_data_record(db)
-  test_get_live_core_sdk_data_record(db)
-  test_drop_live_core_sdk_data_table(db)
-  test_check_live_core_sdk_data_exists(db)
-
-  ##
-  ## live core sdk pull data table
-  ##
-  test_create_live_core_sdk_pull_data_table(db)
-  test_check_live_core_sdk_pull_data_exists(db)
-  test_insert_live_core_sdk_pull_data_record(db)
-  test_get_live_core_sdk_pull_data_record(db)
-  test_update_live_core_sdk_pull_data_record(db)
-  test_get_live_core_sdk_pull_data_record(db)
-  test_delete_live_core_sdk_pull_data_record(db)
-  test_get_live_core_sdk_pull_data_record(db)
-  test_drop_live_core_sdk_pull_data_table(db)
-  test_check_live_core_sdk_pull_data_exists(db)
-
-  ##
-  ## live core sdk pull flv data table
-  ##
-  test_create_live_core_sdk_pull_flv_data_table(db)
-  test_check_live_core_sdk_pull_flv_data_exists(db)
-  test_insert_live_core_sdk_pull_flv_data_record(db)
-  test_get_live_core_sdk_pull_flv_data_record(db)
-  test_update_live_core_sdk_pull_flv_data_record(db)
-  test_get_live_core_sdk_pull_flv_data_record(db)
-  test_delete_live_core_sdk_pull_flv_data_record(db)
-  test_get_live_core_sdk_pull_flv_data_record(db)
-  test_drop_live_core_sdk_pull_flv_data_table(db)
-  test_check_live_core_sdk_pull_flv_data_exists(db)
-
-  ##
-  ## live core sdk pull hls data table
-  ##
-  test_create_live_core_sdk_pull_hls_data_table(db)
-  test_check_live_core_sdk_pull_hls_data_exists(db)
-  test_insert_live_core_sdk_pull_hls_data_record(db)
-  test_get_live_core_sdk_pull_hls_data_record(db)
-  test_update_live_core_sdk_pull_hls_data_record(db)
-  test_get_live_core_sdk_pull_hls_data_record(db)
-  test_delete_live_core_sdk_pull_hls_data_record(db)
-  test_get_live_core_sdk_pull_hls_data_record(db)
-  test_drop_live_core_sdk_pull_hls_data_table(db)
-  test_check_live_core_sdk_pull_hls_data_exists(db)
-
-  ##
-  ## live core sdk pull data option table
-  ##
-  test_create_live_core_sdk_pull_data_option_table(db)
-  test_check_live_core_sdk_pull_data_option_exists(db)
-  test_insert_live_core_sdk_pull_data_option_record(db)
-  test_get_live_core_sdk_pull_data_option_record(db)
-  test_update_live_core_sdk_pull_data_option_record(db)
-  test_get_live_core_sdk_pull_data_option_record(db)
-  test_delete_live_core_sdk_pull_data_option_record(db)
-  test_get_live_core_sdk_pull_data_option_record(db)
-  test_drop_live_core_sdk_pull_data_option_table(db)
-  test_check_live_core_sdk_pull_data_option_exists(db)
-
-  ##
-  ## room record table
-  ##
-  test_create_room_record_table(db)
-  test_check_room_record_exists(db)
-  test_insert_room_record(db)
-  test_get_room_record(db)
-  test_update_room_record(db)
-  test_get_room_record(db)
-  test_delete_room_record(db)
-  test_get_room_record(db)
-  test_drop_room_record_table(db)
-  test_check_room_record_exists(db)
-
-  ##
   ## room tag table
   ##
   test_create_room_tag_table(db)
@@ -5835,6 +4171,7 @@ if __name__ == "__main__":
   test_drop_room_tag_table(db)
   test_check_room_tag_exists(db)
 
+  """
   ##
   ## TODO: room top fans table
   ##
@@ -5848,3 +4185,4 @@ if __name__ == "__main__":
   test_get_room_top_fans_record(db)
   test_drop_room_top_fans_table(db)
   test_check_room_top_fans_exists(db)
+  """

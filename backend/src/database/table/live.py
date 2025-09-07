@@ -33,6 +33,7 @@ class LiveRecordTable(SocialMediaStreamDataTable):
   __LIVE_RECORD_TABLE_NAME       = 'live_record'
   __LIVE_RECORD_TABLE_HEADER     = ['now', 'platform', 'room_id', 'user_id', 'start_time', 'finish_time', 'status_code']
   __LIVE_RECORD_TABLE_PRI_KEY    = ['now', 'platform', 'room_id']
+  __TABLE_AUTO_INCREMENT         = []
   __LIVE_RECORD_TABLE_TUPLE      = {item:None for item in __LIVE_RECORD_TABLE_HEADER}
   __SQL_CREATE_LIVE_RECORD_TABLE = '''
                                     CREATE TABLE IF NOT EXISTS {} (
@@ -92,6 +93,12 @@ class LiveRecordTable(SocialMediaStreamDataTable):
     return self.__LIVE_RECORD_TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
   ## get SQL command of create table
   ##
   def get_create_sql_cmd(self) -> str:
@@ -102,4 +109,11 @@ class LiveRecordTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_LIVE_RECORD_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
 

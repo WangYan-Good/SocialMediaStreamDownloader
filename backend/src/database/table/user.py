@@ -163,6 +163,7 @@ class RoomOwnerTable(SocialMediaStreamDataTable):
                                    'with_commerce_permission',                 'with_fusion_shop_entry'
                                    ]
   __ROOM_OWNER_TABLE_PRI_KEY    = ['now','platform','room_id', 'owner_user_id']
+  __TABLE_AUTO_INCREMENT        = []
   __ROOM_OWNER_TABLE_TUPLE      = {item:None for item in __ROOM_OWNER_TABLE_HEADER}
   __SQL_CREATE_ROOM_OWNER_TABLE = '''
                                   CREATE TABLE IF NOT EXISTS {} (
@@ -331,6 +332,12 @@ class RoomOwnerTable(SocialMediaStreamDataTable):
     return self.__ROOM_OWNER_TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
   ## get SQL command of create table
   ##
   def get_create_sql_cmd(self) -> str:
@@ -341,6 +348,13 @@ class RoomOwnerTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_ROOM_OWNER_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
 
 ##
 ## fans club
@@ -376,6 +390,7 @@ class FansClubTable(SocialMediaStreamDataTable):
                                   'user_guard_status',  'prefer_data'
                                    ]
   __FANS_CLUB_TABLE_PRI_KEY    = ['now', 'platform', 'owner_user_id', 'anchor_id']
+  __TABLE_AUTO_INCREMENT       = []
   __FANS_CLUB_TABLE_TUPLE      = {item:None for item in __FANS_CLUB_TABLE_HEADER}
   __SQL_CREATE_FANS_CLUB_TABLE = '''
                                  CREATE TABLE IF NOT EXISTS {} (
@@ -442,6 +457,12 @@ class FansClubTable(SocialMediaStreamDataTable):
     return self.__FANS_CLUB_TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
   ## get SQL command of create table
   ##
   def get_create_sql_cmd(self) -> str:
@@ -452,6 +473,13 @@ class FansClubTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_FANS_CLUB_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
 
 ##
 ## data.room.owner.fans_club.data.available_gift_ids
@@ -464,7 +492,7 @@ class FansClubTable(SocialMediaStreamDataTable):
 ## | room_id              | varchar(200)      |      |     |         |       | "$.data.room.id"                                      | 直播间ID              | 
 ## | owner_user_id        | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner_user_id"                           | 账号作者ID            |
 ## | anchor_id            | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner.fans_club.data.anchor_id"          | 主播ID               |
-## | available_gift_index | unsigned int      | NO   | PRI |         |       |           -                                           | 可用礼物序号          |
+## | available_gift_index | unsigned bigint   | NO   | PRI |         |       |           -                                           | 可用礼物序号          |
 ## | available_gift_id    | varchar(200)      |      |     | NULL    |       | "$.data.room.owner.fans_club.data.available_gift_ids" | 可用礼物ID列表        |
 ## +----------------------+-------------------+------+-----+---------+-------+-------------------------------------------------------+----------------------+
 ##
@@ -478,6 +506,7 @@ class FansClubAvailableGiftIdTable(SocialMediaStreamDataTable):
                                                     'available_gift_id'
                                                      ]
   __FANS_CLUB_AVAILABLE_GIFT_ID_TABLE_PRI_KEY    = ['now', 'platform', 'owner_user_id', 'anchor_id', 'available_gift_index']
+  __TABLE_AUTO_INCREMENT                         = ['available_gift_index']
   __FANS_CLUB_AVAILABLE_GIFT_ID_TABLE_TUPLE      = {item:None for item in __FANS_CLUB_AVAILABLE_GIFT_ID_TABLE_HEADER}
   __SQL_CREATE_FANS_CLUB_AVAILABLE_GIFT_ID_TABLE = '''
                                                    CREATE TABLE IF NOT EXISTS {} (
@@ -486,9 +515,10 @@ class FansClubAvailableGiftIdTable(SocialMediaStreamDataTable):
                                                      room_id              varchar(200)     DEFAULT NULL,
                                                      owner_user_id        varchar(200)     NOT NULL,
                                                      anchor_id            varchar(200)     NOT NULL,
-                                                     available_gift_index int              NOT NULL,
+                                                     available_gift_index bigint           NOT NULL AUTO_INCREMENT,
                                                      available_gift_id    varchar(200)     DEFAULT NULL,
-                                                     PRIMARY KEY (now, platform, owner_user_id, anchor_id, available_gift_index)
+                                                     PRIMARY KEY (available_gift_index),
+                                                     UNIQUE KEY unique_record (now, platform, owner_user_id, anchor_id, available_gift_index)
                                                      )
                                                      '''.format(__FANS_CLUB_AVAILABLE_GIFT_ID_TABLE_NAME)
   __SQL_DROP_FANS_CLUB_AVAILABLE_GIFT_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__FANS_CLUB_AVAILABLE_GIFT_ID_TABLE_NAME)
@@ -537,6 +567,12 @@ class FansClubAvailableGiftIdTable(SocialMediaStreamDataTable):
     return self.__FANS_CLUB_AVAILABLE_GIFT_ID_TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
   ## get SQL command of create table
   ##
   def get_create_sql_cmd(self) -> str:
@@ -547,6 +583,13 @@ class FansClubAvailableGiftIdTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_FANS_CLUB_AVAILABLE_GIFT_ID_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
 
 ##
 ## data.room.owner.fans_club.data
@@ -559,7 +602,7 @@ class FansClubAvailableGiftIdTable(SocialMediaStreamDataTable):
 ## | room_id       | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                                       | 直播间ID              | 
 ## | owner_user_id | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner_user_id"                            | 账号作者ID            |
 ## | anchor_id     | varchar(200)      |      |     | NULL    |       | "$.data.room.owner.fans_club.data.anchor_id"           | 主播ID                |
-## | icon_index    | unsigned int      | NO   | PRI |         |       | "$.data.room.owner.fans_club.data.badge.icons.'0'"     | 勋章图标0             |
+## | icon_index    | unsigned bigint   | NO   | PRI |         |       | "$.data.room.owner.fans_club.data.badge.icons.'0'"     | 勋章图标0             |
 ## | icon_uri      | text              |      |     | NULL    |       | "$.data.room.owner.fans_club.data.badge.icons.'0'.uri" | 勋章图标URI           |
 ## +---------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+----------------------+
 ##
@@ -573,6 +616,7 @@ class FansClubBadgeIconTable(SocialMediaStreamDataTable):
                                              'icon_uri'
                                              ]
   __FANS_CLUB_BADGE_ICON_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'owner_user_id', 'icon_index']
+  __TABLE_AUTO_INCREMENT                  = ['icon_index']
   __FANS_CLUB_BADGE_ICON_TABLE_TUPLE      = {item:None for item in __FANS_CLUB_BADGE_ICON_TABLE_HEADER}
   __SQL_CREATE_FANS_CLUB_BADGE_ICON_TABLE = '''
                                             CREATE TABLE IF NOT EXISTS {} (
@@ -581,9 +625,10 @@ class FansClubBadgeIconTable(SocialMediaStreamDataTable):
                                               room_id              varchar(200)     NOT NULL,
                                               owner_user_id        varchar(200)     NOT NULL,
                                               anchor_id            varchar(200)     DEFAULT NULL,
-                                              icon_index           int              NOT NULL,
+                                              icon_index           bigint           NOT NULL AUTO_INCREMENT,
                                               icon_uri             text             DEFAULT NULL,
-                                              PRIMARY KEY (now, platform, room_id, owner_user_id, icon_index)
+                                              PRIMARY KEY (icon_index),
+                                              UNIQUE KEY unique_record (now, platform, room_id, owner_user_id, icon_index)
                                               )
                                               '''.format(__FANS_CLUB_BADGE_ICON_TABLE_NAME)
   __SQL_DROP_FANS_CLUB_BADGE_ICON_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__FANS_CLUB_BADGE_ICON_TABLE_NAME)
@@ -632,6 +677,12 @@ class FansClubBadgeIconTable(SocialMediaStreamDataTable):
     return self.__FANS_CLUB_BADGE_ICON_TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
   ## get SQL command of create table
   ##
   def get_create_sql_cmd(self) -> str:
@@ -642,6 +693,13 @@ class FansClubBadgeIconTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_FANS_CLUB_BADGE_ICON_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
 
 ##
 ## data.room.owner.user_attr
@@ -668,6 +726,7 @@ class RoomOwnerUserAttrTable(SocialMediaStreamDataTable):
                                              'is_super_admin'
                                              ]
   __ROOM_OWNER_USER_ATTR_TABLE_PRI_KEY    = ['now', 'platform', 'owner_user_id', 'room_id']
+  __TABLE_AUTO_INCREMENT                  = []
   __ROOM_OWNER_USER_ATTR_TABLE_TUPLE      = {item:None for item in __ROOM_OWNER_USER_ATTR_TABLE_HEADER}
   __SQL_CREATE_ROOM_OWNER_USER_ATTR_TABLE = '''
                                             CREATE TABLE IF NOT EXISTS {} (
@@ -727,6 +786,12 @@ class RoomOwnerUserAttrTable(SocialMediaStreamDataTable):
     return self.__ROOM_OWNER_USER_ATTR_TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
   ## get SQL command of create table
   ##
   def get_create_sql_cmd(self) -> str:
@@ -737,6 +802,13 @@ class RoomOwnerUserAttrTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_ROOM_OWNER_USER_ATTR_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
 
 ##
 ## data.room.owner.user_attr.admin_privileges
@@ -748,7 +820,7 @@ class RoomOwnerUserAttrTable(SocialMediaStreamDataTable):
 ## | platform              | varchar(20)       | NO   | PRI |         |       |           -                                    | 平台                 | 
 ## | room_id               | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                               | 直播间ID             | 
 ## | owner_user_id         | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner_user_id"                    | 直播间主播ID         |
-## | admin_privilege_index | unsigned tinyint  | NO   | PRI |         |       |           -                                    | 管理员权限序号       | 
+## | admin_privilege_index | unsigned bigint   | NO   | PRI |         |       |           -                                    | 管理员权限序号       | 
 ## | admin_privilege       | text              |      |     | NULL    |       | "$.data.room.owner.user_attr.admin_privileges" | 管理员权限列表       |
 ## +-----------------------+-------------------+------+-----+---------+-------+------------------------------------------------+---------------------+
 ##
@@ -761,6 +833,7 @@ class RoomAdminPrivilegeTable(SocialMediaStreamDataTable):
                                              'owner_user_id',      'admin_privilege_index',    'admin_privilege'
                                              ]
   __ROOM_ADMIN_PRIVILEGE_TABLE_PRI_KEY    = ['now', 'platform', 'owner_user_id', 'room_id', 'admin_privilege_index']
+  __TABLE_AUTO_INCREMENT                  = ['admin_privilege_index']
   __ROOM_ADMIN_PRIVILEGE_TABLE_TUPLE      = {item:None for item in __ROOM_ADMIN_PRIVILEGE_TABLE_HEADER}
   __SQL_CREATE_ROOM_ADMIN_PRIVILEGE_TABLE = '''
                                             CREATE TABLE IF NOT EXISTS {} (
@@ -768,11 +841,12 @@ class RoomAdminPrivilegeTable(SocialMediaStreamDataTable):
                                               platform               varchar(20)      NOT NULL,
                                               room_id                varchar(200)     NOT NULL,
                                               owner_user_id          varchar(200)     NOT NULL,
-                                              admin_privilege_index  tinyint          NOT NULL,
+                                              admin_privilege_index  bigint           NOT NULL AUTO_INCREMENT,
                                               admin_privilege        text             DEFAULT NULL,
-                                              PRIMARY KEY (now, platform, owner_user_id, room_id, admin_privilege_index)
+                                              PRIMARY KEY (admin_privilege_index),
+                                              UNIQUE KEY unique_record (now, platform, owner_user_id, room_id, admin_privilege_index)
                                               )
-                                              '''.format(__ROOM_ADMIN_PRIVILEGE_TABLE_NAME)
+                                            '''.format(__ROOM_ADMIN_PRIVILEGE_TABLE_NAME)
   __SQL_DROP_ROOM_ADMIN_PRIVILEGE_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_ADMIN_PRIVILEGE_TABLE_NAME)
 
 
@@ -819,6 +893,12 @@ class RoomAdminPrivilegeTable(SocialMediaStreamDataTable):
     return self.__ROOM_ADMIN_PRIVILEGE_TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
   ## get SQL command of create table
   ##
   def get_create_sql_cmd(self) -> str:
@@ -829,6 +909,13 @@ class RoomAdminPrivilegeTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_ROOM_ADMIN_PRIVILEGE_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
 
 ##
 ## user
@@ -929,6 +1016,7 @@ class UserTable(SocialMediaStreamDataTable):
                              'web_rid',               'webcast_uid',                  'with_car_management_permission', 'with_commerce_permission',                 'with_fusion_shop_entry'
                              ]
   __USER_TABLE_PRI_KEY    = ['id']
+  __TABLE_AUTO_INCREMENT  = []
   __USER_TABLE_TUPLE      = {item:None for item in __USER_TABLE_HEADER}
   __SQL_CREATE_USER_TABLE = '''
                             CREATE TABLE IF NOT EXISTS {} (
@@ -1050,6 +1138,12 @@ class UserTable(SocialMediaStreamDataTable):
     return self.__USER_TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
   ## get SQL command of create table
   ##
   def get_create_sql_cmd(self) -> str:
@@ -1060,3 +1154,10 @@ class UserTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_USER_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()

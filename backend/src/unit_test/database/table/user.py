@@ -52,7 +52,7 @@ def test_drop_room_owner_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   room_owner = RoomOwnerTable(db_instance=db)
-  room_owner.drop()
+  room_owner.drop(confirm=True)
   return
 
 ##
@@ -248,7 +248,7 @@ def test_drop_fans_club_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   fans_club = FansClubTable(db_instance=db)
-  fans_club.drop()
+  fans_club.drop(confirm=True)
   return
 
 ##
@@ -443,7 +443,7 @@ def test_drop_fans_club_available_gift_id_table(db:SocialMediaStreamDataBase = N
   ## drop table
   ##
   fans_club_available_gift_id = FansClubAvailableGiftIdTable(db_instance=db)
-  fans_club_available_gift_id.drop()
+  fans_club_available_gift_id.drop(confirm=True)
   return
 
 ##
@@ -491,8 +491,7 @@ def test_insert_fans_club_available_gift_id_record(db:SocialMediaStreamDataBase 
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'owner_user_id': '2700838411446480',
-    'anchor_id': '0',
-    'available_gift_index': 0
+    'anchor_id': '0'
   }
   
   try:
@@ -526,7 +525,7 @@ def test_delete_fans_club_available_gift_id_record(db:SocialMediaStreamDataBase 
     'platform': 'douyin',
     'owner_user_id': '2700838411446480',
     'anchor_id': '0',
-    'available_gift_index': 0
+    'available_gift_index': 1
   }
   
   try:
@@ -560,7 +559,7 @@ def test_update_fans_club_available_gift_id_record(db:SocialMediaStreamDataBase 
     'platform': 'douyin',
     'owner_user_id': '2700838411446480',
     'anchor_id': '0',
-    'available_gift_index': 0,
+    'available_gift_index': 1,
     'available_gift_id': '123456789'
   }
   
@@ -595,7 +594,7 @@ def test_get_fans_club_available_gift_id_record(db:SocialMediaStreamDataBase = N
     'platform': 'douyin',
     'owner_user_id': '2700838411446480',
     'anchor_id': '0',
-    'available_gift_index': 0
+    'available_gift_index': 1
   }
   
   try:
@@ -642,7 +641,7 @@ def test_drop_fans_club_badge_icon_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   fans_club_badge_icon = FansClubBadgeIconTable(db_instance=db)
-  fans_club_badge_icon.drop()
+  fans_club_badge_icon.drop(confirm=True)
   return
 
 ##
@@ -690,8 +689,7 @@ def test_insert_fans_club_badge_icon_record(db:SocialMediaStreamDataBase = None)
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'owner_user_id': '2700838411446480',
-    'icon_index': 0
+    'owner_user_id': '2700838411446480'
   }
   
   try:
@@ -725,7 +723,7 @@ def test_delete_fans_club_badge_icon_record(db:SocialMediaStreamDataBase = None)
     'platform': 'douyin',
     'room_id': '7411524533301119798',
     'owner_user_id': '2700838411446480',
-    'icon_index': 0
+    'icon_index': 1
   }
   
   try:
@@ -760,7 +758,7 @@ def test_update_fans_club_badge_icon_record(db:SocialMediaStreamDataBase = None)
     'room_id': '7411524533301119798',
     'owner_user_id': '2700838411446480',
     'anchor_id': '0',
-    'icon_index': 0,
+    'icon_index': 1,
     'icon_uri': 'webcast/aweme_pay_grade_2x_1_4.png'
   }
   
@@ -795,7 +793,7 @@ def test_get_fans_club_badge_icon_record(db:SocialMediaStreamDataBase = None):
     'platform': 'douyin',
     'room_id': '7411524533301119798',
     'owner_user_id': '2700838411446480',
-    'icon_index': 0
+    'icon_index': 1
   }
   
   try:
@@ -842,7 +840,7 @@ def test_drop_room_owner_user_attr_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   room_owner_user_attr = RoomOwnerUserAttrTable(db_instance=db)
-  room_owner_user_attr.drop()
+  room_owner_user_attr.drop(confirm=True)
   return
 
 ##
@@ -1038,7 +1036,7 @@ def test_drop_room_admin_privilege_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   room_admin_privilege = RoomAdminPrivilegeTable(db_instance=db)
-  room_admin_privilege.drop()
+  room_admin_privilege.drop(confirm=True)
   return
 
 ##
@@ -1086,8 +1084,7 @@ def test_insert_room_admin_privilege_record(db:SocialMediaStreamDataBase = None)
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'owner_user_id': '2700838411446480',
-    'room_id': '7411524533301119798',
-    'admin_privilege_index': 0
+    'room_id': '7411524533301119798'
   }
   
   try:
@@ -1121,7 +1118,7 @@ def test_delete_room_admin_privilege_record(db:SocialMediaStreamDataBase = None)
     'platform': 'douyin',
     'owner_user_id': '2700838411446480',
     'room_id': '7411524533301119798',
-    'admin_privilege_index': 0
+    'admin_privilege_index': 1
   }
   
   try:
@@ -1155,7 +1152,7 @@ def test_update_room_admin_privilege_record(db:SocialMediaStreamDataBase = None)
     'platform': 'douyin',
     'owner_user_id': '2700838411446480',
     'room_id': '7411524533301119798',
-    'admin_privilege_index': 0,
+    'admin_privilege_index': 1,
     'admin_privilege':'TBD'
   }
   
@@ -1190,7 +1187,7 @@ def test_get_room_admin_privilege_record(db:SocialMediaStreamDataBase = None):
     'platform': 'douyin',
     'owner_user_id': '2700838411446480',
     'room_id': '7411524533301119798',
-    'admin_privilege_index': 0
+    'admin_privilege_index': 1
   }
   
   try:
@@ -1237,7 +1234,7 @@ def test_drop_user_table(db:SocialMediaStreamDataBase = None):
   ## drop table
   ##
   user = UserTable(db_instance=db)
-  user.drop()
+  user.drop(confirm=True)
   return
 
 ##

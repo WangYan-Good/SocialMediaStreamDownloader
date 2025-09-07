@@ -22,6 +22,7 @@ class SocialMediaStreamDataTable(ABC):
   __TABLE_NAME           = str()
   __TABLE_HEADER         = list()
   __TABLE_PRI_KEY        = list()
+  __TABLE_AUTO_INCREMENT = list()
   __TABLE_TUPLE          = {item:None for item in __TABLE_HEADER}
   
   __SQL_CMD_CREATE_TABLE = str()
@@ -66,7 +67,7 @@ class SocialMediaStreamDataTable(ABC):
         get_logger().error("failed to register {} table: {}".format(self.get_name(), e))
         raise e
     else:
-      get_logger().info("room_attribute table is already registered or does not exist")
+      get_logger().info("{} table is already registered or does not exist".format(self.get_name()))
     return
 
 ##
@@ -101,6 +102,13 @@ class SocialMediaStreamDataTable(ABC):
     return self.__TABLE_PRI_KEY
 
   ##
+  ## auto increment field
+  ##
+  @abstractmethod
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+    
+  ##
   ## abstract method to get SQL command of create table
   ##
   @abstractmethod
@@ -114,230 +122,501 @@ class SocialMediaStreamDataTable(ABC):
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_CMD_DROP_TABLE  
 
+  ##
+  ## verify table schema
+  ##
+  @abstractmethod
+  def verify_table_schema(self) -> bool:
+    return False
+
 ##
 ## >>============================= sub class method =============================>>
 ##
   ##
   ## create table
   ##
-  def create(self) -> None:
+  def create(self, verify_schema: bool = True) -> bool:
+    """
+    安全创建数据库表
+    
+    Args:
+      verify_schema: 是否在创建后验证表结构
+      
+    Returns:
+      bool: 表是否成功创建并验证
+    """
+    table_name = self.get_name()
+    
     ##
     ## check if the table already exists
     ##
-    try:
-        if self.__database.is_table_exist(self.get_name()):
-          get_logger().warning("{} table already exists, skipping creation".format(self.get_name()))
-          return
-    except Exception as e:
-      get_logger().error("failed to create {} table: {}".format(self.get_name(), e))
-      raise e
+    if self.__database.is_table_exist(table_name):
+      get_logger().warning("{} table already exists".format(table_name))
+      ##
+      ## 如果表已存在，可选进行结构验证
+      ##
+      if verify_schema:
+        return self.verify_table_schema()
+      return False
     
     ##
-    ## create table
+    ## create new table
     ##
     try:
-      ##
-      ## connector will be automatically closed after the with block
-      ##
       with self.__database.get_db_connector() as connector:
-        ##
-        ## cursor will be automatically closed after the with block
-        ##
         with connector.cursor() as cursor:
-          cursor.execute(self.get_create_sql_cmd())
-          connector.commit()
-          get_logger().info("{} table created successfully".format(self.get_name()))
+          ##
+          ## 使用锁保护表创建过程
+          ##
+          with self.__db_lock:
+            cursor.execute(self.get_create_sql_cmd())
+            connector.commit()
+          
+          get_logger().info("{} table created successfully".format(table_name))
+          
+          ##
+          ## 验证表结构（如果启用）
+          ##
+          if verify_schema:
+            schema_valid = self.verify_table_schema()
+            if not schema_valid:
+              get_logger().warning("table {} created but schema verification failed".format(table_name))
+              return False
+          
+          return True
+          
     except Exception as e:
-      get_logger().error("failed to create {} table: {}".format(self.get_name(), e))
-      raise e
+      get_logger().error("failed to create {} table: {}".format(table_name, e))
+      return False
     
     ##
-    ## register table
+    ## register table after successful creation
     ##
-    try:
-      self.__database.register_table(self.get_name(), self)
-      get_logger().info("{} table registered successfully".format(self.get_name()))
-    except Exception as e:
-      get_logger().error("failed to register {} table: {}".format(self.get_name(), e))
-      raise e
+    finally:
+      try:
+        self.__database.register_table(table_name, self)
+        get_logger().info("{} table registered successfully".format(table_name))
+      except Exception as e:
+        get_logger().error("failed to register {} table: {}".format(table_name, e))
   
   ##
   ## drop table
   ##
-  def drop(self) -> None:
+  def drop(self, confirm: bool = False) -> bool:
+    """
+    安全删除数据库表
+    
+    Args:
+      confirm: 是否需要确认操作，为True时才会实际执行删除
+      
+    Returns:
+      bool: 表是否成功删除
+    """
+    table_name = self.get_name()
+    
     ##
     ## check if the table exist
     ##
-    if not self.__database.is_table_exist(self.get_name()):
-      get_logger().warning("{} table does note exist, skipping drop".format(self.get_name()))
-      return
+    if not self.__database.is_table_exist(table_name):
+      get_logger().warning("{} table does not exist".format(table_name))
+      return False
     
     ##
-    ## unregister the table
+    ## 需要确认操作
     ##
-    try:
-      self.__database.unregister_table(self.get_name())
-      get_logger().info("{} table unregistered successfully".format(self.get_name()))
-    except Exception as e:
-      get_logger().error("failed to unregister {} table: {}".format(self.get_name(), e))
-      raise e
+    if not confirm:
+      get_logger().warning("drop operation requires confirmation for table {}".format(table_name))
+      return False
     
     ##
-    ## drop the table
+    ## 记录删除操作前的表信息
     ##
     try:
       with self.__database.get_db_connector() as connector:
         with connector.cursor() as cursor:
+          cursor.execute("SELECT COUNT(*) FROM {}".format(table_name))
+          row_count = cursor.fetchone()[0]
+          get_logger().info("table {} has {} rows before drop".format(table_name, row_count))
+    except Exception as e:
+      get_logger().warning("failed to get row count before drop: {}".format(e))
+    
+    ##
+    ## 执行删除操作
+    ##
+    try:
+      with self.__database.get_db_connector() as connector:
+        with connector.cursor() as cursor:
+          ##
+          ## 使用锁保护删除操作
+          ##
           with self.__db_lock:
             cursor.execute(self.get_drop_sql_cmd())
             connector.commit()
-          get_logger().info("{} table dropped successfully".format(self.get_name()))
+          
+          get_logger().info("{} table dropped successfully".format(table_name))
+          
+          ##
+          ## 确认表确实已被删除
+          ##
+          if self.__database.is_table_exist(table_name):
+            get_logger().error("table {} still exists after drop operation".format(table_name))
+            return False
+          
+          return True
+          
     except Exception as e:
-      get_logger().error("failed to drop {} table: {}".format(self.get_name(), e))
-      raise e
+      get_logger().error("failed to drop {} table: {}".format(table_name, e))
+      return False
 
   ##
   ## insert record
   ##
-  def insert_record(self, record: dict) -> None:
+  def insert_record(self, record: dict, on_duplicate: str = 'error') -> int:
+    """
+    向数据库中插入记录
+    
+    Args:
+      record: 要插入的记录字典
+      on_duplicate: 重复记录处理策略 ('error', 'ignore', 'update')
+      
+    Returns:
+      int: 插入记录的主键值
+      
+    Raises:
+      ValueError: 参数错误或重复记录策略不支持
+    """
     ##
     ## check if the record is valid
     ##
     if not isinstance(record, dict):
       get_logger().error("record must be a dictionary")
-      raise ValueError
+      raise ValueError("record must be a dictionary")
+    
+    if not record:
+      get_logger().warning("empty record provided for insertion")
+      raise ValueError("empty record provided")
+    
+    if on_duplicate not in ['error', 'ignore', 'update']:
+      raise ValueError("on_duplicate must be one of: 'error', 'ignore', 'update'")
     
     ##
-    ## check if the primary key fields are present in the record
-    ##
-    for field in self.get_pri_key():
-      if field not in record:
-        get_logger().error("record must contain the primary key field: {}".format(field))
-        raise ValueError
-      
-    ##
-    ## insert the live record into the database
+    ## insert the record into the database
     ##
     try:
+      ##
+      ## filter out auto-increment primary key field
+      ##
+      filtered_keys = []
+      filtered_values = []
+      
+      for key, value in record.items():
+        ##
+        ## skip auto-increment primary key field
+        ##
+        if key in self.get_auto_increment_field():
+          get_logger().debug("skipping auto-increment field: {}".format(key))
+          continue
+        filtered_keys.append(key)
+        filtered_values.append(value)
+      
+      ##
+      ## build INSERT SQL statement
+      ##
+      columns_str = ', '.join(filtered_keys)
+      placeholders_str = ', '.join(['%s' for _ in filtered_keys])
+      
+      sql = '''
+        INSERT INTO {} ({})
+        VALUES ({})
+      '''.format(self.get_name(), columns_str, placeholders_str)
+      
+      ##
+      ## handle duplicate record strategy
+      ##
+      if on_duplicate == 'ignore':
+        sql += " ON DUPLICATE KEY UPDATE {0} = {0}".format(filtered_keys[0])
+      elif on_duplicate == 'update':
+        update_clause = ', '.join(["{} = VALUES({})".format(key, key) for key in filtered_keys])
+        sql += " ON DUPLICATE KEY UPDATE " + update_clause
+      
+      ##
+      ## prepare parameters
+      ##
+      params = tuple(filtered_values)
+      
+      get_logger().debug("executing SQL: {}".format(sql))
+      get_logger().debug("with parameters: {}".format(params))
       with self.__database.get_db_connector() as connector:
-        with connector.cursor() as cursor:
+        with connector.cursor() as cursor:       
           ##
-          ## insert the record into table
+          ## execute INSERT statement with database lock
           ##
-          sql = '''
-                INSERT INTO {} ({})
-                VALUES ({})
-                '''.format(self.get_name(), ', '.join([item for item in record.keys()]), ', '.join(['%s' for item in [item for item in record.keys()]]))
           with self.__db_lock:
-            cursor.execute(sql, tuple(value for value in record.values()))
+            cursor.execute(sql, params)
             connector.commit()
-          get_logger().info("inserted {} record successfully".format(self.get_name()))
+            
+            ##
+            ## handle insertion result
+            ##
+            if on_duplicate == 'ignore' and cursor.rowcount == 0:
+              get_logger().warning("duplicate record ignored")
+              return -1
+            
+            inserted_id = cursor.lastrowid
+            if inserted_id and inserted_id != 0:
+              get_logger().info("inserted record successfully with ID: {}".format(inserted_id))
+            else:
+              get_logger().info("inserted record successfully")
+            
+            return inserted_id or 0
+              
     except Exception as e:
-      get_logger().error("failed to insert {} record: {}".format(self.get_name(), e))
+      get_logger().error("failed to insert record into {}: {}".format(self.get_name(), e))
+      get_logger().error("record data: {}".format(record))
       raise e
 
   ##
   ## delete record
   ##
-  def delete_record(self, record: dict) -> None:
-    ##
-    ## check if the primary key fields are present in the record
-    ##
-    for field in self.get_pri_key():
-      if field not in record:
-        get_logger().error("record must contain the primary key field: {}".format(field))
-        raise ValueError
+  def delete_record(self, conditions: dict, soft_delete: bool = False) -> int:
+    """
+    根据条件删除记录，支持软删除
     
-    ##
-    ## delete the record from the database
-    ##
+    Args:
+      conditions: 删除条件字典
+      soft_delete: 是否使用软删除
+      
+    Returns:
+      删除的记录数量
+    """
+    if not isinstance(conditions, dict) or not conditions:
+      raise ValueError("Conditions must be a non-empty dictionary")
+    
     try:
       with self.__database.get_db_connector() as connector:
         with connector.cursor() as cursor:
-          sql = '''
-                DELETE FROM {}
-                WHERE {}
-                '''.format(self.get_name(), ' AND '.join(item + ' = %s' for item in self.get_pri_key()))
+          where_parts = []
+          params = []
+          
+          for key, value in conditions.items():
+            where_parts.append(f"`{key}` = %s")
+            params.append(value)
+          
+          where_clause = ' AND '.join(where_parts)
+          
+          if soft_delete:
+            ##
+            ## 软删除：更新标记字段
+            ##
+            sql = f"""
+              UPDATE `{self.get_name()}`
+              SET `is_deleted` = 1, `delete_time` = NOW()
+              WHERE {where_clause}
+            """
+          else:
+            ##
+            ## 物理删除
+            ##
+            sql = f"DELETE FROM `{self.get_name()}` WHERE {where_clause}"
+          
+          ##
+          ## 使用锁
+          ##
           with self.__db_lock:
-            cursor.execute(sql, tuple(record.get(field) for field in self.get_pri_key()))
+            cursor.execute(sql, params)
+            affected_rows = cursor.rowcount
             connector.commit()
+          
+          action = "Soft deleted" if soft_delete else "Deleted"
+          get_logger().info(f"{action} {affected_rows} record(s) with conditions: {conditions}")
+          
+          return affected_rows
+          
     except Exception as e:
-      get_logger().error("failed to delete {} record: {}".format(self.get_name(), e))
-      raise e
+      get_logger().error(f"Failed to delete records with conditions {conditions}: {str(e)}")
+      raise
 
   ##
   ## update record
   ##
-  def update_record(self, record: dict) -> None:
+  def update_record(self, record: dict) -> int:
+    """
+    更新数据库中的记录
+    
+    Args:
+      record: 包含更新字段和主键值的字典
+        
+    Returns:
+      更新的记录数量
+    """
     ##
-    ## check if the record is valid
+    ## 参数验证
     ##
     if not isinstance(record, dict):
-      get_logger().error("record must be a dictionary")
-      raise ValueError
+      get_logger().error("Record must be a dictionary")
+      raise ValueError("Record must be a dictionary")
+    
+    if not record:
+      get_logger().warning("Empty update record provided")
+      return 0
     
     ##
-    ## check if the primary key fields are present in the record
+    ## 获取主键字段
     ##
-    for field in self.get_pri_key():
-      if field not in record:
-        get_logger().error("record must contain the primary key field: {}".format(field))
-        raise ValueError
+    primary_keys = self.get_pri_key()
     
     ##
-    ## update the live record in the database
+    ## 检查是否包含所有主键字段
     ##
+    missing_primary_keys = [pk for pk in primary_keys if pk not in record]
+    if missing_primary_keys:
+      get_logger().error("Missing primary key fields: {}".format(missing_primary_keys))
+      raise ValueError(f"Missing primary key fields: {missing_primary_keys}")
+    
     try:
       with self.__database.get_db_connector() as connector:
         with connector.cursor() as cursor:
-          sql = '''
-                UPDATE {}
-                SET {}
-                WHERE {}
-                '''.format(self.get_name(), ', '.join([item + ' = %s' for item in record.keys()]), ' AND '.join(item + ' = %s' for item in self.get_pri_key()))
-          with self.__db_lock:
-            cursor.execute(sql, tuple(record.get(field) for field in [item for item in record.keys()] + self.get_pri_key()))
+          ##
+          ## 分离更新字段和主键字段
+          ##
+          update_fields = [key for key in record.keys() if key not in primary_keys]
+          
+          if not update_fields:
+            get_logger().warning("No fields to update")
+            return 0
+          
+          ##
+          ## 安全构建SQL语句
+          ##
+          set_clause = ', '.join([f"`{field}` = %s" for field in update_fields])
+          where_clause = ' AND '.join([f"`{pk}` = %s" for pk in primary_keys])
+          
+          sql = f"""
+            UPDATE `{self.get_name()}`
+            SET {set_clause}
+            WHERE {where_clause}
+          """
+          
+          ##
+          ## 准备参数：更新值 + 主键值
+          ##
+          update_values = [record[field] for field in update_fields]
+          primary_values = [record[pk] for pk in primary_keys]
+          params = update_values + primary_values
+          
+          get_logger().debug(f"Update SQL: {sql}")
+          get_logger().debug(f"Update params: {params}")
+          
+          ##
+          ## 使用锁
+          ##
+          lock_acquired = self.__db_lock.acquire(timeout=10)
+          if not lock_acquired:
+            raise TimeoutError("Failed to acquire database lock")
+          
+          try:
+            ##
+            ## 执行更新
+            ##
+            cursor.execute(sql, params)
+            affected_rows = cursor.rowcount
+            
+            if affected_rows == 0:
+              get_logger().warning(
+                "No record found to update with primary keys: {}".format(
+                  {pk: record[pk] for pk in primary_keys}
+                )
+              )
+            else:
+              get_logger().info(
+                "Updated {} record(s) in {}".format(
+                  affected_rows, self.get_name()
+                )
+              )
+            
             connector.commit()
-          get_logger().info("update {} record successfully".format(self.get_name()))
+            return affected_rows
+            
+          finally:
+            self.__db_lock.release()
+            
     except Exception as e:
-      get_logger().error("failed to update {} record: {}".format(self.get_name(), e))
+      get_logger().error("Failed to update {} record: {}".format(self.get_name(), str(e)))
+      get_logger().error("Update data: {}".format(record))
       raise e
-  
+
   ##
   ## get record
   ##
   def get_record(self, record: dict) -> dict:
-    ##
-    ## check if the primary key fields are present in the record
-    ##
-    for field in self.get_pri_key():
-      if field not in record:
-        get_logger().error("record must contain the primary key field: {}".format(field))
-        raise ValueError
+    """
+    根据条件从数据库获取记录
     
-    ##
-    ## get the record from the database
-    ##
+    Args:
+      record: 查询条件字典，如 {'platform': 'douyin', 'room_id': '123'}
+        
+    Returns:
+      匹配的记录字典，如果未找到返回None
+    """
     try:
       with self.__database.get_db_connector() as connector:
         with connector.cursor() as cursor:
+          ##
+          ## 安全地构建SQL查询
+          ##
+          where_conditions = []
+          params = []
+          
+          for key, value in record.items():
+            if value is not None:  ## 只处理非None的条件
+              where_conditions.append(f"{key} = %s")
+              params.append(value)
+          
+          if not where_conditions:
+            get_logger().warning("No valid conditions provided for query")
+            return None
+          
           sql = '''
-                SELECT {} 
-                FROM {}
-                WHERE {}
-                '''.format(', '.join(self.get_header()), self.get_name(), ' AND '.join([item + ' = %s' for item in self.get_pri_key()]))
+            SELECT {} 
+            FROM {}
+            WHERE {}
+            '''.format(
+            ', '.join(self.get_header()), 
+            self.get_name(), 
+            ' AND '.join(where_conditions)
+          )
+          
+          get_logger().debug(f"Executing SQL: {sql}")
+          get_logger().debug(f"With params: {params}")
           
           ##
-          ## check if the lock is acquired
+          ## 获取数据库锁（带超时和重试机制）
           ##
-          self.__db_lock.acquire(False)
-          cursor.execute(sql, tuple(record.get(field) for field in self.get_pri_key()))
-          result = cursor.fetchone()
-          self.__db_lock.release()
-          if result is None:
-            get_logger().warning("{} record not found".format(self.get_name()))
-            return None
-      return dict(zip(self.get_header(), result))
+          lock_acquired = self.__db_lock.acquire(timeout=10)  ## 10秒超时
+          if not lock_acquired:
+            get_logger().error("Failed to acquire database lock within timeout")
+            raise TimeoutError("Database lock acquisition timeout")
+          
+          try:
+            cursor.execute(sql, params)
+            result = cursor.fetchone()
+            
+            if result is None:
+              get_logger().debug("{} record not found with conditions: {}".format(
+                self.get_name(), record))
+              return None
+            
+            ##
+            ## 将结果转换为字典
+            ##
+            record_dict = dict(zip(self.get_header(), result))
+            get_logger().debug("Record found: {}".format(record_dict))
+            return record_dict
+            
+          finally:
+            self.__db_lock.release()
+            
     except Exception as e:
-      get_logger().error("failed to get {} record: {}".format(self.get_name(), e))
+      get_logger().error("Failed to get {} record: {}".format(self.get_name(), str(e)))
+      get_logger().error("Query conditions: {}".format(record))
       raise e
