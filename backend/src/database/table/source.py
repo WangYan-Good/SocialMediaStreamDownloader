@@ -846,7 +846,7 @@ class PictureUrlTable(SocialMediaStreamDataTable):
                                    CREATE TABLE IF NOT EXISTS {} (
                                      uri                             text             DEFAULT NULL,
                                      url_index                       bigint           NOT NULL AUTO_INCREMENT,
-                                     url                             tinytext         DEFAULT NULL,
+                                     url                             text             DEFAULT NULL,
                                      PRIMARY KEY (url_index)
                                    )
                                    '''.format(__PICTURE_URL_TABLE_NAME)

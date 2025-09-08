@@ -171,6 +171,7 @@ class SocialMediaStreamDataTable(ABC):
           with self.__db_lock:
             cursor.execute(self.get_create_sql_cmd())
             connector.commit()
+            pass
           
           get_logger().info("{} table created successfully".format(table_name))
           

@@ -99,7 +99,7 @@ def test_insert_badge_image_record(db:SocialMediaStreamDataBase = None):
   ## insert a sample record
   ##
   sample_record = {
-    'version': '123456789',
+    'label': '123456789',
     'uri': '1080x1080/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f'
   }
   
@@ -161,7 +161,7 @@ def test_update_badge_image_record(db:SocialMediaStreamDataBase = None):
   ##
   sample_record = {
     'badge_image_index': 1,
-    'version': '123',
+    'label': '123',
     'uri': '720x720/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f'
   }
   

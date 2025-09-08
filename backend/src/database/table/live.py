@@ -20,6 +20,7 @@ from backend.src.database.table.social_media_stream_db_table          import Soc
 ## | now                              | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"              | 当前时间戳            |
 ## | platform                         | varchar(20)       | NO   | PRI |         |       |           -                | 平台                  | 
 ## | room_id                          | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"           | 直播间ID              | 
+## | owner_user_id                    | varchar(200)      |      |     | NULL    |       | "$.data.room.owner_user_id"| 当前主播ID            | 
 ## | user_id                          | varchar(200)      |      |     | NULL    |       | "$.data.user.id"           | 当前观众ID            | 
 ## | start_time                       | timestamp         |      |     | NULL    |       | "$.data.room.start_time"   | 开始时间              | 
 ## | finish_time                      | timestamp         |      |     | NULL    |       | "$.data.room.finish_time"  | 结束时间              | 
@@ -31,20 +32,21 @@ class LiveRecordTable(SocialMediaStreamDataTable):
 ## >>=============================== attribute ===============================>>
 ##
   __LIVE_RECORD_TABLE_NAME       = 'live_record'
-  __LIVE_RECORD_TABLE_HEADER     = ['now', 'platform', 'room_id', 'user_id', 'start_time', 'finish_time', 'status_code']
-  __LIVE_RECORD_TABLE_PRI_KEY    = ['now', 'platform', 'room_id']
+  __LIVE_RECORD_TABLE_HEADER     = ['now', 'platform', 'room_id', 'owner_user_id', 'user_id', 'start_time', 'finish_time', 'status_code']
+  __LIVE_RECORD_TABLE_PRI_KEY    = ['now', 'platform', 'owner_user_id', 'room_id']
   __TABLE_AUTO_INCREMENT         = []
   __LIVE_RECORD_TABLE_TUPLE      = {item:None for item in __LIVE_RECORD_TABLE_HEADER}
   __SQL_CREATE_LIVE_RECORD_TABLE = '''
                                     CREATE TABLE IF NOT EXISTS {} (
-                                      now          timestamp(3)      NOT NULL,
-                                      platform     varchar(20)       NOT NULL,
-                                      room_id      varchar(200)      NOT NULL,
-                                      user_id      varchar(200)      DEFAULT NULL,
-                                      start_time   timestamp         DEFAULT NULL,
-                                      finish_time  timestamp         DEFAULT NULL,
-                                      status_code  tinyint           DEFAULT NULL,
-                                      PRIMARY KEY (now, platform, room_id)
+                                      now            timestamp(3)      NOT NULL,
+                                      platform       varchar(20)       NOT NULL,
+                                      room_id        varchar(200)      NOT NULL,
+                                      owner_user_id  varchar(200)      NOT NULL,
+                                      user_id        varchar(200)      DEFAULT NULL,
+                                      start_time     timestamp         DEFAULT NULL,
+                                      finish_time    timestamp         DEFAULT NULL,
+                                      status_code    tinyint           DEFAULT NULL,
+                                      PRIMARY KEY (now, platform, owner_user_id, room_id)
                                     )
                                     '''.format(__LIVE_RECORD_TABLE_NAME)
   __SQL_DROP_LIVE_RECORD_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__LIVE_RECORD_TABLE_NAME)

@@ -13,11 +13,12 @@ sys.path.append(os.getcwd())
 ## <<Base>>
 from pathlib                                                          import   Path
 from datetime                                                         import   datetime as dat
+import                                                                         json
 
 ## <<Extension>>
 
 ## <<Third-Part>>
-from backend.src.library.baselib                                      import   load_yml, get_dict_attr, set_dict_attr
+from backend.src.library.baselib                                      import   load_yml, get_dict_attr, set_dict_attr, output_dict
 from backend.src.base.log                                             import   get_logger
 from backend.src.database.social_media_stream_database                import   SocialMediaStreamDataBase
 from backend.src.database.table.live                                  import   LiveRecordTable
@@ -156,6 +157,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
       ├── 12-5. room_owner_real_time_icon - TBD
       └── 12-6. room_owner_top_fans - TBD
   """
+
   ##
   ## LiveRecordTable
   ## 
@@ -178,20 +180,24 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
 
     now             = dat.fromtimestamp(get_dict_attr(data, "$.extra.now")/1000.0)
     DOUYIN_PLATFORM = "douyin"
-    room_id         = get_dict_attr(data, "$.data.room.id")
-    user_id         = get_dict_attr(data, "$.data.user.id")
-    start_time      = get_dict_attr(data, "$.data.room.start_time")
-    finish_time     = get_dict_attr(data, "$.data.room.finish_time")
-    status_code     = get_dict_attr(data, "$.status_code")
-  
-    set_dict_attr(live_record_table_tuple, "$.now",         now)
-    set_dict_attr(live_record_table_tuple, "$.platform",    DOUYIN_PLATFORM)
-    set_dict_attr(live_record_table_tuple, "$.room_id",     str(room_id))
-    set_dict_attr(live_record_table_tuple, "$.user_id",     str(user_id))
-    set_dict_attr(live_record_table_tuple, "$.start_time",  dat.fromtimestamp(start_time))
-    set_dict_attr(live_record_table_tuple, "$.finish_time", dat.fromtimestamp(finish_time))
-    set_dict_attr(live_record_table_tuple, "$.status_code", status_code)
-    
+    room_id         = get_dict_attr(data,    "$.data.room.id")
+    owner_user_id   = get_dict_attr(data,    "$.data.room.owner_user_id")
+    user_id         = get_dict_attr(data,    "$.data.user.id")
+    start_time      = get_dict_attr(data,    "$.data.room.start_time")
+    finish_time     = get_dict_attr(data,    "$.data.room.finish_time")
+    status_code     = get_dict_attr(data,    "$.status_code")
+
+    set_dict_attr(live_record_table_tuple,   "$.now",           now)
+    set_dict_attr(live_record_table_tuple,   "$.platform",      DOUYIN_PLATFORM)
+    set_dict_attr(live_record_table_tuple,   "$.room_id",       str(room_id))
+    set_dict_attr(live_record_table_tuple,   "$.owner_user_id", str(owner_user_id))
+    set_dict_attr(live_record_table_tuple,   "$.user_id",       str(user_id))
+    if start_time != 0:
+      set_dict_attr(live_record_table_tuple, "$.start_time",    dat.fromtimestamp(start_time))
+    if finish_time != 0:
+      set_dict_attr(live_record_table_tuple, "$.finish_time",   dat.fromtimestamp(finish_time))
+    set_dict_attr(live_record_table_tuple,   "$.status_code",   status_code)
+
     ##
     ## 1. check is the table is exist
     ## 2. if not exist, create it
@@ -367,7 +373,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     fansclub_msg_style            = get_dict_attr(data, "$.data.room.fansclub_msg_style")
     fcdn_appid                    = get_dict_attr(data, "$.data.room.fcdn_appid")
     finish_reason                 = get_dict_attr(data, "$.data.room.finish_reason")
-    # finish_time                   = get_dict_attr(data, "$.data.room.finish_time")
+    finish_time                   = get_dict_attr(data, "$.data.room.finish_time")
     finish_url                    = get_dict_attr(data, "$.data.room.finish_url")
     follow_msg_style              = get_dict_attr(data, "$.data.room.follow_msg_style")
     forum_extra_data              = get_dict_attr(data, "$.data.room.forum_extra_data")
@@ -407,10 +413,10 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     official_channel_uid          = get_dict_attr(data, "$.data.room.official_channel_uid")
     orientation                   = get_dict_attr(data, "$.data.room.orientation")
     os_type                       = get_dict_attr(data, "$.data.room.os_type")
-    owner_device_id               = get_dict_attr(data, "$.data.room.owner.owner_device_id")
-    owner_open_id                 = get_dict_attr(data, "$.data.room.owner.owner_open_id")
+    owner_device_id               = get_dict_attr(data, "$.data.room.owner_device_id")
+    owner_open_id                 = get_dict_attr(data, "$.data.room.owner_open_id")
     owner_user_id                 = get_dict_attr(data, "$.data.room.owner_user_id")
-    # start_time                    = get_dict_attr(data, "$.data.room.start_time")
+    start_time                    = get_dict_attr(data, "$.data.room.start_time")
     room_layout                   = get_dict_attr(data, "$.data.room.room_layout")
     room_tag                      = get_dict_attr(data, "$.data.room.room_tag")
     scroll_config                 = get_dict_attr(data, "$.data.room.scroll_config")
@@ -432,7 +438,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     wait_copy                     = get_dict_attr(data, "$.data.room.wait_copy")
     webcast_sdk_version           = get_dict_attr(data, "$.data.room.webcast_sdk_version")
 
-    set_dict_attr(room_attribute_table_tuple, "$.AnchorABMap",                   AnchorABMap)
+    set_dict_attr(room_attribute_table_tuple, "$.AnchorABMap",                   json.dumps(AnchorABMap))
     set_dict_attr(room_attribute_table_tuple, "$.acquaintance_status",           acquaintance_status)
     set_dict_attr(room_attribute_table_tuple, "$.anchor_scheduled_time_text",    anchor_scheduled_time_text)
     set_dict_attr(room_attribute_table_tuple, "$.anchor_share_text",             anchor_share_text)
@@ -441,8 +447,10 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(room_attribute_table_tuple, "$.auth_city",                     auth_city)
     set_dict_attr(room_attribute_table_tuple, "$.auto_cover",                    auto_cover)
     set_dict_attr(room_attribute_table_tuple, "$.base_category",                 base_category)
-    set_dict_attr(room_attribute_table_tuple, "$.book_end_time",                 dat.fromtimestamp(book_end_time))
-    set_dict_attr(room_attribute_table_tuple, "$.book_time",                     dat.fromtimestamp(book_time))
+    if book_end_time != 0:
+      set_dict_attr(room_attribute_table_tuple, "$.book_end_time",                 dat.fromtimestamp(book_end_time))
+    if book_time != 0:
+      set_dict_attr(room_attribute_table_tuple, "$.book_time",                     dat.fromtimestamp(book_time))
     set_dict_attr(room_attribute_table_tuple, "$.business_live",                 business_live)
     set_dict_attr(room_attribute_table_tuple, "$.category",                      category)
     set_dict_attr(room_attribute_table_tuple, "$.cell_style",                    cell_style)
@@ -452,11 +460,12 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(room_attribute_table_tuple, "$.comment_name_mode",             comment_name_mode)
     set_dict_attr(room_attribute_table_tuple, "$.common_label_list",             common_label_list)
     set_dict_attr(room_attribute_table_tuple, "$.content_tag",                   content_tag)
-    set_dict_attr(room_attribute_table_tuple, "$.create_time",                   dat.fromtimestamp(create_time))
+    if create_time != 0:
+      set_dict_attr(room_attribute_table_tuple, "$.create_time",                   dat.fromtimestamp(create_time))
     set_dict_attr(room_attribute_table_tuple, "$.distance",                      distance)
     set_dict_attr(room_attribute_table_tuple, "$.distance_city",                 distance_city)
     set_dict_attr(room_attribute_table_tuple, "$.distance_km",                   distance_km)
-    set_dict_attr(room_attribute_table_tuple, "$.dynamic_cover_dict",            dynamic_cover_dict)
+    set_dict_attr(room_attribute_table_tuple, "$.dynamic_cover_dict",            json.dumps(dynamic_cover_dict))
     set_dict_attr(room_attribute_table_tuple, "$.dynamic_cover_uri",             dynamic_cover_uri)
     set_dict_attr(room_attribute_table_tuple, "$.enable_room_perspective",       enable_room_perspective)
     set_dict_attr(room_attribute_table_tuple, "$.create_scene",                  create_scene)
@@ -475,7 +484,8 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(room_attribute_table_tuple, "$.fansclub_msg_style",            fansclub_msg_style)
     set_dict_attr(room_attribute_table_tuple, "$.fcdn_appid",                    str(fcdn_appid))
     set_dict_attr(room_attribute_table_tuple, "$.finish_reason",                 finish_reason)
-    set_dict_attr(room_attribute_table_tuple, "$.finish_time",                   dat.fromtimestamp(finish_time))
+    if finish_time != 0:
+      set_dict_attr(room_attribute_table_tuple, "$.finish_time",                   dat.fromtimestamp(finish_time))
     set_dict_attr(room_attribute_table_tuple, "$.finish_url",                    finish_url)
     set_dict_attr(room_attribute_table_tuple, "$.follow_msg_style",              follow_msg_style)
     set_dict_attr(room_attribute_table_tuple, "$.forum_extra_data",              forum_extra_data)
@@ -518,7 +528,8 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(room_attribute_table_tuple, "$.owner_device_id",               str(owner_device_id))
     set_dict_attr(room_attribute_table_tuple, "$.owner_open_id",                 owner_open_id)
     set_dict_attr(room_attribute_table_tuple, "$.owner_user_id",                 str(owner_user_id))
-    set_dict_attr(room_attribute_table_tuple, "$.start_time",                    dat.fromtimestamp(start_time))
+    if start_time != 0:
+      set_dict_attr(room_attribute_table_tuple, "$.start_time",                    dat.fromtimestamp(start_time))
     set_dict_attr(room_attribute_table_tuple, "$.room_layout",                   room_layout)
     set_dict_attr(room_attribute_table_tuple, "$.room_tag",                      room_tag)
     set_dict_attr(room_attribute_table_tuple, "$.scroll_config",                 scroll_config)
@@ -539,6 +550,15 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(room_attribute_table_tuple, "$.vs_main_replay_id",             str(vs_main_replay_id))
     set_dict_attr(room_attribute_table_tuple, "$.wait_copy",                     wait_copy)
     set_dict_attr(room_attribute_table_tuple, "$.webcast_sdk_version",           str(webcast_sdk_version))
+
+    ##
+    ## 1. check is the table is exist
+    ## 2. if not exist, create it
+    ## 3. insert the record
+    ##
+    if db.is_table_exist(room_attribute_table.get_name()) is False:
+      room_attribute_table.create()
+    room_attribute_table.insert_record(room_attribute_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_attribute_table.get_name(), e))
     raise e
@@ -565,25 +585,23 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # room_id = get_dict_attr(data, "$.data.room.id")
     # admin_user_id_index = None
     admin_user_ids = get_dict_attr(data, "$.data.room.admin_user_ids")
-    if admin_user_ids is None:
-      get_logger().warning("none found admin user id")
-      return
-
-    set_dict_attr(room_admin_user_id_table_tuple, "$.now",      now)
-    set_dict_attr(room_admin_user_id_table_tuple, "$.platform", DOUYIN_PLATFORM)
-    set_dict_attr(room_admin_user_id_table_tuple, "$.room_id",  str(room_id))
-    for admin_user_id in admin_user_ids:
-      # admin_user_id_index auto increment
-      set_dict_attr(room_admin_user_id_table_tuple, "$.admin_user_id", str(admin_user_id))
-      
-      ##
-      ## 1. check is the table is exist
-      ## 2. if not exist, create it
-      ## 3. insert the record
-      ##
-      if db.is_table_exist(room_admin_user_id_table.get_name()) is False:
-        room_admin_user_id_table.create()
-      room_admin_user_id_table.insert_record(room_admin_user_id_table_tuple)
+    if len(admin_user_ids) != 0:
+      set_dict_attr(room_admin_user_id_table_tuple, "$.now",      now)
+      set_dict_attr(room_admin_user_id_table_tuple, "$.platform", DOUYIN_PLATFORM)
+      set_dict_attr(room_admin_user_id_table_tuple, "$.room_id",  str(room_id))
+  
+      for admin_user_id in admin_user_ids:
+        # admin_user_id_index auto increment
+        set_dict_attr(room_admin_user_id_table_tuple, "$.admin_user_id", str(admin_user_id))
+        
+        ##
+        ## 1. check is the table is exist
+        ## 2. if not exist, create it
+        ## 3. insert the record
+        ##
+        if db.is_table_exist(room_admin_user_id_table.get_name()) is False:
+          room_admin_user_id_table.create()
+        room_admin_user_id_table.insert_record(room_admin_user_id_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_admin_user_id_table.get_name(), e))
     raise e
@@ -610,29 +628,27 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # room_id = get_dict_attr(data, "$.data.room.id")
     # admin_user_open_index = None
     admin_user_open_ids = get_dict_attr(data, "$.data.room.admin_user_open_ids")
-    if admin_user_open_ids is None:
-      get_logger().warning("none found admin user open id")
-      return
-    
-    set_dict_attr(room_admin_user_open_id_table_tuple, "$.now",      now)
-    set_dict_attr(room_admin_user_open_id_table_tuple, "$.platform", DOUYIN_PLATFORM)
-    set_dict_attr(room_admin_user_open_id_table_tuple, "$.room_id",  str(room_id))
-    for admin_user_open_id in admin_user_open_ids:
-      # set_dict_attr(room_admin_user_open_id_table_tuple, "$.admin_user_open_index", admin_user_open_index)
-      set_dict_attr(room_admin_user_open_id_table_tuple, "$.admin_user_open_id", str(admin_user_open_id))
-      
-      ##
-      ## 1. check is the table is exist
-      ## 2. if not exist, create it
-      ## 3. insert the record
-      ##
-      if db.is_table_exist(room_admin_user_open_id_table.get_name()) is False:
-        room_admin_user_open_id_table.create()
-      room_admin_user_open_id_table.insert_record(room_admin_user_open_id_table_tuple)
+    if len(admin_user_open_ids) != 0:
+      set_dict_attr(room_admin_user_open_id_table_tuple, "$.now",      now)
+      set_dict_attr(room_admin_user_open_id_table_tuple, "$.platform", DOUYIN_PLATFORM)
+      set_dict_attr(room_admin_user_open_id_table_tuple, "$.room_id",  str(room_id))
+      for admin_user_open_id in admin_user_open_ids:
+        # admin_user_open_index auto increment
+        set_dict_attr(room_admin_user_open_id_table_tuple, "$.admin_user_open_id", str(admin_user_open_id))
+        
+        ##
+        ## 1. check is the table is exist
+        ## 2. if not exist, create it
+        ## 3. insert the record
+        ##
+        if db.is_table_exist(room_admin_user_open_id_table.get_name()) is False:
+          room_admin_user_open_id_table.create()
+        room_admin_user_open_id_table.insert_record(room_admin_user_open_id_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_admin_user_open_id_table.get_name(), e))
     raise e
 
+  """
   ##
   ## RoomAssistLabelTable
   ## TBD
@@ -740,7 +756,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_realtime_playback_quality_table.get_name(), e))
     raise e
-  
+  """
   ##
   ## FansGroupAdminUserIdTable
   ##
@@ -764,20 +780,17 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # room_id = get_dict_attr(data, "$.data.room.id")
     # fans_group_admin_user_id_index = None
     fans_group_admin_user_ids = get_dict_attr(data, "$.data.room.fans_group_admin_user_ids")
-    if fans_group_admin_user_ids is None:
-      get_logger().warning("none found fans_group_admin_user_ids")
-      return
+    if len(fans_group_admin_user_ids) != 0:
+      set_dict_attr(fans_group_admin_user_id_table_tuple, "$.now",      now)
+      set_dict_attr(fans_group_admin_user_id_table_tuple, "$.platform", DOUYIN_PLATFORM)
+      set_dict_attr(fans_group_admin_user_id_table_tuple, "$.room_id",  str(room_id))
+      for fans_group_admin_user_id in fans_group_admin_user_ids:
+        # set_dict_attr(fans_group_admin_user_id_table_tuple, "$.fans_group_admin_user_open_id_index", fans_group_admin_user_open_id_index)
+        set_dict_attr(fans_group_admin_user_id_table_tuple, "$.fans_group_admin_user_id", str(fans_group_admin_user_id))
 
-    set_dict_attr(fans_group_admin_user_id_table_tuple, "$.now",      now)
-    set_dict_attr(fans_group_admin_user_id_table_tuple, "$.platform", DOUYIN_PLATFORM)
-    set_dict_attr(fans_group_admin_user_id_table_tuple, "$.room_id",  str(room_id))
-    for fans_group_admin_user_id in fans_group_admin_user_ids:
-      # set_dict_attr(fans_group_admin_user_id_table_tuple, "$.fans_group_admin_user_open_id_index", fans_group_admin_user_open_id_index)
-      set_dict_attr(fans_group_admin_user_id_table_tuple, "$.fans_group_admin_user_id", str(fans_group_admin_user_id))
-      
-      if db.is_table_exist(fans_group_admin_user_id_table.get_name()) is False:
-        fans_group_admin_user_id_table.create()
-      fans_group_admin_user_id_table.insert_record(fans_group_admin_user_id_table_tuple)
+        if db.is_table_exist(fans_group_admin_user_id_table.get_name()) is False:
+          fans_group_admin_user_id_table.create()
+        fans_group_admin_user_id_table.insert_record(fans_group_admin_user_id_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(fans_group_admin_user_id_table.get_name(), e))
     raise e
@@ -804,24 +817,22 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # room_id = get_dict_attr(data, "$.data.room.id")
     # fans_group_admin_user_open_id_index = None
     fans_group_admin_user_open_id_list = get_dict_attr(data, "$.data.room.fans_group_admin_user_open_ids")
-    if fans_group_admin_user_open_id_list is None:
-      get_logger().warning("none found fans_group_admin_user_open_ids")
-      return
-    
-    set_dict_attr(fans_group_admin_user_open_id_table_tuple, "$.now",      now)
-    set_dict_attr(fans_group_admin_user_open_id_table_tuple, "$.platform", DOUYIN_PLATFORM)
-    set_dict_attr(fans_group_admin_user_open_id_table_tuple, "$.room_id",  str(room_id))
-    for fans_group_admin_user_open_id in fans_group_admin_user_open_id_list:
-      # fans_group_admin_user_open_id_index auto increment
-      set_dict_attr(fans_group_admin_user_open_id_table_tuple, "$.fans_group_admin_user_open_id", str(fans_group_admin_user_open_id))
-      
-      if db.is_table_exist(fans_group_admin_user_open_id_table.get_name()) is False:
-        fans_group_admin_user_open_id_table.create()
-      fans_group_admin_user_open_id_table.insert_record(fans_group_admin_user_open_id_table_tuple)
+    if len(fans_group_admin_user_open_id_list) != 0:
+      set_dict_attr(fans_group_admin_user_open_id_table_tuple, "$.now",      now)
+      set_dict_attr(fans_group_admin_user_open_id_table_tuple, "$.platform", DOUYIN_PLATFORM)
+      set_dict_attr(fans_group_admin_user_open_id_table_tuple, "$.room_id",  str(room_id))
+      for fans_group_admin_user_open_id in fans_group_admin_user_open_id_list:
+        # fans_group_admin_user_open_id_index auto increment
+        set_dict_attr(fans_group_admin_user_open_id_table_tuple, "$.fans_group_admin_user_open_id", str(fans_group_admin_user_open_id))
+        
+        if db.is_table_exist(fans_group_admin_user_open_id_table.get_name()) is False:
+          fans_group_admin_user_open_id_table.create()
+        fans_group_admin_user_open_id_table.insert_record(fans_group_admin_user_open_id_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(fans_group_admin_user_open_id_table.get_name(), e))
     raise e
 
+  """
   ##
   ## RoomFilterWordTable
   ## TBD
@@ -843,7 +854,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_live_distribution_table.get_name(), e))
     raise e
-
+  """
   ##
   ## RoomOwnerTable
   ##
@@ -987,10 +998,10 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     allow_share_show_profile                 = get_dict_attr(data, "$.data.room.owner.allow_share_show_profile")
     allow_show_in_gossip                     = get_dict_attr(data, "$.data.room.owner.allow_show_in_gossip")
     allow_show_my_action                     = get_dict_attr(data, "$.data.room.owner.allow_show_my_action")
-    allow_strange_comment                    = get_dict_attr(data, "$.data.room.owner..allow_strange_comment")
-    allow_unfollower_comment                 = get_dict_attr(data, "$.data.room.owner..allow_unfollower_comment")
-    allow_use_linkmic                        = get_dict_attr(data, "$.data.room.owner..allow_use_linkmic")
-    authorization_info                       = get_dict_attr(data, "$.data.room.owner..authorization_info")
+    allow_strange_comment                    = get_dict_attr(data, "$.data.room.owner.allow_strange_comment")
+    allow_unfollower_comment                 = get_dict_attr(data, "$.data.room.owner.allow_unfollower_comment")
+    allow_use_linkmic                        = get_dict_attr(data, "$.data.room.owner.allow_use_linkmic")
+    authorization_info                       = get_dict_attr(data, "$.data.room.owner.authorization_info")
     bg_img_url                               = get_dict_attr(data, "$.data.room.owner.bg_img_url")
     birthday                                 = get_dict_attr(data, "$.data.room.owner.birthday")
     birthday_description                     = get_dict_attr(data, "$.data.room.owner.birthday_description")
@@ -1011,7 +1022,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     list_fans_group_url                      = get_dict_attr(data, "$.data.room.owner.fans_group_info.list_fans_group_url")
     fold_stranger_chat                       = get_dict_attr(data, "$.data.room.owner.fold_stranger_chat")
     follow_status                            = get_dict_attr(data, "$.data.room.owner.follow_info.follow_status")
-    follower_count                           = get_dict_attr(data, "$.data.room.owner.follow_info.follower_coun")
+    follower_count                           = get_dict_attr(data, "$.data.room.owner.follow_info.follower_count")
     follower_count_str                       = get_dict_attr(data, "$.data.room.owner.follow_info.follower_count_str")
     following_count                          = get_dict_attr(data, "$.data.room.owner.follow_info.following_count")
     following_count_str                      = get_dict_attr(data, "$.data.room.owner.follow_info.following_count_str")
@@ -1110,7 +1121,8 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(room_owner_table_tuple, "$.allow_use_linkmic",                        allow_use_linkmic)
     set_dict_attr(room_owner_table_tuple, "$.authorization_info",                       authorization_info)
     set_dict_attr(room_owner_table_tuple, "$.bg_img_url",                               bg_img_url)
-    set_dict_attr(room_owner_table_tuple, "$.birthday",                                 birthday)
+    if birthday != 0:
+      set_dict_attr(room_owner_table_tuple, "$.birthday",                                 birthday)
     set_dict_attr(room_owner_table_tuple, "$.birthday_description",                     birthday_description)
     set_dict_attr(room_owner_table_tuple, "$.birthday_valid",                           birthday_valid)
     set_dict_attr(room_owner_table_tuple, "$.block_status",                             block_status)
@@ -1118,7 +1130,8 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(room_owner_table_tuple, "$.comment_restrict",                         comment_restrict)
     set_dict_attr(room_owner_table_tuple, "$.constellation",                            constellation)
     set_dict_attr(room_owner_table_tuple, "$.consume_diamond_level",                    consume_diamond_level)
-    set_dict_attr(room_owner_table_tuple, "$.create_time",                              dat.fromtimestamp(create_time))
+    if create_time != 0:
+      set_dict_attr(room_owner_table_tuple, "$.create_time",                              dat.fromtimestamp(create_time))
     set_dict_attr(room_owner_table_tuple, "$.desensitized_nickname",                    desensitized_nickname)
     set_dict_attr(room_owner_table_tuple, "$.disable_ichat",                            disable_ichat)
     set_dict_attr(room_owner_table_tuple, "$.display_id",                               display_id)
@@ -1152,7 +1165,8 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(room_owner_table_tuple, "$.level",                                    level)
     set_dict_attr(room_owner_table_tuple, "$.link_mic_stats",                           link_mic_stats)
     set_dict_attr(room_owner_table_tuple, "$.location_city",                            location_city)
-    set_dict_attr(room_owner_table_tuple, "$.modify_time",                              dat.fromtimestamp(modify_time))
+    if modify_time != 0:
+      set_dict_attr(room_owner_table_tuple, "$.modify_time",                              dat.fromtimestamp(modify_time))
     set_dict_attr(room_owner_table_tuple, "$.mystery_man",                              mystery_man)
     set_dict_attr(room_owner_table_tuple, "$.need_profile_guide",                       need_profile_guide)
     set_dict_attr(room_owner_table_tuple, "$.nickname",                                 nickname)
@@ -1208,7 +1222,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(room_owner_table_tuple, "$.with_car_management_permission",           with_car_management_permission)
     set_dict_attr(room_owner_table_tuple, "$.with_commerce_permission",                 with_commerce_permission)
     set_dict_attr(room_owner_table_tuple, "$.with_fusion_shop_entry",                   with_fusion_shop_entry)
-  
+
     if db.is_table_exist(room_owner_table.get_name()) is False:
       room_owner_table.create()
     room_owner_table.insert_record(room_owner_table_tuple)
@@ -1216,6 +1230,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     get_logger().error("insert {} failed: {}".format(room_owner_table.get_name(), e))
     raise e
 
+  """
   ##
   ## BadgeImageTable
   ## TODO: handle auto_increment primary key
@@ -1246,7 +1261,9 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(badge_image_table.get_name(), e))
     raise e
-
+  """
+  
+  """
   ##
   ## CommerceWebcastConfigIdTable
   ## TBD
@@ -1257,7 +1274,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(commerce_webcast_config_id_table.get_name(), e))
     raise e
-
+  """
   ##
   ## FansClubTable
   ##
@@ -1299,28 +1316,29 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     user_guard_status      = get_dict_attr(data, "$.data.room.owner.fans_club.data.user_guard_status")
     prefer_data            = get_dict_attr(data, "$.data.room.owner.fans_club.prefer_data")
   
-    set_dict_attr(room_owner_table_tuple, "$.now",                                      now)
-    set_dict_attr(room_owner_table_tuple, "$.platform",                                 DOUYIN_PLATFORM)
-    set_dict_attr(room_owner_table_tuple, "$.room_id",                                  str(room_id))
-    set_dict_attr(room_owner_table_tuple, "$.owner_user_id",                            str(owner_user_id))
-    set_dict_attr(room_owner_table_tuple, "$.anchor_id",                                str(anchor_id))
-    set_dict_attr(room_owner_table_tuple, "$.anchor_open_id",                           anchor_open_id)
-    set_dict_attr(room_owner_table_tuple, "$.badge_type",                               badge_type)
-    set_dict_attr(room_owner_table_tuple, "$.badge_title",                              badge_title)
-    set_dict_attr(room_owner_table_tuple, "$.club_name",                                club_name)
-    set_dict_attr(room_owner_table_tuple, "$.guard_expired_time",                       dat.fromtimestamp(guard_expired_time))
-    set_dict_attr(room_owner_table_tuple, "$.level",                                    level)
-    set_dict_attr(room_owner_table_tuple, "$.user_fans_club_status",                    user_fans_club_status)
-    set_dict_attr(room_owner_table_tuple, "$.user_guard_status",                        user_guard_status)
-    set_dict_attr(room_owner_table_tuple, "$.prefer_data",                              prefer_data)
-  
+    set_dict_attr(fans_club_table_tuple, "$.now",                                      now)
+    set_dict_attr(fans_club_table_tuple, "$.platform",                                 DOUYIN_PLATFORM)
+    set_dict_attr(fans_club_table_tuple, "$.room_id",                                  str(room_id))
+    set_dict_attr(fans_club_table_tuple, "$.owner_user_id",                            str(owner_user_id))
+    set_dict_attr(fans_club_table_tuple, "$.anchor_id",                                str(anchor_id))
+    set_dict_attr(fans_club_table_tuple, "$.anchor_open_id",                           anchor_open_id)
+    set_dict_attr(fans_club_table_tuple, "$.badge_type",                               badge_type)
+    set_dict_attr(fans_club_table_tuple, "$.badge_title",                              badge_title)
+    set_dict_attr(fans_club_table_tuple, "$.club_name",                                club_name)
+    if guard_expired_time != 0:
+      set_dict_attr(fans_club_table_tuple, "$.guard_expired_time",                       dat.fromtimestamp(guard_expired_time))
+    set_dict_attr(fans_club_table_tuple, "$.level",                                    level)
+    set_dict_attr(fans_club_table_tuple, "$.user_fans_club_status",                    user_fans_club_status)
+    set_dict_attr(fans_club_table_tuple, "$.user_guard_status",                        user_guard_status)
+    set_dict_attr(fans_club_table_tuple, "$.prefer_data",                              json.dumps(prefer_data))
+
     if db.is_table_exist(fans_club_table.get_name()) is False:
       fans_club_table.create()
     fans_club_table.insert_record(fans_club_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(fans_club_table.get_name(), e))
     raise e
-  
+
   ##
   ## FansClubAvailableGiftIdTable
   ##
@@ -1346,26 +1364,23 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     owner_user_id          = get_dict_attr(data, "$.data.room.owner_user_id")
     anchor_id              = get_dict_attr(data, "$.data.room.owner.fans_club.data.anchor_id")
     available_gift_ids     = get_dict_attr(data, "$.data.room.owner.fans_club.data.available_gift_ids")
-    if available_gift_ids is None:
-      get_logger().warning("none found available_gift_ids")
-      return
-    
-    set_dict_attr(fans_club_available_gift_id_table_tuple, "$.now",                                      now)
-    set_dict_attr(fans_club_available_gift_id_table_tuple, "$.platform",                                 DOUYIN_PLATFORM)
-    set_dict_attr(fans_club_available_gift_id_table_tuple, "$.room_id",                                  str(room_id))
-    set_dict_attr(fans_club_available_gift_id_table_tuple, "$.owner_user_id",                            str(owner_user_id))
-    set_dict_attr(fans_club_available_gift_id_table_tuple, "$.anchor_id",                                str(anchor_id))
-    for available_gift_id in available_gift_ids:
-      # available_gift_index auto increment
-      set_dict_attr(fans_club_available_gift_id_table_tuple, "$.available_gift_id",                      str(available_gift_id))
-
-      if db.is_table_exist(fans_club_available_gift_id_table.get_name()) is False:
-        fans_club_available_gift_id_table.create()
-      fans_club_available_gift_id_table.insert_record(fans_club_available_gift_id_table_tuple)
+    if len(available_gift_ids) != 0:
+      set_dict_attr(fans_club_available_gift_id_table_tuple, "$.now",                                      now)
+      set_dict_attr(fans_club_available_gift_id_table_tuple, "$.platform",                                 DOUYIN_PLATFORM)
+      set_dict_attr(fans_club_available_gift_id_table_tuple, "$.room_id",                                  str(room_id))
+      set_dict_attr(fans_club_available_gift_id_table_tuple, "$.owner_user_id",                            str(owner_user_id))
+      set_dict_attr(fans_club_available_gift_id_table_tuple, "$.anchor_id",                                str(anchor_id))
+      for available_gift_id in available_gift_ids:
+        # available_gift_index auto increment
+        set_dict_attr(fans_club_available_gift_id_table_tuple, "$.available_gift_id",                      str(available_gift_id))
+  
+        if db.is_table_exist(fans_club_available_gift_id_table.get_name()) is False:
+          fans_club_available_gift_id_table.create()
+        fans_club_available_gift_id_table.insert_record(fans_club_available_gift_id_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(fans_club_available_gift_id_table.get_name(), e))
     raise e
-  
+  """
   ##
   ## FansClubBadgeIconTable
   ## TODO: handle multiple icon url
@@ -1407,7 +1422,9 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(fans_club_badge_icon_table.get_name(), e))
     raise e
+  """
 
+  """
   ##
   ## MediaBadgeImageTable
   ## TBD
@@ -1418,7 +1435,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(media_badge_image_table.get_name(), e))
     raise e
-  
+
   ##
   ## NewRealTimeIconTable
   ## TBD
@@ -1429,7 +1446,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(new_real_time_icon_table.get_name(), e))
     raise e
-
+  """
   ##
   ## PayGradeIconTable
   ## TBD
@@ -1475,7 +1492,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(pay_grade_icon_table.get_name(), e))
     raise e
-
+  """
   ##
   ## RoomOwnerRealTimeIconTable
   ## TBD
@@ -1486,7 +1503,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_owner_real_time_icon_table.get_name(), e))
     raise e
-  
+  """
   ##
   ## RoomSubscribeTable
   ##
@@ -1512,11 +1529,11 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # DOUYIN_PLATFORM = "douyin"
     # room_id         = get_dict_attr(data, "$.data.room.id")
     owner_user_id     = get_dict_attr(data, "$.data.room.owner_user_id")
-    buy_type          = get_dict_attr(data, "$.data.room.room_subscribe.buy_type")
-    identity_type     = get_dict_attr(data, "$.data.room.room_subscribe.identity_type")
-    is_member         = get_dict_attr(data, "$.data.room.room_subscribe.is_member")
-    level             = get_dict_attr(data, "$.data.room.room_subscribe.level")
-    open              = get_dict_attr(data, "$.data.room.room_subscribe.open")
+    buy_type          = get_dict_attr(data, "$.data.room.owner.subscribe.buy_type")
+    identity_type     = get_dict_attr(data, "$.data.room.owner.subscribe.identity_type")
+    is_member         = get_dict_attr(data, "$.data.room.owner.subscribe.is_member")
+    level             = get_dict_attr(data, "$.data.room.owner.subscribe.level")
+    open              = get_dict_attr(data, "$.data.room.owner.subscribe.open")
     
     set_dict_attr(room_subscribe_table_tuple, "$.now",           now)
     set_dict_attr(room_subscribe_table_tuple, "$.platform",      DOUYIN_PLATFORM)
@@ -1527,7 +1544,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(room_subscribe_table_tuple, "$.is_member",     is_member)
     set_dict_attr(room_subscribe_table_tuple, "$.level",         level)
     set_dict_attr(room_subscribe_table_tuple, "$.open",          open)
-    
+
     ##
     ## 1. check is the table is exist
     ## 2. if not exist, create it
@@ -1539,7 +1556,9 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_subscribe_table.get_name(), e))
     raise e
-  
+
+
+  """
   ##
   ## RoomOwnerTopFansTable
   ## TBD
@@ -1550,7 +1569,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_owner_top_fans_table.get_name(), e))
     raise e
-
+  """
   ##
   ## RoomOwnerUserAttrTable
   ##
@@ -1585,14 +1604,14 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(room_owner_user_attr_table_tuple, "$.is_admin",                                 is_admin)
     set_dict_attr(room_owner_user_attr_table_tuple, "$.is_muted",                                 is_muted)
     set_dict_attr(room_owner_user_attr_table_tuple, "$.is_super_admin",                           is_super_admin)
-  
+
     if db.is_table_exist(room_owner_user_attr_table.get_name()) is False:
       room_owner_user_attr_table.create()
     room_owner_user_attr_table.insert_record(room_owner_user_attr_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_owner_user_attr_table.get_name(), e))
     raise e
-  
+
   ##
   ## RoomAdminPrivilegeTable
   ##
@@ -1617,20 +1636,17 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     owner_user_id     = get_dict_attr(data, "$.data.room.owner_user_id")
     # admin_privilege_index auto increment
     admin_privileges  = get_dict_attr(data, "$.data.room.owner.user_attr.admin_privileges")
-    if admin_privileges is None:
-      get_logger().warning("none found admin_privileges")
-      return
-    
-    set_dict_attr(room_admin_privilege_table_tuple, "$.now",                                      now)
-    set_dict_attr(room_admin_privilege_table_tuple, "$.platform",                                 DOUYIN_PLATFORM)
-    set_dict_attr(room_admin_privilege_table_tuple, "$.room_id",                                  str(room_id))
-    set_dict_attr(room_admin_privilege_table_tuple, "$.owner_user_id",                            str(owner_user_id))
-    for admin_privilege in admin_privileges:
-      # admin_privilege_index auto increment
-      set_dict_attr(room_admin_privilege_table_tuple, "$.admin_privilege",                        admin_privilege)
-      if db.is_table_exist(room_admin_privilege_table.get_name()) is False:
-        room_admin_privilege_table.create()
-      room_admin_privilege_table.insert_record(room_admin_privilege_table_tuple)
+    if len(admin_privileges) != 0:
+      set_dict_attr(room_admin_privilege_table_tuple, "$.now",                                      now)
+      set_dict_attr(room_admin_privilege_table_tuple, "$.platform",                                 DOUYIN_PLATFORM)
+      set_dict_attr(room_admin_privilege_table_tuple, "$.room_id",                                  str(room_id))
+      set_dict_attr(room_admin_privilege_table_tuple, "$.owner_user_id",                            str(owner_user_id))
+      for admin_privilege in admin_privileges:
+        # admin_privilege_index auto increment
+        set_dict_attr(room_admin_privilege_table_tuple, "$.admin_privilege",                        admin_privilege)
+        if db.is_table_exist(room_admin_privilege_table.get_name()) is False:
+          room_admin_privilege_table.create()
+        room_admin_privilege_table.insert_record(room_admin_privilege_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_admin_privilege_table.get_name(), e))
     raise e
@@ -1659,25 +1675,22 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # owner_user_id = get_dict_attr(data, "$.data.room.owner_user_id")
     # dress_own_index auto increment
     dress_own_ids = get_dict_attr(data, "$.data.room.owner.user_dress_info.dress_own_ids")
-    if dress_own_ids is None:
-      get_logger().warning("none found dress_own_ids")
-      return
-    
-    set_dict_attr(room_owner_user_dress_own_id_table_tuple, "$.now",             now)
-    set_dict_attr(room_owner_user_dress_own_id_table_tuple, "$.platform",        DOUYIN_PLATFORM)
-    set_dict_attr(room_owner_user_dress_own_id_table_tuple, "$.room_id",         str(room_id))
-    set_dict_attr(room_owner_user_dress_own_id_table_tuple, "$.owner_user_id",   str(owner_user_id))
-    for dress_own_id in dress_own_ids:
-      # dress_own_index auto increment
-      set_dict_attr(room_owner_user_dress_own_id_table_tuple, "$.dress_own_id",   dress_own_id)
-      
-      if db.is_table_exist(room_owner_user_dress_own_id_table.get_name()) is False:
-        room_owner_user_dress_own_id_table.create()
-      room_owner_user_dress_own_id_table.insert_record(room_owner_user_dress_own_id_table_tuple)
+    if len(dress_own_ids) != 0:
+      set_dict_attr(room_owner_user_dress_own_id_table_tuple, "$.now",             now)
+      set_dict_attr(room_owner_user_dress_own_id_table_tuple, "$.platform",        DOUYIN_PLATFORM)
+      set_dict_attr(room_owner_user_dress_own_id_table_tuple, "$.room_id",         str(room_id))
+      set_dict_attr(room_owner_user_dress_own_id_table_tuple, "$.owner_user_id",   str(owner_user_id))
+      for dress_own_id in dress_own_ids:
+        # dress_own_index auto increment
+        set_dict_attr(room_owner_user_dress_own_id_table_tuple, "$.dress_own_id",   dress_own_id)
+        
+        if db.is_table_exist(room_owner_user_dress_own_id_table.get_name()) is False:
+          room_owner_user_dress_own_id_table.create()
+        room_owner_user_dress_own_id_table.insert_record(room_owner_user_dress_own_id_table_tuple)
   except Exception as e:
-    get_logger().error("insert {} failed: {}".format(room_owner_dress_wear_id_table.get_name(), e))
+    get_logger().error("insert {} failed: {}".format(room_owner_user_dress_own_id_table.get_name(), e))
     raise e
-    
+
   ##
   ## RoomOwnerDressWearIdTable
   ##
@@ -1702,25 +1715,21 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # owner_user_id = get_dict_attr(data, "$.data.room.owner_user_id")
     # dress_wear_index
     dress_wear_ids = get_dict_attr(data, "$.data.room.owner.user_dress_info.dress_wear_ids")
-    if dress_wear_ids is None:
-      get_logger().warning("none found dress_wear_ids")
-      return    
-    
-    set_dict_attr(room_owner_dress_wear_id_table_tuple, "$.now",             now)
-    set_dict_attr(room_owner_dress_wear_id_table_tuple, "$.platform",        DOUYIN_PLATFORM)
-    set_dict_attr(room_owner_dress_wear_id_table_tuple, "$.room_id",         str(room_id))
-    set_dict_attr(room_owner_dress_wear_id_table_tuple, "$.owner_user_id",   str(owner_user_id))
-    for dress_wear_id in dress_wear_ids:
-      # set_dict_attr(room_owner_dress_wear_id_table_tuple, "$.dress_wear_index",   dress_wear_index)
-      set_dict_attr(room_owner_dress_wear_id_table_tuple, "$.dress_wear_id",   str(dress_own_id))
-      
-      if db.is_table_exist(room_owner_dress_wear_id_table.get_name()) is False:
-        room_owner_dress_wear_id_table.create()
-      room_owner_dress_wear_id_table.insert_record(room_owner_dress_wear_id_table_tuple)
+    if len(dress_wear_ids) != 0:
+      set_dict_attr(room_owner_dress_wear_id_table_tuple, "$.now",             now)
+      set_dict_attr(room_owner_dress_wear_id_table_tuple, "$.platform",        DOUYIN_PLATFORM)
+      set_dict_attr(room_owner_dress_wear_id_table_tuple, "$.room_id",         str(room_id))
+      set_dict_attr(room_owner_dress_wear_id_table_tuple, "$.owner_user_id",   str(owner_user_id))
+      for dress_wear_id in dress_wear_ids:
+        # set_dict_attr(room_owner_dress_wear_id_table_tuple, "$.dress_wear_index",   dress_wear_index)
+        set_dict_attr(room_owner_dress_wear_id_table_tuple, "$.dress_wear_id",   str(dress_own_id))
+        
+        if db.is_table_exist(room_owner_dress_wear_id_table.get_name()) is False:
+          room_owner_dress_wear_id_table.create()
+        room_owner_dress_wear_id_table.insert_record(room_owner_dress_wear_id_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_owner_dress_wear_id_table.get_name(), e))
     raise e
-
 
   ##
   ## RoomPackMetaTable
@@ -1746,12 +1755,12 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # now = get_dict_attr(data, "$.extra.now")
     # DOUYIN_PLATFORM = "douyin"
     # room_id = get_dict_attr(data, "$.data.room.id")
-    cluster  = get_dict_attr(data, "$.extra.room_pack_meta.cluster")
-    dc       = get_dict_attr(data, "$.extra.room_pack_meta.dc")
-    env      = get_dict_attr(data, "$.extra.room_pack_meta.env")
-    extras   = get_dict_attr(data, "$.extra.room_pack_meta.extras")
-    scene    = get_dict_attr(data, "$.extra.room_pack_meta.scene")
-    trace_id = get_dict_attr(data, "$.extra.room_pack_meta.trace_id")
+    cluster  = get_dict_attr(data, "$.data.room.pack_meta.cluster")
+    dc       = get_dict_attr(data, "$.data.room.pack_meta.dc")
+    env      = get_dict_attr(data, "$.data.room.pack_meta.env")
+    extras   = get_dict_attr(data, "$.data.room.pack_meta.extras")
+    scene    = get_dict_attr(data, "$.data.room.pack_meta.scene")
+    trace_id = get_dict_attr(data, "$.data.room.pack_meta.trace_id")
     
     set_dict_attr(room_pack_meta_table_tuple, "$.now",      now)
     set_dict_attr(room_pack_meta_table_tuple, "$.platform", DOUYIN_PLATFORM)
@@ -1759,10 +1768,10 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(room_pack_meta_table_tuple, "$.cluster",  cluster)
     set_dict_attr(room_pack_meta_table_tuple, "$.dc",       dc)
     set_dict_attr(room_pack_meta_table_tuple, "$.env",      env)
-    set_dict_attr(room_pack_meta_table_tuple, "$.extras",   extras)
+    set_dict_attr(room_pack_meta_table_tuple, "$.extras",   json.dumps(extras))
     set_dict_attr(room_pack_meta_table_tuple, "$.scene",    scene)
     set_dict_attr(room_pack_meta_table_tuple, "$.trace_id", trace_id)
-    
+
     if db.is_table_exist(room_pack_meta_table.get_name()) is False:
       room_pack_meta_table.create()
     room_pack_meta_table.insert_record(room_pack_meta_table_tuple)
@@ -1819,17 +1828,17 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(room_paid_live_data_table_tuple, "$.need_delivery_notice", need_delivery_notice)
     set_dict_attr(room_paid_live_data_table_tuple, "$.paid_type",            paid_type)
     set_dict_attr(room_paid_live_data_table_tuple, "$.pay_ab_type",          pay_ab_type)
-    set_dict_attr(room_paid_live_data_table_tuple, "$.privilege_info",       privilege_info)
-    set_dict_attr(room_paid_live_data_table_tuple, "$.privilege_info_map",   privilege_info_map)
+    set_dict_attr(room_paid_live_data_table_tuple, "$.privilege_info",       json.dumps(privilege_info))
+    set_dict_attr(room_paid_live_data_table_tuple, "$.privilege_info_map",   json.dumps(privilege_info_map))
     set_dict_attr(room_paid_live_data_table_tuple, "$.view_right",           view_right)
-    
+
     if db.is_table_exist(room_paid_live_data_table.get_name()) is False:
       room_paid_live_data_table.create()
     room_paid_live_data_table.insert_record(room_paid_live_data_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_paid_live_data_table.get_name(), e))
     raise e
-  
+
   ##
   ## RoomAuthTable
   ##
@@ -1920,7 +1929,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     ## | LandscapeScreenCapture           |
     ## | LandscapeScreenRecording         |
     ## | LandscapeScreenShare             |
-    ## | Like                             |
+    ## | `Like`                           |
     ## | LinkmicGuestLike                 |
     ## | LongPressOption                  |
     ## | LongTouch                        |
@@ -2002,160 +2011,160 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # now = get_dict_attr(data, "$.extra.now")
     # DOUYIN_PLATFORM = "douyin"
     # room_id = get_dict_attr(data, "$.data.room.id")
-    AIClone                          = get_dict_attr(data, "$.data.room.auth.AIClone")
-    AdminCommentWall                 = get_dict_attr(data, "$.data.room.auth.AdminCommentWall")
-    AnchorAudioChat                  = get_dict_attr(data, "$.data.room.auth.AnchorAudioChat")
-    AnchorColdMessageTiled           = get_dict_attr(data, "$.data.room.auth.AnchorColdMessageTiled")
-    AnchorHotMessageAggregated       = get_dict_attr(data, "$.data.room.auth.AnchorHotMessageAggregated")
-    AnchorMission                    = get_dict_attr(data, "$.data.room.auth.AnchorMission")
-    AudioChat                        = get_dict_attr(data, "$.data.room.auth.AudioChat")
-    AudioChatTotext                  = get_dict_attr(data, "$.data.room.auth.AudioChatTotext")
-    Banner                           = get_dict_attr(data, "$.data.room.auth.Banner")
-    BulletStyle                      = get_dict_attr(data, "$.data.room.auth.BulletStyle")
-    CanSellTicket                    = get_dict_attr(data, "$.data.room.auth.CanSellTicket")
-    CastScreen                       = get_dict_attr(data, "$.data.room.auth.CastScreen")
-    CastScreenExplicit               = get_dict_attr(data, "$.data.room.auth.CastScreenExplicit")
-    Chat                             = get_dict_attr(data, "$.data.room.auth.Chat")
-    ChatDispatch                     = get_dict_attr(data, "$.data.room.auth.ChatDispatch")
-    ChatDynamicSlideSpeed            = get_dict_attr(data, "$.data.room.auth.ChatDynamicSlideSpeed")
-    ChatDynamicSlideSpeedAnchor      = get_dict_attr(data, "$.data.room.auth.ChatDynamicSlideSpeedAnchor")
-    ChatGuideEmoji                   = get_dict_attr(data, "$.data.room.auth.ChatGuideEmoji")
-    ChatGuideImage                   = get_dict_attr(data, "$.data.room.auth.ChatGuideImage")
-    ChatIdentity                     = get_dict_attr(data, "$.data.room.auth.ChatIdentity")
-    ChatMention                      = get_dict_attr(data, "$.data.room.auth.ChatMention")
-    ChatMentionV2                    = get_dict_attr(data, "$.data.room.auth.ChatMentionV2")
-    ChatOperate                      = get_dict_attr(data, "$.data.room.auth.ChatOperate")
-    ChatReply                        = get_dict_attr(data, "$.data.room.auth.ChatReply")
-    ClearEntranceOption              = get_dict_attr(data, "$.data.room.auth.ClearEntranceOption")
-    Collect                          = get_dict_attr(data, "$.data.room.auth.Collect")
-    CommentWall                      = get_dict_attr(data, "$.data.room.auth.CommentWall")
-    CommerceCard                     = get_dict_attr(data, "$.data.room.auth.CommerceCard")
-    CommerceComponent                = get_dict_attr(data, "$.data.room.auth.CommerceComponent")
-    CommonCard                       = get_dict_attr(data, "$.data.room.auth.CommonCard")
-    CountType                        = get_dict_attr(data, "$.data.room.auth.CountType")
-    Danmaku                          = get_dict_attr(data, "$.data.room.auth.Danmaku")
-    DanmakuDefault                   = get_dict_attr(data, "$.data.room.auth.DanmakuDefault")
-    Denounce                         = get_dict_attr(data, "$.data.room.auth.Denounce")
-    Digg                             = get_dict_attr(data, "$.data.room.auth.Digg")
-    Dislike                          = get_dict_attr(data, "$.data.room.auth.Dislike")
-    DonationSticker                  = get_dict_attr(data, "$.data.room.auth.DonationSticker")
-    DouPlus                          = get_dict_attr(data, "$.data.room.auth.DouPlus")
-    DouPlusPopularityGem             = get_dict_attr(data, "$.data.room.auth.DouPlusPopularityGem")
-    DownloadVideo                    = get_dict_attr(data, "$.data.room.auth.DownloadVideo")
-    EcomFansClub                     = get_dict_attr(data, "$.data.room.auth.EcomFansClub")
-    EmojiOutside                     = get_dict_attr(data, "$.data.room.auth.EmojiOutside")
-    EnhancedTouch                    = get_dict_attr(data, "$.data.room.auth.EnhancedTouch")
-    EnterEffects                     = get_dict_attr(data, "$.data.room.auth.EnterEffects")
-    ExpandScreen                     = get_dict_attr(data, "$.data.room.auth.ExpandScreen")
-    FansClub                         = get_dict_attr(data, "$.data.room.auth.FansClub")
-    FansClubBlessing                 = get_dict_attr(data, "$.data.room.auth.FansClubBlessing")
-    FansClubDeclaration              = get_dict_attr(data, "$.data.room.auth.FansClubDeclaration")
-    FansClubLetter                   = get_dict_attr(data, "$.data.room.auth.FansClubLetter")
-    FansClubNotice                   = get_dict_attr(data, "$.data.room.auth.FansClubNotice")
-    FansGroup                        = get_dict_attr(data, "$.data.room.auth.FansGroup")
-    FeaturedPublicScreen             = get_dict_attr(data, "$.data.room.auth.FeaturedPublicScreen")
-    FirstFeedHistChat                = get_dict_attr(data, "$.data.room.auth.FirstFeedHistChat")
-    FixedChat                        = get_dict_attr(data, "$.data.room.auth.FixedChat")
-    FrequentlyChat                   = get_dict_attr(data, "$.data.room.auth.FrequentlyChat")
-    FusionEmoji                      = get_dict_attr(data, "$.data.room.auth.FusionEmoji")
-    GamePointsPlaying                = get_dict_attr(data, "$.data.room.auth.GamePointsPlaying")
-    Gift                             = get_dict_attr(data, "$.data.room.auth.Gift")
-    GiftAnchorMt                     = get_dict_attr(data, "$.data.room.auth.GiftAnchorMt")
-    GiftVote                         = get_dict_attr(data, "$.data.room.auth.GiftVote")
-    Highlights                       = get_dict_attr(data, "$.data.room.auth.Highlights")
-    HostTeam                         = get_dict_attr(data, "$.data.room.auth.HostTeam")
-    HostTeamChannel                  = get_dict_attr(data, "$.data.room.auth.HostTeamChannel")
-    HotChatTray                      = get_dict_attr(data, "$.data.room.auth.HotChatTray")
-    HourRank                         = get_dict_attr(data, "$.data.room.auth.HourRank")
-    ImHeatValue                      = get_dict_attr(data, "$.data.room.auth.ImHeatValue")
-    IndustryService                  = get_dict_attr(data, "$.data.room.auth.IndustryService")
-    InteractionGift                  = get_dict_attr(data, "$.data.room.auth.InteractionGift")
-    InteractiveComponent             = get_dict_attr(data, "$.data.room.auth.InteractiveComponent")
-    ItemShare                        = get_dict_attr(data, "$.data.room.auth.ItemShare")
-    KtvOrderSong                     = get_dict_attr(data, "$.data.room.auth.KtvOrderSong")
-    Landscape                        = get_dict_attr(data, "$.data.room.auth.Landscape")
-    LandscapeChat                    = get_dict_attr(data, "$.data.room.auth.LandscapeChat")
-    LandscapeChatDynamicSlideSpeed   = get_dict_attr(data, "$.data.room.auth.LandscapeChatDynamicSlideSpeed")
-    LandscapeGift                    = get_dict_attr(data, "$.data.room.auth.LandscapeGift")
-    LandscapeScreenCapture           = get_dict_attr(data, "$.data.room.auth.LandscapeScreenCapture")
-    LandscapeScreenRecording         = get_dict_attr(data, "$.data.room.auth.LandscapeScreenRecording")
-    LandscapeScreenShare             = get_dict_attr(data, "$.data.room.auth.LandscapeScreenShare")
-    Like                             = get_dict_attr(data, "$.data.room.auth.Like")
-    LinkmicGuestLike                 = get_dict_attr(data, "$.data.room.auth.LinkmicGuestLike")
-    LongPressOption                  = get_dict_attr(data, "$.data.room.auth.LongPressOption")
-    LongTouch                        = get_dict_attr(data, "$.data.room.auth.LongTouch")
-    LuckMoney                        = get_dict_attr(data, "$.data.room.auth.LuckMoney")
-    MarkUser                         = get_dict_attr(data, "$.data.room.auth.MarkUser")
-    MediaHistoryMessage              = get_dict_attr(data, "$.data.room.auth.MediaHistoryMessage")
-    MediaLinkmic                     = get_dict_attr(data, "$.data.room.auth.MediaLinkmic")
-    MessageDispatch                  = get_dict_attr(data, "$.data.room.auth.MessageDispatch")
-    MessageGift                      = get_dict_attr(data, "$.data.room.auth.MessageGift")
-    MissionCenter                    = get_dict_attr(data, "$.data.room.auth.MissionCenter")
-    MoreAnchor                       = get_dict_attr(data, "$.data.room.auth.MoreAnchor")
-    MoreHistChat                     = get_dict_attr(data, "$.data.room.auth.MoreHistChat")
-    MultiplierPlayback               = get_dict_attr(data, "$.data.room.auth.MultiplierPlayback")
-    MyLiveEntrance                   = get_dict_attr(data, "$.data.room.auth.MyLiveEntrance")
-    OnlyTa                           = get_dict_attr(data, "$.data.room.auth.OnlyTa")
-    PCPlay                           = get_dict_attr(data, "$.data.room.auth.PCPlay")
-    POI                              = get_dict_attr(data, "$.data.room.auth.POI")
-    PadPlay                          = get_dict_attr(data, "$.data.room.auth.PadPlay")
-    PanelECService                   = get_dict_attr(data, "$.data.room.auth.PanelECService")
-    PlayerRankList                   = get_dict_attr(data, "$.data.room.auth.PlayerRankList")
-    Poster                           = get_dict_attr(data, "$.data.room.auth.Poster")
-    PosterCache                      = get_dict_attr(data, "$.data.room.auth.PosterCache")
-    PreviewChatExpose                = get_dict_attr(data, "$.data.room.auth.PreviewChatExpose")
-    PreviewHotCommentSwitch          = get_dict_attr(data, "$.data.room.auth.PreviewHotCommentSwitch")
-    ProjectionBtn                    = get_dict_attr(data, "$.data.room.auth.ProjectionBtn")
-    Props                            = get_dict_attr(data, "$.data.room.auth.Props")
-    PublicScreen                     = get_dict_attr(data, "$.data.room.auth.PublicScreen")
-    QuizGamePointsPlaying            = get_dict_attr(data, "$.data.room.auth.QuizGamePointsPlaying")
-    RecordScreen                     = get_dict_attr(data, "$.data.room.auth.RecordScreen")
-    RoomChannel                      = get_dict_attr(data, "$.data.room.auth.RoomChannel")
-    RoomChatLikeDisplay              = get_dict_attr(data, "$.data.room.auth.RoomChatLikeDisplay")
-    RoomChatOperatePanel             = get_dict_attr(data, "$.data.room.auth.RoomChatOperatePanel")
-    RoomContributor                  = get_dict_attr(data, "$.data.room.auth.RoomContributor")
-    RoomWidget                       = get_dict_attr(data, "$.data.room.auth.RoomWidget")
-    ScreenBottomInfo                 = get_dict_attr(data, "$.data.room.auth.ScreenBottomInfo")
-    ScreenProjectionBarrage          = get_dict_attr(data, "$.data.room.auth.ScreenProjectionBarrage")
-    Seek                             = get_dict_attr(data, "$.data.room.auth.Seek")
-    Selection                        = get_dict_attr(data, "$.data.room.auth.Selection")
-    SelectionAlbum                   = get_dict_attr(data, "$.data.room.auth.SelectionAlbum")
-    Share                            = get_dict_attr(data, "$.data.room.auth.Share")
-    ShortTouch                       = get_dict_attr(data, "$.data.room.auth.ShortTouch")
-    ShortTouchTempState              = get_dict_attr(data, "$.data.room.auth.ShortTouchTempState")
-    ShowGamePlugin                   = get_dict_attr(data, "$.data.room.auth.ShowGamePlugin")
-    ShowQualification                = get_dict_attr(data, "$.data.room.auth.ShowQualification")
-    SmallWindowDisplay               = get_dict_attr(data, "$.data.room.auth.SmallWindowDisplay")
-    SmallWindowPlayer                = get_dict_attr(data, "$.data.room.auth.SmallWindowPlayer")
-    StickyMessage                    = get_dict_attr(data, "$.data.room.auth.StickyMessage")
-    StreamAdaptation                 = get_dict_attr(data, "$.data.room.auth.StreamAdaptation")
-    StrokeUpDownGuide                = get_dict_attr(data, "$.data.room.auth.StrokeUpDownGuide")
-    SubscribeCardPackage             = get_dict_attr(data, "$.data.room.auth.SubscribeCardPackage")
-    Teleprompter                     = get_dict_attr(data, "$.data.room.auth.Teleprompter")
-    TextGift                         = get_dict_attr(data, "$.data.room.auth.TextGift")
-    TimedShutdown                    = get_dict_attr(data, "$.data.room.auth.TimedShutdown")
-    ToolbarBubble                    = get_dict_attr(data, "$.data.room.auth.ToolbarBubble")
-    Topic                            = get_dict_attr(data, "$.data.room.auth.Topic")
-    TypingCommentState               = get_dict_attr(data, "$.data.room.auth.TypingCommentState")
-    UgcVSReplayDelete                = get_dict_attr(data, "$.data.room.auth.UgcVSReplayDelete")
-    UgcVsReplayVisibility            = get_dict_attr(data, "$.data.room.auth.UgcVsReplayVisibility")
-    UpRightStatsFloatingLayer        = get_dict_attr(data, "$.data.room.auth.UpRightStatsFloatingLayer")
-    UseHostInfo                      = get_dict_attr(data, "$.data.room.auth.UseHostInfo")
-    UserCard                         = get_dict_attr(data, "$.data.room.auth.UserCard")
-    UserCorner                       = get_dict_attr(data, "$.data.room.auth.UserCorner")
-    VSGift                           = get_dict_attr(data, "$.data.room.auth.VSGift")
-    VSRank                           = get_dict_attr(data, "$.data.room.auth.VSRank")
-    VSTopic                          = get_dict_attr(data, "$.data.room.auth.VSTopic")
-    VerticalRank                     = get_dict_attr(data, "$.data.room.auth.VerticalRank")
-    VerticalScreenShare              = get_dict_attr(data, "$.data.room.auth.VerticalScreenShare")
-    VideoAmplificationType           = get_dict_attr(data, "$.data.room.auth.VideoAmplificationType")
-    VideoShare                       = get_dict_attr(data, "$.data.room.auth.VideoShare")
-    VsCommentBar                     = get_dict_attr(data, "$.data.room.auth.VsCommentBar")
-    VsDouPlus                        = get_dict_attr(data, "$.data.room.auth.VsDouPlus")
-    VsExtensionEnableFollow          = get_dict_attr(data, "$.data.room.auth.VsExtensionEnableFollow")
-    VsFansClub                       = get_dict_attr(data, "$.data.room.auth.VsFansClub")
-    VsWelcomeDanmaku                 = get_dict_attr(data, "$.data.room.auth.VsWelcomeDanmaku")
-    WordAssociation                  = get_dict_attr(data, "$.data.room.auth.WordAssociation")
+    AIClone                          = get_dict_attr(data, "$.data.room.room_auth.AIClone")
+    AdminCommentWall                 = get_dict_attr(data, "$.data.room.room_auth.AdminCommentWall")
+    AnchorAudioChat                  = get_dict_attr(data, "$.data.room.room_auth.AnchorAudioChat")
+    AnchorColdMessageTiled           = get_dict_attr(data, "$.data.room.room_auth.AnchorColdMessageTiled")
+    AnchorHotMessageAggregated       = get_dict_attr(data, "$.data.room.room_auth.AnchorHotMessageAggregated")
+    AnchorMission                    = get_dict_attr(data, "$.data.room.room_auth.AnchorMission")
+    AudioChat                        = get_dict_attr(data, "$.data.room.room_auth.AudioChat")
+    AudioChatTotext                  = get_dict_attr(data, "$.data.room.room_auth.AudioChatTotext")
+    Banner                           = get_dict_attr(data, "$.data.room.room_auth.Banner")
+    BulletStyle                      = get_dict_attr(data, "$.data.room.room_auth.BulletStyle")
+    CanSellTicket                    = get_dict_attr(data, "$.data.room.room_auth.CanSellTicket")
+    CastScreen                       = get_dict_attr(data, "$.data.room.room_auth.CastScreen")
+    CastScreenExplicit               = get_dict_attr(data, "$.data.room.room_auth.CastScreenExplicit")
+    Chat                             = get_dict_attr(data, "$.data.room.room_auth.Chat")
+    ChatDispatch                     = get_dict_attr(data, "$.data.room.room_auth.ChatDispatch")
+    ChatDynamicSlideSpeed            = get_dict_attr(data, "$.data.room.room_auth.ChatDynamicSlideSpeed")
+    ChatDynamicSlideSpeedAnchor      = get_dict_attr(data, "$.data.room.room_auth.ChatDynamicSlideSpeedAnchor")
+    ChatGuideEmoji                   = get_dict_attr(data, "$.data.room.room_auth.ChatGuideEmoji")
+    ChatGuideImage                   = get_dict_attr(data, "$.data.room.room_auth.ChatGuideImage")
+    ChatIdentity                     = get_dict_attr(data, "$.data.room.room_auth.ChatIdentity")
+    ChatMention                      = get_dict_attr(data, "$.data.room.room_auth.ChatMention")
+    ChatMentionV2                    = get_dict_attr(data, "$.data.room.room_auth.ChatMentionV2")
+    ChatOperate                      = get_dict_attr(data, "$.data.room.room_auth.ChatOperate")
+    ChatReply                        = get_dict_attr(data, "$.data.room.room_auth.ChatReply")
+    ClearEntranceOption              = get_dict_attr(data, "$.data.room.room_auth.ClearEntranceOption")
+    Collect                          = get_dict_attr(data, "$.data.room.room_auth.Collect")
+    CommentWall                      = get_dict_attr(data, "$.data.room.room_auth.CommentWall")
+    CommerceCard                     = get_dict_attr(data, "$.data.room.room_auth.CommerceCard")
+    CommerceComponent                = get_dict_attr(data, "$.data.room.room_auth.CommerceComponent")
+    CommonCard                       = get_dict_attr(data, "$.data.room.room_auth.CommonCard")
+    CountType                        = get_dict_attr(data, "$.data.room.room_auth.CountType")
+    Danmaku                          = get_dict_attr(data, "$.data.room.room_auth.Danmaku")
+    DanmakuDefault                   = get_dict_attr(data, "$.data.room.room_auth.DanmakuDefault")
+    Denounce                         = get_dict_attr(data, "$.data.room.room_auth.Denounce")
+    Digg                             = get_dict_attr(data, "$.data.room.room_auth.Digg")
+    Dislike                          = get_dict_attr(data, "$.data.room.room_auth.Dislike")
+    DonationSticker                  = get_dict_attr(data, "$.data.room.room_auth.DonationSticker")
+    DouPlus                          = get_dict_attr(data, "$.data.room.room_auth.DouPlus")
+    DouPlusPopularityGem             = get_dict_attr(data, "$.data.room.room_auth.DouPlusPopularityGem")
+    DownloadVideo                    = get_dict_attr(data, "$.data.room.room_auth.DownloadVideo")
+    EcomFansClub                     = get_dict_attr(data, "$.data.room.room_auth.EcomFansClub")
+    EmojiOutside                     = get_dict_attr(data, "$.data.room.room_auth.EmojiOutside")
+    EnhancedTouch                    = get_dict_attr(data, "$.data.room.room_auth.EnhancedTouch")
+    EnterEffects                     = get_dict_attr(data, "$.data.room.room_auth.EnterEffects")
+    ExpandScreen                     = get_dict_attr(data, "$.data.room.room_auth.ExpandScreen")
+    FansClub                         = get_dict_attr(data, "$.data.room.room_auth.FansClub")
+    FansClubBlessing                 = get_dict_attr(data, "$.data.room.room_auth.FansClubBlessing")
+    FansClubDeclaration              = get_dict_attr(data, "$.data.room.room_auth.FansClubDeclaration")
+    FansClubLetter                   = get_dict_attr(data, "$.data.room.room_auth.FansClubLetter")
+    FansClubNotice                   = get_dict_attr(data, "$.data.room.room_auth.FansClubNotice")
+    FansGroup                        = get_dict_attr(data, "$.data.room.room_auth.FansGroup")
+    FeaturedPublicScreen             = get_dict_attr(data, "$.data.room.room_auth.FeaturedPublicScreen")
+    FirstFeedHistChat                = get_dict_attr(data, "$.data.room.room_auth.FirstFeedHistChat")
+    FixedChat                        = get_dict_attr(data, "$.data.room.room_auth.FixedChat")
+    FrequentlyChat                   = get_dict_attr(data, "$.data.room.room_auth.FrequentlyChat")
+    FusionEmoji                      = get_dict_attr(data, "$.data.room.room_auth.FusionEmoji")
+    GamePointsPlaying                = get_dict_attr(data, "$.data.room.room_auth.GamePointsPlaying")
+    Gift                             = get_dict_attr(data, "$.data.room.room_auth.Gift")
+    GiftAnchorMt                     = get_dict_attr(data, "$.data.room.room_auth.GiftAnchorMt")
+    GiftVote                         = get_dict_attr(data, "$.data.room.room_auth.GiftVote")
+    Highlights                       = get_dict_attr(data, "$.data.room.room_auth.Highlights")
+    HostTeam                         = get_dict_attr(data, "$.data.room.room_auth.HostTeam")
+    HostTeamChannel                  = get_dict_attr(data, "$.data.room.room_auth.HostTeamChannel")
+    HotChatTray                      = get_dict_attr(data, "$.data.room.room_auth.HotChatTray")
+    HourRank                         = get_dict_attr(data, "$.data.room.room_auth.HourRank")
+    ImHeatValue                      = get_dict_attr(data, "$.data.room.room_auth.ImHeatValue")
+    IndustryService                  = get_dict_attr(data, "$.data.room.room_auth.IndustryService")
+    InteractionGift                  = get_dict_attr(data, "$.data.room.room_auth.InteractionGift")
+    InteractiveComponent             = get_dict_attr(data, "$.data.room.room_auth.InteractiveComponent")
+    ItemShare                        = get_dict_attr(data, "$.data.room.room_auth.ItemShare")
+    KtvOrderSong                     = get_dict_attr(data, "$.data.room.room_auth.KtvOrderSong")
+    Landscape                        = get_dict_attr(data, "$.data.room.room_auth.Landscape")
+    LandscapeChat                    = get_dict_attr(data, "$.data.room.room_auth.LandscapeChat")
+    LandscapeChatDynamicSlideSpeed   = get_dict_attr(data, "$.data.room.room_auth.LandscapeChatDynamicSlideSpeed")
+    LandscapeGift                    = get_dict_attr(data, "$.data.room.room_auth.LandscapeGift")
+    LandscapeScreenCapture           = get_dict_attr(data, "$.data.room.room_auth.LandscapeScreenCapture")
+    LandscapeScreenRecording         = get_dict_attr(data, "$.data.room.room_auth.LandscapeScreenRecording")
+    LandscapeScreenShare             = get_dict_attr(data, "$.data.room.room_auth.LandscapeScreenShare")
+    Like                             = get_dict_attr(data, "$.data.room.room_auth.Like")
+    LinkmicGuestLike                 = get_dict_attr(data, "$.data.room.room_auth.LinkmicGuestLike")
+    LongPressOption                  = get_dict_attr(data, "$.data.room.room_auth.LongPressOption")
+    LongTouch                        = get_dict_attr(data, "$.data.room.room_auth.LongTouch")
+    LuckMoney                        = get_dict_attr(data, "$.data.room.room_auth.LuckMoney")
+    MarkUser                         = get_dict_attr(data, "$.data.room.room_auth.MarkUser")
+    MediaHistoryMessage              = get_dict_attr(data, "$.data.room.room_auth.MediaHistoryMessage")
+    MediaLinkmic                     = get_dict_attr(data, "$.data.room.room_auth.MediaLinkmic")
+    MessageDispatch                  = get_dict_attr(data, "$.data.room.room_auth.MessageDispatch")
+    MessageGift                      = get_dict_attr(data, "$.data.room.room_auth.MessageGift")
+    MissionCenter                    = get_dict_attr(data, "$.data.room.room_auth.MissionCenter")
+    MoreAnchor                       = get_dict_attr(data, "$.data.room.room_auth.MoreAnchor")
+    MoreHistChat                     = get_dict_attr(data, "$.data.room.room_auth.MoreHistChat")
+    MultiplierPlayback               = get_dict_attr(data, "$.data.room.room_auth.MultiplierPlayback")
+    MyLiveEntrance                   = get_dict_attr(data, "$.data.room.room_auth.MyLiveEntrance")
+    OnlyTa                           = get_dict_attr(data, "$.data.room.room_auth.OnlyTa")
+    PCPlay                           = get_dict_attr(data, "$.data.room.room_auth.PCPlay")
+    POI                              = get_dict_attr(data, "$.data.room.room_auth.POI")
+    PadPlay                          = get_dict_attr(data, "$.data.room.room_auth.PadPlay")
+    PanelECService                   = get_dict_attr(data, "$.data.room.room_auth.PanelECService")
+    PlayerRankList                   = get_dict_attr(data, "$.data.room.room_auth.PlayerRankList")
+    Poster                           = get_dict_attr(data, "$.data.room.room_auth.Poster")
+    PosterCache                      = get_dict_attr(data, "$.data.room.room_auth.PosterCache")
+    PreviewChatExpose                = get_dict_attr(data, "$.data.room.room_auth.PreviewChatExpose")
+    PreviewHotCommentSwitch          = get_dict_attr(data, "$.data.room.room_auth.PreviewHotCommentSwitch")
+    ProjectionBtn                    = get_dict_attr(data, "$.data.room.room_auth.ProjectionBtn")
+    Props                            = get_dict_attr(data, "$.data.room.room_auth.Props")
+    PublicScreen                     = get_dict_attr(data, "$.data.room.room_auth.PublicScreen")
+    QuizGamePointsPlaying            = get_dict_attr(data, "$.data.room.room_auth.QuizGamePointsPlaying")
+    RecordScreen                     = get_dict_attr(data, "$.data.room.room_auth.RecordScreen")
+    RoomChannel                      = get_dict_attr(data, "$.data.room.room_auth.RoomChannel")
+    RoomChatLikeDisplay              = get_dict_attr(data, "$.data.room.room_auth.RoomChatLikeDisplay")
+    RoomChatOperatePanel             = get_dict_attr(data, "$.data.room.room_auth.RoomChatOperatePanel")
+    RoomContributor                  = get_dict_attr(data, "$.data.room.room_auth.RoomContributor")
+    RoomWidget                       = get_dict_attr(data, "$.data.room.room_auth.RoomWidget")
+    ScreenBottomInfo                 = get_dict_attr(data, "$.data.room.room_auth.ScreenBottomInfo")
+    ScreenProjectionBarrage          = get_dict_attr(data, "$.data.room.room_auth.ScreenProjectionBarrage")
+    Seek                             = get_dict_attr(data, "$.data.room.room_auth.Seek")
+    Selection                        = get_dict_attr(data, "$.data.room.room_auth.Selection")
+    SelectionAlbum                   = get_dict_attr(data, "$.data.room.room_auth.SelectionAlbum")
+    Share                            = get_dict_attr(data, "$.data.room.room_auth.Share")
+    ShortTouch                       = get_dict_attr(data, "$.data.room.room_auth.ShortTouch")
+    ShortTouchTempState              = get_dict_attr(data, "$.data.room.room_auth.ShortTouchTempState")
+    ShowGamePlugin                   = get_dict_attr(data, "$.data.room.room_auth.ShowGamePlugin")
+    ShowQualification                = get_dict_attr(data, "$.data.room.room_auth.ShowQualification")
+    SmallWindowDisplay               = get_dict_attr(data, "$.data.room.room_auth.SmallWindowDisplay")
+    SmallWindowPlayer                = get_dict_attr(data, "$.data.room.room_auth.SmallWindowPlayer")
+    StickyMessage                    = get_dict_attr(data, "$.data.room.room_auth.StickyMessage")
+    StreamAdaptation                 = get_dict_attr(data, "$.data.room.room_auth.StreamAdaptation")
+    StrokeUpDownGuide                = get_dict_attr(data, "$.data.room.room_auth.StrokeUpDownGuide")
+    SubscribeCardPackage             = get_dict_attr(data, "$.data.room.room_auth.SubscribeCardPackage")
+    Teleprompter                     = get_dict_attr(data, "$.data.room.room_auth.Teleprompter")
+    TextGift                         = get_dict_attr(data, "$.data.room.room_auth.TextGift")
+    TimedShutdown                    = get_dict_attr(data, "$.data.room.room_auth.TimedShutdown")
+    ToolbarBubble                    = get_dict_attr(data, "$.data.room.room_auth.ToolbarBubble")
+    Topic                            = get_dict_attr(data, "$.data.room.room_auth.Topic")
+    TypingCommentState               = get_dict_attr(data, "$.data.room.room_auth.TypingCommentState")
+    UgcVSReplayDelete                = get_dict_attr(data, "$.data.room.room_auth.UgcVSReplayDelete")
+    UgcVsReplayVisibility            = get_dict_attr(data, "$.data.room.room_auth.UgcVsReplayVisibility")
+    UpRightStatsFloatingLayer        = get_dict_attr(data, "$.data.room.room_auth.UpRightStatsFloatingLayer")
+    UseHostInfo                      = get_dict_attr(data, "$.data.room.room_auth.UseHostInfo")
+    UserCard                         = get_dict_attr(data, "$.data.room.room_auth.UserCard")
+    UserCorner                       = get_dict_attr(data, "$.data.room.room_auth.UserCorner")
+    VSGift                           = get_dict_attr(data, "$.data.room.room_auth.VSGift")
+    VSRank                           = get_dict_attr(data, "$.data.room.room_auth.VSRank")
+    VSTopic                          = get_dict_attr(data, "$.data.room.room_auth.VSTopic")
+    VerticalRank                     = get_dict_attr(data, "$.data.room.room_auth.VerticalRank")
+    VerticalScreenShare              = get_dict_attr(data, "$.data.room.room_auth.VerticalScreenShare")
+    VideoAmplificationType           = get_dict_attr(data, "$.data.room.room_auth.VideoAmplificationType")
+    VideoShare                       = get_dict_attr(data, "$.data.room.room_auth.VideoShare")
+    VsCommentBar                     = get_dict_attr(data, "$.data.room.room_auth.VsCommentBar")
+    VsDouPlus                        = get_dict_attr(data, "$.data.room.room_auth.VsDouPlus")
+    VsExtensionEnableFollow          = get_dict_attr(data, "$.data.room.room_auth.VsExtensionEnableFollow")
+    VsFansClub                       = get_dict_attr(data, "$.data.room.room_auth.VsFansClub")
+    VsWelcomeDanmaku                 = get_dict_attr(data, "$.data.room.room_auth.VsWelcomeDanmaku")
+    WordAssociation                  = get_dict_attr(data, "$.data.room.room_auth.WordAssociation")
     
     set_dict_attr(room_auth_table_tuple, "$.now",                        now)
     set_dict_attr(room_auth_table_tuple, "$.platform",                   DOUYIN_PLATFORM)
@@ -2238,7 +2247,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(room_auth_table_tuple, "$.LandscapeScreenCapture",     LandscapeScreenCapture)
     set_dict_attr(room_auth_table_tuple, "$.LandscapeScreenRecording",   LandscapeScreenRecording)
     set_dict_attr(room_auth_table_tuple, "$.LandscapeScreenShare",       LandscapeScreenShare)
-    set_dict_attr(room_auth_table_tuple, "$.Like",                       Like)
+    set_dict_attr(room_auth_table_tuple, "$.`Like`",                     Like)
     set_dict_attr(room_auth_table_tuple, "$.LinkmicGuestLike",           LinkmicGuestLike)
     set_dict_attr(room_auth_table_tuple, "$.LongPressOption",            LongPressOption)
     set_dict_attr(room_auth_table_tuple, "$.LongTouch",                  LongTouch)
@@ -2314,7 +2323,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(room_auth_table_tuple, "$.VsFansClub",                 VsFansClub)
     set_dict_attr(room_auth_table_tuple, "$.VsWelcomeDanmaku",           VsWelcomeDanmaku)
     set_dict_attr(room_auth_table_tuple, "$.WordAssociation",            WordAssociation)
-    
+
     if db.is_table_exist(room_auth_table.get_name()) is False:
       room_auth_table.create()
     room_auth_table.insert_record(room_auth_table_tuple)
@@ -2322,6 +2331,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     get_logger().error("insert {} failed: {}".format(room_auth_table.get_name(), e))
     raise e
 
+  """
   ##
   ## RoomTabTable
   ## TBD
@@ -2332,7 +2342,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_tab_table.get_name(), e))
     raise e
-
+  """
   ##
   ## RoomSharingMusicIdTable
   ##
@@ -2355,20 +2365,17 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # room_id = get_dict_attr(data, "$.data.room.id")
     # dress_wear_index
     sharing_music_id_list = get_dict_attr(data, "$.data.room.sharing_music_id_list")
-    if sharing_music_id_list is None:
-      get_logger().warning("none found sharing_music_id_list")
-      return
-    
-    set_dict_attr(room_sharing_music_id_table, "$.now",             now)
-    set_dict_attr(room_sharing_music_id_table, "$.platform",        DOUYIN_PLATFORM)
-    set_dict_attr(room_sharing_music_id_table, "$.room_id",         str(room_id))
-    for sharing_music_id in sharing_music_id_list:
-      # set_dict_attr(room_sharing_music_id_table, "$.sharing_music_index",   sharing_music_index)
-      set_dict_attr(room_sharing_music_id_table, "$.sharing_music_id",   str(sharing_music_id))
-      
-      if db.is_table_exist(room_sharing_music_id_table.get_name()) is False:
-        room_sharing_music_id_table.create()
-      room_sharing_music_id_table.insert_record(room_sharing_music_id_table)
+    if len(sharing_music_id_list) != 0:
+      set_dict_attr(room_sharing_music_id_table_tuple, "$.now",             now)
+      set_dict_attr(room_sharing_music_id_table_tuple, "$.platform",        DOUYIN_PLATFORM)
+      set_dict_attr(room_sharing_music_id_table_tuple, "$.room_id",         str(room_id))
+      for sharing_music_id in sharing_music_id_list:
+        # sharing_music_index auto increment
+        set_dict_attr(room_sharing_music_id_table_tuple, "$.sharing_music_id",   str(sharing_music_id))
+        
+        if db.is_table_exist(room_sharing_music_id_table.get_name()) is False:
+          room_sharing_music_id_table.create()
+        room_sharing_music_id_table.insert_record(room_sharing_music_id_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_sharing_music_id_table.get_name(), e))
     raise e
@@ -2397,8 +2404,8 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(room_short_touch_area_config_table_tuple, "$.now",                 now)
     set_dict_attr(room_short_touch_area_config_table_tuple, "$.platform",            DOUYIN_PLATFORM)
     set_dict_attr(room_short_touch_area_config_table_tuple, "$.room_id",             str(room_id))
-    set_dict_attr(room_short_touch_area_config_table_tuple, "$.forbidden_types_map", forbidden_types_map)
-    
+    set_dict_attr(room_short_touch_area_config_table_tuple, "$.forbidden_types_map", json.dumps(forbidden_types_map))
+
     if db.is_table_exist(room_short_touch_area_config_table.get_name()) is False:
       room_short_touch_area_config_table.create()
     room_short_touch_area_config_table.insert_record(room_short_touch_area_config_table_tuple)
@@ -2428,33 +2435,29 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # DOUYIN_PLATFORM = "douyin"
     # room_id = get_dict_attr(data, "$.data.room.id")
     # element_index
-    elements = get_dict_attr(data, "$.data.room.short_touch_area_config.element")
-    if elements is None:
-      get_logger().warning("none found elements")
-      return            
-    
-    set_dict_attr(room_short_touch_area_config_element_table_tuple, "$.now",           now)
-    set_dict_attr(room_short_touch_area_config_element_table_tuple, "$.platform",      DOUYIN_PLATFORM)
-    set_dict_attr(room_short_touch_area_config_element_table_tuple, "$.room_id",       str(room_id))
-    
-    for element_key, element_value in dict(elements).items():
-      # element_index auto increment
-      priority = get_dict_attr(element_value, "$.priority")
-      type     = get_dict_attr(element_value, "$.type")
-    
-      set_dict_attr(room_short_touch_area_config_element_table_tuple, "$.priority",      priority)
-      set_dict_attr(room_short_touch_area_config_element_table_tuple, "$.type",          type)
-    
-      if db.is_table_exist(room_short_touch_area_config_element_table.get_name()) is False:
-        room_short_touch_area_config_element_table.create()
-      room_short_touch_area_config_element_table.insert_record(room_short_touch_area_config_element_table_tuple)
+    elements = get_dict_attr(data, "$.data.room.short_touch_area_config.elements")
+    if elements is not None:
+      set_dict_attr(room_short_touch_area_config_element_table_tuple, "$.now",           now)
+      set_dict_attr(room_short_touch_area_config_element_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+      set_dict_attr(room_short_touch_area_config_element_table_tuple, "$.room_id",       str(room_id))
+  
+      for element_key, element_value in dict(elements).items():
+        # element_index auto increment
+        priority = get_dict_attr(element_value, "$.priority")
+        type     = get_dict_attr(element_value, "$.type")
+      
+        set_dict_attr(room_short_touch_area_config_element_table_tuple, "$.priority",      priority)
+        set_dict_attr(room_short_touch_area_config_element_table_tuple, "$.type",          type)
+      
+        if db.is_table_exist(room_short_touch_area_config_element_table.get_name()) is False:
+          room_short_touch_area_config_element_table.create()
+        room_short_touch_area_config_element_table.insert_record(room_short_touch_area_config_element_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_short_touch_area_config_element_table.get_name(), e))
     raise e
-    
+
   ##
   ## RoomShortTouchAreaConfigStrategyFeatWhitelistTable
-  ## TODO
   ##
   room_short_touch_area_config_strategy_feat_whitelist_table = RoomShortTouchAreaConfigStrategyFeatWhitelistTable(db)
   try:
@@ -2475,25 +2478,22 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # room_id = get_dict_attr(data, "$.data.room.id")
     # whitelist_index auto increment
     strategy_feat_whitelist = get_dict_attr(data, "$.data.room.short_touch_area_config.strategy_feat_whitelist")
-    if strategy_feat_whitelist is None:
-      get_logger().warning("none found strategy_feat_whitelist")
-      return
-    
-    set_dict_attr(room_short_touch_area_config_strategy_feat_whitelist_table_tuple, "$.now",           now)
-    set_dict_attr(room_short_touch_area_config_strategy_feat_whitelist_table_tuple, "$.platform",      DOUYIN_PLATFORM)
-    set_dict_attr(room_short_touch_area_config_strategy_feat_whitelist_table_tuple, "$.room_id",       str(room_id))
-    
-    for whitelist_tag in strategy_feat_whitelist:
-      # whitelist_index auto increment
-      set_dict_attr(room_short_touch_area_config_strategy_feat_whitelist_table_tuple, "$.whitelist_tag",   whitelist_tag)
-    
-      if db.is_table_exist(room_short_touch_area_config_strategy_feat_whitelist_table.get_name()) is False:
-        room_short_touch_area_config_strategy_feat_whitelist_table.create()
-      room_short_touch_area_config_strategy_feat_whitelist_table.insert_record(room_short_touch_area_config_strategy_feat_whitelist_table_tuple)
+    if len(strategy_feat_whitelist) != 0:
+      set_dict_attr(room_short_touch_area_config_strategy_feat_whitelist_table_tuple, "$.now",           now)
+      set_dict_attr(room_short_touch_area_config_strategy_feat_whitelist_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+      set_dict_attr(room_short_touch_area_config_strategy_feat_whitelist_table_tuple, "$.room_id",       str(room_id))
+  
+      for whitelist_tag in strategy_feat_whitelist:
+        # whitelist_index auto increment
+        set_dict_attr(room_short_touch_area_config_strategy_feat_whitelist_table_tuple, "$.whitelist_tag",   whitelist_tag)
+      
+        if db.is_table_exist(room_short_touch_area_config_strategy_feat_whitelist_table.get_name()) is False:
+          room_short_touch_area_config_strategy_feat_whitelist_table.create()
+        room_short_touch_area_config_strategy_feat_whitelist_table.insert_record(room_short_touch_area_config_strategy_feat_whitelist_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_short_touch_area_config_strategy_feat_whitelist_table.get_name(), e))
     raise e
-  
+
   ##
   ## RoomTempStateConditionMapTable
   ##
@@ -2517,28 +2517,25 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # DOUYIN_PLATFORM = "douyin"
     # room_id = get_dict_attr(data, "$.data.room.id")
     # map_index
-    temp_state_condition_map = get_dict_attr(data, "$.data.room.temp_state_condition_map")
-    if temp_state_condition_map is None:
-      get_logger().warning("none found temp_state_condition_map")
-      return
-    
-    set_dict_attr(room_temp_state_condition_map_table_tuple, "$.now",           now)
-    set_dict_attr(room_temp_state_condition_map_table_tuple, "$.platform",      DOUYIN_PLATFORM)
-    set_dict_attr(room_temp_state_condition_map_table_tuple, "$.room_id",       str(room_id))
-    
-    for temp_state_condition_key, temp_state_condition_value in  dict(temp_state_condition_map).items():
-      minimum_gap   = get_dict_attr(temp_state_condition_value, "$.minimum_gap")
-      priority      = get_dict_attr(temp_state_condition_value, "$.type.priority")
-      strategy_type = get_dict_attr(temp_state_condition_value, "$.type.strategy_type")
+    temp_state_condition_map = get_dict_attr(data, "$.data.room.short_touch_area_config.temp_state_condition_map")
+    if temp_state_condition_map is not None:
+      set_dict_attr(room_temp_state_condition_map_table_tuple, "$.now",           now)
+      set_dict_attr(room_temp_state_condition_map_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+      set_dict_attr(room_temp_state_condition_map_table_tuple, "$.room_id",       str(room_id))
+  
+      for temp_state_condition_key, temp_state_condition_value in  dict(temp_state_condition_map).items():
+        minimum_gap   = get_dict_attr(temp_state_condition_value, "$.minimum_gap")
+        priority      = get_dict_attr(temp_state_condition_value, "$.type.priority")
+        strategy_type = get_dict_attr(temp_state_condition_value, "$.type.strategy_type")
+        
+        # map_index auto increment
+        set_dict_attr(room_temp_state_condition_map_table_tuple, "$.minimum_gap",   minimum_gap)
+        set_dict_attr(room_temp_state_condition_map_table_tuple, "$.priority",      priority)
+        set_dict_attr(room_temp_state_condition_map_table_tuple, "$.strategy_type", strategy_type)
       
-      # map_index auto increment
-      set_dict_attr(room_temp_state_condition_map_table_tuple, "$.minimum_gap",   minimum_gap)
-      set_dict_attr(room_temp_state_condition_map_table_tuple, "$.priority",      priority)
-      set_dict_attr(room_temp_state_condition_map_table_tuple, "$.strategy_type", strategy_type)
-    
-      if db.is_table_exist(room_temp_state_condition_map_table.get_name()) is False:
-        room_temp_state_condition_map_table.create()
-      room_temp_state_condition_map_table.insert_record(room_temp_state_condition_map_table_tuple)
+        if db.is_table_exist(room_temp_state_condition_map_table.get_name()) is False:
+          room_temp_state_condition_map_table.create()
+        room_temp_state_condition_map_table.insert_record(room_temp_state_condition_map_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_temp_state_condition_map_table.get_name(), e))
     raise e
@@ -2564,24 +2561,21 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # DOUYIN_PLATFORM = "douyin"
     # room_id = get_dict_attr(data, "$.data.room.id")
     ignore_strategy_types = get_dict_attr(data, "$.data.room.short_touch_area_config.temp_state_global_condition.ignore_strategy_types")
-    if ignore_strategy_types is None:
-      get_logger().warning("none found ignore_strategy_types")
-      return
-    
-    set_dict_attr(room_temp_state_global_condition_ignore_strategy_type_table_tuple, "$.now",           now)
-    set_dict_attr(room_temp_state_global_condition_ignore_strategy_type_table_tuple, "$.platform",      DOUYIN_PLATFORM)
-    set_dict_attr(room_temp_state_global_condition_ignore_strategy_type_table_tuple, "$.room_id",       str(room_id))
-    for ignore_strategy_type in ignore_strategy_types:
-      # ignore_strategy_type_index auto increment
-      set_dict_attr(room_temp_state_global_condition_ignore_strategy_type_table_tuple, "$.ignore_strategy_type", ignore_strategy_type)
-    
-      if db.is_table_exist(room_temp_state_global_condition_ignore_strategy_type_table.get_name()) is False:
-        room_temp_state_global_condition_ignore_strategy_type_table.create()
-      room_temp_state_global_condition_ignore_strategy_type_table.insert_record(room_temp_state_global_condition_ignore_strategy_type_table_tuple)
+    if len(ignore_strategy_types) != 0:
+      set_dict_attr(room_temp_state_global_condition_ignore_strategy_type_table_tuple, "$.now",           now)
+      set_dict_attr(room_temp_state_global_condition_ignore_strategy_type_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+      set_dict_attr(room_temp_state_global_condition_ignore_strategy_type_table_tuple, "$.room_id",       str(room_id))
+      for ignore_strategy_type in ignore_strategy_types:
+        # ignore_strategy_type_index auto increment
+        set_dict_attr(room_temp_state_global_condition_ignore_strategy_type_table_tuple, "$.ignore_strategy_type", ignore_strategy_type)
+      
+        if db.is_table_exist(room_temp_state_global_condition_ignore_strategy_type_table.get_name()) is False:
+          room_temp_state_global_condition_ignore_strategy_type_table.create()
+        room_temp_state_global_condition_ignore_strategy_type_table.insert_record(room_temp_state_global_condition_ignore_strategy_type_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_temp_state_global_condition_ignore_strategy_type_table.get_name(), e))
     raise e
-  
+
   ##
   ## RoomTempStateGlobalConditionTable
   ##
@@ -2602,22 +2596,22 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # now = get_dict_attr(data, "$.extra.now")
     # DOUYIN_PLATFORM = "douyin"
     # room_id = get_dict_attr(data, "$.data.room.id")
-    allow_count = get_dict_attr(data, "$.data.room.temp_state_global_condition.allow_count")
-    duration_gap = get_dict_attr(data, "$.data.room.temp_state_global_condition.duration_gap")
+    allow_count = get_dict_attr(data, "$.data.room.short_touch_area_config.temp_state_global_condition.allow_count")
+    duration_gap = get_dict_attr(data, "$.data.room.short_touch_area_config.temp_state_global_condition.duration_gap")
     
     set_dict_attr(room_temp_state_global_condition_table_tuple, "$.now",          now)
     set_dict_attr(room_temp_state_global_condition_table_tuple, "$.platform",     DOUYIN_PLATFORM)
     set_dict_attr(room_temp_state_global_condition_table_tuple, "$.room_id",      str(room_id))
     set_dict_attr(room_temp_state_global_condition_table_tuple, "$.allow_count",  allow_count)
     set_dict_attr(room_temp_state_global_condition_table_tuple, "$.duration_gap", duration_gap)
-    
+
     if db.is_table_exist(room_temp_state_global_condition_table.get_name()) is False:
       room_temp_state_global_condition_table.create()
     room_temp_state_global_condition_table.insert_record(room_temp_state_global_condition_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_temp_state_global_condition_table.get_name(), e))
     raise e
-  
+
   ##
   ## RoomRecordTable
   ##
@@ -2711,21 +2705,21 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # DOUYIN_PLATFORM = "douyin"
     # room_id = get_dict_attr(data, "$.data.room.id")
     id                                  = get_dict_attr(data, "$.data.room.id")
-    rank                                = get_dict_attr(data, "$.data.room.rank")
-    silence_flag                        = get_dict_attr(data, "$.data.room.silence_flag")
-    view_stats_display_long             = get_dict_attr(data, "$.data.room.view_stats.display_long")
-    view_stats_display_long_anchor      = get_dict_attr(data, "$.data.room.view_stats.display_long_anchor")
-    view_stats_display_middle           = get_dict_attr(data, "$.data.room.view_stats.display_middle")
-    view_stats_display_middle_anchor    = get_dict_attr(data, "$.data.room.view_stats.display_middle_anchor")
-    view_stats_display_short            = get_dict_attr(data, "$.data.room.view_stats.display_short")
-    view_stats_display_short_anchor     = get_dict_attr(data, "$.data.room.view_stats.display_short_anchor")
-    view_stats_display_type             = get_dict_attr(data, "$.data.room.view_stats.display_type")
-    view_stats_display_value            = get_dict_attr(data, "$.data.room.view_stats.display_value")
-    view_stats_display_version          = get_dict_attr(data, "$.data.room.view_stats.display_version")
-    view_stats_incremental              = get_dict_attr(data, "$.data.room.view_stats.incremental")
-    view_stats_is_hidden                = get_dict_attr(data, "$.data.room.view_stats.is_hidden")
-    user_share_text                     = get_dict_attr(data, "$.data.room.user_share.text")
-    screen_capture_sharing_title        = get_dict_attr(data, "$.data.room.screen_capture_sharing.title")
+    rank                                = get_dict_attr(data, "$.data.room.living_room_attrs.rank")
+    silence_flag                        = get_dict_attr(data, "$.data.room.living_room_attrs.silence_flag")
+    view_stats_display_long             = get_dict_attr(data, "$.data.room.room_view_stats.display_long")
+    view_stats_display_long_anchor      = get_dict_attr(data, "$.data.room.room_view_stats.display_long_anchor")
+    view_stats_display_middle           = get_dict_attr(data, "$.data.room.room_view_stats.display_middle")
+    view_stats_display_middle_anchor    = get_dict_attr(data, "$.data.room.room_view_stats.display_middle_anchor")
+    view_stats_display_short            = get_dict_attr(data, "$.data.room.room_view_stats.display_short")
+    view_stats_display_short_anchor     = get_dict_attr(data, "$.data.room.room_view_stats.display_short_anchor")
+    view_stats_display_type             = get_dict_attr(data, "$.data.room.room_view_stats.display_type")
+    view_stats_display_value            = get_dict_attr(data, "$.data.room.room_view_stats.display_value")
+    view_stats_display_version          = get_dict_attr(data, "$.data.room.room_view_stats.display_version")
+    view_stats_incremental              = get_dict_attr(data, "$.data.room.room_view_stats.incremental")
+    view_stats_is_hidden                = get_dict_attr(data, "$.data.room.room_view_stats.is_hidden")
+    user_share_text                     = get_dict_attr(data, "$.data.room.user_share_text")
+    screen_capture_sharing_title        = get_dict_attr(data, "$.data.room.screen_capture_sharing_title")
     short_title                         = get_dict_attr(data, "$.data.room.short_title")
     lottery_finish_time                 = get_dict_attr(data, "$.data.room.lottery_finish_time")
     luckymoney_num                      = get_dict_attr(data, "$.data.room.luckymoney_num")
@@ -2777,7 +2771,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     danmaku_detail                      = get_dict_attr(data, "$.data.room.danmaku_detail")
     hot_sentence_info                   = get_dict_attr(data, "$.data.room.hot_sentence_info")
     last_ping_time                      = get_dict_attr(data, "$.data.room.last_ping_time")
-    room_like_count                     = get_dict_attr(data, "$.data.room.room_like_count")
+    room_like_count                     = get_dict_attr(data, "$.data.room.like_count")
     linker_map                          = get_dict_attr(data, "$.data.room.linker_map")
     web_count                           = get_dict_attr(data, "$.data.room.web_count")
     webcast_comment_tcs                 = get_dict_attr(data, "$.data.room.webcast_comment_tcs")
@@ -2789,7 +2783,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(room_record_table_tuple, "$.now",                                 now)
     set_dict_attr(room_record_table_tuple, "$.platform",                            DOUYIN_PLATFORM)
     set_dict_attr(room_record_table_tuple, "$.id",                                  str(id))
-    set_dict_attr(room_record_table_tuple, "$.rank",                                rank)
+    set_dict_attr(room_record_table_tuple, "$.`rank`",                              rank)
     set_dict_attr(room_record_table_tuple, "$.silence_flag",                        silence_flag)
     set_dict_attr(room_record_table_tuple, "$.view_stats_display_long",             view_stats_display_long)
     set_dict_attr(room_record_table_tuple, "$.view_stats_display_long_anchor",      view_stats_display_long_anchor)
@@ -2805,13 +2799,15 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(room_record_table_tuple, "$.user_share_text",                     user_share_text)
     set_dict_attr(room_record_table_tuple, "$.screen_capture_sharing_title",        screen_capture_sharing_title)
     set_dict_attr(room_record_table_tuple, "$.short_title",                         short_title)
-    set_dict_attr(room_record_table_tuple, "$.lottery_finish_time",                 dat.fromtimestamp(lottery_finish_time))
+    if lottery_finish_time != 0:
+      set_dict_attr(room_record_table_tuple, "$.lottery_finish_time",                 dat.fromtimestamp(lottery_finish_time))
     set_dict_attr(room_record_table_tuple, "$.luckymoney_num",                      luckymoney_num)
     set_dict_attr(room_record_table_tuple, "$.mosaic_status",                       mosaic_status)
     set_dict_attr(room_record_table_tuple, "$.mosaic_tip",                          mosaic_tip)
     set_dict_attr(room_record_table_tuple, "$.popularity",                          popularity)
     set_dict_attr(room_record_table_tuple, "$.popularity_str",                      popularity_str)
-    set_dict_attr(room_record_table_tuple, "$.pre_enter_time",                      dat.fromtimestamp(pre_enter_time))
+    if pre_enter_time != 0:
+      set_dict_attr(room_record_table_tuple, "$.pre_enter_time",                      dat.fromtimestamp(pre_enter_time))
     set_dict_attr(room_record_table_tuple, "$.preview_copy",                        preview_copy)
     set_dict_attr(room_record_table_tuple, "$.preview_flow_tag",                    preview_flow_tag)
     set_dict_attr(room_record_table_tuple, "$.private_info",                        private_info)
@@ -2847,16 +2843,18 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(room_record_table_tuple, "$.watermelon",                          watermelon)
     set_dict_attr(room_record_table_tuple, "$.welfare_donation_amount",             welfare_donation_amount)
     set_dict_attr(room_record_table_tuple, "$.status",                              status)
-    set_dict_attr(room_record_table_tuple, "$.stream_close_time",                   dat.fromtimestamp(stream_close_time))
+    if stream_close_time != 0:
+      set_dict_attr(room_record_table_tuple, "$.stream_close_time",                   dat.fromtimestamp(stream_close_time))
     set_dict_attr(room_record_table_tuple, "$.stream_id",                           str(stream_id))
     set_dict_attr(room_record_table_tuple, "$.stream_provider",                     stream_provider)
     set_dict_attr(room_record_table_tuple, "$.sun_daily_icon_content",              sun_daily_icon_content)
     set_dict_attr(room_record_table_tuple, "$.challenge_info",                      challenge_info)
     set_dict_attr(room_record_table_tuple, "$.danmaku_detail",                      danmaku_detail)
     set_dict_attr(room_record_table_tuple, "$.hot_sentence_info",                   hot_sentence_info)
-    set_dict_attr(room_record_table_tuple, "$.last_ping_time",                      dat.fromtimestamp(last_ping_time))
+    if last_ping_time != 0:
+      set_dict_attr(room_record_table_tuple, "$.last_ping_time",                      dat.fromtimestamp(last_ping_time))
     set_dict_attr(room_record_table_tuple, "$.room_like_count",                     room_like_count)
-    set_dict_attr(room_record_table_tuple, "$.linker_map",                          linker_map)
+    set_dict_attr(room_record_table_tuple, "$.linker_map",                          json.dumps(linker_map))
     set_dict_attr(room_record_table_tuple, "$.web_count",                           web_count)
     set_dict_attr(room_record_table_tuple, "$.webcast_comment_tcs",                 webcast_comment_tcs)
     set_dict_attr(room_record_table_tuple, "$.with_aggregate_column",               with_aggregate_column)
@@ -2974,32 +2972,32 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(live_stream_table_tuple, "$.sw_roi",                    sw_roi)
     set_dict_attr(live_stream_table_tuple, "$.video_profile",             video_profile)
     set_dict_attr(live_stream_table_tuple, "$.width",                     width)
-    set_dict_attr(live_stream_table_tuple, "$.resolution_name",           resolution_name)
-    set_dict_attr(live_stream_table_tuple, "$.flv_pull_url",              flv_pull_url)
-    set_dict_attr(live_stream_table_tuple, "$.flv_pull_url_params",       flv_pull_url_params)
+    set_dict_attr(live_stream_table_tuple, "$.resolution_name",           json.dumps(resolution_name))
+    set_dict_attr(live_stream_table_tuple, "$.flv_pull_url",              json.dumps(flv_pull_url))
+    set_dict_attr(live_stream_table_tuple, "$.flv_pull_url_params",       json.dumps(flv_pull_url_params))
     set_dict_attr(live_stream_table_tuple, "$.hls_pull_url",              hls_pull_url)
-    set_dict_attr(live_stream_table_tuple, "$.hls_pull_url_map",          hls_pull_url_map)
-    set_dict_attr(live_stream_table_tuple, "$.hls_pull_url_params",       hls_pull_url_params)
+    set_dict_attr(live_stream_table_tuple, "$.hls_pull_url_map",          json.dumps(hls_pull_url_map))
+    set_dict_attr(live_stream_table_tuple, "$.hls_pull_url_params",       json.dumps(hls_pull_url_params))
     set_dict_attr(live_stream_table_tuple, "$.id",                        str(id))
     set_dict_attr(live_stream_table_tuple, "$.provider",                  provider)
-    set_dict_attr(live_stream_table_tuple, "$.pull_datas",                pull_datas)
-    set_dict_attr(live_stream_table_tuple, "$.push_datas",                push_datas)
+    set_dict_attr(live_stream_table_tuple, "$.pull_datas",                json.dumps(pull_datas))
+    set_dict_attr(live_stream_table_tuple, "$.push_datas",                json.dumps(push_datas))
     set_dict_attr(live_stream_table_tuple, "$.push_stream_type",          push_stream_type)
     set_dict_attr(live_stream_table_tuple, "$.rtmp_pull_url",             rtmp_pull_url)
-    set_dict_attr(live_stream_table_tuple, "$.rtmp_pull_url_params",      rtmp_pull_url_params)
+    set_dict_attr(live_stream_table_tuple, "$.rtmp_pull_url_params",      json.dumps(rtmp_pull_url_params))
     set_dict_attr(live_stream_table_tuple, "$.rtmp_push_url",             rtmp_push_url)
     set_dict_attr(live_stream_table_tuple, "$.rtmp_push_url_params",      rtmp_push_url_params)
     set_dict_attr(live_stream_table_tuple, "$.stream_control_type",       stream_control_type)
     set_dict_attr(live_stream_table_tuple, "$.stream_orientation",        stream_orientation)
     set_dict_attr(live_stream_table_tuple, "$.vr_type",                   vr_type)
-    
+
     if db.is_table_exist(live_stream_table.get_name()) is False:
       live_stream_table.create()
     live_stream_table.insert_record(live_stream_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(live_stream_table.get_name(), e))
     raise e
-  
+
   ##
   ## StreamCandidateResolutionTable
   ##
@@ -3024,27 +3022,24 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     stream_id = get_dict_attr(data, "$.data.room.stream_id")
     # resolution_index auto increment
     candidate_resolutions = get_dict_attr(data, "$.data.room.stream_url.candidate_resolution")
-    if candidate_resolutions is None:
-      get_logger().warning("none found candidate_resolutions")
-      return
-    
-    set_dict_attr(stream_candidate_resulution_table_tuple, "$.now",                  now)
-    set_dict_attr(stream_candidate_resulution_table_tuple, "$.platform",             DOUYIN_PLATFORM)
-    set_dict_attr(stream_candidate_resulution_table_tuple, "$.room_id",              str(room_id))
-    set_dict_attr(stream_candidate_resulution_table_tuple, "$.stream_id",            str(stream_id))
-    for candidate_resolution in candidate_resolutions:
-      # resolution_index auto increment
-      if not isinstance(candidate_resolution, str):
-        raise TypeError
-      set_dict_attr(stream_candidate_resulution_table_tuple, "$.candidate_resolution", candidate_resolution)
-    
-      if db.is_table_exist(stream_candidate_resulution_table.get_name()) is False:
-        stream_candidate_resulution_table.create()
-      stream_candidate_resulution_table.insert_record(stream_candidate_resulution_table_tuple)
+    if len(candidate_resolutions) != 0:
+      set_dict_attr(stream_candidate_resulution_table_tuple, "$.now",                  now)
+      set_dict_attr(stream_candidate_resulution_table_tuple, "$.platform",             DOUYIN_PLATFORM)
+      set_dict_attr(stream_candidate_resulution_table_tuple, "$.room_id",              str(room_id))
+      set_dict_attr(stream_candidate_resulution_table_tuple, "$.stream_id",            str(stream_id))
+      for candidate_resolution in candidate_resolutions:
+        # resolution_index auto increment
+        if not isinstance(candidate_resolution, str):
+          raise TypeError
+        set_dict_attr(stream_candidate_resulution_table_tuple, "$.candidate_resolution", candidate_resolution)
+      
+        if db.is_table_exist(stream_candidate_resulution_table.get_name()) is False:
+          stream_candidate_resulution_table.create()
+        stream_candidate_resulution_table.insert_record(stream_candidate_resulution_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(stream_candidate_resulution_table.get_name(), e))
     raise e
-  
+
   ##
   ## StreamCompletePushUrlTable
   ##
@@ -3087,7 +3082,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(stream_complete_push_url_table.get_name(), e))
     raise e
-  
+
   ##
   ## LiveCoreSdkDataTable
   ##
@@ -3113,14 +3108,14 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(live_core_sdk_data_table_tuple, "$.platform", DOUYIN_PLATFORM)
     set_dict_attr(live_core_sdk_data_table_tuple, "$.room_id",  str(room_id))
     set_dict_attr(live_core_sdk_data_table_tuple, "$.size",     size)
-    
+
     if db.is_table_exist(live_core_sdk_data_table.get_name()) is False:
       live_core_sdk_data_table.create()
     live_core_sdk_data_table.insert_record(live_core_sdk_data_table_tuple) 
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(live_core_sdk_data_table.get_name(), e))
     raise e
-  
+
   ##
   ## LiveCoreSdkPullDataTable
   ##
@@ -3157,18 +3152,18 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(live_core_sdk_pull_data_table_tuple, "$.room_id",              str(room_id))
     set_dict_attr(live_core_sdk_pull_data_table_tuple, "$.codec",                codec)
     set_dict_attr(live_core_sdk_pull_data_table_tuple, "$.compensatory_data",    compensatory_data)
-    set_dict_attr(live_core_sdk_pull_data_table_tuple, "$.hls_data_unencrypted", hls_data_unencrypted)
+    set_dict_attr(live_core_sdk_pull_data_table_tuple, "$.hls_data_unencrypted", json.dumps(hls_data_unencrypted))
     set_dict_attr(live_core_sdk_pull_data_table_tuple, "$.kind",                 kind)
     set_dict_attr(live_core_sdk_pull_data_table_tuple, "$.stream_data",          stream_data)
     set_dict_attr(live_core_sdk_pull_data_table_tuple, "$.version",              str(version))
-    
+
     if db.is_table_exist(live_core_sdk_pull_data_table.get_name()) is False:
       live_core_sdk_pull_data_table.create()
     live_core_sdk_pull_data_table.insert_record(live_core_sdk_pull_data_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(stream_complete_push_url_table.get_name(), e))
     raise e
-  
+
   ##
   ## LiveCoreSdkPullFlvDataTable
   ##
@@ -3190,25 +3185,22 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # DOUYIN_PLATFORM = "douyin"
     # room_id = get_dict_attr(data, "$.data.room.id")
     Flvs = get_dict_attr(data, "$.data.room.stream_url.live_core_sdk_data.pull_data.Flv")
-    if Flvs is None:
-      get_logger().warning("none found Flvs")
-      return
-    
-    set_dict_attr(live_core_sdk_pull_flv_data_table_tuple, "$.now",                  now)
-    set_dict_attr(live_core_sdk_pull_flv_data_table_tuple, "$.platform",             DOUYIN_PLATFORM)
-    set_dict_attr(live_core_sdk_pull_flv_data_table_tuple, "$.room_id",              str(room_id))
-    
-    for Flv in Flvs:
-      # Flv_index auto increment
-      set_dict_attr(live_core_sdk_pull_flv_data_table_tuple, "$.Flv",                  Flv)
-
-    if db.is_table_exist(live_core_sdk_pull_flv_data_table.get_name()) is False:
-      live_core_sdk_pull_flv_data_table.create()
-    live_core_sdk_pull_flv_data_table.insert_record(live_core_sdk_pull_flv_data_table_tuple)
+    if len(Flvs) != 0:
+      set_dict_attr(live_core_sdk_pull_flv_data_table_tuple, "$.now",                  now)
+      set_dict_attr(live_core_sdk_pull_flv_data_table_tuple, "$.platform",             DOUYIN_PLATFORM)
+      set_dict_attr(live_core_sdk_pull_flv_data_table_tuple, "$.room_id",              str(room_id))
+  
+      for Flv in Flvs:
+        # Flv_index auto increment
+        set_dict_attr(live_core_sdk_pull_flv_data_table_tuple, "$.Flv",                  Flv)
+  
+      if db.is_table_exist(live_core_sdk_pull_flv_data_table.get_name()) is False:
+        live_core_sdk_pull_flv_data_table.create()
+      live_core_sdk_pull_flv_data_table.insert_record(live_core_sdk_pull_flv_data_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(live_core_sdk_pull_flv_data_table.get_name(), e))
     raise e
-  
+
   ##
   ## LiveCoreSdkPullHlsDataTable
   ##
@@ -3230,24 +3222,21 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # DOUYIN_PLATFORM = "douyin"
     # room_id = get_dict_attr(data, "$.data.room.id")
     Hlses = get_dict_attr(data, "$.data.room.stream_url.live_core_sdk_data.pull_data.Hls")
-    if Hlses is None:
-      get_logger().warning("none found Hlses")
-      return
-    
-    set_dict_attr(live_core_sdk_pull_hls_data_table_tuple, "$.now",                  now)
-    set_dict_attr(live_core_sdk_pull_hls_data_table_tuple, "$.platform",             DOUYIN_PLATFORM)
-    set_dict_attr(live_core_sdk_pull_hls_data_table_tuple, "$.room_id",              str(room_id))
-    for Hls in Hlses:
-      # Hls_index auto increment
-      set_dict_attr(live_core_sdk_pull_hls_data_table_tuple, "$.Hls",                  Hls)
-    
-      if db.is_table_exist(live_core_sdk_pull_hls_data_table.get_name()) is False:
-        live_core_sdk_pull_hls_data_table.create()
-      live_core_sdk_pull_hls_data_table.insert_record(live_core_sdk_pull_hls_data_table_tuple)
+    if len(Hlses) != 0:
+      set_dict_attr(live_core_sdk_pull_hls_data_table_tuple, "$.now",                  now)
+      set_dict_attr(live_core_sdk_pull_hls_data_table_tuple, "$.platform",             DOUYIN_PLATFORM)
+      set_dict_attr(live_core_sdk_pull_hls_data_table_tuple, "$.room_id",              str(room_id))
+      for Hls in Hlses:
+        # Hls_index auto increment
+        set_dict_attr(live_core_sdk_pull_hls_data_table_tuple, "$.Hls",                  Hls)
+      
+        if db.is_table_exist(live_core_sdk_pull_hls_data_table.get_name()) is False:
+          live_core_sdk_pull_hls_data_table.create()
+        live_core_sdk_pull_hls_data_table.insert_record(live_core_sdk_pull_hls_data_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(live_core_sdk_pull_hls_data_table.get_name(), e))
     raise e
-  
+
   ##
   ## LiveCoreSdkPullDataOptionTable
   ##
@@ -3273,7 +3262,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(live_core_sdk_pull_data_option_table_tuple, "$.platform",             DOUYIN_PLATFORM)
     set_dict_attr(live_core_sdk_pull_data_option_table_tuple, "$.room_id",              str(room_id))
     set_dict_attr(live_core_sdk_pull_data_option_table_tuple, "$.vpass_default",        vpass_default)
-    
+
     if db.is_table_exist(live_core_sdk_pull_data_option_table.get_name()) is False:
       live_core_sdk_pull_data_option_table.create()
     
@@ -3282,7 +3271,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(live_core_sdk_pull_data_option_table.get_name(), e))
     raise e
-  
+
   ##
   ## LiveCoreSdkPullQualityDataTable
   ##
@@ -3313,43 +3302,40 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # room_id = get_dict_attr(data, "$.data.room.id")
     # quality_index auto increment
     qualities          = get_dict_attr(data, "$.data.room.stream_url.live_core_sdk_data.pull_data.options.qualities")
-    if qualities is None:
-      get_logger().warning("none quality found in data.room.stream_url.live_core_sdk_data.pull_data.options.qualities")
-      return
-    
-    set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.now",                  now)
-    set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.platform",             DOUYIN_PLATFORM)
-    set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.room_id",              str(room_id))
-    
-    for quality in qualities:
-      additional_content = get_dict_attr(quality, "$.additional_content")
-      disable            = get_dict_attr(quality, "$.disable")
-      fps                = get_dict_attr(quality, "$.fps")
-      level              = get_dict_attr(quality, "$.level")
-      name               = get_dict_attr(quality, "$.name")
-      resolution         = get_dict_attr(quality, "$.resolution")
-      sdk_key            = get_dict_attr(quality, "$.sdk_key")
-      v_bit_rate         = get_dict_attr(quality, "$.v_bit_rate")
-      v_codec            = get_dict_attr(quality, "$.v_codec")
-      
-      # quality_index auto increment
-      set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.additional_content",   additional_content)
-      set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.disable",              disable)
-      set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.fps",                  fps)
-      set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.level",                level)
-      set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.name",                 name)
-      set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.resolution",           resolution)
-      set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.sdk_key",              sdk_key)
-      set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.v_bit_rate",           v_bit_rate)
-      set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.v_codec",              v_codec)
-      
-      if db.is_table_exist(live_core_sdk_pull_quality_data_table.get_name()) is False:
-        live_core_sdk_pull_quality_data_table.create()
-      live_core_sdk_pull_quality_data_table.insert_record(live_core_sdk_pull_quality_data_table_tuple)
+    if len(qualities) != 0:
+      set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.now",                  now)
+      set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.platform",             DOUYIN_PLATFORM)
+      set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.room_id",              str(room_id))
+
+      for quality in qualities:
+        additional_content = get_dict_attr(quality, "$.additional_content")
+        disable            = get_dict_attr(quality, "$.disable")
+        fps                = get_dict_attr(quality, "$.fps")
+        level              = get_dict_attr(quality, "$.level")
+        name               = get_dict_attr(quality, "$.name")
+        resolution         = get_dict_attr(quality, "$.resolution")
+        sdk_key            = get_dict_attr(quality, "$.sdk_key")
+        v_bit_rate         = get_dict_attr(quality, "$.v_bit_rate")
+        v_codec            = get_dict_attr(quality, "$.v_codec")
+        
+        # quality_index auto increment
+        set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.additional_content",   additional_content)
+        set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.disable",              disable)
+        set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.fps",                  fps)
+        set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.level",                level)
+        set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.name",                 name)
+        set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.resolution",           resolution)
+        set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.sdk_key",              sdk_key)
+        set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.v_bit_rate",           v_bit_rate)
+        set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.v_codec",              v_codec)
+        
+        if db.is_table_exist(live_core_sdk_pull_quality_data_table.get_name()) is False:
+          live_core_sdk_pull_quality_data_table.create()
+        live_core_sdk_pull_quality_data_table.insert_record(live_core_sdk_pull_quality_data_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(live_core_sdk_pull_quality_data_table.get_name(), e))
     raise e
-  
+
   ##
   ## LiveCoreSdkPullDefaultQualityDataTable
   ##
@@ -3391,7 +3377,6 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(live_core_sdk_pull_default_quality_data_table_tuple, "$.now",                  now)
     set_dict_attr(live_core_sdk_pull_default_quality_data_table_tuple, "$.platform",             DOUYIN_PLATFORM)
     set_dict_attr(live_core_sdk_pull_default_quality_data_table_tuple, "$.room_id",              str(room_id))
-    # quality_index auto increment
     set_dict_attr(live_core_sdk_pull_default_quality_data_table_tuple, "$.additional_content",   additional_content)
     set_dict_attr(live_core_sdk_pull_default_quality_data_table_tuple, "$.disable",              disable)
     set_dict_attr(live_core_sdk_pull_default_quality_data_table_tuple, "$.fps",                  fps)
@@ -3401,14 +3386,13 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(live_core_sdk_pull_default_quality_data_table_tuple, "$.sdk_key",              sdk_key)
     set_dict_attr(live_core_sdk_pull_default_quality_data_table_tuple, "$.v_bit_rate",           v_bit_rate)
     set_dict_attr(live_core_sdk_pull_default_quality_data_table_tuple, "$.v_codec",              v_codec)
-    
+
     if db.is_table_exist(live_core_sdk_pull_default_quality_data_table.get_name()) is False:
       live_core_sdk_pull_default_quality_data_table.create()
     live_core_sdk_pull_default_quality_data_table.insert_record(live_core_sdk_pull_default_quality_data_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(live_core_sdk_pull_default_quality_data_table.get_name(), e))
     raise e
-    
   
   ##
   ## StreamPushUrlTable
@@ -3434,20 +3418,17 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     stream_url_id = get_dict_attr(data, "$.data.room.stream_url.id")
     # push_url_index auto increment
     push_urls = get_dict_attr(data, "$.data.room.stream_url.push_urls")
-    if push_urls is None:
-      get_logger().warning("none url found in data.room.stream_url.push_urls")
-      return
-    
-    set_dict_attr(stream_push_url_table_tuple, "$.now",                  now)
-    set_dict_attr(stream_push_url_table_tuple, "$.platform",             DOUYIN_PLATFORM)
-    set_dict_attr(stream_push_url_table_tuple, "$.room_id",              str(room_id))
-    set_dict_attr(stream_push_url_table_tuple, "$.stream_url_id",        str(stream_url_id))
-    for push_url in push_urls:
-      # push_url_index auto increment
-      set_dict_attr(stream_push_url_table_tuple, "$.push_url",           push_url)
-      if db.is_table_exist(stream_push_url_table.get_name()) is False:
-        stream_push_url_table.create()
-      stream_push_url_table.insert_record(stream_push_url_table_tuple)
+    if len(push_urls) != 0:
+      set_dict_attr(stream_push_url_table_tuple, "$.now",                  now)
+      set_dict_attr(stream_push_url_table_tuple, "$.platform",             DOUYIN_PLATFORM)
+      set_dict_attr(stream_push_url_table_tuple, "$.room_id",              str(room_id))
+      set_dict_attr(stream_push_url_table_tuple, "$.stream_url_id",        str(stream_url_id))
+      for push_url in push_urls:
+        # push_url_index auto increment
+        set_dict_attr(stream_push_url_table_tuple, "$.push_url",           push_url)
+        if db.is_table_exist(stream_push_url_table.get_name()) is False:
+          stream_push_url_table.create()
+        stream_push_url_table.insert_record(stream_push_url_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(stream_push_url_table.get_name(), e))
     raise e      
@@ -3474,24 +3455,21 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # room_id = get_dict_attr(data, "$.data.room.id")
     # tag_index
     tags = get_dict_attr(data, "$.data.room.tags")
-    if tags is None:
-      get_logger().warning("none found tags")
-      return
-    
-    set_dict_attr(room_tag_table_tuple, "$.now",       now)
-    set_dict_attr(room_tag_table_tuple, "$.platform",  DOUYIN_PLATFORM)
-    set_dict_attr(room_tag_table_tuple, "$.room_id",   str(room_id))
-    for tag in tags:
-      # tag_index auto increment
-      set_dict_attr(room_tag_table_tuple, "$.tag",       tag)
-
-      if db.is_table_exist(room_tag_table.get_name()) is False:
-        room_tag_table.create()
-      room_tag_table.insert_record(room_tag_table_tuple)
+    if len(tags) != 0:
+      set_dict_attr(room_tag_table_tuple, "$.now",       now)
+      set_dict_attr(room_tag_table_tuple, "$.platform",  DOUYIN_PLATFORM)
+      set_dict_attr(room_tag_table_tuple, "$.room_id",   str(room_id))
+      for tag in tags:
+        # tag_index auto increment
+        set_dict_attr(room_tag_table_tuple, "$.tag",       tag)
+  
+        if db.is_table_exist(room_tag_table.get_name()) is False:
+          room_tag_table.create()
+        room_tag_table.insert_record(room_tag_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_tag_table.get_name(), e))
     raise e
-  
+
   ##
   ## RoomTopFansTable
   ##
@@ -3514,25 +3492,23 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     # room_id = get_dict_attr(data, "$.data.room.id")
     # fans_index = get_dict_attr(data, "$.data.room.fans_index")
     top_fans = get_dict_attr(data, "$.data.room.top_fans")
-    if top_fans is None:
-      get_logger().warning("none found top_fans")
-      return
-    
-    set_dict_attr(room_top_fans_table_tuple, "$.now",      now)
-    set_dict_attr(room_top_fans_table_tuple, "$.platform", DOUYIN_PLATFORM)
-    set_dict_attr(room_top_fans_table_tuple, "$.room_id",  str(room_id))
-    
-    for top_fan in top_fans:
-      # set_dict_attr(room_top_fans_table_tuple, "$.fans_index", fans_index)
-      set_dict_attr(room_top_fans_table_tuple, "$.top_fans",   top_fan)
+    if len(top_fans) != 0:
+      set_dict_attr(room_top_fans_table_tuple, "$.now",      now)
+      set_dict_attr(room_top_fans_table_tuple, "$.platform", DOUYIN_PLATFORM)
+      set_dict_attr(room_top_fans_table_tuple, "$.room_id",  str(room_id))
       
-      if db.is_table_exist(room_top_fans_table.get_name()) is False:
-        room_top_fans_table.create()
-      room_top_fans_table.insert_record(room_top_fans_table_tuple)
+      for top_fan in top_fans:
+        # set_dict_attr(room_top_fans_table_tuple, "$.fans_index", fans_index)
+        set_dict_attr(room_top_fans_table_tuple, "$.top_fans",   top_fan)
+        
+        if db.is_table_exist(room_top_fans_table.get_name()) is False:
+          room_top_fans_table.create()
+        room_top_fans_table.insert_record(room_top_fans_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_top_fans_table.get_name(), e))
     raise e
 
+  """
   ##
   ## RoomUpperRightWidgetDataTable
   ## TBD
@@ -3550,8 +3526,6 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     ## | upper_right_widget_data       |
     ## +-------------------------------+
     ##
-    pass
-    """
     room_upper_right_widget_data_table_tuple = room_upper_right_widget_data_table.get_tuple()
     # now = get_dict_attr(data, "$.extra.now")
     # DOUYIN_PLATFORM = "douyin"
@@ -3571,7 +3545,6 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
         if db.is_table_exist(room_upper_right_widget_data_table.get_name()) is False:
             room_upper_right_widget_data_table.create()
         room_upper_right_widget_data_table.insert_record(room_upper_right_widget_data_table_tuple)
-    """
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_upper_right_widget_data_table.get_name(), e))
     raise e
@@ -3593,8 +3566,6 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     ## | vs_role       |
     ## +---------------+
     ##
-    pass
-    """
     room_vs_role_table_tuple = room_vs_role_table.get_tuple()
     # now = get_dict_attr(data, "$.extra.now")
     # DOUYIN_PLATFORM = "douyin"
@@ -3614,11 +3585,10 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
       if db.is_table_exist(room_vs_role_table.get_name()) is False:
         room_vs_role_table.create()
       room_vs_role_table.insert_record(room_vs_role_table_tuple)
-    """
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_vs_role_table.get_name(), e))
     raise e
-
+  """
   ##
   ## PictureTable
   ##
@@ -3819,7 +3789,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     ## <=========================== badge_image_list ==================================>
     ##
     badge_image_list = get_dict_attr(data, "$.data.room.owner.badge_image_list")
-    if badge_image_list is not None:
+    if len(badge_image_list) != 0:
       # picture_index auto increment
       label        = "badge_image_list"
       for badge_image in badge_image_list:
@@ -3850,7 +3820,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     ## <=========================== badge_image_list_v2 ==================================>
     ##
     badge_image_list_v2 = get_dict_attr(data, "$.data.room.owner.badge_image_list_v2")
-    if badge_image_list_v2 is not None:
+    if len(badge_image_list_v2) != 0:
       # picture_index auto increment
       label        = "badge_image_list"
       for badge_image in badge_image_list_v2:
@@ -3880,7 +3850,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     ##
     ## <=========================== icons ==================================>
     ##
-    icons = get_dict_attr(data, "$.data.room.owner.fans_club.badge.icons")
+    icons = get_dict_attr(data, "$.data.room.owner.fans_club.data.badge.icons")
     if icons is not None:
       # picture_index auto increment
       for icon_key, icon_value in dict(icons).items():
@@ -3993,7 +3963,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.cover.uri")
     # flex_setting_index auto increment
     flex_setting_list   = get_dict_attr(data, "$.data.room.cover.flex_setting_list")
-    if flex_setting_list is not None:
+    if len(flex_setting_list) != 0:
       set_dict_attr(picture_flex_setting_table_tuple, "$.uri",    uri)
       for flex_setting in flex_setting_list:
         set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",      flex_setting)
@@ -4008,7 +3978,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.feed_room_label.uri")
     # flex_setting_index auto increment
     flex_setting_list   = get_dict_attr(data, "$.data.room.feed_room_label.flex_setting_list")
-    if flex_setting_list is not None:
+    if len(flex_setting_list) != 0:
       set_dict_attr(picture_flex_setting_table_tuple, "$.uri",    uri)
       for flex_setting in flex_setting_list:
         set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",      flex_setting)
@@ -4023,7 +3993,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.guide_button.uri")
     # flex_setting_index auto increment
     flex_setting_list   = get_dict_attr(data, "$.data.room.guide_button.flex_setting_list")
-    if flex_setting_list is not None:
+    if len(flex_setting_list) != 0:
       set_dict_attr(picture_flex_setting_table_tuple, "$.uri",    uri)
       for flex_setting in flex_setting_list:
         set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",      flex_setting)
@@ -4038,7 +4008,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.owner.avatar_large.uri")
     # flex_setting_index auto increment
     flex_setting_list   = get_dict_attr(data, "$.data.room.owner.avatar_large.flex_setting_list")
-    if flex_setting_list is not None:
+    if len(flex_setting_list) != 0:
       set_dict_attr(picture_flex_setting_table_tuple, "$.uri",    uri)
       for flex_setting in flex_setting_list:
         set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",      flex_setting)
@@ -4053,7 +4023,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.owner.avatar_medium.uri")
     # flex_setting_index auto increment
     flex_setting_list   = get_dict_attr(data, "$.data.room.owner.avatar_medium.flex_setting_list")
-    if flex_setting_list is not None:
+    if len(flex_setting_list) != 0:
       set_dict_attr(picture_flex_setting_table_tuple, "$.uri",    uri)
       for flex_setting in flex_setting_list:
         set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",      flex_setting)
@@ -4068,7 +4038,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.owner.avatar_thumb.uri")
     # flex_setting_index auto increment
     flex_setting_list   = get_dict_attr(data, "$.data.room.owner.avatar_thumb.flex_setting_list")
-    if flex_setting_list is not None:
+    if len(flex_setting_list) != 0:
       set_dict_attr(picture_flex_setting_table_tuple, "$.uri",    uri)
       for flex_setting in flex_setting_list:
         set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",      flex_setting)
@@ -4093,7 +4063,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
       uri                 = get_dict_attr(badge_image, "$.uri")
       # flex_setting_index auto increment
       flex_setting_list   = get_dict_attr(badge_image, "$.flex_setting_list")
-      if flex_setting_list is not None:
+      if len(flex_setting_list) != 0:
         
         ##
         ## set for every record
@@ -4125,7 +4095,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
       uri                 = get_dict_attr(badge_image, "$.uri")
       # flex_setting_index auto increment
       flex_setting_list   = get_dict_attr(badge_image, "$.flex_setting_list")
-      if flex_setting_list is not None:
+      if len(flex_setting_list) != 0:
         
         ##
         ## set for every record
@@ -4157,7 +4127,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
       uri                 = get_dict_attr(icon_value, "$.uri")
       # flex_setting_index auto increment
       flex_setting_list   = get_dict_attr(icon_value, "$.flex_setting_list")
-      if flex_setting_list is not None:
+      if len(flex_setting_list) != 0:
         
         ##
         ## set for every record
@@ -4179,7 +4149,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.owner.pay_grade.new_im_icon_with_level.uri")
     # flex_setting_index auto increment
     flex_setting_list   = get_dict_attr(data, "$.data.room.owner.pay_grade.new_im_icon_with_level.flex_setting_list")
-    if flex_setting_list is not None:
+    if len(flex_setting_list) != 0:
       set_dict_attr(picture_flex_setting_table_tuple, "$.uri",    uri)
       for flex_setting in flex_setting_list:
         set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",      flex_setting)
@@ -4196,7 +4166,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.owner.pay_grade.new_live_icon.uri")
     # flex_setting_index auto increment
     flex_setting_list   = get_dict_attr(data, "$.data.room.owner.pay_grade.new_live_icon.flex_setting_list")
-    if flex_setting_list is not None:
+    if len(flex_setting_list) != 0:
       set_dict_attr(picture_flex_setting_table_tuple, "$.uri",    uri)
       for flex_setting in flex_setting_list:
         set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",      flex_setting)
@@ -4209,7 +4179,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(picture_flex_setting_table.get_name(), e))
     raise e  
-  
+
   ## 
   ## PictureTextSettingTable
   ##
@@ -4232,7 +4202,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.cover.uri")
     # text_setting_index auto increment
     text_setting_list   = get_dict_attr(data, "$.data.room.cover.text_setting_list")
-    if text_setting_list is not None:
+    if len(text_setting_list) != 0:
       set_dict_attr(picture_text_setting_table_tuple, "$.uri",    uri)
       for text_setting in text_setting_list:
         set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",      text_setting)
@@ -4249,7 +4219,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.feed_room_label.uri")
     # text_setting_index auto increment
     text_setting_list   = get_dict_attr(data, "$.data.room.feed_room_label.text_setting_list")
-    if text_setting_list is not None:
+    if len(text_setting_list) != 0:
       set_dict_attr(picture_text_setting_table_tuple, "$.uri",    uri)
       for text_setting in text_setting_list:
         set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",      text_setting)
@@ -4266,7 +4236,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.guide_button.uri")
     # text_setting_index auto increment
     text_setting_list   = get_dict_attr(data, "$.data.room.guide_button.text_setting_list")
-    if text_setting_list is not None:
+    if len(text_setting_list) != 0:
       set_dict_attr(picture_text_setting_table_tuple, "$.uri",    uri)
       for text_setting in text_setting_list:
         set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",      text_setting)
@@ -4283,7 +4253,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.owner.avatar_large.uri")
     # text_setting_index auto increment
     text_setting_list   = get_dict_attr(data, "$.data.room.owner.avatar_large.text_setting_list")
-    if text_setting_list is not None:
+    if len(text_setting_list) != 0:
       set_dict_attr(picture_text_setting_table_tuple, "$.uri",    uri)
       for text_setting in text_setting_list:
         set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",      text_setting)
@@ -4300,7 +4270,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.owner.avatar_medium.uri")
     # text_setting_index auto increment
     text_setting_list   = get_dict_attr(data, "$.data.room.owner.avatar_medium.text_setting_list")
-    if text_setting_list is not None:
+    if len(text_setting_list) != 0:
       set_dict_attr(picture_text_setting_table_tuple, "$.uri",    uri)
       for text_setting in text_setting_list:
         set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",      text_setting)
@@ -4317,7 +4287,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.owner.avatar_thumb.uri")
     # text_setting_index auto increment
     text_setting_list   = get_dict_attr(data, "$.data.room.owner.avatar_thumb.text_setting_list")
-    if text_setting_list is not None:
+    if len(text_setting_list) != 0:
       set_dict_attr(picture_text_setting_table_tuple, "$.uri",    uri)
       for text_setting in text_setting_list:
         set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",      text_setting)
@@ -4344,7 +4314,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
       uri                 = get_dict_attr(badge_image, "$.uri")
       # text_setting_index auto increment
       text_setting_list   = get_dict_attr(badge_image, "$.text_setting_list")
-      if text_setting_list is not None:
+      if len(text_setting_list) != 0:
         
         ##
         ## set for every record
@@ -4376,7 +4346,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
       uri                 = get_dict_attr(badge_image, "$.uri")
       # text_setting_index auto increment
       text_setting_list   = get_dict_attr(badge_image, "$.text_setting_list")
-      if text_setting_list is not None:
+      if len(text_setting_list) != 0:
         
         ##
         ## set for every record
@@ -4408,7 +4378,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
       uri                 = get_dict_attr(icon_value, "$.uri")
       # text_setting_index auto increment
       text_setting_list   = get_dict_attr(icon_value, "$.text_setting_list")
-      if text_setting_list is not None:
+      if len(text_setting_list) != 0:
         
         ##
         ## set for every record
@@ -4430,7 +4400,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.owner.pay_grade.new_im_icon_with_level.uri")
     # text_setting_index auto increment
     text_setting_list   = get_dict_attr(data, "$.data.room.owner.pay_grade.new_im_icon_with_level.text_setting_list")
-    if text_setting_list is not None:
+    if len(text_setting_list) != 0:
       set_dict_attr(picture_text_setting_table_tuple, "$.uri",    uri)
       for text_setting in text_setting_list:
         set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",      text_setting)
@@ -4447,7 +4417,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.owner.pay_grade.new_live_icon.uri")
     # text_setting_index auto increment
     text_setting_list   = get_dict_attr(data, "$.data.room.owner.pay_grade.new_live_icon.text_setting_list")
-    if text_setting_list is not None:
+    if len(text_setting_list) != 0:
       set_dict_attr(picture_text_setting_table_tuple, "$.uri",    uri)
       for text_setting in text_setting_list:
         set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",      text_setting)
@@ -4483,7 +4453,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.cover.uri")
     # url_index auto increment
     url_list            = get_dict_attr(data, "$.data.room.cover.url_list")
-    if url_list is not None:
+    if len(url_list) != 0:
       set_dict_attr(picture_url_table_tuple, "$.uri",    uri)
       for url in url_list:
         set_dict_attr(picture_url_table_tuple, "$.url",      url)
@@ -4500,7 +4470,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.feed_room_label.uri")
     # url_index auto increment
     url_list            = get_dict_attr(data, "$.data.room.feed_room_label.url_list")
-    if url_list is not None:
+    if len(url_list) != 0:
       set_dict_attr(picture_url_table_tuple, "$.uri",    uri)
       for url in url_list:
         set_dict_attr(picture_url_table_tuple, "$.url",      url)
@@ -4517,7 +4487,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.guide_button.uri")
     # url_index auto increment
     url_list   = get_dict_attr(data, "$.data.room.guide_button.url_list")
-    if url_list is not None:
+    if len(url_list) != 0:
       set_dict_attr(picture_url_table_tuple, "$.uri",    uri)
       for url in url_list:
         set_dict_attr(picture_url_table_tuple, "$.url",      url)
@@ -4534,7 +4504,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.owner.avatar_large.uri")
     # url_index auto increment
     url_list   = get_dict_attr(data, "$.data.room.owner.avatar_large.url_list")
-    if url_list is not None:
+    if len(url_list) != 0:
       set_dict_attr(picture_url_table_tuple, "$.uri",    uri)
       for url in url_list:
         set_dict_attr(picture_url_table_tuple, "$.url",      url)
@@ -4551,7 +4521,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.owner.avatar_medium.uri")
     # url_index auto increment
     url_list   = get_dict_attr(data, "$.data.room.owner.avatar_medium.url_list")
-    if url_list is not None:
+    if len(url_list) != 0:
       set_dict_attr(picture_url_table_tuple, "$.uri",    uri)
       for url in url_list:
         set_dict_attr(picture_url_table_tuple, "$.url",      url)
@@ -4568,7 +4538,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.owner.avatar_thumb.uri")
     # url_index auto increment
     url_list   = get_dict_attr(data, "$.data.room.owner.avatar_thumb.url_list")
-    if url_list is not None:
+    if len(url_list) != 0:
       set_dict_attr(picture_url_table_tuple, "$.uri",    uri)
       for url in url_list:
         set_dict_attr(picture_url_table_tuple, "$.url",      url)
@@ -4595,7 +4565,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
       uri                 = get_dict_attr(badge_image, "$.uri")
       # url_index auto increment
       url_list   = get_dict_attr(badge_image, "$.url_list")
-      if url_list is not None:
+      if len(url_list) != 0:
         
         ##
         ## set for every record
@@ -4627,7 +4597,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
       uri                 = get_dict_attr(badge_image, "$.uri")
       # url_index auto increment
       url_list   = get_dict_attr(badge_image, "$.url_list")
-      if url_list is not None:
+      if len(url_list) != 0:
         
         ##
         ## set for every record
@@ -4659,7 +4629,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
       uri                 = get_dict_attr(icon_value, "$.uri")
       # url_index auto increment
       url_list   = get_dict_attr(icon_value, "$.url_list")
-      if url_list is not None:
+      if len(url_list) != 0:
         
         ##
         ## set for every record
@@ -4681,7 +4651,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.owner.pay_grade.new_im_icon_with_level.uri")
     # url_index auto increment
     url_list   = get_dict_attr(data, "$.data.room.owner.pay_grade.new_im_icon_with_level.url_list")
-    if url_list is not None:
+    if len(url_list) != 0:
       set_dict_attr(picture_url_table_tuple, "$.uri",    uri)
       for url in url_list:
         set_dict_attr(picture_url_table_tuple, "$.url",      url)
@@ -4698,7 +4668,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     uri                 = get_dict_attr(data, "$.data.room.owner.pay_grade.new_live_icon.uri")
     # url_index auto increment
     url_list   = get_dict_attr(data, "$.data.room.owner.pay_grade.new_live_icon.url_list")
-    if url_list is not None:
+    if len(url_list) != 0:
       set_dict_attr(picture_url_table_tuple, "$.uri",    uri)
       for url in url_list:
         set_dict_attr(picture_url_table_tuple, "$.url",      url)
@@ -4909,13 +4879,9 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     ## +------------------------------------------+
     ##
     user_table_tuple                          = user_table.get_tuple()
-    
-    ##
-    ## <================================ user ============================================>
-    ##
     id                                        = get_dict_attr(data, "$.data.user.id")
     gender                                    = get_dict_attr(data, "$.data.user.gender")
-    allow_be_located                          = get_dict_attr(data, "$.data.user.owner.allow_be_located")
+    allow_be_located                          = get_dict_attr(data, "$.data.user.allow_be_located")
     age_range                                 = get_dict_attr(data, "$.data.user.age_range")
     adversary_authorization_info              = get_dict_attr(data, "$.data.user.adversary_authorization_info")
     adversary_user_status                     = get_dict_attr(data, "$.data.user.adversary_user_status")
@@ -4930,7 +4896,8 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     allow_use_linkmic                         = get_dict_attr(data, "$.data.user.allow_use_linkmic")
     authorization_info                        = get_dict_attr(data, "$.data.user.authorization_info")
     bg_img_url                                = get_dict_attr(data, "$.data.user.bg_img_url")
-    birthday                                  = get_dict_attr(data, "$.data.user.birthday")
+    if birthday != 0:
+      birthday                                  = get_dict_attr(data, "$.data.user.birthday")
     birthday_description                      = get_dict_attr(data, "$.data.user.birthday_description")
     birthday_valid                            = get_dict_attr(data, "$.data.user.birthday_valid")
     block_status                              = get_dict_attr(data, "$.data.user.block_status")
@@ -5001,7 +4968,8 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(user_table_tuple, "$.allow_use_linkmic",                           allow_use_linkmic)
     set_dict_attr(user_table_tuple, "$.authorization_info",                          authorization_info)
     set_dict_attr(user_table_tuple, "$.bg_img_url",                                  bg_img_url)
-    set_dict_attr(user_table_tuple, "$.birthday",                                    birthday)
+    if birthday != 0:
+      set_dict_attr(user_table_tuple, "$.birthday",                                    birthday)
     set_dict_attr(user_table_tuple, "$.birthday_description",                        birthday_description)
     set_dict_attr(user_table_tuple, "$.birthday_valid",                              birthday_valid)
     set_dict_attr(user_table_tuple, "$.block_status",                                block_status)
@@ -5009,7 +4977,8 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     set_dict_attr(user_table_tuple, "$.comment_restrict",                            comment_restrict)
     set_dict_attr(user_table_tuple, "$.constellation",                               constellation)
     set_dict_attr(user_table_tuple, "$.consume_diamond_level",                       consume_diamond_level)
-    set_dict_attr(user_table_tuple, "$.create_time",                                 dat.fromtimestamp(create_time))
+    if create_time != 0:
+      set_dict_attr(user_table_tuple, "$.create_time",                                 dat.fromtimestamp(create_time))
     set_dict_attr(user_table_tuple, "$.desensitized_nickname",                       desensitized_nickname)
     set_dict_attr(user_table_tuple, "$.disable_ichat",                               disable_ichat)
     set_dict_attr(user_table_tuple, "$.display_id",                                  display_id)
@@ -5058,158 +5027,7 @@ def import_douyin_live_info_to_database(data:dict, db:SocialMediaStreamDataBase)
     if db.is_table_exist(user_table.get_name()) is False:
       user_table.create()
     
-    if id is not 0:
-      user_table.insert_record(user_table_tuple)
-
-    ##
-    ## <================================ owner ============================================>
-    ##
-    id                                        = get_dict_attr(data, "$.data.room.owner.id")
-    gender                                    = get_dict_attr(data, "$.data.room.owner.gender")
-    allow_be_located                          = get_dict_attr(data, "$.data.room.owner.owner.allow_be_located")
-    age_range                                 = get_dict_attr(data, "$.data.room.owner.age_range")
-    adversary_authorization_info              = get_dict_attr(data, "$.data.room.owner.adversary_authorization_info")
-    adversary_user_status                     = get_dict_attr(data, "$.data.room.owner.adversary_user_status")
-    allow_find_by_contacts                    = get_dict_attr(data, "$.data.room.owner.allow_find_by_contacts")
-    allow_others_download_video               = get_dict_attr(data, "$.data.room.owner.allow_others_download_video")
-    allow_others_download_when_sharing_video  = get_dict_attr(data, "$.data.room.owner.allow_others_download_when_sharing_video")
-    allow_share_show_profile                  = get_dict_attr(data, "$.data.room.owner.allow_share_show_profile")
-    allow_show_in_gossip                      = get_dict_attr(data, "$.data.room.owner.allow_show_in_gossip")
-    allow_show_my_action                      = get_dict_attr(data, "$.data.room.owner.allow_show_my_action")
-    allow_strange_comment                     = get_dict_attr(data, "$.data.room.owner.allow_strange_comment")
-    allow_unfollower_comment                  = get_dict_attr(data, "$.data.room.owner.allow_unfollower_comment")
-    allow_use_linkmic                         = get_dict_attr(data, "$.data.room.owner.allow_use_linkmic")
-    authorization_info                        = get_dict_attr(data, "$.data.room.owner.authorization_info")
-    bg_img_url                                = get_dict_attr(data, "$.data.room.owner.bg_img_url")
-    birthday                                  = get_dict_attr(data, "$.data.room.owner.birthday")
-    birthday_description                      = get_dict_attr(data, "$.data.room.owner.birthday_description")
-    birthday_valid                            = get_dict_attr(data, "$.data.room.owner.birthday_valid")
-    block_status                              = get_dict_attr(data, "$.data.room.owner.block_status")
-    city                                      = get_dict_attr(data, "$.data.room.owner.city")
-    comment_restrict                          = get_dict_attr(data, "$.data.room.owner.comment_restrict")
-    constellation                             = get_dict_attr(data, "$.data.room.owner.constellation")
-    consume_diamond_level                     = get_dict_attr(data, "$.data.room.owner.consume_diamond_level")
-    create_time                               = get_dict_attr(data, "$.data.room.owner.create_time")
-    desensitized_nickname                     = get_dict_attr(data, "$.data.room.owner.desensitized_nickname")
-    disable_ichat                             = get_dict_attr(data, "$.data.room.owner.disable_ichat")
-    display_id                                = get_dict_attr(data, "$.data.room.owner.display_id")
-    enable_ichat_img                          = get_dict_attr(data, "$.data.room.owner.enable_ichat_img")
-    fold_stranger_chat                        = get_dict_attr(data, "$.data.room.owner.fold_stranger_chat")
-    nickname                                  = get_dict_attr(data, "$.data.room.owner.nickname")
-    pay_score                                 = get_dict_attr(data, "$.data.room.owner.pay_score")
-    pay_scores                                = get_dict_attr(data, "$.data.room.owner.pay_scores")
-    need_profile_guide                        = get_dict_attr(data, "$.data.room.owner.need_profile_guide")
-    hotsoon_verified                          = get_dict_attr(data, "$.data.room.owner.hotsoon_verified")
-    hotsoon_verified_reason                   = get_dict_attr(data, "$.data.room.owner.hotsoon_verified_reason")
-    ichat_restrict_type                       = get_dict_attr(data, "$.data.room.owner.ichat_restrict_type")
-    income_share_percent                      = get_dict_attr(data, "$.data.room.owner.income_share_percent")
-    push_comment_status                       = get_dict_attr(data, "$.data.room.owner.push_comment_status")
-    push_digg                                 = get_dict_attr(data, "$.data.room.owner.push_digg")
-    push_follow                               = get_dict_attr(data, "$.data.room.owner.push_follow")
-    push_friend_action                        = get_dict_attr(data, "$.data.room.owner.push_friend_action")
-    push_ichat                                = get_dict_attr(data, "$.data.room.owner.push_ichat")
-    push_status                               = get_dict_attr(data, "$.data.room.owner.push_status")
-    push_video_post                           = get_dict_attr(data, "$.data.room.owner.push_video_post")
-    push_video_recommend                      = get_dict_attr(data, "$.data.room.owner.push_video_recommend")
-    remark_name                               = get_dict_attr(data, "$.data.room.owner.remark_name")
-    sec_uid                                   = get_dict_attr(data, "$.data.room.owner.sec_uid")
-    secret                                    = get_dict_attr(data, "$.data.room.owner.secret")
-    share_qrcode_uri                          = get_dict_attr(data, "$.data.room.owner.share_qrcode_uri")
-    short_id                                  = get_dict_attr(data, "$.data.room.owner.short_id")
-    signature                                 = get_dict_attr(data, "$.data.room.owner.signature")
-    special_id                                = get_dict_attr(data, "$.data.room.owner.special_id")
-    status                                    = get_dict_attr(data, "$.data.room.owner.status")
-    telephone                                 = get_dict_attr(data, "$.data.room.owner.telephone")
-    total_recharge_diamond_count              = get_dict_attr(data, "$.data.room.owner.total_recharge_diamond_count")
-    user_canceled                             = get_dict_attr(data, "$.data.room.owner.user_canceled")
-    user_open_id                              = get_dict_attr(data, "$.data.room.owner.user_open_id")
-    user_role                                 = get_dict_attr(data, "$.data.room.owner.user_role")
-    verified                                  = get_dict_attr(data, "$.data.room.owner.verified")
-    verified_content                          = get_dict_attr(data, "$.data.room.owner.verified_content")
-    verified_mobile                           = get_dict_attr(data, "$.data.room.owner.verified_mobile")
-    verified_reason                           = get_dict_attr(data, "$.data.room.owner.verified_reason")
-    watch_duration_month                      = get_dict_attr(data, "$.data.room.owner.watch_duration_month")
-    web_rid                                   = get_dict_attr(data, "$.data.room.owner.web_rid")
-    webcast_uid                               = get_dict_attr(data, "$.data.room.owner.webcast_uid")
-    with_car_management_permission            = get_dict_attr(data, "$.data.room.owner.with_car_management_permission")
-    with_commerce_permission                  = get_dict_attr(data, "$.data.room.owner.with_commerce_permission")
-    with_fusion_shop_entry                    = get_dict_attr(data, "$.data.room.owner.with_fusion_shop_entry")
-    
-    set_dict_attr(user_table_tuple, "$.id",                                          str(id))
-    set_dict_attr(user_table_tuple, "$.gender",                                      gender)
-    set_dict_attr(user_table_tuple, "$.allow_be_located",                            allow_be_located)
-    set_dict_attr(user_table_tuple, "$.age_range",                                   age_range)
-    set_dict_attr(user_table_tuple, "$.adversary_authorization_info",                adversary_authorization_info)
-    set_dict_attr(user_table_tuple, "$.adversary_user_status",                       adversary_user_status)
-    set_dict_attr(user_table_tuple, "$.allow_find_by_contacts",                      allow_find_by_contacts)
-    set_dict_attr(user_table_tuple, "$.allow_others_download_video",                 allow_others_download_video)
-    set_dict_attr(user_table_tuple, "$.allow_others_download_when_sharing_video",    allow_others_download_when_sharing_video)
-    set_dict_attr(user_table_tuple, "$.allow_share_show_profile",                    allow_share_show_profile)
-    set_dict_attr(user_table_tuple, "$.allow_show_in_gossip",                        allow_show_in_gossip)
-    set_dict_attr(user_table_tuple, "$.allow_show_my_action",                        allow_show_my_action)
-    set_dict_attr(user_table_tuple, "$.allow_strange_comment",                       allow_strange_comment)
-    set_dict_attr(user_table_tuple, "$.allow_unfollower_comment",                    allow_unfollower_comment)
-    set_dict_attr(user_table_tuple, "$.allow_use_linkmic",                           allow_use_linkmic)
-    set_dict_attr(user_table_tuple, "$.authorization_info",                          authorization_info)
-    set_dict_attr(user_table_tuple, "$.bg_img_url",                                  bg_img_url)
-    set_dict_attr(user_table_tuple, "$.birthday",                                    birthday)
-    set_dict_attr(user_table_tuple, "$.birthday_description",                        birthday_description)
-    set_dict_attr(user_table_tuple, "$.birthday_valid",                              birthday_valid)
-    set_dict_attr(user_table_tuple, "$.block_status",                                block_status)
-    set_dict_attr(user_table_tuple, "$.city",                                        city)
-    set_dict_attr(user_table_tuple, "$.comment_restrict",                            comment_restrict)
-    set_dict_attr(user_table_tuple, "$.constellation",                               constellation)
-    set_dict_attr(user_table_tuple, "$.consume_diamond_level",                       consume_diamond_level)
-    set_dict_attr(user_table_tuple, "$.create_time",                                 dat.fromtimestamp(create_time))
-    set_dict_attr(user_table_tuple, "$.desensitized_nickname",                       desensitized_nickname)
-    set_dict_attr(user_table_tuple, "$.disable_ichat",                               disable_ichat)
-    set_dict_attr(user_table_tuple, "$.display_id",                                  display_id)
-    set_dict_attr(user_table_tuple, "$.enable_ichat_img",                            enable_ichat_img)
-    set_dict_attr(user_table_tuple, "$.fold_stranger_chat",                          fold_stranger_chat)
-    set_dict_attr(user_table_tuple, "$.nickname",                                    nickname)
-    set_dict_attr(user_table_tuple, "$.pay_score",                                   pay_score)
-    set_dict_attr(user_table_tuple, "$.pay_scores",                                  pay_scores)
-    set_dict_attr(user_table_tuple, "$.need_profile_guide",                          need_profile_guide)
-    set_dict_attr(user_table_tuple, "$.hotsoon_verified",                            hotsoon_verified)
-    set_dict_attr(user_table_tuple, "$.hotsoon_verified_reason",                     hotsoon_verified_reason)
-    set_dict_attr(user_table_tuple, "$.ichat_restrict_type",                         ichat_restrict_type)
-    set_dict_attr(user_table_tuple, "$.income_share_percent",                        income_share_percent)
-    set_dict_attr(user_table_tuple, "$.push_comment_status",                         push_comment_status)
-    set_dict_attr(user_table_tuple, "$.push_digg",                                   push_digg)
-    set_dict_attr(user_table_tuple, "$.push_follow",                                 push_follow)
-    set_dict_attr(user_table_tuple, "$.push_friend_action",                          push_friend_action)
-    set_dict_attr(user_table_tuple, "$.push_ichat",                                  push_ichat)
-    set_dict_attr(user_table_tuple, "$.push_status",                                 push_status)
-    set_dict_attr(user_table_tuple, "$.push_video_post",                             push_video_post)
-    set_dict_attr(user_table_tuple, "$.push_video_recommend",                        push_video_recommend)
-    set_dict_attr(user_table_tuple, "$.remark_name",                                 remark_name)
-    set_dict_attr(user_table_tuple, "$.sec_uid",                                     sec_uid)
-    set_dict_attr(user_table_tuple, "$.secret",                                      secret)
-    set_dict_attr(user_table_tuple, "$.share_qrcode_uri",                            share_qrcode_uri)
-    set_dict_attr(user_table_tuple, "$.short_id",                                    str(short_id))
-    set_dict_attr(user_table_tuple, "$.signature",                                   signature)
-    set_dict_attr(user_table_tuple, "$.special_id",                                  special_id)
-    set_dict_attr(user_table_tuple, "$.status",                                      status)
-    set_dict_attr(user_table_tuple, "$.telephone",                                   telephone)
-    set_dict_attr(user_table_tuple, "$.total_recharge_diamond_count",                total_recharge_diamond_count)
-    set_dict_attr(user_table_tuple, "$.user_canceled",                               user_canceled)
-    set_dict_attr(user_table_tuple, "$.user_open_id",                                user_open_id)
-    set_dict_attr(user_table_tuple, "$.user_role",                                   user_role)
-    set_dict_attr(user_table_tuple, "$.verified",                                    verified)
-    set_dict_attr(user_table_tuple, "$.verified_content",                            verified_content)
-    set_dict_attr(user_table_tuple, "$.verified_mobile",                             verified_mobile)
-    set_dict_attr(user_table_tuple, "$.verified_reason",                             verified_reason)
-    set_dict_attr(user_table_tuple, "$.watch_duration_month",                        watch_duration_month)
-    set_dict_attr(user_table_tuple, "$.web_rid",                                     web_rid)
-    set_dict_attr(user_table_tuple, "$.webcast_uid",                                 webcast_uid)
-    set_dict_attr(user_table_tuple, "$.with_car_management_permission",              with_car_management_permission)
-    set_dict_attr(user_table_tuple, "$.with_commerce_permission",                    with_commerce_permission)
-    set_dict_attr(user_table_tuple, "$.with_fusion_shop_entry",                      with_fusion_shop_entry)
-    
-    if db.is_table_exist(user_table.get_name()) is False:
-      user_table.create()
-    
-    if id is not 0:
+    if id != 0:
       user_table.insert_record(user_table_tuple)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(user_table.get_name(), e))
@@ -5228,7 +5046,7 @@ def test_import_live_info_to_database() -> None:
   ##
   ## load yml file
   ##
-  data = load_yml(Path('/mnt/code_space/SocialMediaStreamDownloader/docs/design/Lvuuu.yml'))
+  data = load_yml(Path('./docs/design/Lvuuu.yml'))
   
   ##
   ## parse living data
@@ -5239,7 +5057,7 @@ def test_import_live_info_to_database() -> None:
   ## import living data to database
   ##
   db = SocialMediaStreamDataBase(host='192.168.1.12', user='wangyan', passwd='wuyu1998', database='social_media_stream_downloader')
-  import_douyin_live_info_to_database(living_data)
+  import_douyin_live_info_to_database(living_data, db)
   
 
 if __name__ == "__main__":

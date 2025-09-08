@@ -562,6 +562,8 @@ class RoomAdminUserOpenIdTable(SocialMediaStreamDataTable):
 ## +--------------------+-------------------+------+-----+---------+-------+---------------------------------+---------------------+
 ##
 class RoomAssistLabelTable(SocialMediaStreamDataTable):
+  pass
+  """
 ##
 ## >>=============================== attribute ===============================>>
 ##
@@ -652,7 +654,7 @@ class RoomAssistLabelTable(SocialMediaStreamDataTable):
   ##
   def verify_table_schema(self) -> bool:
     return super().verify_table_schema()
-
+  """
 '''
   TBD: no related data type of room_deco
 '''
@@ -670,6 +672,8 @@ class RoomAssistLabelTable(SocialMediaStreamDataTable):
 ## +------------+-------------------+------+-----+---------+-------+-------------------------+----------------------+
 ##
 class RoomDecoTable(SocialMediaStreamDataTable):
+  pass
+  """
 ##
 ## >>=============================== attribute ===============================>>
 ##
@@ -760,7 +764,7 @@ class RoomDecoTable(SocialMediaStreamDataTable):
   ##
   def verify_table_schema(self) -> bool:
     return super().verify_table_schema()
-
+  """
 '''
   TBD: no related data type of room_realtime_playback_quality
 '''
@@ -2617,7 +2621,7 @@ class RoomRecordTable(SocialMediaStreamDataTable):
 ## >>=============================== attribute ===============================>>
 ##
   __ROOM_RECORD_TABLE_NAME       = "room_record"
-  __ROOM_RECORD_TABLE_HEADER     = ['now',                              'platform',                            'id',                           '`rank`',                             'silence_flag',
+  __ROOM_RECORD_TABLE_HEADER     = ['now',                              'platform',                            'id',                           '`rank`',                           'silence_flag',
                                     'view_stats_display_long',          'view_stats_display_long_anchor',      'view_stats_display_middle',    'view_stats_display_middle_anchor', 'view_stats_display_short', 
                                     'view_stats_display_short_anchor',  'view_stats_display_type',             'view_stats_display_value',     'view_stats_display_version',       'view_stats_incremental',
                                     'view_stats_is_hidden',             'user_share_text',                     'screen_capture_sharing_title', 'short_title',                      'lottery_finish_time',

@@ -100,7 +100,8 @@ def test_insert_live_record(db:SocialMediaStreamDataBase = None):
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'user_id': '2700838411446480',
+    'owner_user_id': '2700838411446480',
+    'user_id': '0',
     'start_time': dat.fromtimestamp(1714227435),
     'finish_time': dat.fromtimestamp(1714232860),
     'status_code': 0
@@ -212,6 +213,7 @@ def test_update_live_record(db:SocialMediaStreamDataBase = None):
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
+    'owner_user_id':'2700838411446480',
     'start_time': dat.fromtimestamp(1714227435),
     'finish_time': dat.fromtimestamp(1714232860),
     'status_code': 1

@@ -2900,7 +2900,7 @@ def test_update_room_temp_state_global_condition_ignore_strategy_type_record(db:
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'strategy_type': 2
+    'ignore_strategy_type_index': 1
   }
   
   try:

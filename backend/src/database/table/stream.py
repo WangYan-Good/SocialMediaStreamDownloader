@@ -56,7 +56,7 @@ class LiveStreamTable(SocialMediaStreamDataTable):
 ## >>=============================== attribute ===============================>>
 ##
   __LIVE_STREAM_TABLE_NAME        = "live_stream"
-  __LIVE_STREAM_TABLE_HEADER      = ['default_resolution',   'anchor_interact_profile', 'audience_interact_profile ',
+  __LIVE_STREAM_TABLE_HEADER      = ['default_resolution',   'anchor_interact_profile', 'audience_interact_profile',
                                      'bframe_enable',        'bitrate_adapt_strategy',  'bytevc1_enable',
                                      'default_bitrate',      'fps',                     'gop_sec',
                                      'h265_enable',          'hardware_encode',         'height',
@@ -1100,7 +1100,7 @@ class LiveCoreSdkPullQualityDataTable(SocialMediaStreamDataTable):
 ## >>=============================== attribute ===============================>>
 ##
   __LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_NAME       = "live_core_sdk_pull_quality_data"
-  __LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_HEADER     = ['now', 'platform', 'room_id', 'quality_index', 'disable', 'fps', 'level', 'name', 'resolution', 'sdk_key', 'v_bit_rate', 'v_codec']
+  __LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_HEADER     = ['now', 'platform', 'room_id', 'quality_index', 'additional_content', 'disable', 'fps', 'level', 'name', 'resolution', 'sdk_key', 'v_bit_rate', 'v_codec']
   __LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'quality_index']
   __TABLE_AUTO_INCREMENT                             = ['quality_index']
   __LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_TUPLE      = {item:None for item in __LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_HEADER}
@@ -1110,6 +1110,7 @@ class LiveCoreSdkPullQualityDataTable(SocialMediaStreamDataTable):
                                                          platform                varchar(20)  NOT NULL,
                                                          room_id                 varchar(200) NOT NULL,
                                                          quality_index           bigint       NOT NULL AUTO_INCREMENT,
+                                                         additional_content      text         DEFAULT NULL,
                                                          disable                 tinyint      DEFAULT NULL,
                                                          fps                     tinyint      DEFAULT NULL,
                                                          level                   smallint     DEFAULT NULL,
