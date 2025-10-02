@@ -2532,31 +2532,34 @@ class RoomTempStateGlobalConditionTable(SocialMediaStreamDataTable):
 
 ##
 ## data.room.short_touch_area_config.temp_state_strategy
-## +-------------------+------------------+------+-----+---------+-------+-------------------------------------------------------------------------------------+------------+
-## | Field             | Type             | Null | Key | Default | Extra | Topology                                                                            | Comment    |
-## +-------------------+------------------+------+-----+---------+-------+-------------------------------------------------------------------------------------+------------+
-## | now               | timestamp        | NO   | PRI |         |       | "$.extra.now"                                                                       | 当前时间戳 |
-## | platform          | varchar(20)      | NO   | PRI |         |       |           -                                                                         | 平台       | 
-## | room_id           | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                                                                    | 直播间ID   |
-## | short_touch_type  | unsigned tinyint |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_global_condition.short_touch_type"  | 允许总数   |
-## +-------------------+------------------+------+-----+---------+-------+-------------------------------------------------------------------------------------+------------+
+## +------------------------+------------------+------+-----+---------+-------+-------------------------------------------------------------------------------------+------------+
+## | Field                  | Type             | Null | Key | Default | Extra | Topology                                                                            | Comment    |
+## +------------------------+------------------+------+-----+---------+-------+-------------------------------------------------------------------------------------+------------+
+## | now                    | timestamp        | NO   |     |         |       | "$.extra.now"                                                                       | 当前时间戳 |
+## | platform               | varchar(20)      | NO   |     |         |       |           -                                                                         | 平台       | 
+## | room_id                | varchar(200)     | NO   |     |         |       | "$.data.room.id"                                                                    | 直播间ID   |
+## | short_touch_type       | unsigned int     |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_global_condition.short_touch_type"  | 允许总数   |
+## | short_touch_type_index | bigint           | NO   | PRI |         |       |           -                                                                         |            | 
+## +------------------------+------------------+------+-----+---------+-------+-------------------------------------------------------------------------------------+------------+
 ##
 class RoomTempStateStrategyTable(SocialMediaStreamDataTable):
 ##
 ## >>=============================== attribute ===============================>>
 ##
   __ROOM_TEMP_STATE_STRATEGY_TABLE_NAME       = "room_temp_state_strategy"
-  __ROOM_TEMP_STATE_STRATEGY_TABLE_HEADER     = ['now', 'platform', 'room_id', 'short_touch_type']
-  __ROOM_TEMP_STATE_STRATEGY_TABLE_PRI_KEY    = ['now', 'platform', 'room_id']
-  __TABLE_AUTO_INCREMENT                      = []
+  __ROOM_TEMP_STATE_STRATEGY_TABLE_HEADER     = ['now', 'platform', 'room_id', 'short_touch_type', 'short_touch_type_index']
+  __ROOM_TEMP_STATE_STRATEGY_TABLE_PRI_KEY    = ['short_touch_type_index']
+  __TABLE_AUTO_INCREMENT                      = ['short_touch_type_index']
   __ROOM_TEMP_STATE_STRATEGY_TABLE_TUPLE      = {item:None for item in __ROOM_TEMP_STATE_STRATEGY_TABLE_HEADER}
   __SQL_CREATE_ROOM_TEMP_STATE_STRATEGY_TABLE = '''
                                                   CREATE TABLE IF NOT EXISTS {} (
-                                                    now                    timestamp(3) NOT NULL,
-                                                    platform               varchar(20)  NOT NULL,
-                                                    room_id                varchar(200) NOT NULL,
-                                                    short_touch_type       tinyint      DEFAULT NULL,
-                                                    PRIMARY KEY (now, platform, room_id)
+                                                    now                       timestamp(3) NOT NULL,
+                                                    platform                  varchar(20)  NOT NULL,
+                                                    room_id                   varchar(200) NOT NULL,
+                                                    short_touch_type          int          NOT NULL,
+                                                    short_touch_type_index    bigint       NOT NULL AUTO_INCREMENT,
+                                                    PRIMARY KEY (short_touch_type_index),
+                                                    UNIQUE KEY unique_record (now, platform, room_id, short_touch_type)
                                                   )
                                                   '''.format(__ROOM_TEMP_STATE_STRATEGY_TABLE_NAME)
   __SQL_DROP_ROOM_TEMP_STATE_STRATEGY_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_TEMP_STATE_STRATEGY_TABLE_NAME)
@@ -2637,11 +2640,11 @@ class RoomTempStateStrategyTable(SocialMediaStreamDataTable):
 ## | now               | timestamp        | NO   | PRI |         |       | "$.extra.now"                                                                              | 当前时间戳 |
 ## | platform          | varchar(20)      | NO   | PRI |         |       |           -                                                                                | 平台       | 
 ## | room_id           | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                                                                           | 直播间ID   |
-## | short_touch_type  | unsigned tinyint |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.'x'.short_touch_type"             | 允许总数   |
+## | short_touch_type  | unsigned int     | NO   | PRI | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.'x'.short_touch_type"             | 允许总数   |
 ## | duration          | unsigned int     |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.duration"        | 持续时间   |
-## | strategy_method   | varchar(20)      |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.strategy_method" | 策略方法   |
+## | strategy_method   | varchar(100)     |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.strategy_method" | 策略方法   |
 ## | priority          | unsigned tinyint |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.priority"        | 优先级     |
-## | strategy_type     | varchar(20)      |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.strategy_type"   | 策略类型   |
+## | strategy_type     | unsigned tinyint | NO   | PRI | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.strategy_type"   | 策略类型   |
 ## +-------------------+------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------+------------+
 ##
 class RoomTempStateStrategyMapTable(SocialMediaStreamDataTable):
@@ -2655,14 +2658,14 @@ class RoomTempStateStrategyMapTable(SocialMediaStreamDataTable):
   __ROOM_TEMP_STATE_STRATEGY_MAP_TABLE_TUPLE = {item:None for item in __ROOM_TEMP_STATE_STRATEGY_MAP_TABLE_HEADER}
   __SQL_CREATE_ROOM_TEMP_STATE_STRATEGY_MAP_TABLE = '''
                                                   CREATE TABLE IF NOT EXISTS {} (
-                                                    now                    timestamp(3) NOT NULL,
-                                                    platform               varchar(20)  NOT NULL,
-                                                    room_id                varchar(200) NOT NULL,
-                                                    short_touch_type       tinyint      DEFAULT NULL,
-                                                    duration               int          DEFAULT NULL,
-                                                    strategy_method        varchar(20)  DEFAULT NULL,
-                                                    priority               tinyint      DEFAULT NULL,
-                                                    strategy_type          varchar(20)  DEFAULT NULL,
+                                                    now                    timestamp(3)  NOT NULL,
+                                                    platform               varchar(20)   NOT NULL,
+                                                    room_id                varchar(200)  NOT NULL,
+                                                    short_touch_type       int           NOT NULL,
+                                                    duration               int           DEFAULT NULL,
+                                                    strategy_method        varchar(100)  DEFAULT NULL,
+                                                    priority               tinyint       DEFAULT NULL,
+                                                    strategy_type          tinyint       NOT NULL,
                                                     PRIMARY KEY (now, platform, room_id, short_touch_type, strategy_type)
                                                   )
                                                   '''.format(__ROOM_TEMP_STATE_STRATEGY_MAP_TABLE_NAME)

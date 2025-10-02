@@ -37,7 +37,6 @@ def test_import_live_info_to_database(db: SocialMediaStreamDataBase, input_path:
   ##
   ## import living data to database
   ##
-  db = SocialMediaStreamDataBase(host='192.168.1.12', user='wangyan', passwd='wuyu1998', database='test_social_media_stream_downloader')
   import_douyin_live_info_to_database(db, living_data)
   
 def test_export_live_info_to_yml(db: SocialMediaStreamDataBase, output_path: str) -> None:
@@ -55,7 +54,7 @@ def test_export_live_info_to_yml(db: SocialMediaStreamDataBase, output_path: str
   export_live_info_to_yml(db, living_data, output_path)
 
 if __name__ == "__main__":
-  db = SocialMediaStreamDataBase(host='192.168.1.12', user='wangyan', passwd='wuyu1998', database='test_social_media_stream_downloader')
+  db = SocialMediaStreamDataBase(host='localhost', user='wangyan', passwd='wuyu1998', database='test_social_media_stream_downloader')
   input_path = './docs/design/Lvuuu.yml'
   output_path = './config/export/Lvuuu.yml'
   # test_import_live_info_to_database(db, input_path)

@@ -46,6 +46,8 @@ from backend.src.database.table.room                                  import   R
                                                                                RoomTempStateConditionMapTable,                      \
                                                                                RoomTempStateGlobalConditionIgnoreStrategyTypeTable, \
                                                                                RoomTempStateGlobalConditionTable,                   \
+                                                                               RoomTempStateStrategyTable,                          \
+                                                                               RoomTempStateStrategyMapTable,                       \
                                                                                RoomRecordTable,                                     \
                                                                                RoomTagTable,                                        \
                                                                                RoomTopFansTable,                                    \
@@ -2599,6 +2601,99 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     room_temp_state_global_condition_table.insert_record(room_temp_state_global_condition_table_tuple, on_duplicate='ignore')
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_temp_state_global_condition_table.get_name(), e))
+    raise e
+
+  ##
+  ## RoomTempStateStrategyTable
+  ##
+  room_temp_state_strategy_table = RoomTempStateStrategyTable(db)
+  try:
+    ##
+    ## create the table if not exist
+    ##
+    if db.is_table_exist(room_temp_state_strategy_table.get_name()) is False:
+      room_temp_state_strategy_table.create()
+    ##
+    ## +-------------------+
+    ## | Field             |
+    ## +-------------------+
+    ## | now               |
+    ## | platform          |
+    ## | room_id           |
+    ## | short_touch_type  |
+    ## +-------------------+
+    ##
+    room_temp_state_strategy_table_tuple = room_temp_state_strategy_table.get_tuple()
+    temp_state_strategy = get_dict_attr(data, "$.data.room.short_touch_area_config.temp_state_strategy")
+    if temp_state_strategy is not None:
+      set_dict_attr(room_temp_state_strategy_table_tuple, "$.now",           now)
+      set_dict_attr(room_temp_state_strategy_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+      set_dict_attr(room_temp_state_strategy_table_tuple, "$.room_id",       str(room_id))
+  
+      for temp_state_strategy_key, temp_state_strategy_value in dict(temp_state_strategy).items():
+        short_touch_type   = get_dict_attr(temp_state_strategy_value, "$.short_touch_type")
+
+        set_dict_attr(room_temp_state_strategy_table_tuple, "$.short_touch_type",   short_touch_type)
+        room_temp_state_strategy_table.insert_record(room_temp_state_strategy_table_tuple, on_duplicate='ignore')
+  except Exception as e:
+    get_logger().error("insert {} failed: {}".format(room_temp_state_strategy_table.get_name(), e))
+    raise e
+
+  ##
+  ## RoomTempStateStrategyMapTable
+  ##
+  room_temp_state_strategy_map_table = RoomTempStateStrategyMapTable(db)
+  try:
+    ##
+    ## create the table if not exist
+    ##
+    if db.is_table_exist(room_temp_state_strategy_map_table.get_name()) is False:
+      room_temp_state_strategy_map_table.create()
+    ##
+    ## +-------------------+
+    ## | Field             |
+    ## +-------------------+
+    ## | now               |
+    ## | platform          |
+    ## | room_id           |
+    ## | short_touch_type  |
+    ## | duration          |
+    ## | strategy_method   |
+    ## | priority          |
+    ## | strategy_type     |
+    ## +-------------------+
+    ##
+    room_temp_state_strategy_map_table_tuple = room_temp_state_strategy_map_table.get_tuple()
+    temp_state_strategy = get_dict_attr(data, "$.data.room.short_touch_area_config.temp_state_strategy")
+    if temp_state_strategy is not None:
+      set_dict_attr(room_temp_state_strategy_map_table_tuple, "$.now",           now)
+      set_dict_attr(room_temp_state_strategy_map_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+      set_dict_attr(room_temp_state_strategy_map_table_tuple, "$.room_id",       str(room_id))
+  
+      ##
+      ## loop temp_state_strategy
+      ##
+      for temp_state_strategy_key, temp_state_strategy_value in  dict(temp_state_strategy).items():
+        short_touch_type   = get_dict_attr(temp_state_strategy_value, "$.short_touch_type")
+        set_dict_attr(room_temp_state_strategy_map_table_tuple, "$.short_touch_type",   short_touch_type)
+
+        ##
+        ## loop strategy_map
+        ##
+        strategy_map = get_dict_attr(temp_state_strategy_value, "$.strategy_map")
+        for strategy_map_key, strategy_map_value in dict(strategy_map).items():
+          duration        = get_dict_attr(strategy_map_value, "$.duration")
+          strategy_method = get_dict_attr(strategy_map_value, "$.strategy_method")
+          priority        = get_dict_attr(strategy_map_value, "$.type.priority")
+          strategy_type   = get_dict_attr(strategy_map_value, "$.type.strategy_type")
+
+          set_dict_attr(room_temp_state_strategy_map_table_tuple, "$.duration",        duration)
+          set_dict_attr(room_temp_state_strategy_map_table_tuple, "$.strategy_method", strategy_method)
+          set_dict_attr(room_temp_state_strategy_map_table_tuple, "$.priority",        priority)
+          set_dict_attr(room_temp_state_strategy_map_table_tuple, "$.strategy_type",   strategy_type)
+          room_temp_state_strategy_map_table.insert_record(room_temp_state_strategy_map_table_tuple, on_duplicate='ignore')
+  except Exception as e:
+    get_logger().error("insert {} failed: {}".format(room_temp_state_strategy_map_table.get_name(), e))
     raise e
 
   ##

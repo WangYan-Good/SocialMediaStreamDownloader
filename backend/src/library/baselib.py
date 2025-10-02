@@ -76,7 +76,7 @@ def output_dict(source:dict=None, tab:int=1):
       output_dict(item, tab+1)
   else:
     # get_logger().info("{}".format(source))
-    print(f"{"\t"*tab}{source}")
+    print("{}{}".format("\t"*tab, source))
 
 ##
 ## save dict as file

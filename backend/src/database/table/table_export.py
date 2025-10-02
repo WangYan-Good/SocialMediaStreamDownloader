@@ -2496,6 +2496,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   except Exception as e:
     get_logger().error(f"{e}: {fans_club_available_gift_id.get_name()} >> >> >> >> >> >> data.room.owner.fans_club.data.badge")
     badge_icons_label_list.append('')
+    badge_icon_pic_label_list.append('')
     badge_icon_avg_color_list.append('')
     badge_icon_height_list.append(0)
     badge_icon_image_type_list.append(0)
@@ -3265,7 +3266,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   
   try:
     room_short_touch_area_config_element_list = list()
-    room_short_touch_area_config_element_tuple_list = room_short_touch_area_config_elements.get_record(room_short_touch_area_config_element_tuple)
+    room_short_touch_area_config_element_tuple_list = room_short_touch_area_config_elements.get_record(room_short_touch_area_config_element_tuple, fetchall=True)
     for room_short_touch_area_config_element in room_short_touch_area_config_element_tuple_list:
       element = dict()
       priority = room_short_touch_area_config_element.get('priority', 0)
@@ -3298,7 +3299,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   
   try:
     room_strategy_feat_whitelist_list = list()
-    room_strategy_feat_whitelist_tuple_list = room_strategy_feat_whitelist.get_record(room_strategy_feat_whitelist_tuple)
+    room_strategy_feat_whitelist_tuple_list = room_strategy_feat_whitelist.get_record(room_strategy_feat_whitelist_tuple, fetchall=True)
     for room_strategy_feat_whitelist in room_strategy_feat_whitelist_tuple_list:
       whitelist_tag = room_strategy_feat_whitelist.get('whitelist_tag', "")
       room_strategy_feat_whitelist_list.append(whitelist_tag)
@@ -3329,15 +3330,15 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   
   try:
     room_temp_state_condition_map_list = list()
-    room_temp_state_condition_map_tuple_list = room_temp_state_condition_map.get_record(room_temp_state_condition_map_tuple)
+    room_temp_state_condition_map_tuple_list = room_temp_state_condition_map.get_record(room_temp_state_condition_map_tuple, fetchall=True)
     for room_temp_state_condition in room_temp_state_condition_map_tuple_list:
       temp_state_condition = dict()
       minimum_gap = room_temp_state_condition.get('minimum_gap', 0)
-      set_dict_attr(temp_state_condition, "$.minimum_gap", minimum_gap)
+      set_dict_attr(temp_state_condition, "$.minimum_gap", minimum_gap, force=True)
       priority = room_temp_state_condition.get('priority', 0)
-      set_dict_attr(temp_state_condition, "$.type.priority", priority)
+      set_dict_attr(temp_state_condition, "$.type.priority", priority, force=True)
       strategy_type = room_temp_state_condition.get('strategy_type', 0)
-      set_dict_attr(temp_state_condition, "$.type.strategy_type", strategy_type)
+      set_dict_attr(temp_state_condition, "$.type.strategy_type", strategy_type, force=True)
       room_temp_state_condition_map_list.append(temp_state_condition)
   except Exception as e:
     get_logger().error(f"{e}: {room_temp_state_condition_map.get_name()} >> >> >> >> data.room.short_touch_area_config.temp_state_condition_map")
@@ -3358,7 +3359,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   room_temp_state_global_condition = RoomTempStateGlobalConditionTable(db)
   room_temp_state_global_condition_tuple = room_temp_state_global_condition.get_tuple()
   
-  set_dict_attr(room_temp_state_global_condition_tuple, "$.now", now)
+  set_dict_attr(room_temp_state_global_condition_tuple, "$.now",      now)
   set_dict_attr(room_temp_state_global_condition_tuple, "$.platform", platform)
   set_dict_attr(room_temp_state_global_condition_tuple, "$.room_id", str(room_id))
   
@@ -3408,7 +3409,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   | now               | timestamp        | NO   | PRI |         |       | "$.extra.now"                                                                       | 当前时间戳 |
   | platform          | varchar(20)      | NO   | PRI |         |       |           -                                                                         | 平台       | 
   | room_id           | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                                                                    | 直播间ID   |
-  | short_touch_type  | unsigned tinyint |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_global_condition.short_touch_type"  | 允许总数   |
+  | short_touch_type  | unsigned int     |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_global_condition.short_touch_type"  | 允许总数   |
   +-------------------+------------------+------+-----+---------+-------+-------------------------------------------------------------------------------------+------------+
   """
   room_temp_state_strategy = RoomTempStateStrategyTable(db)
@@ -3419,13 +3420,13 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   set_dict_attr(room_temp_state_strategy_tuple, "$.room_id", str(room_id))
   
   try:
-    room_temp_state_strategy_list = list()
-    room_temp_state_strategy_tuple_list = room_temp_state_strategy.get_record(room_temp_state_strategy_tuple)
+    short_touch_type_list = list()
+    room_temp_state_strategy_tuple_list = room_temp_state_strategy.get_record(room_temp_state_strategy_tuple, fetchall=True)
     for temp_state_strategy in room_temp_state_strategy_tuple_list:
-      room_temp_state_strategy_list.append(get_dict_attr(temp_state_strategy, "$.short_touch_type"))
+      short_touch_type_list.append(get_dict_attr(temp_state_strategy, "$.short_touch_type"))
   except Exception as e:
     get_logger().error(f"{e}: {room_temp_state_strategy.get_name()} >> >> >> >> >> data.room.short_touch_area_config.temp_state_strategy")
-    room_temp_state_strategy_list = []
+    short_touch_type_list = []
   
   """
   >> >> >> >> >> data.room.short_touch_area_config.temp_state_strategy.'x'.strategy_map
@@ -3435,36 +3436,41 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   | now               | timestamp        | NO   | PRI |         |       | "$.extra.now"                                                                              | 当前时间戳 |
   | platform          | varchar(20)      | NO   | PRI |         |       |           -                                                                                | 平台       | 
   | room_id           | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                                                                           | 直播间ID   |
-  | short_touch_type  | unsigned tinyint |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.'x'.short_touch_type"             | 允许总数   |
+  | short_touch_type  | unsigned int     |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.'x'.short_touch_type"             | 允许总数   |
   | duration          | unsigned int     |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.duration"        | 持续时间   |
-  | strategy_method   | varchar(20)      |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.strategy_method" | 策略方法   |
-  | priority          | unsigned tinyint |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.priority"        | 优先级     |
-  | strategy_type     | unsigned tinyint |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.strategy_type"   | 策略类型   |
+  | strategy_method   | varchar(100)     |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.strategy_method" | 策略方法   |
+  | priority          | unsigned tinyint |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.type.priority"        | 优先级     |
+  | strategy_type     | unsigned tinyint |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.type.strategy_type"   | 策略类型   |
   +-------------------+------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------+------------+
   """
   room_temp_state_strategy_map = RoomTempStateStrategyMapTable(db)
   room_temp_state_strategy_map_tuple = room_temp_state_strategy_map.get_tuple()
   
-  room_temp_state_strategy_dict = dict()
-  for room_temp_state_strategy in room_temp_state_strategy_list:
-    set_dict_attr(room_temp_state_strategy_map_tuple, "$.now", now)
-    set_dict_attr(room_temp_state_strategy_map_tuple, "$.platform", platform)
-    set_dict_attr(room_temp_state_strategy_map_tuple, "$.room_id", str(room_id))
-    set_dict_attr(room_temp_state_strategy_map_tuple, "$.short_touch_type", room_temp_state_strategy)
-    
-    room_temp_state_strategy_map_tuple_list = room_temp_state_strategy_map.get_record(room_temp_state_strategy_map_tuple)
-    strategy_map = dict()
-    for temp_state_strategy_map in room_temp_state_strategy_map_tuple_list:
-      duration = temp_state_strategy_map.get('duration', 0)
-      strategy_method = temp_state_strategy_map.get('strategy_method', "")
-      priority = temp_state_strategy_map.get('priority', 0)
-      strategy_type = temp_state_strategy_map.get('strategy_type', 0)
-      set_dict_attr(strategy_map, f"$.{strategy_type}.duration",         duration,        force=True)
-      set_dict_attr(strategy_map, f"$.{strategy_type}.strategy_method",  strategy_method, force=True)
-      set_dict_attr(strategy_map, f"$.{strategy_type}.priority",         priority,        force=True)
-      set_dict_attr(strategy_map, f"$.{strategy_type}.strategy_type",    strategy_type,   force=True)
-    set_dict_attr(room_temp_state_strategy_dict, f"$.{room_temp_state_strategy}.short_touch_type", room_temp_state_strategy, force=True)
-    set_dict_attr(room_temp_state_strategy_dict, f"$.{room_temp_state_strategy}.strategy_map",     strategy_map,             force=True)
+  try:
+    room_temp_state_strategy_dict = dict()
+    for short_touch_type in short_touch_type_list:
+      set_dict_attr(room_temp_state_strategy_map_tuple, "$.now",              now)
+      set_dict_attr(room_temp_state_strategy_map_tuple, "$.platform",         platform)
+      set_dict_attr(room_temp_state_strategy_map_tuple, "$.room_id",          str(room_id))
+      set_dict_attr(room_temp_state_strategy_map_tuple, "$.short_touch_type", short_touch_type)
+      
+      strategy_map = dict()
+      room_temp_state_strategy_map_tuple_list = room_temp_state_strategy_map.get_record(room_temp_state_strategy_map_tuple, fetchall=True)
+      for temp_state_strategy_map in room_temp_state_strategy_map_tuple_list:
+        duration        = temp_state_strategy_map.get('duration', 0)
+        strategy_method = temp_state_strategy_map.get('strategy_method', "")
+        priority        = temp_state_strategy_map.get('priority', 0)
+        strategy_type   = temp_state_strategy_map.get('strategy_type', 0)
+
+        set_dict_attr(strategy_map, f"$.{strategy_type}.duration",              duration,        force=True)
+        set_dict_attr(strategy_map, f"$.{strategy_type}.strategy_method",       strategy_method, force=True)
+        set_dict_attr(strategy_map, f"$.{strategy_type}.type.priority",         priority,        force=True)
+        set_dict_attr(strategy_map, f"$.{strategy_type}.type.strategy_type",    strategy_type,   force=True)
+      set_dict_attr(room_temp_state_strategy_dict, f"$.{short_touch_type}.short_touch_type", short_touch_type, force=True)
+      set_dict_attr(room_temp_state_strategy_dict, f"$.{short_touch_type}.strategy_map",     strategy_map,             force=True)
+  except Exception as e:
+    get_logger().error(f"{e}: {room_temp_state_strategy_map.get_name()} >> >> >> >> >> data.room.short_touch_area_config.temp_state_strategy")
+    room_temp_state_strategy_dict = {}
 
   """
   >> >> >> >> data.room.stream_url.candidate_resolution
@@ -4197,7 +4203,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   set_dict_attr(room, "$.has_promotion_games", room_attribute_tuple.get('has_promotion_games', 0),                    force=True)
   set_dict_attr(room, "$.highlight",           bool(room_attribute_tuple.get('highlight', False)),                    force=True)
   set_dict_attr(room, "$.hot_sentence_info",   room_record_tuple.get('hot_sentence_info', ''),                        force=True)
-  set_dict_attr(room, "$.id",                  int(room_attribute_tuple.get('id', 0)),                                     force=True)
+  set_dict_attr(room, "$.id",                  int(room_attribute_tuple.get('id', 0)),                                force=True)
   if room_attribute_tuple.get('id', 0) == 0:
     set_dict_attr(room, "$.id_str",                 '',                                                                force=True)
   else:
@@ -4917,13 +4923,13 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   >> >> >> >> data.room.short_touch_area_config.temp_state_condition_map
   """
   for temp_state_condition in room_temp_state_condition_map_list:
-    set_dict_attr(room, "$.short_touch_area_config.temp_state_condition_map." + str(json.loads(temp_state_condition.get('type', {})).get('strategy_type', 0)), temp_state_condition, force=True)
+    set_dict_attr(room, f"$.short_touch_area_config.temp_state_condition_map.{temp_state_condition.get('type', {}).get('strategy_type', 0)}", temp_state_condition, force=True)
 
   """
   >> >> >> >> data.room.short_touch_area_config.temp_state_global_condition
   """
-  set_dict_attr(room, "$.short_touch_area_config.temp_state_global_condition.allow_count",  room_temp_state_global_condition_tuple.get('allow_count', 0),  force=True)
-  set_dict_attr(room, "$.short_touch_area_config.temp_state_global_condition.duration_gap", room_temp_state_global_condition_tuple.get('duration_gap', 0), force=True)
+  set_dict_attr(room, "$.short_touch_area_config.temp_state_global_condition.allow_count",  room_temp_state_global_condition_dict.get('allow_count', 0),  force=True)
+  set_dict_attr(room, "$.short_touch_area_config.temp_state_global_condition.duration_gap", room_temp_state_global_condition_dict.get('duration_gap', 0), force=True)
   
   """
   >> >> >> >> >> data.room.short_touch_area_config.temp_state_global_condition.ignore_strategy_types
@@ -4932,8 +4938,6 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   
   """
   >> >> >> >> >> data.room.short_touch_area_config.temp_state_strategy
-  """
-  """
   >> >> >> >> >> data.room.short_touch_area_config.temp_state_strategy.'x'.strategy_map
   """
   set_dict_attr(room, "$.short_touch_area_config.temp_state_strategy", room_temp_state_strategy_dict, force=True)
@@ -5251,15 +5255,26 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   set_dict_attr(data, "$.data.user.is_following",                             bool(user_owner_tuple.get('is_following', False)),              force=True)
   set_dict_attr(data, "$.data.user.level",                                    user_owner_tuple.get('level', 0),                     force=True)
   set_dict_attr(data, "$.data.user.link_mic_stats",                           user_owner_tuple.get('link_mic_stats', 0),            force=True)
-  set_dict_attr(data, "$.data.user.location_city",                            str(user_owner_tuple.get('location_city', '')),             force=True)
+  
+  if user_owner_tuple.get('location_city', '') is None:
+    set_dict_attr(data, "$.data.user.location_city",                            '',             force=True)
+  else:
+    set_dict_attr(data, "$.data.user.location_city",                            str(user_owner_tuple.get('location_city', '')),             force=True)
 
   """
   >> >> >> data.user.media_badge_image_list
   """
   set_dict_attr(data, "$.data.user.media_badge_image_list",                   user_media_badge_image_list,                              force=True)
 
-  set_dict_attr(data, "$.data.user.modify_time",                              user_owner_tuple.get('modify_time', 0),               force=True)
-  set_dict_attr(data, "$.data.user.mystery_man",                              user_owner_tuple.get('mystery_man', 0),               force=True)
+  if user_owner_tuple.get('modify_time', 0) is None:
+    set_dict_attr(data, "$.data.user.modify_time",                              0,               force=True)
+  else:
+    set_dict_attr(data, "$.data.user.modify_time",                              user_owner_tuple.get('modify_time', 0),               force=True)
+  
+  if user_owner_tuple.get('mystery_man', 0) is None:
+    set_dict_attr(data, "$.data.user.mystery_man",                              0,               force=True)
+  else:
+    set_dict_attr(data, "$.data.user.mystery_man",                              user_owner_tuple.get('mystery_man', 0),               force=True)
   set_dict_attr(data, "$.data.user.need_profile_guide",                       bool(user_owner_tuple.get('need_profile_guide', False)),        force=True)
 
   """

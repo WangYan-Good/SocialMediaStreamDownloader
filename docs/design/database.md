@@ -1480,7 +1480,9 @@ data
 |       ├── 4-16-2. room_short_touch_area_config_strategy_feat_whitelist
 |       ├── 4-16-3. room_temp_state_condition_map
 |       |   └── 4-16-3-1. room_temp_state_global_condition_ignore_strategy_type
-|       └── 4-16-4. room_temp_state_global_condition
+|       ├── 4-16-4. room_temp_state_global_condition
+|       └── 4-16-5. room_temp_state_strategy
+|           └── 4-16-5-1. room_temp_state_strategy_map
 ├── 5. room_record
 ├── 6. live_stream
 |   ├── 6-1. stream_candidate_resolution
@@ -1739,6 +1741,21 @@ data
 +---------------+------------------+------+-----+---------+-------+---------------------------------------------------------------------------------------+------------+
 ```
 
+4-16-3-1. 直播间临时状态全局条件忽略类型 - room_temp_state_global_condition_ignore_strategy_type
+```shell
+##
+## data.room.short_touch_area_config.temp_state_global_condition.ignore_strategy_types
+##
++---------------+------------------+------+-----+---------+-------+-----------------------------------------------------------------------------------------+-------------+
+| Field         | Type             | Null | Key | Default | Extra | Topology                                                                                | Comment     |
++---------------+------------------+------+-----+---------+-------+-----------------------------------------------------------------------------------------+-------------+
+| now           | timestamp        | YES  |     |         |       | "$.extra.now"                                                                           | 当前时间戳   |
+| platform      | varchar(20)      |      |     | NULL    |       |           -                                                                             | 平台        | 
+| room_id       | varchar(200)     |      |     |         |       | "$.data.room.id"                                                                        | 直播间ID    |
+| strategy_type | unsigned tinyint |      |     |         |       | "$.data.room.short_touch_area_config.temp_state_global_condition.ignore_strategy_types" | 忽略策略类型 |
++---------------+------------------+------+-----+---------+-------+-----------------------------------------------------------------------------------------+-------------+
+```
+
 4-16-4. 直播间临时状态全局条件 - room_temp_state_global_condition
 ```shell
 ##
@@ -1755,19 +1772,38 @@ data
 +--------------+------------------+------+-----+---------+-------+--------------------------------------------------------------------------------+------------+
 ```
 
-4-16-3-1. 直播间临时状态全局条件忽略类型 - room_temp_state_global_condition_ignore_strategy_type
+4-16-5. room_temp_state_strategy
 ```shell
 ##
-## data.room.short_touch_area_config.temp_state_global_condition.ignore_strategy_types
+## data.room.short_touch_area_config.temp_state_strategy
 ##
-+---------------+------------------+------+-----+---------+-------+-----------------------------------------------------------------------------------------+-------------+
-| Field         | Type             | Null | Key | Default | Extra | Topology                                                                                | Comment     |
-+---------------+------------------+------+-----+---------+-------+-----------------------------------------------------------------------------------------+-------------+
-| now           | timestamp        | YES  |     |         |       | "$.extra.now"                                                                           | 当前时间戳   |
-| platform      | varchar(20)      |      |     | NULL    |       |           -                                                                             | 平台        | 
-| room_id       | varchar(200)     |      |     |         |       | "$.data.room.id"                                                                        | 直播间ID    |
-| strategy_type | unsigned tinyint |      |     |         |       | "$.data.room.short_touch_area_config.temp_state_global_condition.ignore_strategy_types" | 忽略策略类型 |
-+---------------+------------------+------+-----+---------+-------+-----------------------------------------------------------------------------------------+-------------+
++-------------------+------------------+------+-----+---------+-------+-------------------------------------------------------------------------------------+------------+
+| Field             | Type             | Null | Key | Default | Extra | Topology                                                                            | Comment    |
++-------------------+------------------+------+-----+---------+-------+-------------------------------------------------------------------------------------+------------+
+| now               | timestamp        | NO   | PRI |         |       | "$.extra.now"                                                                       | 当前时间戳 |
+| platform          | varchar(20)      | NO   | PRI |         |       |           -                                                                         | 平台       | 
+| room_id           | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                                                                    | 直播间ID   |
+| short_touch_type  | unsigned int     |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_global_condition.short_touch_type"  | 允许总数   |
++-------------------+------------------+------+-----+---------+-------+-------------------------------------------------------------------------------------+------------+
+```
+
+4-16-5-1. room_temp_state_strategy_map
+```shell
+##
+## data.room.short_touch_area_config.temp_state_strategy.strategy_map
+##
++-------------------+------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------+------------+
+| Field             | Type             | Null | Key | Default | Extra | Topology                                                                                   | Comment    |
++-------------------+------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------+------------+
+| now               | timestamp        | NO   | PRI |         |       | "$.extra.now"                                                                              | 当前时间戳 |
+| platform          | varchar(20)      | NO   | PRI |         |       |           -                                                                                | 平      | 
+| room_id           | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                                                                           | 直播间ID   |
+| short_touch_type  | unsigned int     |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.'x'.short_touch_type"             | 允许总数   |
+| duration          | unsigned int     |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.duration"        | 持续时间   |
+| strategy_method   | varchar(100)     |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.strategy_method" | 策略方法   |
+| priority          | unsigned tinyint |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.priority"        | 优先级     |
+| strategy_type     | varchar(20)      |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.strategy_type"   | 策略类型   |
++-------------------+------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------+------------+
 ```
 
 5. 直播间记录表(动态信息) - room_record
