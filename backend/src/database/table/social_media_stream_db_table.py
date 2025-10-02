@@ -549,7 +549,7 @@ class SocialMediaStreamDataTable(ABC):
   ##
   ## get record
   ##
-  def get_record(self, record: dict) -> dict:
+  def get_record(self, record: dict, fetchall: bool = False) -> list:
     """
     根据条件从数据库获取记录
     
@@ -557,7 +557,7 @@ class SocialMediaStreamDataTable(ABC):
       record: 查询条件字典，如 {'platform': 'douyin', 'room_id': '123'}
         
     Returns:
-      匹配的记录字典，如果未找到返回None
+      匹配的记录字典列表，如果未找到返回None
     """
     try:
       with self.__database.get_db_connector() as connector:
@@ -599,21 +599,35 @@ class SocialMediaStreamDataTable(ABC):
             raise TimeoutError("Database lock acquisition timeout")
           
           try:
+            record_list = list()
             cursor.execute(sql, params)
-            result = cursor.fetchone()
-            
+            if fetchall:
+              result = cursor.fetchall()
+              
+              ##
+              ## check if the result is None
+              ##
+              if result is None:
+                return None
+              
+              for record in result:
+                record_dict = dict(zip(self.get_header(), record))
+                record_list.append(record_dict)
+            else:
+              result = cursor.fetchone()
+              
+              ##
+              ## check if the result if None
+              ##
+              if result is None:
+                return list()
+              record_list.append(dict(zip(self.get_header(), result)))
             if result is None:
               get_logger().debug("{} record not found with conditions: {}".format(
                 self.get_name(), record))
-              return None
-            
-            ##
-            ## 将结果转换为字典
-            ##
-            record_dict = dict(zip(self.get_header(), result))
-            get_logger().debug("Record found: {}".format(record_dict))
-            return record_dict
-            
+              return list()
+            get_logger().debug("Record found: {}".format(record_list))
+            return record_list            
           finally:
             self.__db_lock.release()
             

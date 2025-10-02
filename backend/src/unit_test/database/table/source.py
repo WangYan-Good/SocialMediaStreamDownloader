@@ -99,6 +99,9 @@ def test_insert_badge_image_record(db:SocialMediaStreamDataBase = None):
   ## insert a sample record
   ##
   sample_record = {
+    'start_time': dat.fromtimestamp(1714227435),
+    'platform':'douyin',
+    'room_id': '7411524533301119798',
     'label': '123456789',
     'uri': '1080x1080/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f'
   }
@@ -283,8 +286,8 @@ def test_insert_room_owner_user_dress_own_id_record(db:SocialMediaStreamDataBase
   ## insert a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
+    'start_time': dat.fromtimestamp(1714227435),
+    'platform':'douyin',
     'room_id': '7411524533301119798',
     'owner_user_id': '2700838411446480',
     'dress_own_id': '000001'
@@ -317,8 +320,8 @@ def test_delete_room_owner_user_dress_own_id_record(db:SocialMediaStreamDataBase
   ## delete a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
+    'start_time': dat.fromtimestamp(1714227435),
+    'platform':'douyin',
     'room_id': '7411524533301119798',
     'owner_user_id': '2700838411446480',
     'dress_own_index': 1,
@@ -352,8 +355,8 @@ def test_update_room_owner_user_dress_own_id_record(db:SocialMediaStreamDataBase
   ## update a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
+    'start_time': dat.fromtimestamp(1714227435),
+    'platform':'douyin',
     'room_id': '7411524533301119798',
     'owner_user_id': '2700838411446480',
     'dress_own_index': 1,
@@ -479,8 +482,8 @@ def test_insert_room_owner_dress_wear_id_record(db:SocialMediaStreamDataBase = N
   ## insert a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
+    'start_time': dat.fromtimestamp(1714227435),
+    'platform':'douyin',
     'room_id': '7411524533301119798',
     'owner_user_id': '2700838411446480'
   }
@@ -512,8 +515,8 @@ def test_delete_room_owner_dress_wear_id_record(db:SocialMediaStreamDataBase = N
   ## delete a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
+    'start_time': dat.fromtimestamp(1714227435),
+    'platform':'douyin',
     'room_id': '7411524533301119798',
     'owner_user_id': '2700838411446480',
     'dress_wear_index': 1
@@ -546,8 +549,8 @@ def test_update_room_owner_dress_wear_id_record(db:SocialMediaStreamDataBase = N
   ## update a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
+    'start_time': dat.fromtimestamp(1714227435),
+    'platform':'douyin',
     'room_id': '7411524533301119798',
     'owner_user_id': '2700838411446480',
     'dress_wear_index': 1,
@@ -581,7 +584,6 @@ def test_get_room_owner_dress_wear_id_record(db:SocialMediaStreamDataBase = None
   ## get a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
     'dress_wear_index': 1
   }
   
@@ -674,8 +676,8 @@ def test_insert_room_sharing_music_id_record(db:SocialMediaStreamDataBase = None
   ## insert a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
+    'start_time': dat.fromtimestamp(1714227435),
+    'platform':'douyin',
     'room_id': '7411524533301119798'
   }
   
@@ -706,7 +708,6 @@ def test_delete_room_sharing_music_id_record(db:SocialMediaStreamDataBase = None
   ## delete a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
     'sharing_music_index': 1
   }
   
@@ -737,8 +738,8 @@ def test_update_room_sharing_music_id_record(db:SocialMediaStreamDataBase = None
   ## update a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
+    'start_time': dat.fromtimestamp(1714227435),
+    'platform':'douyin',
     'room_id': '7411524533301119798',
     'sharing_music_index': 1,
     'sharing_music_id': '123456789'
@@ -771,7 +772,6 @@ def test_get_room_sharing_music_id_record(db:SocialMediaStreamDataBase = None):
   ## get a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
     'sharing_music_index': 1
   }
   
@@ -864,6 +864,9 @@ def test_insert_picture_record(db:SocialMediaStreamDataBase = None):
   ## insert a sample record
   ##
   sample_record = {
+    'start_time': dat.fromtimestamp(1714227435),
+    'platform':'douyin',
+    'room_id': '7411524533301119798',
     'avg_color': 'abc'
   }
   
@@ -924,6 +927,9 @@ def test_update_picture_record(db:SocialMediaStreamDataBase = None):
   ## update a sample record
   ##
   sample_record = {
+    'start_time': dat.fromtimestamp(1714227435),
+    'platform':'douyin',
+    'room_id': '7411524533301119798',
     'picture_index': 1,
     'height': 15,
     'width': 20
@@ -1048,6 +1054,9 @@ def test_insert_picture_flex_setting_record(db:SocialMediaStreamDataBase = None)
   ## insert a sample record
   ##
   sample_record = {
+    'start_time': dat.fromtimestamp(1714227435),
+    'platform':'douyin',
+    'room_id': '7411524533301119798',
     'uri': 'abc'
   }
   
@@ -1232,6 +1241,9 @@ def test_insert_picture_text_setting_record(db:SocialMediaStreamDataBase = None)
   ## insert a sample record
   ##
   sample_record = {
+    'start_time': dat.fromtimestamp(1714227435),
+    'platform':'douyin',
+    'room_id': '7411524533301119798',
     'uri': 'abc'
   }
   
@@ -1416,6 +1428,9 @@ def test_insert_picture_url_record(db:SocialMediaStreamDataBase = None):
   ## insert a sample record
   ##
   sample_record = {
+    'start_time': dat.fromtimestamp(1714227435),
+    'platform':'douyin',
+    'room_id': '7411524533301119798',
     'uri': 'abc'
   }
   
@@ -1600,6 +1615,9 @@ def test_insert_picture_content_record(db:SocialMediaStreamDataBase = None):
   ## insert a sample record
   ##
   sample_record = {
+    'start_time': dat.fromtimestamp(1714227435),
+    'platform':'douyin',
+    'room_id': '7411524533301119798',
     'uri': 'abc'
   }
   

@@ -51,7 +51,7 @@ from backend.src.database.table.social_media_stream_db_table          import Soc
 ## | fan_ticket_count                         | unsigned bigint   |      |     | NULL    |       | "$.data.room.owner.fan_ticket_count"                         | 粉丝票数量                  |
 ## | list_fans_group_url                      | text              |      |     | NULL    |       | "$.data.room.owner.fans_group_info.list_fans_group_url"      | 粉丝群列表URL               |
 ## | fold_stranger_chat                       | bool              |      |     | NULL    |       | "$.data.room.owner.fold_stranger_chat"                       | 是否折叠陌生人聊天           |
-## | follow_status                            | unsigned tinyint  |      |     | NULL    |       | "$.data.room.owner.follow_info.follow_status"                | 关注状态                    |
+## | follow_info_follow_status                | unsigned tinyint  |      |     | NULL    |       | "$.data.room.owner.follow_info.follow_status"                | 关注状态                    |
 ## | follower_count                           | unsigned bigint   |      |     | NULL    |       | "$.data.room.owner.follow_info.follower_count"               | 粉丝数量                    |
 ## | follower_count_str                       | varchar(20)       |      |     | NULL    |       | "$.data.room.owner.follow_info.follower_count_str"           | 粉丝数量字符串              |
 ## | following_count                          | unsigned int      |      |     | NULL    |       | "$.data.room.owner.follow_info.following_count"              | 关注数量                    |
@@ -59,6 +59,7 @@ from backend.src.database.table.social_media_stream_db_table          import Soc
 ## | invalid_follow_status                    | bool              |      |     | NULL    |       | "$.data.room.owner.follow_info.invalid_follow_status"        | 是否为无效关注状态           |
 ## | follow_info_push_status                  | bool              |      |     | NULL    |       | "$.data.room.owner.follow_info.push_status"                  | 是否推送状态                |
 ## | follow_info_remark_name                  | varchar(50)       |      |     | NULL    |       | "$.data.room.owner.follow_info.remark_name"                  | 备注名                     |
+## | follow_status                            | unsigned tinyint  |      |     | NULL    |       | "$.data.room.owner.follow_status"                            | 关注状态                    |
 ## | gender                                   | unsigned tinyint  |      |     | NULL    |       | "$.data.room.owner.follow_info.following_count_str"          | 性别（0-未知，1-男，2-女）   |
 ## | hotsoon_verified                         | bool              |      |     | NULL    |       | "$.data.room.owner.hotsoon_verified"                         | 是否Hotsoon认证             |
 ## | hotsoon_verified_reason                  | tinytext          |      |     | NULL    |       | "$.data.room.owner.hotsoon_verified_reason"                  | Hotsoon认证原因             |
@@ -144,9 +145,10 @@ class RoomOwnerTable(SocialMediaStreamDataTable):
                                    'birthday_description',                     'birthday_valid',           'block_status',               'city',                         'comment_restrict',
                                    'constellation',                            'consume_diamond_level',    'create_time',                'desensitized_nickname',        'disable_ichat',
                                    'display_id',                               'enable_ichat_img',         'exp',                        'experience',                   'fan_ticket_count',
-                                   'list_fans_group_url',                      'fold_stranger_chat',       'follow_status',              'follower_count',               'follower_count_str',
+                                   'list_fans_group_url',                      'fold_stranger_chat',       'follow_info_follow_status',  'follower_count',               'follower_count_str',
                                    'following_count',                          'following_count_str',      'invalid_follow_status',      'follow_info_push_status',      'follow_info_remark_name',
-                                   'gender',                                   'hotsoon_verified',         'hotsoon_verified_reason',    'ichat_restrict_type',          'id',
+                                   'follow_status',                            'gender',                   'hotsoon_verified',           'hotsoon_verified_reason',      'ichat_restrict_type',
+                                   'id',
                                    'income_share_percent',                     'is_anonymous',             'is_follower',                'is_following',                 'JAccreditAdvance',
                                    'JAccreditBasic',                           'JAccreditContent',         'JAccreditLive',              'level',                        'link_mic_stats',
                                    'location_city',                            'modify_time',              'mystery_man',                'need_profile_guide',           'nickname',
@@ -204,7 +206,7 @@ class RoomOwnerTable(SocialMediaStreamDataTable):
                                     fan_ticket_count                         bigint            DEFAULT NULL,
                                     list_fans_group_url                      text              DEFAULT NULL,
                                     fold_stranger_chat                       bool              DEFAULT NULL,
-                                    follow_status                            tinyint           DEFAULT NULL,
+                                    follow_info_follow_status                tinyint           DEFAULT NULL,
                                     follower_count                           bigint            DEFAULT NULL,
                                     follower_count_str                       varchar(20)       DEFAULT NULL,
                                     following_count                          int               DEFAULT NULL,
@@ -212,6 +214,7 @@ class RoomOwnerTable(SocialMediaStreamDataTable):
                                     invalid_follow_status                    bool              DEFAULT NULL,
                                     follow_info_push_status                  bool              DEFAULT NULL,
                                     follow_info_remark_name                  varchar(50)       DEFAULT NULL,
+                                    follow_status                            tinyint           DEFAULT NULL,
                                     gender                                   tinyint           DEFAULT NULL,
                                     hotsoon_verified                         bool              DEFAULT NULL,
                                     hotsoon_verified_reason                  tinytext          DEFAULT NULL,

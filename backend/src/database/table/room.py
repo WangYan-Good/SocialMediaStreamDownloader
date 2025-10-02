@@ -367,7 +367,7 @@ class RoomAdminUserIdTable(SocialMediaStreamDataTable):
                                             admin_user_id_index    bigint       NOT NULL AUTO_INCREMENT,
                                             admin_user_id          varchar(200) DEFAULT NULL,
                                             PRIMARY KEY (admin_user_id_index),
-                                            UNIQUE KEY unique_record (now, platform, room_id, admin_user_id_index)
+                                            UNIQUE KEY unique_record (now, platform, room_id, admin_user_id)
                                           )
                                           '''.format(__ROOM_ADMIN_USER_ID_TABLE_NAME)
   __SQL_DROP_ROOM_ADMIN_USER_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_ADMIN_USER_ID_TABLE_NAME)
@@ -461,7 +461,7 @@ class RoomAdminUserOpenIdTable(SocialMediaStreamDataTable):
   __ROOM_ADMIN_USER_OPEN_ID_TABLE_HEADER     = ['now',                      'platform',          'room_id',
                                                 'admin_user_open_id_index', 'admin_user_open_id'
                                                 ]
-  __ROOM_ADMIN_USER_OPEN_ID_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'admin_user_open_id_index']
+  __ROOM_ADMIN_USER_OPEN_ID_TABLE_PRI_KEY    = ['admin_user_open_id_index']
   __TABLE_AUTO_INCREMENT                     = ['admin_user_open_id_index']
   __ROOM_ADMIN_USER_OPEN_ID_TABLE_TUPLE      = {item:None for item in __ROOM_ADMIN_USER_OPEN_ID_TABLE_HEADER}
   __SQL_CREATE_ROOM_ADMIN_USER_OPEN_ID_TABLE = '''
@@ -472,7 +472,7 @@ class RoomAdminUserOpenIdTable(SocialMediaStreamDataTable):
                                                  admin_user_open_id_index    bigint       NOT NULL AUTO_INCREMENT,
                                                  admin_user_open_id          varchar(200) DEFAULT NULL,
                                                  PRIMARY KEY (admin_user_open_id_index),
-                                                 UNIQUE KEY unique_record (now, platform, room_id, admin_user_open_id_index)
+                                                 UNIQUE KEY unique_record (now, platform, room_id, admin_user_open_id)
                                                )
                                                '''.format(__ROOM_ADMIN_USER_OPEN_ID_TABLE_NAME)
   __SQL_DROP_ROOM_ADMIN_USER_OPEN_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_ADMIN_USER_OPEN_ID_TABLE_NAME)
@@ -805,7 +805,7 @@ class FansGroupAdminUserIdTable(SocialMediaStreamDataTable):
   __FANS_GROUP_ADMIN_USER_ID_TABLE_HEADER     = ['now',                            'platform',                'room_id',
                                                  'fans_group_admin_user_id_index', 'fans_group_admin_user_id'
                                                  ]
-  __FANS_GROUP_ADMIN_USER_ID_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'fans_group_admin_user_id_index']
+  __FANS_GROUP_ADMIN_USER_ID_TABLE_PRI_KEY    = ['fans_group_admin_user_id_index']
   __TABLE_AUTO_INCREMENT                      = ['fans_group_admin_user_id_index']
   __FANS_GROUP_ADMIN_USER_ID_TABLE_TUPLE      = {item:None for item in __FANS_GROUP_ADMIN_USER_ID_TABLE_HEADER}
   __SQL_CREATE_FANS_GROUP_ADMIN_USER_ID_TABLE = '''
@@ -816,7 +816,7 @@ class FansGroupAdminUserIdTable(SocialMediaStreamDataTable):
                                                   fans_group_admin_user_id_index    bigint       NOT NULL AUTO_INCREMENT,
                                                   fans_group_admin_user_id          varchar(200) DEFAULT NULL,
                                                   PRIMARY KEY (fans_group_admin_user_id_index),
-                                                  UNIQUE KEY unique_record (now, platform, room_id, fans_group_admin_user_id_index)
+                                                  UNIQUE KEY unique_record (now, platform, room_id, fans_group_admin_user_id)
                                                 )
                                                 '''.format(__FANS_GROUP_ADMIN_USER_ID_TABLE_NAME)
   __SQL_DROP_FANS_GROUP_ADMIN_USER_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__FANS_GROUP_ADMIN_USER_ID_TABLE_NAME)
@@ -910,7 +910,7 @@ class FansGroupAdminUserOpenIdTable(SocialMediaStreamDataTable):
   __FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_HEADER     = ['now',                                 'platform',                     'room_id',
                                                       'fans_group_admin_user_open_id_index', 'fans_group_admin_user_open_id'
                                                       ]
-  __FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'fans_group_admin_user_open_id_index']
+  __FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_PRI_KEY    = ['fans_group_admin_user_open_id_index']
   __TABLE_AUTO_INCREMENT                           = ['fans_group_admin_user_open_id_index']
   __FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_TUPLE      = {item:None for item in __FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_HEADER}
   __SQL_CREATE_FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE = '''
@@ -921,7 +921,7 @@ class FansGroupAdminUserOpenIdTable(SocialMediaStreamDataTable):
                                                        fans_group_admin_user_open_id_index    bigint       NOT NULL AUTO_INCREMENT,
                                                        fans_group_admin_user_open_id          varchar(200) DEFAULT NULL,
                                                        PRIMARY KEY (fans_group_admin_user_open_id_index),
-                                                       UNIQUE KEY unique_record (now, platform, room_id, fans_group_admin_user_open_id_index)
+                                                       UNIQUE KEY unique_record (now, platform, room_id, fans_group_admin_user_open_id)
                                                      )
                                                      '''.format(__FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_NAME)
   __SQL_DROP_FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__FANS_GROUP_ADMIN_USER_OPEN_ID_TABLE_NAME)
@@ -1464,7 +1464,7 @@ class RoomPaidLiveDataTable(SocialMediaStreamDataTable):
 ## | LandscapeScreenCapture           | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.LandscapeScreenCapture"           | 横屏屏幕截图          | 
 ## | LandscapeScreenRecording         | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.LandscapeScreenRecording"         | 横屏屏幕录制          | 
 ## | LandscapeScreenShare             | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.LandscapeScreenShare"             | 横屏屏幕分享          | 
-## | Like                             | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.Like"                             | 点赞                 | 
+## | `Like`                           | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.Like"                             | 点赞                 | 
 ## | LinkmicGuestLike                 | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.LinkmicGuestLike"                 | 连麦嘉宾点赞          | 
 ## | LongPressOption                  | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.LongPressOption"                  | 长按选项              | 
 ## | LongTouch                        | unsigned tinyint  |      |     |         |       | "$.data.room.room_auth.LongTouch"                        | 长按触摸              | 
@@ -2037,7 +2037,7 @@ class RoomShortTouchAreaConfigElementTable(SocialMediaStreamDataTable):
 ##
   __ROOM_SHORT_TOUCH_AREA_CONFIG_ELEMENT_TABLE_NAME       = "room_short_touch_area_config_element"
   __ROOM_SHORT_TOUCH_AREA_CONFIG_ELEMENT_TABLE_HEADER     = ['now', 'platform', 'room_id', 'element_index', 'priority', 'type']
-  __ROOM_SHORT_TOUCH_AREA_CONFIG_ELEMENT_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'element_index']
+  __ROOM_SHORT_TOUCH_AREA_CONFIG_ELEMENT_TABLE_PRI_KEY    = ['element_index']
   __TABLE_AUTO_INCREMENT                                  = ['element_index']
   __ROOM_SHORT_TOUCH_AREA_CONFIG_ELEMENT_TABLE_TUPLE      = {item:None for item in __ROOM_SHORT_TOUCH_AREA_CONFIG_ELEMENT_TABLE_HEADER}
   __SQL_CREATE_ROOM_SHORT_TOUCH_AREA_CONFIG_ELEMENT_TABLE = '''
@@ -2139,7 +2139,7 @@ class RoomShortTouchAreaConfigStrategyFeatWhitelistTable(SocialMediaStreamDataTa
 ##
   __ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE_NAME       = "room_short_touch_area_config_strategy_feat_whitelist"
   __ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE_HEADER     = ['now', 'platform', 'room_id', 'whitelist_index', 'whitelist_tag']
-  __ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'whitelist_index']
+  __ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE_PRI_KEY    = ['whitelist_index']
   __TABLE_AUTO_INCREMENT                                                  = ['whitelist_index']
   __ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE_TUPLE      = {item:None for item in __ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE_HEADER}
   __SQL_CREATE_ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE = '''
@@ -2149,8 +2149,7 @@ class RoomShortTouchAreaConfigStrategyFeatWhitelistTable(SocialMediaStreamDataTa
                                                                               room_id                varchar(200) NOT NULL,
                                                                               whitelist_index        bigint       NOT NULL AUTO_INCREMENT,
                                                                               whitelist_tag          tinytext     DEFAULT NULL,
-                                                                              PRIMARY KEY (whitelist_index),
-                                                                              UNIQUE KEY unique_record (now, platform, room_id, whitelist_index)
+                                                                              PRIMARY KEY (whitelist_index)
                                                                             )
                                                                             '''.format(__ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE_NAME)
   __SQL_DROP_ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE_NAME)
@@ -2243,7 +2242,7 @@ class RoomTempStateConditionMapTable(SocialMediaStreamDataTable):
 ##
   __ROOM_TEMP_STATE_CONDITION_MAP_TABLE_NAME       = "room_temp_state_condition_map"
   __ROOM_TEMP_STATE_CONDITION_MAP_TABLE_HEADER     = ['now', 'platform', 'room_id', 'map_index', 'minimum_gap', 'priority', 'strategy_type']
-  __ROOM_TEMP_STATE_CONDITION_MAP_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'map_index']
+  __ROOM_TEMP_STATE_CONDITION_MAP_TABLE_PRI_KEY    = ['map_index']
   __TABLE_AUTO_INCREMENT                           = ['map_index']
   __ROOM_TEMP_STATE_CONDITION_MAP_TABLE_TUPLE      = {item:None for item in __ROOM_TEMP_STATE_CONDITION_MAP_TABLE_HEADER}
   __SQL_CREATE_ROOM_TEMP_STATE_CONDITION_MAP_TABLE = '''
@@ -2256,7 +2255,7 @@ class RoomTempStateConditionMapTable(SocialMediaStreamDataTable):
                                                        priority               tinyint      DEFAULT NULL,
                                                        strategy_type          tinyint      DEFAULT NULL,
                                                        PRIMARY KEY (map_index),
-                                                       UNIQUE KEY unique_record (now, platform, room_id, map_index)
+                                                       UNIQUE KEY unique_record (now, platform, room_id, strategy_type)
                                                      )
                                                      '''.format(__ROOM_TEMP_STATE_CONDITION_MAP_TABLE_NAME)
   __SQL_DROP_ROOM_TEMP_STATE_CONDITION_MAP_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_TEMP_STATE_CONDITION_MAP_TABLE_NAME)
@@ -2358,7 +2357,7 @@ class RoomTempStateGlobalConditionIgnoreStrategyTypeTable(SocialMediaStreamDataT
                                                                                ignore_strategy_type_index  bigint       NOT NULL AUTO_INCREMENT,
                                                                                ignore_strategy_type        tinyint      DEFAULT NULL,
                                                                                PRIMARY KEY (ignore_strategy_type_index),
-                                                                               UNIQUE KEY unqiue_record (now, platform, room_id, ignore_strategy_type_index)
+                                                                               UNIQUE KEY unqiue_record (now, platform, room_id, ignore_strategy_type)
                                                                              )
                                                                              '''.format(__ROOM_TEMP_STATE_GLOBAL_CONDITION_IGNORE_STRATEGY_TYPE_TABLE_NAME)
   __SQL_DROP_ROOM_TEMP_STATE_GLOBAL_CONDITION_IGNORE_STRATEGY_TYPE_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_TEMP_STATE_GLOBAL_CONDITION_IGNORE_STRATEGY_TYPE_TABLE_NAME)
@@ -2532,6 +2531,211 @@ class RoomTempStateGlobalConditionTable(SocialMediaStreamDataTable):
     return super().verify_table_schema()
 
 ##
+## data.room.short_touch_area_config.temp_state_strategy
+## +-------------------+------------------+------+-----+---------+-------+-------------------------------------------------------------------------------------+------------+
+## | Field             | Type             | Null | Key | Default | Extra | Topology                                                                            | Comment    |
+## +-------------------+------------------+------+-----+---------+-------+-------------------------------------------------------------------------------------+------------+
+## | now               | timestamp        | NO   | PRI |         |       | "$.extra.now"                                                                       | 当前时间戳 |
+## | platform          | varchar(20)      | NO   | PRI |         |       |           -                                                                         | 平台       | 
+## | room_id           | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                                                                    | 直播间ID   |
+## | short_touch_type  | unsigned tinyint |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_global_condition.short_touch_type"  | 允许总数   |
+## +-------------------+------------------+------+-----+---------+-------+-------------------------------------------------------------------------------------+------------+
+##
+class RoomTempStateStrategyTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __ROOM_TEMP_STATE_STRATEGY_TABLE_NAME       = "room_temp_state_strategy"
+  __ROOM_TEMP_STATE_STRATEGY_TABLE_HEADER     = ['now', 'platform', 'room_id', 'short_touch_type']
+  __ROOM_TEMP_STATE_STRATEGY_TABLE_PRI_KEY    = ['now', 'platform', 'room_id']
+  __TABLE_AUTO_INCREMENT                      = []
+  __ROOM_TEMP_STATE_STRATEGY_TABLE_TUPLE      = {item:None for item in __ROOM_TEMP_STATE_STRATEGY_TABLE_HEADER}
+  __SQL_CREATE_ROOM_TEMP_STATE_STRATEGY_TABLE = '''
+                                                  CREATE TABLE IF NOT EXISTS {} (
+                                                    now                    timestamp(3) NOT NULL,
+                                                    platform               varchar(20)  NOT NULL,
+                                                    room_id                varchar(200) NOT NULL,
+                                                    short_touch_type       tinyint      DEFAULT NULL,
+                                                    PRIMARY KEY (now, platform, room_id)
+                                                  )
+                                                  '''.format(__ROOM_TEMP_STATE_STRATEGY_TABLE_NAME)
+  __SQL_DROP_ROOM_TEMP_STATE_STRATEGY_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_TEMP_STATE_STRATEGY_TABLE_NAME)
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton mode
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__ROOM_TEMP_STATE_STRATEGY_TABLE_NAME
+
+  ##
+  ## table header
+  ##
+  def get_header(self) -> list:
+    return self.__ROOM_TEMP_STATE_STRATEGY_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__ROOM_TEMP_STATE_STRATEGY_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__ROOM_TEMP_STATE_STRATEGY_TABLE_PRI_KEY
+
+  ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_TEMP_STATE_STRATEGY_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_ROOM_TEMP_STATE_STRATEGY_TABLE
+
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
+
+##
+## data.room.short_touch_area_config.temp_state_strategy.strategy_map
+##
+## +-------------------+------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------+------------+
+## | Field             | Type             | Null | Key | Default | Extra | Topology                                                                                   | Comment    |
+## +-------------------+------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------+------------+
+## | now               | timestamp        | NO   | PRI |         |       | "$.extra.now"                                                                              | 当前时间戳 |
+## | platform          | varchar(20)      | NO   | PRI |         |       |           -                                                                                | 平台       | 
+## | room_id           | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                                                                           | 直播间ID   |
+## | short_touch_type  | unsigned tinyint |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.'x'.short_touch_type"             | 允许总数   |
+## | duration          | unsigned int     |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.duration"        | 持续时间   |
+## | strategy_method   | varchar(20)      |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.strategy_method" | 策略方法   |
+## | priority          | unsigned tinyint |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.priority"        | 优先级     |
+## | strategy_type     | varchar(20)      |      |     | NULL    |       | "$.data.room.short_touch_area_config.temp_state_strategy.strategy_map.'x'.strategy_type"   | 策略类型   |
+## +-------------------+------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------+------------+
+##
+class RoomTempStateStrategyMapTable(SocialMediaStreamDataTable):
+  ##
+  ## >>=============================== attribute ===============================>>
+  ##
+  __ROOM_TEMP_STATE_STRATEGY_MAP_TABLE_NAME = "room_temp_state_strategy_map"
+  __ROOM_TEMP_STATE_STRATEGY_MAP_TABLE_HEADER = ['now', 'platform', 'room_id', 'short_touch_type', 'duration', 'strategy_method', 'priority', 'strategy_type']
+  __ROOM_TEMP_STATE_STRATEGY_MAP_TABLE_PRI_KEY = ['now', 'platform', 'room_id', 'short_touch_type', 'strategy_type']
+  __TABLE_AUTO_INCREMENT = []
+  __ROOM_TEMP_STATE_STRATEGY_MAP_TABLE_TUPLE = {item:None for item in __ROOM_TEMP_STATE_STRATEGY_MAP_TABLE_HEADER}
+  __SQL_CREATE_ROOM_TEMP_STATE_STRATEGY_MAP_TABLE = '''
+                                                  CREATE TABLE IF NOT EXISTS {} (
+                                                    now                    timestamp(3) NOT NULL,
+                                                    platform               varchar(20)  NOT NULL,
+                                                    room_id                varchar(200) NOT NULL,
+                                                    short_touch_type       tinyint      DEFAULT NULL,
+                                                    duration               int          DEFAULT NULL,
+                                                    strategy_method        varchar(20)  DEFAULT NULL,
+                                                    priority               tinyint      DEFAULT NULL,
+                                                    strategy_type          varchar(20)  DEFAULT NULL,
+                                                    PRIMARY KEY (now, platform, room_id, short_touch_type, strategy_type)
+                                                  )
+                                                  '''.format(__ROOM_TEMP_STATE_STRATEGY_MAP_TABLE_NAME)
+  __SQL_DROP_ROOM_TEMP_STATE_STRATEGY_MAP_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_TEMP_STATE_STRATEGY_MAP_TABLE_NAME)
+  
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton mode
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__ROOM_TEMP_STATE_STRATEGY_MAP_TABLE_NAME
+
+  ##
+  ## table header
+  ##
+  def get_header(self) -> list:
+    return self.__ROOM_TEMP_STATE_STRATEGY_MAP_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__ROOM_TEMP_STATE_STRATEGY_MAP_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__ROOM_TEMP_STATE_STRATEGY_MAP_TABLE_PRI_KEY
+
+  ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_TEMP_STATE_STRATEGY_MAP_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_ROOM_TEMP_STATE_STRATEGY_MAP_TABLE
+
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
+
+##
 ## room
 ##
 ## +-------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+---------------------+
@@ -2540,7 +2744,7 @@ class RoomTempStateGlobalConditionTable(SocialMediaStreamDataTable):
 ## | now                                 | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"                                          | 当前时间戳           | 
 ## | platform                            | varchar(20)       | NO   | PRI |         |       |           -                                            | 平台                 | 
 ## | id                                  | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                                       | 直播间ID             | 
-## | rank                                | unsigned smallint |      |     | NULL    |       | "$.data.room.living_room_attrs.rank"                   | 排名/等级            |
+## | `rank`                              | unsigned smallint |      |     | NULL    |       | "$.data.room.living_room_attrs.rank"                   | 排名/等级            |
 ## | silence_flag                        | unsigned tinyint  |      |     | NULL    |       | "$.data.room.living_room_attrs.silence_flag"           | 直播间静音状态       | 
 ## | view_stats_display_long             | tinytext          |      |     | NULL    |       | "$.data.room.room_view_stats.display_long"             | 直播间观看人数       | 
 ## | view_stats_display_long_anchor      | tinytext          |      |     | NULL    |       | "$.data.room.room_view_stats.display_long_anchor"      | 主播观看人数         | 
@@ -2568,7 +2772,7 @@ class RoomTempStateGlobalConditionTable(SocialMediaStreamDataTable):
 ## | private_info                        | text              |      |     | NULL    |       | "$.data.room.private_info"                             | 私有信息              |
 ## | ranklist_audience_type              | unsigned tinyint  |      |     | NULL    |       | "$.data.room.ranklist_audience_type"                   | 排行榜观众类型        |
 ## | real_distance                       | varchar(100)      |      |     | NULL    |       | "$.data.room.real_distance"                            | 实际距离              |
-## | √redpacket_audience_auth             | unsigned tinyint  |      |     | NULL    |       | "$.data.room.redpacket_audience_auth"                  | 红包观众认证          |
+## | redpacket_audience_auth             | unsigned tinyint  |      |     | NULL    |       | "$.data.room.redpacket_audience_auth"                  | 红包观众认证          |
 ## | relation_tag                        | tinytext          |      |     | NULL    |       | "$.data.room.relation_tag"                             | 关系标签              |
 ## | replay                              | bool              |      |     | NULL    |       | "$.data.room.replay"                                   | 是否为回放            |
 ## | replay_location                     | unsigned tinyint  |      |     | NULL    |       | "$.data.room.replay_location"                          | 回放位置              |
@@ -2810,7 +3014,7 @@ class RoomTagTable(SocialMediaStreamDataTable):
 ##
   __ROOM_TAG_TABLE_NAME       = "room_tag"
   __ROOM_TAG_TABLE_HEADER     = ['now', 'platform', 'room_id', 'tag_index', 'tag']
-  __ROOM_TAG_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'tag_index']
+  __ROOM_TAG_TABLE_PRI_KEY    = ['tag_index']
   __TABLE_AUTO_INCREMENT      = ['tag_index']
   __ROOM_TAG_TABLE_TUPLE      = {item:None for item in __ROOM_TAG_TABLE_HEADER}
   __SQL_CREATE_ROOM_TAG_TABLE = '''
@@ -2820,8 +3024,7 @@ class RoomTagTable(SocialMediaStreamDataTable):
                                   room_id                 varchar(200) NOT NULL,
                                   tag_index               bigint       NOT NULL AUTO_INCREMENT,
                                   tag                     tinytext     DEFAULT NULL,
-                                  PRIMARY KEY (tag_index),
-                                  UNIQUE KEY unique_record (now, platform, room_id, tag_index)
+                                  PRIMARY KEY (tag_index)
                                 )
                                 '''.format(__ROOM_TAG_TABLE_NAME)
   __SQL_DROP_ROOM_TAG_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_TAG_TABLE_NAME)
@@ -2915,7 +3118,7 @@ class RoomTopFansTable(SocialMediaStreamDataTable):
 ##
   __ROOM_TOP_FANS_TABLE_NAME       = "room_top_fans"
   __ROOM_TOP_FANS_TABLE_HEADER     = ['now', 'platform', 'room_id', 'fans_index', 'top_fans']
-  __ROOM_TOP_FANS_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'fans_index']
+  __ROOM_TOP_FANS_TABLE_PRI_KEY    = ['fans_index']
   __TABLE_AUTO_INCREMENT           = ['fans_index']
   __ROOM_TOP_FANS_TABLE_TUPLE      = {item:None for item in __ROOM_TOP_FANS_TABLE_HEADER}
   __SQL_CREATE_ROOM_TOP_FANS_TABLE = '''
@@ -2926,7 +3129,7 @@ class RoomTopFansTable(SocialMediaStreamDataTable):
                                        fans_index              bigint       NOT NULL AUTO_INCREMENT,
                                        top_fans                TBD          DEFAULT NULL,
                                        PRIMARY KEY (fans_index),
-                                       UNIQUE KEY unique_record (now, platform, room_id, fans_index)
+                                       UNIQUE KEY unique_record (now, platform, room_id, top_fans)
                                      )
                                      '''.format(__ROOM_TOP_FANS_TABLE_NAME)
   __SQL_DROP_ROOM_TOP_FANS_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_TOP_FANS_TABLE_NAME)
@@ -3020,7 +3223,7 @@ class RoomUpperRightWidgetDataTable(SocialMediaStreamDataTable):
 ##
   __ROOM_UPPER_RIGHT_WIDGET_DATA_TABLE_NAME       = "room_upper_right_widget_data"
   __ROOM_UPPER_RIGHT_WIDGET_DATA_TABLE_HEADER     = ['now', 'platform', 'room_id', 'upper_right_widget_data_index', 'upper_right_widget_data']
-  __ROOM_UPPER_RIGHT_WIDGET_DATA_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'upper_right_widget_data_index']
+  __ROOM_UPPER_RIGHT_WIDGET_DATA_TABLE_PRI_KEY    = ['upper_right_widget_data_index']
   __TABLE_AUTO_INCREMENT                          = ['upper_right_widget_data_index']
   __ROOM_UPPER_RIGHT_WIDGET_DATA_TABLE_TUPLE      = {item:None for item in __ROOM_UPPER_RIGHT_WIDGET_DATA_TABLE_HEADER}
   __SQL_CREATE_ROOM_UPPER_RIGHT_WIDGET_DATA_TABLE = '''
@@ -3031,7 +3234,7 @@ class RoomUpperRightWidgetDataTable(SocialMediaStreamDataTable):
                                                       upper_right_widget_data_index  bigint       NOT NULL AUTO_INCREMENT,
                                                       upper_right_widget_data        TBD          DEFAULT NULL,
                                                       PRIMARY KEY (upper_right_widget_data_index),
-                                                      UNIQUE KEY unique_record (now, platform, room_id, upper_right_widget_data_index)
+                                                      UNIQUE KEY unique_record (now, platform, room_id, upper_right_widget_data)
                                                     )
                                                     '''.format(__ROOM_UPPER_RIGHT_WIDGET_DATA_TABLE_NAME)
   __SQL_DROP_ROOM_UPPER_RIGHT_WIDGET_DATA_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_UPPER_RIGHT_WIDGET_DATA_TABLE_NAME)
@@ -3125,7 +3328,7 @@ class RoomVsRoleTable(SocialMediaStreamDataTable):
 ##
   __ROOM_VS_ROLE_TABLE_NAME       = "room_vs_role"
   __ROOM_VS_ROLE_TABLE_HEADER     = ['now', 'platform', 'room_id', 'vs_role_index', 'vs_role']
-  __ROOM_VS_ROLE_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'vs_role_index']
+  __ROOM_VS_ROLE_TABLE_PRI_KEY    = ['vs_role_index']
   __TABLE_AUTO_INCREMENT          = ['vs_role_index']
   __ROOM_VS_ROLE_TABLE_TUPLE      = {item:None for item in __ROOM_VS_ROLE_TABLE_HEADER}
   __SQL_CREATE_ROOM_VS_ROLE_TABLE = '''
@@ -3136,7 +3339,7 @@ class RoomVsRoleTable(SocialMediaStreamDataTable):
                                       vs_role_index                  bigint       NOT NULL AUTO_INCREMENT,
                                       vs_role                        TBD          DEFAULT NULL,
                                       PRIMARY KEY (vs_role_index),
-                                      UNIQUE KEY unique_record (now, platform, room_id, vs_role_index)
+                                      UNIQUE KEY unique_record (now, platform, room_id, vs_role)
                                     )
                                     '''.format(__ROOM_VS_ROLE_TABLE_NAME)
   __SQL_DROP_ROOM_VS_ROLE_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_VS_ROLE_TABLE_NAME)

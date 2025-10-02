@@ -3957,9 +3957,10 @@ if __name__ == "__main__":
   test_create_room_auth_table(db)
   test_check_room_auth_exists(db)
   test_insert_room_auth_record(db)
-  test_delete_room_auth_record(db)
+  test_get_room_auth_record(db)
   test_update_room_auth_record(db)
   test_get_room_auth_record(db)
+  test_delete_room_auth_record(db)
   test_drop_room_auth_data(db)
   test_check_room_auth_exists(db)
 
