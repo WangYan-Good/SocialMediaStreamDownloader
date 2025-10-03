@@ -1154,7 +1154,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   """
   extra = dict()
   live_record       = LiveRecordTable(db)
-  live_record_tuple = live_record.get_tuple()
+  live_record_tuple = {key: None for key in live_record.get_tuple()}
   set_dict_attr(live_record_tuple, "$.platform",      platform,                      force=True)
   set_dict_attr(live_record_tuple, "$.owner_user_id", str(owner_user_id),            force=True)
   set_dict_attr(live_record_tuple, "$.room_id",       str(room_id),                  force=True)
@@ -1298,7 +1298,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +----------------------------------+-------------------+------+-----+---------+-------+-------------------------------------------------------+----------------------------------+YES
   """
   room_attribute       = RoomAttributeTable(db)
-  room_attribute_tuple = room_attribute.get_tuple()
+  room_attribute_tuple = {key: None for key in room_attribute.get_tuple()}
   set_dict_attr(room_attribute_tuple, "$.id",       str(room_id))
   
   try:
@@ -1312,7 +1312,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   >> >> >> data.room.admin_user_ids
   """
   admin_user_id = RoomAdminUserIdTable(db)
-  admin_user_id_tuple = admin_user_id.get_tuple()
+  admin_user_id_tuple = {key: None for key in admin_user_id.get_tuple()}
   
   set_dict_attr(admin_user_id_tuple, "$.now",      now)
   set_dict_attr(admin_user_id_tuple, "$.platform", platform)
@@ -1331,7 +1331,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   >> >> >> data.room.admin_user_open_ids
   """
   admin_user_open_id       = RoomAdminUserOpenIdTable(db)
-  admin_user_open_id_tuple = admin_user_open_id.get_tuple()
+  admin_user_open_id_tuple = {key: None for key in admin_user_open_id.get_tuple()}
   
   set_dict_attr(admin_user_open_id_tuple, "$.now",      now)
   set_dict_attr(admin_user_open_id_tuple, "$.platform", platform)
@@ -1431,7 +1431,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +-------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------+----------------------+
   """
   room_record       = RoomRecordTable(db)
-  room_record_tuple = room_record.get_tuple()
+  room_record_tuple = {key: None for key in room_record.get_tuple()}
   
   set_dict_attr(room_record_tuple, "$.platform", platform)
   set_dict_attr(room_record_tuple, "$.id",       str(room_id))
@@ -1458,7 +1458,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureTable
   ##
   cover_picture       = PictureTable(db)
-  cover_picture_tuple = cover_picture.get_tuple()
+  cover_picture_tuple = {key: None for key in cover_picture.get_tuple()}
 
   set_dict_attr(cover_picture_tuple, "$.start_time",  start_time)
   set_dict_attr(cover_picture_tuple, "$.platform",    platform)
@@ -1476,7 +1476,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   >> >> >> >> data.room.cover.flex_setting_list
   """
   cover_pic_flex_setting = PictureFlexSettingTable(db)
-  cover_pic_flex_setting_tuple = cover_pic_flex_setting.get_tuple()
+  cover_pic_flex_setting_tuple = {key: None for key in cover_pic_flex_setting.get_tuple()}
   
   set_dict_attr(cover_pic_flex_setting_tuple, "$.uri",        cover_picture_tuple.get('uri', ''))
   set_dict_attr(cover_pic_flex_setting_tuple, "$.platform",   'douyin')
@@ -1497,7 +1497,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   >> >> >> >> data.room.cover.text_setting_list
   """
   cover_pic_text_setting = PictureTextSettingTable(db)
-  cover_pic_text_setting_tuple = cover_pic_text_setting.get_tuple()
+  cover_pic_text_setting_tuple = {key: None for key in cover_pic_text_setting.get_tuple()}
   
   set_dict_attr(cover_pic_text_setting_tuple, "$.uri",        cover_picture_tuple.get('uri', ''))
   set_dict_attr(cover_pic_text_setting_tuple, "$.platform",   'douyin')
@@ -1518,7 +1518,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   >> >> >> >> data.room.cover.url_list
   """
   cover_picture_url       = PictureUrlTable(db)
-  cover_picture_url_tuple = cover_picture_url.get_tuple()
+  cover_picture_url_tuple = {key: None for key in cover_picture_url.get_tuple()}
   
   set_dict_attr(cover_picture_url_tuple, "$.uri",        cover_picture_tuple.get('uri', ''))
   set_dict_attr(cover_picture_url_tuple, "$.platform",   'douyin')
@@ -1551,7 +1551,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   >> >> >> data.room.fans_group_admin_user_ids
   """
   fans_group_admin_user_id = FansGroupAdminUserIdTable(db)
-  fans_group_admin_user_id_tuple = fans_group_admin_user_id.get_tuple()
+  fans_group_admin_user_id_tuple = {key: None for key in fans_group_admin_user_id.get_tuple()}
   
   set_dict_attr(fans_group_admin_user_id_tuple, "$.now",      now)
   set_dict_attr(fans_group_admin_user_id_tuple, "$.platform", platform)
@@ -1570,7 +1570,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   >> >> >> data.room.fans_group_admin_user_open_ids
   """
   fans_group_admin_user_open_id = FansGroupAdminUserOpenIdTable(db)
-  fans_group_admin_user_open_id_tuple = fans_group_admin_user_open_id.get_tuple()
+  fans_group_admin_user_open_id_tuple = {key: None for key in fans_group_admin_user_open_id.get_tuple()}
   
   set_dict_attr(fans_group_admin_user_open_id_tuple, "$.now",      now)
   set_dict_attr(fans_group_admin_user_open_id_tuple, "$.platform", platform)
@@ -1594,7 +1594,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureTable
   ##
   feed_room_label_picture       = PictureTable(db)
-  feed_room_label_picture_tuple = feed_room_label_picture.get_tuple()
+  feed_room_label_picture_tuple = {key: None for key in feed_room_label_picture.get_tuple()}
 
   set_dict_attr(feed_room_label_picture_tuple, "$.start_time",  start_time)
   set_dict_attr(feed_room_label_picture_tuple, "$.platform",    platform)
@@ -1613,7 +1613,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureContentTable
   ##
   feed_room_label_picture_content       = PictureContentTable(db)
-  feed_room_label_picture_content_tuple = feed_room_label_picture_content.get_tuple()
+  feed_room_label_picture_content_tuple = {key: None for key in feed_room_label_picture_content.get_tuple()}
   
   set_dict_attr(feed_room_label_picture_content_tuple, "$.uri",         feed_room_label_picture_tuple.get('uri', ''))
   set_dict_attr(feed_room_label_picture_content_tuple, "$.start_time",  start_time)
@@ -1633,7 +1633,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureFlexSettingTable
   ##
   feed_room_label_pic_flex_setting = PictureFlexSettingTable(db)
-  feed_room_label_pic_flex_setting_tuple = feed_room_label_pic_flex_setting.get_tuple()
+  feed_room_label_pic_flex_setting_tuple = {key: None for key in feed_room_label_pic_flex_setting.get_tuple()}
   
   set_dict_attr(feed_room_label_pic_flex_setting_tuple, "$.uri",        feed_room_label_picture_tuple.get('uri', ''))
   set_dict_attr(feed_room_label_pic_flex_setting_tuple, "$.platform",   'douyin')
@@ -1654,7 +1654,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureTextSettingTable
   ##
   feed_room_label_pic_text_setting = PictureTextSettingTable(db)
-  feed_room_label_pic_text_setting_tuple = feed_room_label_pic_text_setting.get_tuple()
+  feed_room_label_pic_text_setting_tuple = {key: None for key in feed_room_label_pic_text_setting.get_tuple()}
   
   set_dict_attr(feed_room_label_pic_text_setting_tuple, "$.uri",         feed_room_label_picture_tuple.get('uri', ''))
   set_dict_attr(feed_room_label_pic_text_setting_tuple, "$.platform",    'douyin')
@@ -1676,7 +1676,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureUrlTable
   ##
   feed_room_label_picture_url       = PictureUrlTable(db)
-  feed_room_label_picture_url_tuple = feed_room_label_picture_url.get_tuple()
+  feed_room_label_picture_url_tuple = {key: None for key in feed_room_label_picture_url.get_tuple()}
   
   set_dict_attr(feed_room_label_picture_url_tuple, "$.uri",         feed_room_label_picture_tuple.get('uri', ''))
   set_dict_attr(feed_room_label_picture_url_tuple, "$.platform",    'douyin')
@@ -1708,7 +1708,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureTable
   ##
   guide_button_picture       = PictureTable(db)
-  guide_button_picture_tuple = guide_button_picture.get_tuple()
+  guide_button_picture_tuple = {key: None for key in guide_button_picture.get_tuple()}
   
   set_dict_attr(guide_button_picture_tuple, "$.start_time",  start_time)
   set_dict_attr(guide_button_picture_tuple, "$.platform",    platform)
@@ -1727,7 +1727,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureFlexSettingTable
   ##
   guide_button_pic_flex_setting = PictureFlexSettingTable(db)
-  guide_button_pic_flex_setting_tuple = guide_button_pic_flex_setting.get_tuple()
+  guide_button_pic_flex_setting_tuple = {key: None for key in guide_button_pic_flex_setting.get_tuple()}
   
   set_dict_attr(guide_button_pic_flex_setting_tuple, "$.uri",         guide_button_picture_tuple.get('uri', ''))
   set_dict_attr(guide_button_pic_flex_setting_tuple, "$.platform",    'douyin')
@@ -1748,7 +1748,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureTextSettingTable
   ##
   guide_button_pic_text_setting = PictureTextSettingTable(db)
-  guide_button_pic_text_setting_tuple = guide_button_pic_text_setting.get_tuple()
+  guide_button_pic_text_setting_tuple = {key: None for key in guide_button_pic_text_setting.get_tuple()}
   
   set_dict_attr(guide_button_pic_text_setting_tuple, "$.uri",         guide_button_picture_tuple.get('uri', ''))
   set_dict_attr(guide_button_pic_text_setting_tuple, "$.platform",    'douyin')
@@ -1769,7 +1769,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureUrlTable
   ##
   guide_button_picture_url       = PictureUrlTable(db)
-  guide_button_picture_url_tuple = guide_button_picture_url.get_tuple()
+  guide_button_picture_url_tuple = {key: None for key in guide_button_picture_url.get_tuple()}
   
   set_dict_attr(guide_button_picture_url_tuple, "$.uri",         guide_button_picture_tuple.get('uri', ''))
   set_dict_attr(guide_button_picture_url_tuple, "$.platform",    'douyin')
@@ -1799,7 +1799,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## RoomOwnerTable
   ##
   room_owner_table = RoomOwnerTable(db)
-  room_owner_tuple = room_owner_table.get_tuple()
+  room_owner_tuple = {key: None for key in room_owner_table.get_tuple()}
 
   set_dict_attr(room_owner_tuple, "$.now",           now)
   set_dict_attr(room_owner_tuple, "$.platform",      platform)
@@ -1821,7 +1821,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureTable
   ##
   avatar_large_picture       = PictureTable(db)
-  avatar_large_picture_tuple = avatar_large_picture.get_tuple()
+  avatar_large_picture_tuple = {key: None for key in avatar_large_picture.get_tuple()}
   
   set_dict_attr(avatar_large_picture_tuple, "$.start_time",  start_time)
   set_dict_attr(avatar_large_picture_tuple, "$.platform",    platform)
@@ -1840,7 +1840,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureFlexSettingTable
   ##
   avatar_large_pic_flex_setting = PictureFlexSettingTable(db)
-  avatar_large_pic_flex_setting_tuple = avatar_large_pic_flex_setting.get_tuple()
+  avatar_large_pic_flex_setting_tuple = {key: None for key in avatar_large_pic_flex_setting.get_tuple()}
   
   set_dict_attr(avatar_large_pic_flex_setting_tuple, "$.uri",         avatar_large_picture_tuple.get('uri', ''))
   set_dict_attr(avatar_large_pic_flex_setting_tuple, "$.platform",    'douyin')
@@ -1861,7 +1861,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureTextSettingTable
   ##
   avatar_large_pic_text_setting = PictureTextSettingTable(db)
-  avatar_large_pic_text_setting_tuple = avatar_large_pic_text_setting.get_tuple()
+  avatar_large_pic_text_setting_tuple = {key: None for key in avatar_large_pic_text_setting.get_tuple()}
   
   set_dict_attr(avatar_large_pic_text_setting_tuple, "$.uri",         avatar_large_picture_tuple.get('uri', ''))
   set_dict_attr(avatar_large_pic_text_setting_tuple, "$.platform",    'douyin')
@@ -1882,7 +1882,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureUrlTable
   ##
   avatar_large_picture_url       = PictureUrlTable(db)
-  avatar_large_picture_url_tuple = avatar_large_picture_url.get_tuple()
+  avatar_large_picture_url_tuple = {key: None for key in avatar_large_picture_url.get_tuple()}
   
   set_dict_attr(avatar_large_picture_url_tuple, "$.uri",         avatar_large_picture_tuple.get('uri', ''))
   set_dict_attr(avatar_large_picture_url_tuple, "$.platform",    'douyin')
@@ -1906,7 +1906,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureTable
   ##
   avatar_medium_picture       = PictureTable(db)
-  avatar_medium_picture_tuple = avatar_medium_picture.get_tuple()
+  avatar_medium_picture_tuple = {key: None for key in avatar_medium_picture.get_tuple()}
   
   set_dict_attr(avatar_medium_picture_tuple, "$.start_time",  start_time)
   set_dict_attr(avatar_medium_picture_tuple, "$.platform",    platform)
@@ -1925,7 +1925,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureFlexSettingTable
   ##
   avatar_medium_pic_flex_setting = PictureFlexSettingTable(db)
-  avatar_medium_pic_flex_setting_tuple = avatar_medium_pic_flex_setting.get_tuple()
+  avatar_medium_pic_flex_setting_tuple = {key: None for key in avatar_medium_pic_flex_setting.get_tuple()}
   
   set_dict_attr(avatar_medium_pic_flex_setting_tuple, "$.uri",         avatar_medium_picture_tuple.get('uri', ''))
   set_dict_attr(avatar_medium_pic_flex_setting_tuple, "$.platform",    'douyin')
@@ -1946,7 +1946,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureTextSettingTable
   ##
   avatar_medium_pic_text_setting = PictureTextSettingTable(db)
-  avatar_medium_pic_text_setting_tuple = avatar_medium_pic_text_setting.get_tuple()
+  avatar_medium_pic_text_setting_tuple = {key: None for key in avatar_medium_pic_text_setting.get_tuple()}
   
   set_dict_attr(avatar_medium_pic_text_setting_tuple, "$.uri",         avatar_medium_picture_tuple.get('uri', ''))
   set_dict_attr(avatar_medium_pic_text_setting_tuple, "$.platform",    'douyin')
@@ -1967,7 +1967,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureUrlTable
   ##
   avatar_medium_picture_url       = PictureUrlTable(db)
-  avatar_medium_picture_url_tuple = avatar_medium_picture_url.get_tuple()
+  avatar_medium_picture_url_tuple = {key: None for key in avatar_medium_picture_url.get_tuple()}
   
   set_dict_attr(avatar_medium_picture_url_tuple, "$.uri",         avatar_medium_picture_tuple.get('uri', ''))
   set_dict_attr(avatar_medium_picture_url_tuple, "$.platform",    'douyin')
@@ -1991,7 +1991,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureTable
   ##
   avatar_thumb_picture       = PictureTable(db)
-  avatar_thumb_picture_tuple = avatar_thumb_picture.get_tuple()
+  avatar_thumb_picture_tuple = {key: None for key in avatar_thumb_picture.get_tuple()}
   
   set_dict_attr(avatar_thumb_picture_tuple, "$.start_time",  start_time)
   set_dict_attr(avatar_thumb_picture_tuple, "$.platform",    platform)
@@ -2010,7 +2010,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureFlexSettingTable
   ##
   avatar_thumb_pic_flex_setting = PictureFlexSettingTable(db)
-  avatar_thumb_pic_flex_setting_tuple = avatar_thumb_pic_flex_setting.get_tuple()
+  avatar_thumb_pic_flex_setting_tuple = {key: None for key in avatar_thumb_pic_flex_setting.get_tuple()}
   
   set_dict_attr(avatar_thumb_pic_flex_setting_tuple, "$.uri",         avatar_thumb_picture_tuple.get('uri', ''))
   set_dict_attr(avatar_thumb_pic_flex_setting_tuple, "$.platform",    'douyin')
@@ -2031,7 +2031,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureTextSettingTable
   ##
   avatar_thumb_pic_text_setting = PictureTextSettingTable(db)
-  avatar_thumb_pic_text_setting_tuple = avatar_thumb_pic_text_setting.get_tuple()
+  avatar_thumb_pic_text_setting_tuple = {key: None for key in avatar_thumb_pic_text_setting.get_tuple()}
   
   set_dict_attr(avatar_thumb_pic_text_setting_tuple, "$.uri",         avatar_thumb_picture_tuple.get('uri', ''))
   set_dict_attr(avatar_thumb_pic_text_setting_tuple, "$.platform",    'douyin')
@@ -2052,7 +2052,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureUrlTable
   ##
   avatar_thumb_picture_url       = PictureUrlTable(db)
-  avatar_thumb_picture_url_tuple = avatar_thumb_picture_url.get_tuple()
+  avatar_thumb_picture_url_tuple = {key: None for key in avatar_thumb_picture_url.get_tuple()}
   
   set_dict_attr(avatar_thumb_picture_url_tuple, "$.uri",         avatar_thumb_picture_tuple.get('uri', ''))
   set_dict_attr(avatar_thumb_picture_url_tuple, "$.platform",    'douyin')
@@ -2090,7 +2090,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureTable
   ##
   owner_badge_image_list_picture       = PictureTable(db)
-  owner_badge_image_list_picture_tuple = owner_badge_image_list_picture.get_tuple()
+  owner_badge_image_list_picture_tuple = {key: None for key in owner_badge_image_list_picture.get_tuple()}
   
   set_dict_attr(owner_badge_image_list_picture_tuple, "$.start_time",  start_time)
   set_dict_attr(owner_badge_image_list_picture_tuple, "$.platform",    platform)
@@ -2122,7 +2122,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
     ## PictureContentTable
     ##
     owner_badge_image_picture_content       = PictureContentTable(db)
-    owner_badge_image_picture_content_tuple = owner_badge_image_picture_content.get_tuple()
+    owner_badge_image_picture_content_tuple = {key: None for key in owner_badge_image_picture_content.get_tuple()}
     
     set_dict_attr(owner_badge_image_picture_content_tuple, "$.uri",         owner_badge_image_uri_list[badge_image_index])
     set_dict_attr(owner_badge_image_picture_content_tuple, "$.start_time",  start_time)
@@ -2157,7 +2157,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
     ## PictureFlexSettingTable
     ##
     owner_badge_image_pic_flex_setting = PictureFlexSettingTable(db)
-    owner_badge_image_pic_flex_setting_tuple = owner_badge_image_pic_flex_setting.get_tuple()
+    owner_badge_image_pic_flex_setting_tuple = {key: None for key in owner_badge_image_pic_flex_setting.get_tuple()}
     
     set_dict_attr(owner_badge_image_pic_flex_setting_tuple, "$.uri",         owner_badge_image_uri_list[badge_image_index])
     set_dict_attr(owner_badge_image_pic_flex_setting_tuple, "$.platform",    'douyin')
@@ -2180,7 +2180,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
     ## PictureTextSettingTable
     ##
     owner_badge_image_pic_text_setting = PictureTextSettingTable(db)
-    owner_badge_image_pic_text_setting_tuple = owner_badge_image_pic_text_setting.get_tuple()
+    owner_badge_image_pic_text_setting_tuple = {key: None for key in owner_badge_image_pic_text_setting.get_tuple()}
     
     set_dict_attr(owner_badge_image_pic_text_setting_tuple, "$.uri",        owner_badge_image_uri_list[badge_image_index])
     set_dict_attr(owner_badge_image_pic_text_setting_tuple, "$.platform",   'douyin')
@@ -2203,7 +2203,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
     ## PictureUrlTable
     ##
     owner_badge_image_picture_url       = PictureUrlTable(db)
-    owner_badge_image_picture_url_tuple = owner_badge_image_picture_url.get_tuple()
+    owner_badge_image_picture_url_tuple = {key: None for key in owner_badge_image_picture_url.get_tuple()}
     
     set_dict_attr(owner_badge_image_picture_url_tuple, "$.uri",         owner_badge_image_uri_list[badge_image_index])
     set_dict_attr(owner_badge_image_picture_url_tuple, "$.platform",    'douyin')
@@ -2243,7 +2243,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureTable
   ##
   owner_badge_image_v2_list_picture       = PictureTable(db)
-  owner_badge_image_v2_list_picture_tuple = owner_badge_image_v2_list_picture.get_tuple()
+  owner_badge_image_v2_list_picture_tuple = {key: None for key in owner_badge_image_v2_list_picture.get_tuple()}
   
   set_dict_attr(owner_badge_image_v2_list_picture_tuple, "$.start_time",  start_time)
   set_dict_attr(owner_badge_image_v2_list_picture_tuple, "$.platform",    platform)
@@ -2275,7 +2275,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
     ## PictureContentTable
     ##
     owner_badge_image_v2_picture_content       = PictureContentTable(db)
-    owner_badge_image_v2_picture_content_tuple = owner_badge_image_v2_picture_content.get_tuple()
+    owner_badge_image_v2_picture_content_tuple = {key: None for key in owner_badge_image_v2_picture_content.get_tuple()}
     
     set_dict_attr(owner_badge_image_v2_picture_content_tuple, "$.uri",         owner_badge_image_v2_uri_list[badge_image_index])
     set_dict_attr(owner_badge_image_v2_picture_content_tuple, "$.start_time",  start_time)
@@ -2310,7 +2310,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
     ## PictureFlexSettingTable
     ##
     owner_badge_image_v2_pic_flex_setting = PictureFlexSettingTable(db)
-    owner_badge_image_v2_pic_flex_setting_tuple = owner_badge_image_v2_pic_flex_setting.get_tuple()
+    owner_badge_image_v2_pic_flex_setting_tuple = {key: None for key in owner_badge_image_v2_pic_flex_setting.get_tuple()}
     
     set_dict_attr(owner_badge_image_v2_pic_flex_setting_tuple, "$.uri",         owner_badge_image_v2_uri_list[badge_image_index])
     set_dict_attr(owner_badge_image_v2_pic_flex_setting_tuple, "$.platform",    'douyin')
@@ -2333,7 +2333,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
     ## PictureTextSettingTable
     ##
     owner_badge_image_v2_pic_text_setting = PictureTextSettingTable(db)
-    owner_badge_image_v2_pic_text_setting_tuple = owner_badge_image_v2_pic_text_setting.get_tuple()
+    owner_badge_image_v2_pic_text_setting_tuple = {key: None for key in owner_badge_image_v2_pic_text_setting.get_tuple()}
     
     set_dict_attr(owner_badge_image_v2_pic_text_setting_tuple, "$.uri",         owner_badge_image_v2_uri_list[badge_image_index])
     set_dict_attr(owner_badge_image_v2_pic_text_setting_tuple, "$.platform",    'douyin')
@@ -2356,7 +2356,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
     ## PictureUrlTable
     ##
     owner_badge_image_v2_picture_url       = PictureUrlTable(db)
-    owner_badge_image_v2_picture_url_tuple = owner_badge_image_v2_picture_url.get_tuple()
+    owner_badge_image_v2_picture_url_tuple = {key: None for key in owner_badge_image_v2_picture_url.get_tuple()}
     
     set_dict_attr(owner_badge_image_v2_picture_url_tuple, "$.uri",         owner_badge_image_v2_uri_list[badge_image_index])
     set_dict_attr(owner_badge_image_v2_picture_url_tuple, "$.platform",    'douyin')
@@ -2402,7 +2402,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## | prefer_data           | json              |      |     | NULL    |       | "$.data.room.owner.fans_club.prefer_data"                | 偏好数据               |
   ## +-----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+-----------------------+
   owner_fans_club = FansClubTable(db)
-  owner_fans_club_tuple = owner_fans_club.get_tuple()
+  owner_fans_club_tuple = {key: None for key in owner_fans_club.get_tuple()}
 
   set_dict_attr(owner_fans_club_tuple, "$.now",      now)
   set_dict_attr(owner_fans_club_tuple, "$.platform", platform)
@@ -2434,7 +2434,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## | available_gift_id    | varchar(200)      |      |     | NULL    |       | "$.data.room.owner.fans_club.data.available_gift_ids" | 可用礼物ID列表        |
   ## +----------------------+-------------------+------+-----+---------+-------+-------------------------------------------------------+----------------------+
   fans_club_available_gift_id = FansClubAvailableGiftIdTable(db)
-  fans_club_available_gift_id_tuple = fans_club_available_gift_id.get_tuple()
+  fans_club_available_gift_id_tuple = {key: None for key in fans_club_available_gift_id.get_tuple()}
 
   set_dict_attr(fans_club_available_gift_id_tuple, "$.now",            now)
   set_dict_attr(fans_club_available_gift_id_tuple, "$.platform",       platform)
@@ -2471,7 +2471,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ##
   icons_prefix   = 'icons'
   badge_icon_pic = PictureTable(db)
-  badge_icon_pic_tuple = badge_icon_pic.get_tuple()
+  badge_icon_pic_tuple = {key: None for key in badge_icon_pic.get_tuple()}
   
   set_dict_attr(badge_icon_pic_tuple, "$.start_time",  start_time)
   set_dict_attr(badge_icon_pic_tuple, "$.platform",    platform)
@@ -2486,13 +2486,13 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
         badge_icons_label_list.append(badge_icon_pic_label[len(icons_prefix):])
       else:
         continue
-      badge_icon_avg_color_list.append(get_dict_attr(badge_icon_pic_tuple,    "$.avg_color"))
-      badge_icon_height_list.append(get_dict_attr(badge_icon_pic_tuple,       "$.height"))
-      badge_icon_image_type_list.append(get_dict_attr(badge_icon_pic_tuple,   "$.image_type"))
-      badge_icon_is_animated_list.append(get_dict_attr(badge_icon_pic_tuple,  "$.is_animated"))
-      badge_icon_open_web_url_list.append(get_dict_attr(badge_icon_pic_tuple, "$.open_web_url"))
-      badge_icon_uri_list.append(get_dict_attr(badge_icon_pic_tuple,          "$.uri"))
-      badge_icon_width_list.append(get_dict_attr(badge_icon_pic_tuple,        "$.width"))
+      badge_icon_avg_color_list.append(badge_icon_pic_tuple.get("avg_color", ''))
+      badge_icon_height_list.append(badge_icon_pic_tuple.get("height", 0))
+      badge_icon_image_type_list.append(badge_icon_pic_tuple.get("image_type", 0))
+      badge_icon_is_animated_list.append(badge_icon_pic_tuple.get("is_animated", False))
+      badge_icon_open_web_url_list.append(badge_icon_pic_tuple.get("open_web_url", ''))
+      badge_icon_uri_list.append(badge_icon_pic_tuple.get("uri", ''))
+      badge_icon_width_list.append(badge_icon_pic_tuple.get("width", 0))
   except Exception as e:
     get_logger().error(f"{e}: {fans_club_available_gift_id.get_name()} >> >> >> >> >> >> data.room.owner.fans_club.data.badge")
     badge_icons_label_list.append('')
@@ -2510,7 +2510,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
     ## PictureFlexSettingTable
     ##
     badge_icons_pic_flex_setting = PictureFlexSettingTable(db)
-    badge_icons_pic_flex_setting_tuple = badge_icons_pic_flex_setting.get_tuple()
+    badge_icons_pic_flex_setting_tuple = {key: None for key in badge_icons_pic_flex_setting.get_tuple()}
     
     set_dict_attr(badge_icons_pic_flex_setting_tuple, "$.uri",        badge_icon_uri_list[badge_icons_label_index])
     set_dict_attr(badge_icons_pic_flex_setting_tuple, "$.platform",   'douyin')
@@ -2533,7 +2533,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
     ## PictureTextSettingTable
     ##    
     badge_icons_pic_text_setting = PictureTextSettingTable(db)
-    badge_icons_pic_text_setting_tuple = badge_icons_pic_text_setting.get_tuple()
+    badge_icons_pic_text_setting_tuple = {key: None for key in badge_icons_pic_text_setting.get_tuple()}
     
     set_dict_attr(badge_icons_pic_text_setting_tuple, "$.uri",        badge_icon_uri_list[badge_icons_label_index])
     set_dict_attr(badge_icons_pic_text_setting_tuple, "$.platform",   'douyin')
@@ -2542,21 +2542,21 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
     set_dict_attr(badge_icons_pic_text_setting_tuple, "$.label",      badge_icon_pic_label_list[badge_icons_label_index])
     
     try:
-      badge_icons_pic_text_setting = list()
-      badge_icons_pic_text_setting_tuple_list = badge_icons_pic_text_setting.get_record(badge_icons_pic_text_setting_tuple)
+      single_badge_icons_pic_text_setting = list()
+      badge_icons_pic_text_setting_tuple_list = badge_icons_pic_text_setting.get_record(badge_icons_pic_text_setting_tuple, fetchall=True)
       for text_setting in badge_icons_pic_text_setting_tuple_list:
-        badge_icons_pic_text_setting.append(get_dict_attr(text_setting, "$.text_setting"))
+        single_badge_icons_pic_text_setting.append(get_dict_attr(text_setting, "$.text_setting"))
     except Exception as e:
       get_logger().error(f"{e}: {badge_icons_pic_text_setting.get_name()} >> >> >> >> >> data.room.owner.badge_image_list.text_setting_list")
-      badge_icons_pic_text_setting = []
+      single_badge_icons_pic_text_setting = []
     finally:
-      badge_icon_text_setting_list.append(badge_icons_pic_text_setting)
+      badge_icon_text_setting_list.append(single_badge_icons_pic_text_setting)
 
     ##
     ## PictureUrlTable
     ##
     badge_icons_picture_url       = PictureUrlTable(db)
-    badge_icons_picture_url_tuple = badge_icons_picture_url.get_tuple()
+    badge_icons_picture_url_tuple = {key: None for key in badge_icons_picture_url.get_tuple()}
     
     set_dict_attr(badge_icons_picture_url_tuple, "$.uri",        badge_icon_uri_list[badge_image_index])
     set_dict_attr(badge_icons_picture_url_tuple, "$.platform",   'douyin')
@@ -2600,7 +2600,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureTable
   ##
   owner_new_im_icon_with_level_picture       = PictureTable(db)
-  owner_new_im_icon_with_level_picture_tuple = owner_new_im_icon_with_level_picture.get_tuple()
+  owner_new_im_icon_with_level_picture_tuple = {key: None for key in owner_new_im_icon_with_level_picture.get_tuple()}
 
   set_dict_attr(owner_new_im_icon_with_level_picture_tuple, "$.start_time",  start_time)
   set_dict_attr(owner_new_im_icon_with_level_picture_tuple, "$.platform",    platform)
@@ -2622,7 +2622,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureFlexSettingTable
   ##
   owner_new_im_icon_with_level_flex_setting = PictureFlexSettingTable(db)
-  owner_new_im_icon_with_level_flex_setting_tuple = owner_new_im_icon_with_level_flex_setting.get_tuple()
+  owner_new_im_icon_with_level_flex_setting_tuple = {key: None for key in owner_new_im_icon_with_level_flex_setting.get_tuple()}
 
   set_dict_attr(owner_new_im_icon_with_level_flex_setting_tuple, "$.uri",         owner_new_im_icon_with_level_picture_tuple.get('uri', ''))
   set_dict_attr(owner_new_im_icon_with_level_flex_setting_tuple, "$.platform",    'douyin')
@@ -2646,7 +2646,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureTextSettingTable
   ##
   owner_new_im_icon_with_level_pic_text_setting = PictureTextSettingTable(db)
-  owner_new_im_icon_with_level_pic_text_setting_tuple = owner_new_im_icon_with_level_pic_text_setting.get_tuple()
+  owner_new_im_icon_with_level_pic_text_setting_tuple = {key: None for key in owner_new_im_icon_with_level_pic_text_setting.get_tuple()}
   
   set_dict_attr(owner_new_im_icon_with_level_pic_text_setting_tuple, "$.uri",         owner_new_im_icon_with_level_picture_tuple.get('uri', ''))
   set_dict_attr(owner_new_im_icon_with_level_pic_text_setting_tuple, "$.platform",    'douyin')
@@ -2670,7 +2670,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureUrlTable
   ##
   owner_new_im_icon_with_level_picture_url       = PictureUrlTable(db)
-  owner_new_im_icon_with_level_picture_url_tuple = owner_new_im_icon_with_level_picture_url.get_tuple()
+  owner_new_im_icon_with_level_picture_url_tuple = {key: None for key in owner_new_im_icon_with_level_picture_url.get_tuple()}
   
   set_dict_attr(owner_new_im_icon_with_level_picture_url_tuple, "$.uri",         owner_new_im_icon_with_level_picture_tuple.get('uri', ''))
   set_dict_attr(owner_new_im_icon_with_level_picture_url_tuple, "$.platform",    'douyin')
@@ -2694,7 +2694,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureTable
   ##
   owner_new_live_icon_picture       = PictureTable(db)
-  owner_new_live_icon_picture_tuple = owner_new_live_icon_picture.get_tuple()
+  owner_new_live_icon_picture_tuple = {key: None for key in owner_new_live_icon_picture.get_tuple()}
 
   set_dict_attr(owner_new_live_icon_picture_tuple, "$.start_time",  start_time)
   set_dict_attr(owner_new_live_icon_picture_tuple, "$.platform",    platform)
@@ -2716,7 +2716,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureFlexSettingTable
   ##
   owner_new_live_icon_flex_setting = PictureFlexSettingTable(db)
-  owner_new_live_icon_flex_setting_tuple = owner_new_live_icon_flex_setting.get_tuple()
+  owner_new_live_icon_flex_setting_tuple = {key: None for key in owner_new_live_icon_flex_setting.get_tuple()}
 
   set_dict_attr(owner_new_live_icon_flex_setting_tuple, "$.uri",         owner_new_live_icon_picture_tuple.get('uri', ''))
   set_dict_attr(owner_new_live_icon_flex_setting_tuple, "$.platform",    'douyin')
@@ -2740,7 +2740,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureTextSettingTable
   ##
   owner_new_live_icon_pic_text_setting = PictureTextSettingTable(db)
-  owner_new_live_icon_pic_text_setting_tuple = owner_new_live_icon_pic_text_setting.get_tuple()
+  owner_new_live_icon_pic_text_setting_tuple = {key: None for key in owner_new_live_icon_pic_text_setting.get_tuple()}
   
   set_dict_attr(owner_new_live_icon_pic_text_setting_tuple, "$.uri",         owner_new_live_icon_picture_tuple.get('uri', ''))
   set_dict_attr(owner_new_live_icon_pic_text_setting_tuple, "$.platform",    'douyin')
@@ -2764,7 +2764,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## PictureUrlTable
   ##
   owner_new_live_icon_picture_url       = PictureUrlTable(db)
-  owner_new_live_icon_picture_url_tuple = owner_new_live_icon_picture_url.get_tuple()
+  owner_new_live_icon_picture_url_tuple = {key: None for key in owner_new_live_icon_picture_url.get_tuple()}
   
   set_dict_attr(owner_new_live_icon_picture_url_tuple, "$.uri",        owner_new_live_icon_picture_tuple.get('uri', ''))
   set_dict_attr(owner_new_live_icon_picture_url_tuple, "$.platform",   'douyin')
@@ -2791,7 +2791,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   >> >> >> >> data.room.owner.subscribe
   """
   owner_subscribe = RoomSubscribeTable(db)
-  owner_subscribe_tuple = owner_subscribe.get_tuple()
+  owner_subscribe_tuple = {key: None for key in owner_subscribe.get_tuple()}
 
   set_dict_attr(owner_subscribe_tuple, "$.now",      now)
   set_dict_attr(owner_subscribe_tuple, "$.platform", platform)
@@ -2816,7 +2816,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   >> >> >> >> data.room.owner.user_attr
   """
   owner_user_attr = RoomOwnerUserAttrTable(db)
-  owner_user_attr_tuple = owner_user_attr.get_tuple()
+  owner_user_attr_tuple = {key: None for key in owner_user_attr.get_tuple()}
   
   set_dict_attr(owner_user_attr_tuple, "$.now",      now)
   set_dict_attr(owner_user_attr_tuple, "$.platform", platform)
@@ -2846,7 +2846,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +-----------------------+-------------------+------+-----+---------+-------+------------------------------------------------+---------------------+
   """
   owner_user_attr_admin_privileges = RoomAdminPrivilegeTable(db)
-  owner_user_attr_admin_privileges_tuple = owner_user_attr_admin_privileges.get_tuple()
+  owner_user_attr_admin_privileges_tuple = {key: None for key in owner_user_attr_admin_privileges.get_tuple()}
   
   set_dict_attr(owner_user_attr_admin_privileges_tuple, "$.now",      now)
   set_dict_attr(owner_user_attr_admin_privileges_tuple, "$.platform", platform)
@@ -2870,7 +2870,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   >> >> >> >> data.room.owner.user_dress_info.dress_own_ids
   """
   owner_dress_own_ids = RoomOwnerUserDressOwnIdTable(db)
-  owner_dress_own_ids_tuple = owner_dress_own_ids.get_tuple()
+  owner_dress_own_ids_tuple = {key: None for key in owner_dress_own_ids.get_tuple()}
   
   set_dict_attr(owner_dress_own_ids_tuple, "$.start_time",  start_time)
   set_dict_attr(owner_dress_own_ids_tuple, "$.platform", platform)
@@ -2890,7 +2890,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   >> >> >> >> data.room.owner.user_dress_info.dress_wear_ids
   """
   owner_dress_wear_ids = RoomOwnerDressWearIdTable(db)
-  owner_dress_wear_ids_tuple = owner_dress_wear_ids.get_tuple()
+  owner_dress_wear_ids_tuple = {key: None for key in owner_dress_wear_ids.get_tuple()}
   
   set_dict_attr(owner_dress_wear_ids_tuple, "$.start_time",  start_time)
   set_dict_attr(owner_dress_wear_ids_tuple, "$.platform", platform)
@@ -2910,7 +2910,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   >> >> >> data.room.pack_meta
   """
   pack_meta       = RoomPackMetaTable(db)
-  pack_meta_tuple = pack_meta.get_tuple()
+  pack_meta_tuple = {key: None for key in pack_meta.get_tuple()}
   
   set_dict_attr(pack_meta_tuple, "$.now",      now)
   set_dict_attr(pack_meta_tuple, "$.platform", platform)
@@ -2945,7 +2945,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +----------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------+---------------------+
   """
   paid_live_data       = RoomPaidLiveDataTable(db)
-  paid_live_data_tuple = paid_live_data.get_tuple()
+  paid_live_data_tuple = {key: None for key in paid_live_data.get_tuple()}
 
   set_dict_attr(paid_live_data_tuple, "$.now",      now)
   set_dict_attr(paid_live_data_tuple, "$.platform", platform)
@@ -3124,7 +3124,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +----------------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
   """
   room_auth = RoomAuthTable(db)
-  room_auth_tuple = room_auth.get_tuple()
+  room_auth_tuple = {key: None for key in room_auth.get_tuple()}
 
   set_dict_attr(room_auth_tuple, "$.now",      now)
   set_dict_attr(room_auth_tuple, "$.platform", platform)
@@ -3151,7 +3151,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +-----------+-------------------+------+-----+---------+-------+-------------------------+----------------------+
 
   room_tabs = RoomTabTable(db)
-  room_tabs_tuple = room_tabs.get_tuple()
+  room_tabs_tuple = {key: None for key in room_tabs.get_tuple()}
   
   set_dict_attr(room_tabs_tuple, "$.now",      now)
   set_dict_attr(room_tabs_tuple, "$.platform", platform)
@@ -3203,7 +3203,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +---------------------+------------------+------+-----+---------+-------+-------------------------------------+----------------------+
   """
   room_sharing_music_id = RoomSharingMusicIdTable(db)
-  room_sharing_music_id_tuple = room_sharing_music_id.get_tuple()
+  room_sharing_music_id_tuple = {key: None for key in room_sharing_music_id.get_tuple()}
   
   set_dict_attr(room_sharing_music_id_tuple, "$.start_time", start_time)
   set_dict_attr(room_sharing_music_id_tuple, "$.platform",   platform)
@@ -3230,7 +3230,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +---------------------+--------------+------+-----+---------+-------+-----------------------------------------------------------+-----------------------+
   """
   room_short_touch_area_config =  RoomShortTouchAreaConfigTable(db)
-  room_short_touch_area_config_tuple = room_short_touch_area_config.get_tuple()
+  room_short_touch_area_config_tuple = {key: None for key in room_short_touch_area_config.get_tuple()}
 
   set_dict_attr(room_short_touch_area_config_tuple, "$.now", now)
   set_dict_attr(room_short_touch_area_config_tuple, "$.platform", platform)
@@ -3258,7 +3258,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +---------------+------------------+------+-----+---------+-------+-------------------------------------------------------------+-----------------------+
   """
   room_short_touch_area_config_elements = RoomShortTouchAreaConfigElementTable(db)
-  room_short_touch_area_config_element_tuple = room_short_touch_area_config_elements.get_tuple()
+  room_short_touch_area_config_element_tuple = {key: None for key in room_short_touch_area_config_elements.get_tuple()}
   
   set_dict_attr(room_short_touch_area_config_element_tuple, "$.now", now)
   set_dict_attr(room_short_touch_area_config_element_tuple, "$.platform", platform)
@@ -3291,7 +3291,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +-----------------+------------------+------+-----+---------+-------+---------------------------------------------------------------+-----------------------+
   """
   room_strategy_feat_whitelist = RoomShortTouchAreaConfigStrategyFeatWhitelistTable(db)
-  room_strategy_feat_whitelist_tuple = room_strategy_feat_whitelist.get_tuple()
+  room_strategy_feat_whitelist_tuple = {key: None for key in room_strategy_feat_whitelist.get_tuple()}
   
   set_dict_attr(room_strategy_feat_whitelist_tuple, "$.now", now)
   set_dict_attr(room_strategy_feat_whitelist_tuple, "$.platform", platform)
@@ -3322,7 +3322,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +---------------+------------------+------+-----+---------+-------+---------------------------------------------------------------------------------------+------------+
   """
   room_temp_state_condition_map = RoomTempStateConditionMapTable(db)
-  room_temp_state_condition_map_tuple = room_temp_state_condition_map.get_tuple()
+  room_temp_state_condition_map_tuple = {key: None for key in room_temp_state_condition_map.get_tuple()}
   
   set_dict_attr(room_temp_state_condition_map_tuple, "$.now", now)
   set_dict_attr(room_temp_state_condition_map_tuple, "$.platform", platform)
@@ -3357,7 +3357,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +--------------+------------------+------+-----+---------+-------+--------------------------------------------------------------------------------+------------+
   """
   room_temp_state_global_condition = RoomTempStateGlobalConditionTable(db)
-  room_temp_state_global_condition_tuple = room_temp_state_global_condition.get_tuple()
+  room_temp_state_global_condition_tuple = {key: None for key in room_temp_state_global_condition.get_tuple()}
   
   set_dict_attr(room_temp_state_global_condition_tuple, "$.now",      now)
   set_dict_attr(room_temp_state_global_condition_tuple, "$.platform", platform)
@@ -3385,7 +3385,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +-----------------------------+------------------+------+-----+---------+-------+-----------------------------------------------------------------------------------------+-----------------+
   """
   room_temp_state_global_condition_ignore_strategy_type = RoomTempStateGlobalConditionIgnoreStrategyTypeTable(db)
-  room_temp_state_global_condition_ignore_strategy_type_tuple = room_temp_state_global_condition_ignore_strategy_type.get_tuple()
+  room_temp_state_global_condition_ignore_strategy_type_tuple = {key: None for key in room_temp_state_global_condition_ignore_strategy_type.get_tuple()}
   
   set_dict_attr(room_temp_state_global_condition_ignore_strategy_type_tuple, "$.now", now)
   set_dict_attr(room_temp_state_global_condition_ignore_strategy_type_tuple, "$.platform", platform)
@@ -3413,7 +3413,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +-------------------+------------------+------+-----+---------+-------+-------------------------------------------------------------------------------------+------------+
   """
   room_temp_state_strategy = RoomTempStateStrategyTable(db)
-  room_temp_state_strategy_tuple = room_temp_state_strategy.get_tuple()
+  room_temp_state_strategy_tuple = {key: None for key in room_temp_state_strategy.get_tuple()}
 
   set_dict_attr(room_temp_state_strategy_tuple, "$.now", now)
   set_dict_attr(room_temp_state_strategy_tuple, "$.platform", platform)
@@ -3444,7 +3444,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +-------------------+------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------+------------+
   """
   room_temp_state_strategy_map = RoomTempStateStrategyMapTable(db)
-  room_temp_state_strategy_map_tuple = room_temp_state_strategy_map.get_tuple()
+  room_temp_state_strategy_map_tuple = {key: None for key in room_temp_state_strategy_map.get_tuple()}
   
   try:
     room_temp_state_strategy_dict = dict()
@@ -3486,7 +3486,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +----------------------+-------------------+------+-----+---------+-------+-----------------------------------------------+---------------------+
   """
   stream_url_candidate_resolution = StreamCandidateResolutionTable(db)
-  stream_url_candidate_resolution_tuple = stream_url_candidate_resolution.get_tuple()
+  stream_url_candidate_resolution_tuple = {key: None for key in stream_url_candidate_resolution.get_tuple()}
   
   set_dict_attr(stream_url_candidate_resolution_tuple, "$.now",       now)
   set_dict_attr(stream_url_candidate_resolution_tuple, "$.platform",  platform)
@@ -3516,7 +3516,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +-------------------------+-------------------+------+-----+---------+-------+---------------------------------------------+---------------------+
   """
   stream_url_complete_push_url = StreamCompletePushUrlTable(db)
-  stream_url_complete_push_url_tuple = stream_url_complete_push_url.get_tuple()
+  stream_url_complete_push_url_tuple = {key: None for key in stream_url_complete_push_url.get_tuple()}
   
   set_dict_attr(stream_url_complete_push_url_tuple, "$.now",       now)
   set_dict_attr(stream_url_complete_push_url_tuple, "$.platform",  platform)
@@ -3576,7 +3576,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +------------------------------------------+-------------------+------+-----+---------+-------+------------------------------------------------------------+----------------------------------+
   """
   live_stream = LiveStreamTable(db)
-  live_stream_tuple = live_stream.get_tuple()
+  live_stream_tuple = {key: None for key in live_stream.get_tuple()}
   
   set_dict_attr(live_stream_tuple, "$.id",       str(room_record_tuple.get("stream_id", 0)))
   
@@ -3601,7 +3601,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +-----------+------------------+------+-----+---------+-------+-----------------------------------------------------------+---------------------+
   """
   live_core_sdk_data_pull_data_flv = LiveCoreSdkPullFlvDataTable(db)
-  live_core_sdk_data_pull_data_flv_tuple = live_core_sdk_data_pull_data_flv.get_tuple()
+  live_core_sdk_data_pull_data_flv_tuple = {key: None for key in live_core_sdk_data_pull_data_flv.get_tuple()}
   
   set_dict_attr(live_core_sdk_data_pull_data_flv_tuple, "$.now",       now)
   set_dict_attr(live_core_sdk_data_pull_data_flv_tuple, "$.platform",  platform)
@@ -3629,7 +3629,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +-----------+------------------+------+-----+---------+-------+-----------------------------------------------------------+---------------------+
   """
   live_core_sdk_data_pull_data_hls = LiveCoreSdkPullFlvDataTable(db)
-  live_core_sdk_data_pull_data_hls_tuple = live_core_sdk_data_pull_data_hls.get_tuple()
+  live_core_sdk_data_pull_data_hls_tuple = {key: None for key in live_core_sdk_data_pull_data_hls.get_tuple()}
   
   set_dict_attr(live_core_sdk_data_pull_data_hls_tuple, "$.now",       now)
   set_dict_attr(live_core_sdk_data_pull_data_hls_tuple, "$.platform",  platform)
@@ -3661,7 +3661,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------------------------+---------------------+
   """
   live_core_sdk_pull_data = LiveCoreSdkPullDataTable(db)
-  live_core_sdk_pull_data_tuple = live_core_sdk_pull_data.get_tuple()
+  live_core_sdk_pull_data_tuple = {key: None for key in live_core_sdk_pull_data.get_tuple()}
 
   set_dict_attr(live_core_sdk_pull_data_tuple, "$.now",       now)
   set_dict_attr(live_core_sdk_pull_data_tuple, "$.platform",  platform)
@@ -3695,7 +3695,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +--------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------------+---------------------+
   """
   live_core_sdk_pull_default_quality = LiveCoreSdkPullDefaultQualityDataTable(db)
-  live_core_sdk_pull_default_quality_tuple = live_core_sdk_pull_default_quality.get_tuple()
+  live_core_sdk_pull_default_quality_tuple = {key: None for key in live_core_sdk_pull_default_quality.get_tuple()}
   
   set_dict_attr(live_core_sdk_pull_default_quality_tuple, "$.now",       now)
   set_dict_attr(live_core_sdk_pull_default_quality_tuple, "$.platform",  platform)
@@ -3730,7 +3730,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +--------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------+---------------------+
   """
   live_core_sdk_pull_quality =  LiveCoreSdkPullQualityDataTable(db)
-  live_core_sdk_pull_quality_tuple = live_core_sdk_pull_quality.get_tuple()
+  live_core_sdk_pull_quality_tuple = {key: None for key in live_core_sdk_pull_quality.get_tuple()}
   
   set_dict_attr(live_core_sdk_pull_quality_tuple, "$.now",       now)
   set_dict_attr(live_core_sdk_pull_quality_tuple, "$.platform",  platform)
@@ -3767,7 +3767,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +---------------+--------------+------+-----+---------+-------+----------------------------------------------------------------------------+---------------------+
   """
   live_core_sdk_pull_data_options = LiveCoreSdkPullDataOptionTable(db)
-  live_core_sdk_pull_data_options_tuple = live_core_sdk_pull_data_options.get_tuple()
+  live_core_sdk_pull_data_options_tuple = {key: None for key in live_core_sdk_pull_data_options.get_tuple()}
   
   set_dict_attr(live_core_sdk_pull_data_options_tuple, "$.now",       now)
   set_dict_attr(live_core_sdk_pull_data_options_tuple, "$.platform",  platform)
@@ -3793,7 +3793,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +----------+--------------+------+-----+---------+-------+--------------------------------------------------+---------------------+
   """
   live_core_sdk_data = LiveCoreSdkDataTable(db)
-  live_core_sdk_data_tuple = live_core_sdk_data.get_tuple()
+  live_core_sdk_data_tuple = {key: None for key in live_core_sdk_data.get_tuple()}
 
   set_dict_attr(live_core_sdk_data_tuple, "$.now",       now)
   set_dict_attr(live_core_sdk_data_tuple, "$.platform",  platform)
@@ -3821,7 +3821,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +----------------+------------------+------+-----+---------+-------+------------------------------------+---------------------+
   """
   stream_url_push_urls = StreamPushUrlTable(db)
-  stream_url_push_urls_tuple = stream_url_push_urls.get_tuple()
+  stream_url_push_urls_tuple = {key: None for key in stream_url_push_urls.get_tuple()}
   
   set_dict_attr(stream_url_push_urls_tuple, "$.now",        now)
   set_dict_attr(stream_url_push_urls_tuple, "$.platform",   platform)
@@ -3850,7 +3850,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +-----------+------------------+------+-----+---------+-------+---------------------------+---------------------+
   """
   room_tag = RoomTagTable(db)
-  room_tag_tuple = room_tag.get_tuple()
+  room_tag_tuple = {key: None for key in room_tag.get_tuple()}
   
   set_dict_attr(room_tag_tuple, "$.now",       now)
   set_dict_attr(room_tag_tuple, "$.platform",  platform)
@@ -3888,88 +3888,13 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   """
   user = dict()
   user_record       = UserTable(db)
-  user_record_tuple = user_record.get_tuple()
+  user_record_tuple = {key: None for key in user_record.get_tuple()}
   set_dict_attr(user_record_tuple, "$.id", int(user_id), force=True)
   
   try:
     user_record_list = user_record.get_record(user_record_tuple)
     if len(user_record_list) != 0:
       user_record_tuple = user_record_list.pop()
-  
-      # id                                       = get_dict_attr(user_record_tuple, "$.id")
-      # gender                                   = get_dict_attr(user_record_tuple, "$.gender")
-      # user_adversary_authorization_info             = get_dict_attr(user_record_tuple, "$.adversary_authorization_info")
-      # user_adversary_user_status                    = get_dict_attr(user_record_tuple, "$.adversary_user_status")
-      # user_age_range                                = get_dict_attr(user_record_tuple, "$.age_range")
-      # user_allow_be_located                         = get_dict_attr(user_record_tuple, "$.allow_be_located")
-      # user_allow_find_by_contacts                   = get_dict_attr(user_record_tuple, "$.allow_find_by_contacts")
-      # user_allow_others_download_video              = get_dict_attr(user_record_tuple, "$.allow_others_download_video")
-      # user_allow_others_download_when_sharing_video = get_dict_attr(user_record_tuple, "$.allow_others_download_when_sharing_video")
-      # user_allow_share_show_profile                 = get_dict_attr(user_record_tuple, "$.allow_share_show_profile")
-      # user_allow_show_in_gossip                     = get_dict_attr(user_record_tuple, "$.allow_show_in_gossip")
-      # user_allow_show_my_action                     = get_dict_attr(user_record_tuple, "$.allow_show_my_action")
-      # user_allow_strange_comment                    = get_dict_attr(user_record_tuple, "$.allow_strange_comment")
-      # user_allow_unfollower_comment                 = get_dict_attr(user_record_tuple, "$.allow_unfollower_comment")
-      # user_allow_use_linkmic                        = get_dict_attr(user_record_tuple, "$.allow_use_linkmic")
-      # user_authorization_info                       = get_dict_attr(user_record_tuple, "$.authorization_info")
-      # badge_image_list                         = []
-      # badge_image_list_v2                      = []
-      # user_bg_img_url                               = get_dict_attr(user_record_tuple, "$.bg_img_url")
-      # user_birthday                                 = get_dict_attr(user_record_tuple, "$.birthday")
-      # user_birthday_description                     = get_dict_attr(user_record_tuple, "$.birthday_description")
-      # user_birthday_valid                           = get_dict_attr(user_record_tuple, "$.birthday_valid")
-      # user_block_status                             = get_dict_attr(user_record_tuple, "$.block_status")
-      # user_city                                     = get_dict_attr(user_record_tuple, "$.city")
-      # user_comment_restrict                         = get_dict_attr(user_record_tuple, "$.comment_restrict")
-      # commerce_webcast_config_ids              = []
-      # user_constellation                            = get_dict_attr(user_record_tuple, "$.constellation")
-      # user_consume_diamond_level                    = get_dict_attr(user_record_tuple, "$.consume_diamond_level")
-      # user_create_time                              = get_dict_attr(user_record_tuple, "$.create_time")
-      # user_desensitized_nickname                    = get_dict_attr(user_record_tuple, "$.desensitized_nickname")
-      # user_disable_ichat                            = get_dict_attr(user_record_tuple, "$.disable_ichat")
-      # user_display_id                               = get_dict_attr(user_record_tuple, "$.display_id")
-      # user_enable_ichat_img                         = get_dict_attr(user_record_tuple, "$.enable_ichat_img")
-      # exp
-      # user_fold_stranger_chat                       = get_dict_attr(user_record_tuple, "$.fold_stranger_chat")
-      # user_nickname                                 = get_dict_attr(user_record_tuple, "$.nickname")
-      # user_pay_score                                = get_dict_attr(user_record_tuple, "$.pay_score")
-      # user_pay_scores                               = get_dict_attr(user_record_tuple, "$.pay_scores")
-      # user_need_profile_guide                       = get_dict_attr(user_record_tuple, "$.need_profile_guide")
-      # user_hotsoon_verified                         = get_dict_attr(user_record_tuple, "$.hotsoon_verified")
-      # user_hotsoon_verified_reason                  = get_dict_attr(user_record_tuple, "$.hotsoon_verified_reason")
-      # user_ichat_restrict_type                      = get_dict_attr(user_record_tuple, "$.ichat_restrict_type")
-      # user_income_share_percent                     = get_dict_attr(user_record_tuple, "$.income_share_percent")
-      # user_push_comment_status                      = get_dict_attr(user_record_tuple, "$.push_comment_status")
-      # user_push_digg                                = get_dict_attr(user_record_tuple, "$.push_digg")
-      # user_push_follow                              = get_dict_attr(user_record_tuple, "$.push_follow")
-      # user_push_friend_action                       = get_dict_attr(user_record_tuple, "$.push_friend_action")
-      # user_push_ichat                               = get_dict_attr(user_record_tuple, "$.push_ichat")
-      # user_push_status                              = get_dict_attr(user_record_tuple, "$.push_status")
-      # user_push_video_post                          = get_dict_attr(user_record_tuple, "$.push_video_post")
-      # user_push_video_recommend                     = get_dict_attr(user_record_tuple, "$.push_video_recommend")
-      # user_remark_name                              = get_dict_attr(user_record_tuple, "$.remark_name")
-      # user_sec_uid                                  = get_dict_attr(user_record_tuple, "$.sec_uid")
-      # user_secret                                   = get_dict_attr(user_record_tuple, "$.secret")
-      # user_share_qrcode_uri                         = get_dict_attr(user_record_tuple, "$.share_qrcode_uri")
-      # user_short_id                                 = get_dict_attr(user_record_tuple, "$.short_id")
-      # user_signature                                = get_dict_attr(user_record_tuple, "$.signature")
-      # user_special_id                               = get_dict_attr(user_record_tuple, "$.special_id")
-      # user_status                                   = get_dict_attr(user_record_tuple, "$.status")
-      # user_telephone                                = get_dict_attr(user_record_tuple, "$.telephone")
-      # user_total_recharge_diamond_count             = get_dict_attr(user_record_tuple, "$.total_recharge_diamond_count")
-      # user_user_canceled                            = get_dict_attr(user_record_tuple, "$.user_canceled")
-      # user_user_open_id                             = get_dict_attr(user_record_tuple, "$.user_open_id")
-      # user_user_role                                = get_dict_attr(user_record_tuple, "$.user_role")
-      # user_verified                                 = get_dict_attr(user_record_tuple, "$.verified")
-      # user_verified_content                         = get_dict_attr(user_record_tuple, "$.verified_content")
-      # user_verified_mobile                          = get_dict_attr(user_record_tuple, "$.verified_mobile")
-      # user_verified_reason                          = get_dict_attr(user_record_tuple, "$.verified_reason")
-      # user_watch_duration_month                     = get_dict_attr(user_record_tuple, "$.watch_duration_month")
-      # user_web_rid                                  = get_dict_attr(user_record_tuple, "$.web_rid")
-      # user_webcast_uid                              = get_dict_attr(user_record_tuple, "$.webcast_uid")
-      # user_with_car_management_permission           = get_dict_attr(user_record_tuple, "$.with_car_management_permission")
-      # user_with_commerce_permission                 = get_dict_attr(user_record_tuple, "$.with_commerce_permission")
-      # user_with_fusion_shop_entry                   = get_dict_attr(user_record_tuple, "$.with_fusion_shop_entry")
   except Exception as e:
     get_logger().error(f"{e}: {user_record.get_name()} >> >> data.user")
 
@@ -3992,7 +3917,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   ## RoomOwnerTable for user
   ##
   user_owner_table = RoomOwnerTable(db)
-  user_owner_tuple = user_owner_table.get_tuple()
+  user_owner_tuple = {key: None for key in user_owner_table.get_tuple()}
 
   set_dict_attr(user_owner_tuple, "$.now",           now)
   set_dict_attr(user_owner_tuple, "$.platform",      platform)
@@ -4438,16 +4363,16 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   >> >> >> >> >> >> data.room.owner.fans_club.data.badge
   """
   for index in range(0, len(badge_icons_label_list)):
-    set_dict_attr(room, "$.owner.fans_club.data.badge.icons." + badge_icons_label_list[index] + ".avg_color",         badge_icon_avg_color_list[index],    force=True)
-    set_dict_attr(room, "$.owner.fans_club.data.badge.icons." + badge_icons_label_list[index] + ".flex_setting",      badge_icon_flex_setting_list[index], force=True)
-    set_dict_attr(room, "$.owner.fans_club.data.badge.icons." + badge_icons_label_list[index] + ".height",            badge_icon_height_list[index],       force=True)
-    set_dict_attr(room, "$.owner.fans_club.data.badge.icons." + badge_icons_label_list[index] + ".image_type",        badge_icon_image_type_list[index],   force=True)
-    set_dict_attr(room, "$.owner.fans_club.data.badge.icons." + badge_icons_label_list[index] + ".is_animated",       bool(badge_icon_is_animated_list[index]),  force=True)
-    set_dict_attr(room, "$.owner.fans_club.data.badge.icons." + badge_icons_label_list[index] + ".open_web_url",      badge_icon_open_web_url_list[index], force=True)
-    set_dict_attr(room, "$.owner.fans_club.data.badge.icons." + badge_icons_label_list[index] + ".text_setting_list", badge_icon_text_setting_list[index], force=True)
-    set_dict_attr(room, "$.owner.fans_club.data.badge.icons." + badge_icons_label_list[index] + ".uri",               badge_icon_uri_list[index],          force=True)
-    set_dict_attr(room, "$.owner.fans_club.data.badge.icons." + badge_icons_label_list[index] + ".url_list",          badge_icon_url_list[index],          force=True)
-    set_dict_attr(room, "$.owner.fans_club.data.badge.icons." + badge_icons_label_list[index] + ".width",             badge_icon_width_list[index],        force=True)
+    set_dict_attr(room, f"$.owner.fans_club.data.badge.icons.{badge_icons_label_list[index]}.avg_color",         badge_icon_avg_color_list[index],          force=True)
+    set_dict_attr(room, f"$.owner.fans_club.data.badge.icons.{badge_icons_label_list[index]}.flex_setting",      badge_icon_flex_setting_list[index],       force=True)
+    set_dict_attr(room, f"$.owner.fans_club.data.badge.icons.{badge_icons_label_list[index]}.height",            badge_icon_height_list[index],             force=True)
+    set_dict_attr(room, f"$.owner.fans_club.data.badge.icons.{badge_icons_label_list[index]}.image_type",        badge_icon_image_type_list[index],         force=True)
+    set_dict_attr(room, f"$.owner.fans_club.data.badge.icons.{badge_icons_label_list[index]}.is_animated",       bool(badge_icon_is_animated_list[index]),  force=True)
+    set_dict_attr(room, f"$.owner.fans_club.data.badge.icons.{badge_icons_label_list[index]}.open_web_url",      badge_icon_open_web_url_list[index],       force=True)
+    set_dict_attr(room, f"$.owner.fans_club.data.badge.icons.{badge_icons_label_list[index]}.text_setting_list", badge_icon_text_setting_list[index],       force=True)
+    set_dict_attr(room, f"$.owner.fans_club.data.badge.icons.{badge_icons_label_list[index]}.uri",               badge_icon_uri_list[index],                force=True)
+    set_dict_attr(room, f"$.owner.fans_club.data.badge.icons.{badge_icons_label_list[index]}.url_list",          badge_icon_url_list[index],                force=True)
+    set_dict_attr(room, f"$.owner.fans_club.data.badge.icons.{badge_icons_label_list[index]}.width",             badge_icon_width_list[index],              force=True)
   
   
   set_dict_attr(room, "$.owner.fans_club.data.badge.title",           owner_fans_club_tuple.get('title', ''),                            force=True)
