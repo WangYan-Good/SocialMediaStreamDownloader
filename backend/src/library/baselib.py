@@ -33,55 +33,51 @@ def get_dict_attr(source:dict=None, attr:str=None)->any:
   ##
   target = source
   for item in path[1:]:
-    target = target[item]
+    # print(f"target = target.get({item})\ntarget.get({item}) type: {type(target.get(item))}\n{target.get(item)}")
+    target = target.get(item)
   return target
 
 ##
 ## set config dict
 ##
-def set_dict_attr(source:dict=None, attr:str=None, value:any=None):
-  if attr is None or value is None:
-    get_logger().error("Invalid header attribute or value")
-    raise ValueError
-  path = attr.split(sep=".")
+def set_dict_attr(source: dict = None, attr: str = None, value: any = None, force: bool = False):
+    if source is None or attr is None:
+        get_logger().error("Invalid source or attribute")
+        raise ValueError
+    path = attr.split(".")
+    if path[0] != "$":
+        get_logger().error("Attribute path must start with '$'")
+        raise ValueError
 
-  ##
-  ## Check "$"
-  ##
-  if path[0] != "$":
-    raise ValueError
-  
-  
-  target = source
-  ##
-  ## locate the attribute
-  ##
-  for item in path[1:-1]:
-    target = target[item] # target = self._header[a][b][c]
-    if target is None:
-      get_logger().error("Invalid header attribute: {}".format(attr))
-      raise ValueError
-  
-  ##
-  ## set attribute
-  ##
-  target[path[-1]] = value
-  return
+    target = source
+    for key in path[1:-1]:
+        if key not in target or not isinstance(target[key], dict):
+            if force:
+                target[key] = {}
+            else:
+                get_logger().error(f"Missing intermediate key '{key}' in path and force=False")
+                raise KeyError(f"Missing intermediate key '{key}' in path")
+        target = target[key]
+    # target[path[-1]] = value
+    target.update({path[-1]:value})
 
 ##
 ## format output dict
+## TBD
 ##
 def output_dict(source:dict=None, tab:int=1):
   if isinstance(source, dict):
     if len(source) > 1: print()
     for k,v in source.items():
-      get_logger().info("{}{}:".format("\t"*tab,k), end="")
+      # get_logger().info("{}{}:".format("\t"*tab,k))
+      print("{}{}:".format("\t"*tab,k))
       output_dict(v, tab+1)
   elif isinstance(source, list) or isinstance(source, tuple):
     for item in source:
       output_dict(item, tab+1)
   else:
-    get_logger().info("{}".format(source))
+    # get_logger().info("{}".format(source))
+    print("{}{}".format("\t"*tab, source))
 
 ##
 ## save dict as file

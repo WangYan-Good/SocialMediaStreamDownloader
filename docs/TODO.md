@@ -50,3 +50,69 @@
 - ⌛添加动态命令参数控制下载
 - ⌛添加远程下载到指定的服务器位置
 - ⌛添加日志功能
+
+### Bug & Know Issue & Limitation
+
+#### Bug & Know Issue
+1. 数据库结构一致性
+  - [ ] 数据库图片资源表结构 `uri_index` 不一致
+  - PictureTable
+  - PictureUrlTable
+  - PictureContentTable
+  - PictureFlexSettingTable
+  - PictureTextSettingTable
+
+2. 关于图片资源的结构兼容性
+  1. 当前不同记录存在结构不一致情况，需要考虑导入导出时的显示一致性
+      - [ ] `deco_list.[x].nine_patch_image`
+      - [ ] `$.data.room.owner.authentication_info`
+
+3. 导入记录缺失
+    - [x] `$.data.room.deco_list.[x].text_font_config`
+
+```yml
+room:
+  owner:
+    biz_relation:
+      shop_fans_club_reverse: true
+
+room:
+  owner:
+    border:
+      dress_id: '7438838721359254537'
+      icon:
+        avg_color: ''
+        flex_setting_list: []
+        height: 282
+        image_type: 0
+        is_animated: false
+        open_web_url: ''
+        text_setting_list: []
+        uri: webcast/ece2d36c6588da79caa693e5a7ba9555.png
+        url_list:
+        - https://p3-webcast.douyinpic.com/img/webcast/ece2d36c6588da79caa693e5a7ba9555.png~tplv-obj.image
+        - https://p11-webcast.douyinpic.com/img/webcast/ece2d36c6588da79caa693e5a7ba9555.png~tplv-obj.image
+        width: 282
+      level: 0
+      thumb_icon:
+        avg_color: ''
+        flex_setting_list: []
+        height: 282
+        image_type: 0
+        is_animated: false
+        open_web_url: ''
+        text_setting_list: []
+        uri: webcast/3e431cd7af73e47622258b2ffbd9368b.png
+        url_list:
+        - https://p3-webcast.douyinpic.com/img/webcast/3e431cd7af73e47622258b2ffbd9368b.png~tplv-obj.image
+        - https://p11-webcast.douyinpic.com/img/webcast/3e431cd7af73e47622258b2ffbd9368b.png~tplv-obj.image
+        width: 282
+```
+
+4. 针对原始列表，导出时排序不一致问题
+    - [x] `admin_user_ids`
+    - [x] `level_list`
+    - [x] `new_im_icon_with_level`
+    - [x] `new_live_icon`
+
+#### Limitation
