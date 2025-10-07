@@ -1460,6 +1460,9 @@ data
 │   │   ├── 4-10-3. fans_club
 │   │   │   ├── 4-10-3-1. fans_club_available_gift_id
 │   │   │   └── 4-10-3-2. fans_club_badge_icon
+│   │   ├── 4-10-3. own_room
+│   │   │   ├── 4-10-3-1. own_room_id
+│   │   │   └── 4-10-3-2. own_room_id_display
 │   │   ├── 4-10-4. media_badge_image - TBD
 │   │   ├── 4-10-5. new_real_time_icon - TBD
 │   │   ├── 4-10-6. pay_grade_icon
@@ -1468,8 +1471,10 @@ data
 │   │   ├── 4-10-9. room_owner_top_fans - TBD
 │   │   ├── 4-10-10. room_owner_user_attr
 │   │   │   └── 4-10-10-1. room_admin_privilege
-│   │   ├── 4-10-11. room_owner_user_dress_own_id
-│   │   └── 4-10-12. room_owner_dress_wear_id
+│   │   ├── 4-10-11. room_owner_auth_info
+│   │   │   └── 4-10-11-1. room_owner_auth_level
+│   │   ├── 4-10-12. room_owner_user_dress_own_id
+│   │   └── 4-10-14. room_owner_dress_wear_id
 │   ├── 4-11. room_pack_meta
 |   ├── 4-12. room_paid_live_data
 |   ├── 4-13. room_auth
@@ -1899,15 +1904,78 @@ data
 ##
 ## $.data.room.deco_list
 ##
-+------------+-------------------+------+-----+---------+-------+-------------------------+---------------------+
-| Field      | Type              | Null | Key | Default | Extra | Topology                | Comment             |
-+------------+-------------------+------+-----+---------+-------+-------------------------+---------------------+
-| now        | timestamp         | YES  |     |         |       | "$.extra.now"           | 当前时间戳           | 
-| platform   | varchar(20)       |      |     | NULL    |       |           -             | 平台                 | 
-| room_id    | varchar(200)      |      |     |         |       | "$.data.room.id"        | 直播间ID             |
-| deco_index | unsigned tinyint  |      |     |         |       |           -             | 装饰索引号            |  
-| deco       | TBD               |      |     |         |       | "$.data.room.deco_list" | 装饰                 | 
-+------------+-------------------+------+-----+---------+-------+-------------------------+----------------------+
++--------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+---------------------+
+| Field                                | Type              | Null | Key | Default | Extra | Topology                                                           | Comment             |
++--------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+---------------------+
+| start_time                           | timestamp         | YES  |     |         |       | "$.extra.now"                                                      | 当前时间戳           | 
+| platform                             | varchar(20)       |      |     | NULL    |       |           -                                                        | 平台                 | 
+| room_id                              | varchar(200)      |      |     |         |       | "$.data.room.id"                                                   | 直播间ID             |
+| deco_index                           | unsigned tinyint  |      |     |         |       |           -                                                        | 装饰索引号            |  
+| audit_text_color                     | varchar(7)        |      |     |         |       | "$.data.room.deco_list.[x].audit_text_color"                       | 审核文本颜色          | 
+| content                              | tinytext          |      |     |         |       | "$.data.room.deco_list.[x].content"                                | 内容                 | 
+| h                                    | unsigned int      |      |     |         |       | "$.data.room.deco_list.[x].h"                                      | 高度                 | 
+| id                                   | unsigned int      |      |     |         |       | "$.data.room.deco_list.[x].id"                                     | ID                   | 
+| kind                                 | unsigned tinyint  |      |     |         |       | "$.data.room.deco_list.[x].kind"                                   | 种类                 | 
+| max_length                           | unsigned tinyint  |      |     |         |       | "$.data.room.deco_list.[x].max_length"                             | 最大长度             | 
+| status                               | unsigned tinyint  |      |     |         |       | "$.data.room.deco_list.[x].status"                                 | 状态                 |
+| sub_type                             | unsigned tinyint  |      |     |         |       | "$.data.room.deco_list.[x].sub_type"                               | 子类型               |
+| text_color                           | varchar(7)        |      |     |         |       | "$.data.room.deco_list.[x].text_color"                             | 文本颜色             |
+| text_image_adjustable_end_position   | unsigned int      |      |     |         |       | "$.data.room.deco_list.[x].text_image_adjustable_end_position"     | 可调整文本图片结束位置 |
+| text_image_adjustable_start_position | unsigned int      |      |     |         |       | "$.data.room.deco_list.[x].text_image_adjustable_start_position"   | 可调整文本图片开始位置 |
+| text_size                            | unsigned int      |      |     |         |       | "$.data.room.deco_list.[x].text_size"                              | 文本大小              |
+| type                                 | unsigned tinyint  |      |     |         |       | "$.data.room.deco_list.[x].type"                                   | 类型                 |
+| w                                    | unsigned int      |      |     |         |       | "$.data.room.deco_list.[x].w"                                      |                      |
+| x                                    | unsigned int      |      |     |         |       | "$.data.room.deco_list.[x].x"                                      |                      |
+| y                                    | unsigned int      |      |     |         |       | "$.data.room.deco_list.[x].y"                                      |                      |
++--------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+----------------------+
+
+##
+## $.data.room.deco_list.[x].input_rect
+##
++------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+---------------------+
+| Field            | Type              | Null | Key | Default | Extra | Topology                                                           | Comment             |
++------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+---------------------+
+| start_time       | timestamp         |  NO  |     |         |       | "$.extra.now"                                                      | 当前时间戳           | 
+| platform         | varchar(20)       |  NO  |     |         |       |           -                                                        | 平台                 | 
+| room_id          | varchar(200)      |  NO  |     |         |       | "$.data.room.id"                                                   | 直播间ID             |
+| deco_index       | unsigned bigint   |      |     |         |       |           -                                                        | 装饰索引号            |
+| input_rect_index | unsigned bigint   |  NO  | PRI |         |       | -                                                                  | 索引                 |
+| input_rect       | unsigned int      |      |     | NULL    |       | "$.data.room.deco_list.[x].reservation.input_rect"                 |                      |
++------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+----------------------+
+
+##
+## $.data.room.deco_list.[x].reservation
+##
++------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+---------------+
+| Field                  | Type              | Null | Key | Default | Extra | Topology                                                 | Comment       |
++------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+---------------+
+| start_time             | timestamp         |  NO  |     |         |       | "$.extra.now"                                            | 当前时间戳     | 
+| platform               | varchar(20)       |  NO  |     | NULL    |       |           -                                              | 平台           | 
+| room_id                | varchar(200)      |  NO  |     |         |       | "$.data.room.id"                                         | 直播间ID       |
+| deco_index             | unsigned bigint   |      |     |         |       |           -                                              | 装饰索引号      |
+| anchor_id              | varchar(200)      |      |     |         |       | "$.data.room.deco_list.[x].reservation.anchor_id"        | 主播ID         | 
+| anchor_open_id         | varchar(200)      |      |     |         |       | "$.data.room.deco_list.[x].reservation.anchor_open_id"   | 主播开放ID     | 
+| appointment_id         | varchar(200)      |      |     |         |       | "$.data.room.deco_list.[x].reservation.appointment_id"   | 预约ID         | 
+| btn_color              | varchar(7)        |      |     |         |       | "$.data.room.deco_list.[x].reservation.btn_color"        | 按钮颜色       | 
+| reservation_end_time   | timestamp         |      |     |         |       | "$.data.room.deco_list.[x].reservation.end_time"         | 结束时间       | 
+| is_reserved            | bool              |      |     |         |       | "$.data.room.deco_list.[x].reservation.is_reserved"      | 是否保留       | 
+| reservation_room_id    | varchar(200)      |      |     |         |       | "$.data.room.deco_list.[x].reservation.room_id"          | 直播间ID       |
+| reservation_start_time | timestamp         |      |     |         |       | "$.data.room.deco_list.[x].reservation.start_time"       | 开始时间       |
++------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+---------------+
+
+##
+## $.data.room.deco_list.[x].reservation.btn_rect
+##
++----------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+---------------------+
+| Field          | Type              | Null | Key | Default | Extra | Topology                                                           | Comment             |
++----------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+---------------------+
+| start_time     | timestamp         |  NO  |     |         |       | "$.extra.now"                                                      | 当前时间戳           | 
+| platform       | varchar(20)       |  NO  |     | NULL    |       |           -                                                        | 平台                 | 
+| room_id        | varchar(200)      |  NO  |     |         |       | "$.data.room.id"                                                   | 直播间ID             |
+| deco_index     | unsigned bigint   |      |     |         |       |           -                                                        | 装饰索引号            |
+| btn_rect_index | unsigned bigint   |      |     |         |       | -                                                                  | 索引                 |
+| btn_rect       | TBD               |      |     |         |       | "$.data.room.deco_list.[x].reservation.btn_rect"                   |                      |
++----------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+----------------------+
 ```
 
 4-6. 粉丝群管理员ID表 - fans_group_admin_user_id

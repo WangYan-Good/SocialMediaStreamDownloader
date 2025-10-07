@@ -559,16 +559,16 @@ class PictureTable(SocialMediaStreamDataTable):
 ##
   __PICTURE_TABLE_NAME       = "picture"
   __PICTURE_TABLE_HEADER     = ['start_time', 'platform', 'room_id', 'picture_index', 'label', 'avg_color', 'height', 'image_type', 'is_animated', 'open_web_url', 'uri', 'width']
-  __PICTURE_TABLE_PRI_KEY    = ['picture_index']
-  __TABLE_AUTO_INCREMENT     = ['picture_index']
+  __PICTURE_TABLE_PRI_KEY    = ['start_time', 'platform', 'room_id', 'picture_index']
+  __TABLE_AUTO_INCREMENT     = []
   __PICTURE_TABLE_TUPLE      = {item:None for item in __PICTURE_TABLE_HEADER}
   __SQL_CREATE_PICTURE_TABLE = '''
                                CREATE TABLE IF NOT EXISTS {} (
                                  start_time                      timestamp        NOT NULL,
                                  platform                        varchar(20)      NOT NULL,
                                  room_id                         varchar(200)     NOT NULL,
-                                 picture_index                   bigint           NOT NULL AUTO_INCREMENT,
-                                 label                           varchar(50)      DEFAULT NULL,
+                                 picture_index                   bigint           NOT NULL,
+                                 label                           varchar(50)      NOT NULL,
                                  avg_color                       varchar(7)       DEFAULT NULL,
                                  height                          int              DEFAULT NULL,
                                  image_type                      tinyint          DEFAULT NULL,
@@ -576,7 +576,7 @@ class PictureTable(SocialMediaStreamDataTable):
                                  open_web_url                    text             DEFAULT NULL,
                                  uri                             text             DEFAULT NULL,
                                  width                           int              DEFAULT NULL,
-                                 PRIMARY KEY (picture_index)
+                                 PRIMARY KEY (start_time, platform, room_id, label, picture_index)
                                )
                                '''.format(__PICTURE_TABLE_NAME)
   __SQL_DROP_PICTURE_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__PICTURE_TABLE_NAME)
@@ -669,19 +669,19 @@ class PictureFlexSettingTable(SocialMediaStreamDataTable):
 ##
   __PICTURE_FLEX_SETTING_TABLE_NAME       = "picture_flex_setting"
   __PICTURE_FLEX_SETTING_TABLE_HEADER     = ['start_time', 'platform', 'room_id', 'label', 'uri', 'flex_setting_index', 'flex_setting']
-  __PICTURE_FLEX_SETTING_TABLE_PRI_KEY    = ['flex_setting_index']
-  __TABLE_AUTO_INCREMENT                  = ['flex_setting_index']
+  __PICTURE_FLEX_SETTING_TABLE_PRI_KEY    = ['start_time', 'platform', 'room_id', 'label', 'flex_setting_index']
+  __TABLE_AUTO_INCREMENT                  = []
   __PICTURE_FLEX_SETTING_TABLE_TUPLE      = {item:None for item in __PICTURE_FLEX_SETTING_TABLE_HEADER}
   __SQL_CREATE_PICTURE_FLEX_SETTING_TABLE = '''
                                             CREATE TABLE IF NOT EXISTS {} (
                                               start_time                      timestamp        NOT NULL,
                                               platform                        varchar(20)      NOT NULL,
                                               room_id                         varchar(200)     NOT NULL,
-                                              label                           varchar(50)      DEFAULT NULL,
+                                              label                           varchar(50)      NOT NULL,
                                               uri                             text             DEFAULT NULL,
-                                              flex_setting_index              bigint           NOT NULL AUTO_INCREMENT,
+                                              flex_setting_index              bigint           NOT NULL,
                                               flex_setting                    tinytext         DEFAULT NULL,
-                                              PRIMARY KEY (flex_setting_index)
+                                              PRIMARY KEY (start_time, platform, room_id, label, flex_setting_index)
                                             )
                                             '''.format(__PICTURE_FLEX_SETTING_TABLE_NAME)
   __SQL_DROP_PICTURE_FLEX_SETTING_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__PICTURE_FLEX_SETTING_TABLE_NAME)
@@ -774,19 +774,19 @@ class PictureTextSettingTable(SocialMediaStreamDataTable):
 ##
   __PICTURE_TEXT_SETTING_TABLE_NAME       = "picture_text_setting"
   __PICTURE_TEXT_SETTING_TABLE_HEADER     = ['start_time', 'platform', 'room_id', 'label', 'uri', 'text_setting_index', 'text_setting']
-  __PICTURE_TEXT_SETTING_TABLE_PRI_KEY    = ['text_setting_index']
-  __TABLE_AUTO_INCREMENT                  = ['text_setting_index']
+  __PICTURE_TEXT_SETTING_TABLE_PRI_KEY    = ['start_time', 'platform', 'room_id', 'label', 'text_setting_index']
+  __TABLE_AUTO_INCREMENT                  = []
   __PICTURE_TEXT_SETTING_TABLE_TUPLE      = {item:None for item in __PICTURE_TEXT_SETTING_TABLE_HEADER}
   __SQL_CREATE_PICTURE_TEXT_SETTING_TABLE = '''
                                             CREATE TABLE IF NOT EXISTS {} (
                                               start_time                      timestamp        NOT NULL,
                                               platform                        varchar(20)      NOT NULL,
                                               room_id                         varchar(200)     NOT NULL,
-                                              label                           varchar(50)      DEFAULT NULL,
+                                              label                           varchar(50)      NOT NULL,
                                               uri                             text             DEFAULT NULL,
-                                              text_setting_index              bigint           NOT NULL AUTO_INCREMENT,
+                                              text_setting_index              bigint           NOT NULL,
                                               text_setting                    tinytext         DEFAULT NULL,
-                                              PRIMARY KEY (text_setting_index)
+                                              PRIMARY KEY (start_time, platform, room_id, label, text_setting_index)
                                             )
                                             '''.format(__PICTURE_TEXT_SETTING_TABLE_NAME)
   __SQL_DROP_PICTURE_TEXT_SETTING_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__PICTURE_TEXT_SETTING_TABLE_NAME)
@@ -868,6 +868,7 @@ class PictureTextSettingTable(SocialMediaStreamDataTable):
 ## | platform    | varchar(20)      | NO   | PRI |         |       |           -                         | 平台                       |
 ## | room_id     | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                    | 直播间ID                   | 
 ## | label       | varchar(50)      |      |     |         |       | -                                   | 图片标签                   |
+## | uri_index   | unsigned bigint  | NO   | PRI |         |       | -                                   | 图片URI索引                |
 ## | uri         | text             |      |     | NULL    |       | "$.data.room.guide_button.uri"      | 统一资源识别符             |
 ## | url_index   | unsigned bigint  | NO   | PRI |         |       | -                                   | url索引号                 |
 ## | url         | text             |      |     | NULL    |       | "$.data.room.guide_button.url_list" | url                       |
@@ -878,20 +879,21 @@ class PictureUrlTable(SocialMediaStreamDataTable):
 ## >>=============================== attribute ===============================>>
 ##
   __PICTURE_URL_TABLE_NAME       = "picture_url"
-  __PICTURE_URL_TABLE_HEADER     = ['start_time', 'platform', 'room_id', 'label', 'uri', 'url_index', 'url']
-  __PICTURE_URL_TABLE_PRI_KEY    = ['url_index']
-  __TABLE_AUTO_INCREMENT         = ['url_index']
+  __PICTURE_URL_TABLE_HEADER     = ['start_time', 'platform', 'room_id', 'label', 'uri_index', 'uri', 'url_index', 'url']
+  __PICTURE_URL_TABLE_PRI_KEY    = ['start_time', 'platform', 'room_id', 'label', 'uri_index', 'url_index']
+  __TABLE_AUTO_INCREMENT         = []
   __PICTURE_URL_TABLE_TUPLE      = {item:None for item in __PICTURE_URL_TABLE_HEADER}
   __SQL_CREATE_PICTURE_URL_TABLE = '''
                                    CREATE TABLE IF NOT EXISTS {} (
                                      start_time                      timestamp        NOT NULL,
                                      platform                        varchar(20)      NOT NULL,
                                      room_id                         varchar(200)     NOT NULL,
-                                     label                           varchar(50)      DEFAULT NULL,
+                                     label                           varchar(50)      NOT NULL,
+                                     uri_index                       bigint           DEFAULT 0,
                                      uri                             text             DEFAULT NULL,
-                                     url_index                       bigint           NOT NULL AUTO_INCREMENT,
+                                     url_index                       bigint           NOT NULL,
                                      url                             text             DEFAULT NULL,
-                                     PRIMARY KEY (url_index)
+                                     PRIMARY KEY (start_time, platform, room_id, label, uri_index, url_index)
                                    )
                                    '''.format(__PICTURE_URL_TABLE_NAME)
   __SQL_DROP_PICTURE_URL_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__PICTURE_URL_TABLE_NAME)
@@ -1066,6 +1068,124 @@ class PictureContentTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_PICTURE_CONTENT_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
+
+"""
+data
+  room
+    deco_list
+    - xxx
+      text_font_config:
+        DownloadUrl: https://p9-webcast.douyinpic.com/obj/webcast/0628_jlh_test_FZY4JW.TTF
+        FontID: 101
+        Status: 1
+        font_name: FZY4JW--GB1-0
+"""
+##
+## data.room.deco_list.[x].text_foot_config
+##
+## +------------------+-------------------+------+-----+---------+-------+---------------------------------------------------------------+---------------------------+
+## | Field            | Type              | Null | Key | Default | Extra | Topology                                                      | Comment                   |
+## +------------------+-------------------+------+-----+---------+-------+---------------------------------------------------------------+---------------------------+
+## | start_time       | timestamp         | NO   | PRI |         |       | "$.data.room.start_time"                                      | 开始时间                   | 
+## | platform         | varchar(20)       | NO   | PRI |         |       |           -                                                   | 平台                       |
+## | room_id          | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                                              | 直播间ID                   | 
+## | deco_index       | unsigned bigint   | NO   | PRI |         |       |           -                                                   |                           | 
+## | FontID           | varchar(200)      | NO   | PRI |         |       | "$.data.room.deco_list.[x].text_foot_config.FontID"           | 开始时间                   | 
+## | font_name        | varchar(100)      |      |     |         |       | "$.data.room.deco_list.[x].text_foot_config.font_name"        | 平台                       |
+## | Status           | unsigned int      |      |     |         |       | "$.data.room.deco_list.[x].text_foot_config.Status"           | 直播间ID                   | 
+## | DownloadUrl      | text              |      |     |         |       | "$.data.room.deco_list.[x].text_foot_config.DownloadUrl"      | 统一资源识别符索引          |
+## +------------------+-------------------+------+-----+---------+-------+---------------------------------------------------------------+---------------------------+
+##
+class RoomDecoTextFootConfigTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __ROOM_DECO_TEXT_FOOT_CONFIG_TABLE_NAME       = "room_deco_text_foot_config"
+  __ROOM_DECO_TEXT_FOOT_CONFIG_TABLE_HEADER     = ['start_time', 'platform', 'room_id', 'deco_index', 'FontID', 'font_name', 'Status', 'DownloadUrl']
+  __ROOM_DECO_TEXT_FOOT_CONFIG_TABLE_PRI_KEY    = ['start_time', 'platform', 'room_id', 'deco_index', 'FontID']
+  __TABLE_AUTO_INCREMENT                        = []
+  __ROOM_DECO_TEXT_FOOT_CONFIG_TABLE_TUPLE      = {item:None for item in __ROOM_DECO_TEXT_FOOT_CONFIG_TABLE_HEADER}
+  __SQL_CREATE_ROOM_DECO_TEXT_FOOT_CONFIG_TABLE = '''
+                                       CREATE TABLE IF NOT EXISTS {} (
+                                        start_time   timestamp         NOT NULL,
+                                        platform     varchar(20)       NOT NULL,
+                                        room_id      varchar(200)      NOT NULL,
+                                        deco_index   bigint            NOT NULL,
+                                        FontID       varchar(200)      NOT NULL,
+                                        font_name    varchar(100)      DEFAULT NULL,
+                                        Status       int               DEFAULT NULL,
+                                        DownloadUrl  text              DEFAULT NULL,
+                                        PRIMARY KEY (start_time, platform, room_id, deco_index, FontID)
+                                       )
+                                       '''.format(__ROOM_DECO_TEXT_FOOT_CONFIG_TABLE_NAME)
+  __SQL_DROP_ROOM_DECO_TEXT_FOOT_CONFIG_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_DECO_TEXT_FOOT_CONFIG_TABLE_NAME)
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton mode
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__ROOM_DECO_TEXT_FOOT_CONFIG_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__ROOM_DECO_TEXT_FOOT_CONFIG_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__ROOM_DECO_TEXT_FOOT_CONFIG_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__ROOM_DECO_TEXT_FOOT_CONFIG_TABLE_PRI_KEY
+
+  ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_DECO_TEXT_FOOT_CONFIG_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_ROOM_DECO_TEXT_FOOT_CONFIG_TABLE
   
   ##
   ## verify table schema

@@ -25,6 +25,9 @@ from backend.src.database.table.room                                  import   R
                                                                                RoomAdminUserOpenIdTable,                            \
                                                                                RoomAssistLabelTable,                                \
                                                                                RoomDecoTable,                                       \
+                                                                               RoomDecoInputRectTable,                              \
+                                                                               RoomDecoReservationTable,                            \
+                                                                               RoomDecoReservationBtnRectTable,                     \
                                                                                RoomRealtimePlaybackQualityTable,                    \
                                                                                FansGroupAdminUserIdTable,                           \
                                                                                FansGroupAdminUserOpenIdTable,                       \
@@ -62,6 +65,7 @@ from backend.src.database.table.source                                import   B
                                                                                PictureFlexSettingTable,                             \
                                                                                PictureTextSettingTable,                             \
                                                                                PictureUrlTable,                                     \
+                                                                               RoomDecoTextFootConfigTable,                         \
                                                                                PictureContentTable
 from backend.src.database.table.stream                                import   LiveStreamTable,                                     \
                                                                                StreamCandidateResolutionTable,                      \
@@ -73,14 +77,24 @@ from backend.src.database.table.stream                                import   L
                                                                                LiveCoreSdkPullDataOptionTable,                      \
                                                                                LiveCoreSdkPullQualityDataTable,                     \
                                                                                LiveCoreSdkPullDefaultQualityDataTable,              \
-                                                                               StreamPushUrlTable
+                                                                               StreamPushUrlTable,                                  \
+                                                                               RoomLinkMicTable,                                    \
+                                                                               RoomLinkMicBattleScoreTable,                         \
+                                                                               RoomLinkMicBattleSettingTable,                       \
+                                                                               RoomLinkMicChannelInfoTable
 from backend.src.database.table.user                                  import   RoomOwnerTable,                                      \
+                                                                               OwnRoomFlagTable,                                    \
+                                                                               OwnRoomIdTable,                                      \
+                                                                               OwnRoomIdDisplayTable,                               \
                                                                                FansClubTable,                                       \
                                                                                FansClubAvailableGiftIdTable,                        \
                                                                                FansClubBadgeIconTable,                              \
                                                                                RoomOwnerUserAttrTable,                              \
                                                                                RoomAdminPrivilegeTable,                             \
-                                                                               UserTable
+                                                                               RoomOwnerAuthInfoTable,                              \
+                                                                               RoomOwnerAuthLevelTable,                             \
+                                                                               UserTable,                                           \
+                                                                               RoomOwnerAuthorStatsTable
 
 ##
 ## import a living data to relative tables of social media stream downloader.
@@ -181,7 +195,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | status_code                      |
     ## +----------------------------------+
     ##
-    live_record_table_tuple = live_record_table.get_tuple()
+    live_record_table_tuple = {key:None for key in live_record_table.get_tuple()}
 
     now             = dat.fromtimestamp(get_dict_attr(data, "$.extra.now")/1000.0)
     DOUYIN_PLATFORM = "douyin"
@@ -330,7 +344,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | webcast_sdk_version              |
     ## +----------------------------------+
     ##
-    room_attribute_table_tuple = room_attribute_table.get_tuple()
+    room_attribute_table_tuple = {key:None for key in room_attribute_table.get_tuple()}
 
     AnchorABMap                   = get_dict_attr(data, "$.data.room.AnchorABMap")
     acquaintance_status           = get_dict_attr(data, "$.data.room.acquaintance_status")
@@ -579,20 +593,16 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | admin_user_id       |
     ## +---------------------+
     ##
-    room_admin_user_id_table_tuple = room_admin_user_id_table.get_tuple()
-    # now = get_dict_attr(data, "$.extra.now")
-    # DOUYIN_PLATFORM = "douyin"
-    # room_id = get_dict_attr(data, "$.data.room.id")
-    # admin_user_id_index = None
+    room_admin_user_id_table_tuple = {key:None for key in room_admin_user_id_table.get_tuple()}
     admin_user_ids = get_dict_attr(data, "$.data.room.admin_user_ids")
     if len(admin_user_ids) != 0:
-      set_dict_attr(room_admin_user_id_table_tuple, "$.now",      now)
-      set_dict_attr(room_admin_user_id_table_tuple, "$.platform", DOUYIN_PLATFORM)
-      set_dict_attr(room_admin_user_id_table_tuple, "$.room_id",  str(room_id))
+      set_dict_attr(room_admin_user_id_table_tuple, "$.start_time",      dat.fromtimestamp(start_time))
+      set_dict_attr(room_admin_user_id_table_tuple, "$.platform",        DOUYIN_PLATFORM)
+      set_dict_attr(room_admin_user_id_table_tuple, "$.room_id",         str(room_id))
   
-      for admin_user_id in admin_user_ids:
-        # admin_user_id_index auto increment
-        set_dict_attr(room_admin_user_id_table_tuple, "$.admin_user_id", str(admin_user_id))
+      for admin_user_id_index in range(0, len(admin_user_ids)):
+        set_dict_attr(room_admin_user_id_table_tuple, "$.admin_user_id_index", admin_user_id_index)
+        set_dict_attr(room_admin_user_id_table_tuple, "$.admin_user_id",       str(admin_user_ids[admin_user_id_index]))
 
         room_admin_user_id_table.insert_record(room_admin_user_id_table_tuple, on_duplicate='ignore')
   except Exception as e:
@@ -620,7 +630,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | admin_user_open_id    |
     ## +-----------------------+  
     ##
-    room_admin_user_open_id_table_tuple = room_admin_user_open_id_table.get_tuple()
+    room_admin_user_open_id_table_tuple = {key:None for key in room_admin_user_open_id_table.get_tuple()}
     admin_user_open_ids = get_dict_attr(data, "$.data.room.admin_user_open_ids")
     if len(admin_user_open_ids) != 0:
       set_dict_attr(room_admin_user_open_id_table_tuple, "$.now",      now)
@@ -654,7 +664,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ##
     get_logger().warning("{} TBD".format(room_assist_label_table.get_name()))
     '''
-    room_assist_label_table_tuple = room_assist_label_table.get_tuple()
+    room_assist_label_table_tuple = {key:None for key in room_assist_label_table.get_tuple()}
     # now = get_dict_attr(data, "$.extra.now")
     # DOUYIN_PLATFORM = "douyin"
     # room_id = get_dict_attr(data, "$.data.room.id")
@@ -683,55 +693,254 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     get_logger().error("insert {} failed: {}".format(room_assist_label_table.get_name(), e))
     raise e
 
+  """
   ##
   ## RoomDecoTable
-  ## TBD
   ##
   room_deco_table = RoomDecoTable(db)
-  try:
-    ##
-    ## +------------+
-    ## | Field      |
-    ## +------------+
-    ## | now        |
-    ## | platform   |
-    ## | room_id    |
-    ## | deco_index |
-    ## | deco       |
-    ## +------------+
-    ##
-    get_logger().warning("{} TBD".format(room_deco_table.get_name()))
-    '''
-    room_deco_table_tuple = room_deco_table.get_tuple()
-    # now = get_dict_attr(data, "$.extra.now")
-    # DOUYIN_PLATFORM = "douyin"
-    # room_id = get_dict_attr(data, "$.data.room.id")
-    # deco_index auto increment
-    deco_list = get_dict_attr(data, "$.data.room.deco_list")
-    if deco_list is None:
-      get_logger().warning("none found in deco list")
-      return    
-    
-    set_dict_attr(room_deco_table_tuple, "$.now",      now)
-    set_dict_attr(room_deco_table_tuple, "$.platform", DOUYIN_PLATFORM)
-    set_dict_attr(room_deco_table_tuple, "$.room_id",  str(room_id))
-    for deco in deco_list:
-      # deco_index auto increment
-      set_dict_attr(room_deco_table_tuple, "$.deco", deco)
 
-      ##
-      ## 1. check is the table is exist
-      ## 2. if not exist, create it
-      ## 3. insert the record
-      ##
-      if db.is_table_exist(room_deco_table.get_name()) is False:
-        room_deco_table.create()
-      room_deco_table.insert_record(room_deco_table_tuple, on_duplicate='ignore')
-    '''
-  except Exception as e:
-    get_logger().error("insert {} failed: {}".format(room_deco_table.get_name(), e))
-    raise e
+  ##
+  ## RoomDecoInputRectTable
+  ##
+  room_deco_input_rect_table = RoomDecoInputRectTable(db)
+
+  ##
+  ## RoomDecoReservationTable
+  ##
+  room_deco_reservation_table = RoomDecoReservationTable(db)
   
+  ##
+  ## TODO
+  ## RoomDecoReservationBtnRectTable
+  ##
+  """
+  room_deco_reservation_btn_rect_table = RoomDecoReservationBtnRectTable(db)
+  """  
+
+  ##
+  ## RoomDecoTextFootConfigTable
+  ##
+  room_deco_text_foot_config_table = RoomDecoTextFootConfigTable(db)
+  
+  ##
+  ## TODO
+  ## RoomDecoTextSpecialEffectsTable
+  ##
+  """
+  room_deco_text_special_effect_table = RoomDecoTextSpecialEffectsTable(db)
+  """
+  
+  deco_list = get_dict_attr(data, "$.data.room.deco_list")
+  if deco_list is not None:
+      for deco_index in range(0, len(deco_list)):
+        try:
+          ##
+          ## create the table if not exist
+          ##
+          if db.is_table_exist(room_deco_table.get_name()) is False:
+            room_deco_table.create()
+          ##
+          ## +--------------------------------------+
+          ## | Field                                |
+          ## +--------------------------------------+
+          ## | start_time                           |
+          ## | platform                             |
+          ## | room_id                              |
+          ## | deco_index                           |
+          ## | audit_text_color                     |
+          ## | content                              |
+          ## | h                                    |
+          ## | id                                   |
+          ## | kind                                 |
+          ## | max_length                           |
+          ## | status                               |
+          ## | sub_type                             |
+          ## | text_color                           |
+          ## | text_image_adjustable_end_position   |
+          ## | text_image_adjustable_start_position |
+          ## | text_size                            |
+          ## | type                                 |
+          ## | w                                    |
+          ## | x                                    |
+          ## | y                                    |
+          ## +--------------------------------------+
+          ##
+          room_deco_table_tuple = {key:None for key in room_deco_table.get_tuple()}
+          set_dict_attr(room_deco_table_tuple, "$.start_time",                           dat.fromtimestamp(start_time))
+          set_dict_attr(room_deco_table_tuple, "$.platform",                             DOUYIN_PLATFORM)
+          set_dict_attr(room_deco_table_tuple, "$.room_id",                              str(room_id))
+          set_dict_attr(room_deco_table_tuple, "$.deco_index",                           deco_index)
+          set_dict_attr(room_deco_table_tuple, "$.audit_text_color",                     get_dict_attr(deco_list[deco_index], "$.audit_text_color"))
+          set_dict_attr(room_deco_table_tuple, "$.content",                              get_dict_attr(deco_list[deco_index], "$.content"))
+          set_dict_attr(room_deco_table_tuple, "$.h",                                    get_dict_attr(deco_list[deco_index], "$.h"))
+          set_dict_attr(room_deco_table_tuple, "$.id",                                   get_dict_attr(deco_list[deco_index], "$.id"))
+          set_dict_attr(room_deco_table_tuple, "$.kind",                                 get_dict_attr(deco_list[deco_index], "$.kind"))
+          set_dict_attr(room_deco_table_tuple, "$.max_length",                           get_dict_attr(deco_list[deco_index], "$.max_length"))
+          set_dict_attr(room_deco_table_tuple, "$.status",                               get_dict_attr(deco_list[deco_index], "$.status"))
+          set_dict_attr(room_deco_table_tuple, "$.sub_type",                             get_dict_attr(deco_list[deco_index], "$.sub_type"))
+          set_dict_attr(room_deco_table_tuple, "$.text_color",                           get_dict_attr(deco_list[deco_index], "$.text_color"))
+          set_dict_attr(room_deco_table_tuple, "$.text_image_adjustable_end_position",   get_dict_attr(deco_list[deco_index], "$.text_image_adjustable_end_position"))
+          set_dict_attr(room_deco_table_tuple, "$.text_image_adjustable_start_position", get_dict_attr(deco_list[deco_index], "$.text_image_adjustable_start_position"))
+          set_dict_attr(room_deco_table_tuple, "$.text_size",                            get_dict_attr(deco_list[deco_index], "$.text_size"))
+          set_dict_attr(room_deco_table_tuple, "$.type",                                 get_dict_attr(deco_list[deco_index], "$.type"))
+          set_dict_attr(room_deco_table_tuple, "$.w",                                    get_dict_attr(deco_list[deco_index], "$.w"))
+          set_dict_attr(room_deco_table_tuple, "$.x",                                    get_dict_attr(deco_list[deco_index], "$.x"))
+          set_dict_attr(room_deco_table_tuple, "$.y",                                    get_dict_attr(deco_list[deco_index], "$.y"))
+  
+          room_deco_table.insert_record(room_deco_table_tuple, on_duplicate='ignore')
+        except Exception as e:
+          get_logger().error("insert {} failed: {}".format(room_deco_table.get_name(), e))
+          raise e
+
+        try:
+          input_rect_list = get_dict_attr(deco_list[deco_index], "$.input_rect")
+          ##
+          ## create the table if not exist
+          ##
+          if db.is_table_exist(room_deco_input_rect_table.get_name()) is False:
+            room_deco_input_rect_table.create()
+          ##
+          ## +------------------+
+          ## | Field            |
+          ## +------------------+
+          ## | start_time       |
+          ## | platform         |
+          ## | room_id          |
+          ## | deco_index       |
+          ## | input_rect_index |
+          ## | input_rect       |
+          ## +------------------+
+          ##
+          room_deco_input_rect_tuple = {key:None for key in room_deco_input_rect_table.get_tuple()}
+          set_dict_attr(room_deco_input_rect_tuple, "$.start_time",                           dat.fromtimestamp(start_time))
+          set_dict_attr(room_deco_input_rect_tuple, "$.platform",                             DOUYIN_PLATFORM)
+          set_dict_attr(room_deco_input_rect_tuple, "$.room_id",                              str(room_id))
+          set_dict_attr(room_deco_input_rect_tuple, "$.deco_index",                           deco_index)
+          for input_rect_index in range(0, len(input_rect_list)):
+            set_dict_attr(room_deco_input_rect_tuple, "$.input_rect_index",                   input_rect_index)
+            set_dict_attr(room_deco_input_rect_tuple, "$.input_rect",                         input_rect_list[input_rect_index])
+            room_deco_input_rect_table.insert_record(room_deco_input_rect_tuple, on_duplicate='ignore')          
+        except Exception as e:
+          get_logger().error("insert {} failed: {}".format(room_deco_input_rect_table.get_name(), e))
+          raise e
+        
+        try:
+          reservation = get_dict_attr(deco_list[deco_index], "$.reservation")
+          ##
+          ## create the table if not exist
+          ##
+          if db.is_table_exist(room_deco_reservation_table.get_name()) is False:
+            room_deco_reservation_table.create()
+          ##
+          ## +------------------------+
+          ## | Field                  |
+          ## +------------------------+
+          ## | start_time             |
+          ## | platform               |
+          ## | room_id                |
+          ## | deco_index             |
+          ## | anchor_id              |
+          ## | anchor_open_id         |
+          ## | appointment_id         |
+          ## | btn_color              |
+          ## | reservation_end_time   |
+          ## | is_reserved            |
+          ## | reservation_room_id    |
+          ## | reservation_start_time |
+          ## +------------------------+
+          ##
+          room_deco_reservation_tuple = {key:None for key in room_deco_reservation_table.get_tuple()}
+          set_dict_attr(room_deco_reservation_tuple, "$.start_time",             dat.fromtimestamp(start_time))
+          set_dict_attr(room_deco_reservation_tuple, "$.platform",               DOUYIN_PLATFORM)
+          set_dict_attr(room_deco_reservation_tuple, "$.room_id",                str(room_id))
+          set_dict_attr(room_deco_reservation_tuple, "$.deco_index",             deco_index)
+          set_dict_attr(room_deco_reservation_tuple, "$.anchor_id",              get_dict_attr(reservation, "$.anchor_id"))
+          set_dict_attr(room_deco_reservation_tuple, "$.anchor_open_id",         get_dict_attr(reservation, "$.anchor_open_id"))
+          set_dict_attr(room_deco_reservation_tuple, "$.appointment_id",         get_dict_attr(reservation, "$.appointment_id"))
+          set_dict_attr(room_deco_reservation_tuple, "$.btn_color",              get_dict_attr(reservation, "$.btn_color"))
+          if get_dict_attr(reservation, "$.end_time") != 0:
+            set_dict_attr(room_deco_reservation_tuple, "$.reservation_end_time",   get_dict_attr(reservation, "$.end_time"))
+          set_dict_attr(room_deco_reservation_tuple, "$.is_reserved",            get_dict_attr(reservation, "$.is_reserved"))
+          set_dict_attr(room_deco_reservation_tuple, "$.reservation_room_id",    get_dict_attr(reservation, "$.room_id"))
+          if get_dict_attr(reservation, "$.start_time") != 0:
+            set_dict_attr(room_deco_reservation_tuple, "$.reservation_start_time", get_dict_attr(reservation, "$.start_time"))
+          room_deco_reservation_table.insert_record(room_deco_reservation_tuple, on_duplicate='ignore')
+        except Exception as e:
+          get_logger().error("insert {} failed: {}".format(room_deco_reservation_table.get_name(), e))
+          raise e
+        
+        ##
+        ## TODO
+        ## RoomDecoReservationBtnRectTable
+        ##
+        try:
+          """
+          btn_rect = get_dict_attr(reservation, "$.btn_rect")
+          """
+          pass
+        except Exception as e:
+          # get_logger().error("insert {} failed: {}".format(room_deco_reservation_table.get_name(), e))
+          raise e
+
+        ##
+        ##
+        ##
+        try:
+          ##
+          ## create the table if not exist
+          ##
+          if db.is_table_exist(room_deco_text_foot_config_table.get_name()) is False:
+            room_deco_text_foot_config_table.create()
+          ##
+          ## +------------------+
+          ## | Field            |
+          ## +------------------+
+          ## | start_time       |
+          ## | platform         |
+          ## | room_id          |
+          ## | deco_index       |
+          ## | FontID           |
+          ## | font_name        |
+          ## | Status           |
+          ## | DownloadUrl      |
+          ## +------------------+
+          ##
+          text_font_config = get_dict_attr(deco_list[deco_index], "$.text_font_config")
+          if text_font_config is not None:
+            room_deco_text_foot_config_tuple = {key:None for key in room_deco_text_foot_config_table.get_tuple()}
+            set_dict_attr(room_deco_text_foot_config_tuple, "$.start_time",             dat.fromtimestamp(start_time))
+            set_dict_attr(room_deco_text_foot_config_tuple, "$.platform",               DOUYIN_PLATFORM)
+            set_dict_attr(room_deco_text_foot_config_tuple, "$.room_id",                str(room_id))
+            set_dict_attr(room_deco_text_foot_config_tuple, "$.deco_index",             deco_index)
+            
+            FontID      = get_dict_attr(text_font_config, "$.FontID")
+            font_name   = get_dict_attr(text_font_config, "$.font_name")
+            Status      = get_dict_attr(text_font_config, "$.Status")
+            DownloadUrl = get_dict_attr(text_font_config, "$.DownloadUrl")
+            
+            set_dict_attr(room_deco_text_foot_config_tuple, "$.FontID",                 FontID)
+            set_dict_attr(room_deco_text_foot_config_tuple, "$.font_name",              font_name)
+            set_dict_attr(room_deco_text_foot_config_tuple, "$.Status",                 Status)
+            set_dict_attr(room_deco_text_foot_config_tuple, "$.DownloadUrl",            DownloadUrl)
+            
+            room_deco_text_foot_config_table.insert_record(room_deco_text_foot_config_tuple, on_duplicate='ignore')
+        except Exception as e:
+          get_logger().error("insert {} failed: {}".format(room_deco_reservation_table.get_name(), e))
+          raise e
+
+        ##
+        ## TODO
+        ## RoomDecoTextSpecialEffectsTable
+        ##
+        try:
+          """
+          text_special_effects = get_dict_attr(deco_list[deco_index], "$.text_special_effects")
+          """
+          pass
+        except Exception as e:
+          # get_logger().error("insert {} failed: {}".format(room_deco_reservation_table.get_name(), e))
+          raise e
+  """
   ##
   ## RoomRealtimePlaybackQualityTable
   ## TBD
@@ -764,7 +973,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | fans_group_admin_user_id       |
     ## +--------------------------------+
     ##
-    fans_group_admin_user_id_table_tuple = fans_group_admin_user_id_table.get_tuple()
+    fans_group_admin_user_id_table_tuple = {key:None for key in fans_group_admin_user_id_table.get_tuple()}
 
     fans_group_admin_user_ids = get_dict_attr(data, "$.data.room.fans_group_admin_user_ids")
     if len(fans_group_admin_user_ids) != 0:
@@ -801,7 +1010,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | fans_group_admin_user_open_id       |
     ## +-------------------------------------+
     ##
-    fans_group_admin_user_open_id_table_tuple = fans_group_admin_user_open_id_table.get_tuple()
+    fans_group_admin_user_open_id_table_tuple = {key:None for key in fans_group_admin_user_open_id_table.get_tuple()}
     fans_group_admin_user_open_id_list = get_dict_attr(data, "$.data.room.fans_group_admin_user_open_ids")
     if len(fans_group_admin_user_open_id_list) != 0:
       set_dict_attr(fans_group_admin_user_open_id_table_tuple, "$.now",      now)
@@ -974,7 +1183,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | with_fusion_shop_entry                   |
     ## +------------------------------------------+
     ##
-    room_owner_table_tuple = room_owner_table.get_tuple()
+    room_owner_table_tuple = {key:None for key in room_owner_table.get_tuple()}
     owner_user_id                            = get_dict_attr(data, "$.data.room.owner_user_id")
     adversary_authorization_info             = get_dict_attr(data, "$.data.room.owner.adversary_authorization_info")
     adversary_user_status                    = get_dict_attr(data, "$.data.room.owner.adversary_user_status")
@@ -1007,7 +1216,15 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     exp                                      = get_dict_attr(data, "$.data.room.owner.exp")
     experience                               = get_dict_attr(data, "$.data.room.owner.experience")
     fan_ticket_count                         = get_dict_attr(data, "$.data.room.owner.fan_ticket_count")
-    list_fans_group_url                      = get_dict_attr(data, "$.data.room.owner.fans_group_info.list_fans_group_url")
+    ##
+    ## 针对已经注销的账号
+    ## TODO：判断账号状态
+    ##
+    try:
+      list_fans_group_url                      = get_dict_attr(data, "$.data.room.owner.fans_group_info.list_fans_group_url")
+    except AttributeError as e:
+      list_fans_group_url = ''
+      get_logger().error(f"{e}")
     fold_stranger_chat                       = get_dict_attr(data, "$.data.room.owner.fold_stranger_chat")
     follow_info_follow_status                = get_dict_attr(data, "$.data.room.owner.follow_info.follow_status")
     follower_count                           = get_dict_attr(data, "$.data.room.owner.follow_info.follower_count")
@@ -1218,6 +1435,51 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     get_logger().error("insert {} failed: {}".format(room_owner_table.get_name(), e))
     raise e
 
+  ##
+  ## data.room.owner.author_stats
+  ## RoomOwnerAuthorStatsTable
+  ##
+  room_owner_author_stats_table = RoomOwnerAuthorStatsTable(db)
+  try:
+    ##
+    ## create the table if not exist
+    ##
+    if db.is_table_exist(room_owner_author_stats_table.get_name()) is False:
+      room_owner_author_stats_table.create()
+    ##
+    ## +----------------------------+
+    ## | Field                      |
+    ## +----------------------------+
+    ## | start_time                 |
+    ## | platform                   |
+    ## | room_id                    |
+    ## | owner_user_id              |
+    ## | variety_show_play_count    |
+    ## | video_total_count          |
+    ## | video_total_favorite_count |
+    ## | video_total_play_count     |
+    ## | video_total_series_count   |
+    ## | video_total_share_count    |
+    ## +----------------------------+
+    ##
+    author_stats = get_dict_attr(data, "$.data.room.owner.author_stats")
+    if author_stats:
+      room_owner_author_stats_tuple = {key:None for key in room_owner_author_stats_table.get_tuple()}
+      set_dict_attr(room_owner_author_stats_tuple, "$.start_time",                  dat.fromtimestamp(start_time))
+      set_dict_attr(room_owner_author_stats_tuple, "$.platform",                    DOUYIN_PLATFORM)
+      set_dict_attr(room_owner_author_stats_tuple, "$.room_id",                     str(room_id))
+      set_dict_attr(room_owner_author_stats_tuple, "$.owner_user_id",               str(owner_user_id))
+      set_dict_attr(room_owner_author_stats_tuple, "$.variety_show_play_count",     get_dict_attr(author_stats, "$.variety_show_play_count"))
+      set_dict_attr(room_owner_author_stats_tuple, "$.video_total_count",           get_dict_attr(author_stats, "$.video_total_count"))
+      set_dict_attr(room_owner_author_stats_tuple, "$.video_total_favorite_count",  get_dict_attr(author_stats, "$.video_total_favorite_count"))
+      set_dict_attr(room_owner_author_stats_tuple, "$.video_total_play_count",      get_dict_attr(author_stats, "$.video_total_play_count"))
+      set_dict_attr(room_owner_author_stats_tuple, "$.video_total_series_count",    get_dict_attr(author_stats, "$.video_total_series_count"))
+      set_dict_attr(room_owner_author_stats_tuple, "$.video_total_share_count",     get_dict_attr(author_stats, "$.video_total_share_count"))
+      room_owner_author_stats_table.insert_record(room_owner_author_stats_tuple, on_duplicate='ignore')
+  except Exception as e:
+    get_logger().error("insert {} failed: {}".format(room_owner_author_stats_table.get_name(), e))
+    raise e
+  
   """
   ##
   ## BadgeImageTable
@@ -1234,7 +1496,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | uri               |
     ## +-------------------+
     ##
-    badge_image_table_tuple = badge_image_table.get_tuple()
+    badge_image_table_tuple = {key:None for key in badge_image_table.get_tuple()}
     # badge_image_index auto increment
     # TODO: label
     uri     = get_dict_attr(data, "$.data.room.badge_image.uri")
@@ -1263,6 +1525,127 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     get_logger().error("insert {} failed: {}".format(commerce_webcast_config_id_table.get_name(), e))
     raise e
   """
+
+  ##
+  ## OwnRoomFlagTable
+  ##
+  own_room_flag_table = OwnRoomFlagTable(db)
+  try:
+    ##
+    ## create the table if not exist
+    ##
+    if db.is_table_exist(own_room_flag_table.get_name()) is False:
+      own_room_flag_table.create()
+    ##
+    ## +-----------------------+
+    ## | Field                 |
+    ## +-----------------------+
+    ## | start_time            |
+    ## | platform              |
+    ## | owner_user_id         |
+    ## | exist_flag_index      |
+    ## | exist_flag            |
+    ## +-----------------------+
+    ##
+    own_room_flag_tuple = {key:None for key in own_room_flag_table.get_tuple()}
+
+    try:
+      own_room_dict = get_dict_attr(data, "$.data.room.owner.own_room")
+      if own_room_dict is not None:
+        exist_flag = True
+      else:
+        exist_flag = False
+    except AttributeError as e:
+      get_logger().error(f"{e}: {own_room_flag_table.get_name()} get exist_flag fail, set FALSE as default!")
+      exist_flag = False
+    
+    set_dict_attr(own_room_flag_tuple, "$.start_time",     dat.fromtimestamp(start_time))
+    set_dict_attr(own_room_flag_tuple, "$.platform",       DOUYIN_PLATFORM)
+    set_dict_attr(own_room_flag_tuple, "$.owner_user_id",  str(owner_user_id))
+    set_dict_attr(own_room_flag_tuple, "$.exist_flag",     exist_flag)
+
+    own_room_flag_table.insert_record(own_room_flag_tuple, on_duplicate='ignore')
+  except Exception as e:
+    get_logger().error("insert {} failed: {}".format(own_room_flag_table.get_name(), e))
+    raise e
+
+  if exist_flag is True:
+    ##
+    ## OwnRoomIdTable
+    ##
+    own_room_id_table = OwnRoomIdTable(db)
+    try:
+      ##
+      ## create the table if not exist
+      ##
+      if db.is_table_exist(own_room_id_table.get_name()) is False:
+        own_room_id_table.create()
+      ##
+      ## +-----------------------+
+      ## | Field                 |
+      ## +-----------------------+
+      ## | start_time            |
+      ## | platform              |
+      ## | owner_user_id         |
+      ## | room_id_index         |
+      ## | room_id               |
+      ## +-----------------------+
+      ##
+      own_room_id_tuple = {key:None for key in own_room_id_table.get_tuple()}
+  
+      own_room_id_list = get_dict_attr(data, "$.data.room.owner.own_room.room_ids")
+      if len(own_room_id_list) != 0:
+        set_dict_attr(own_room_id_tuple, "$.start_time",     dat.fromtimestamp(start_time))
+        set_dict_attr(own_room_id_tuple, "$.platform",       DOUYIN_PLATFORM)
+        set_dict_attr(own_room_id_tuple, "$.owner_user_id",  str(owner_user_id))
+        for room_id_index in range(0, len(own_room_id_list)):
+          # room_id_index auto increment
+          set_dict_attr(own_room_id_tuple, "$.room_id_index",room_id_index)
+          set_dict_attr(own_room_id_tuple, "$.room_id",      str(own_room_id_list[room_id_index]))
+          own_room_id_table.insert_record(own_room_id_tuple, on_duplicate='ignore')
+    except Exception as e:
+      get_logger().error("insert {} failed: {}".format(own_room_id_table.get_name(), e))
+      raise e
+  
+    ##
+    ## TODO
+    ## OwnRoomIdDisplayTable
+    ##
+    """
+    own_room_id_display_table = OwnRoomIdDisplayTable(db)
+    try:
+      ##
+      ## create the table if not exist
+      ##
+      if db.is_table_exist(own_room_id_display_table.get_name()) is False:
+        own_room_id_display_table.create()
+      ##
+      ## +-----------------------+
+      ## | Field                 |
+      ## +-----------------------+
+      ## | now                   |
+      ## | platform              |
+      ## | owner_user_id         |
+      ## | room_id_index         |
+      ## | room_id               |
+      ## +-----------------------+
+      ##
+      own_room_id_tuple = {key:None for key in own_room_id_display_table.get_tuple()}
+      
+      own_room_id_list = get_dict_attr(data, "$.data.room.owner.own_room.room_ids")
+      if len(own_room_id_list) != 0:
+        set_dict_attr(own_room_id_tuple, "$.now",            now)
+        set_dict_attr(own_room_id_tuple, "$.platform",       DOUYIN_PLATFORM)
+        set_dict_attr(own_room_id_tuple, "$.owner_user_id",  str(owner_user_id))
+        for room_id in own_room_id_list:
+          # room_id_index auto increment
+          set_dict_attr(own_room_id_tuple, "$.room_id",      str(room_id))
+          own_room_id_display_table.insert_record(own_room_id_tuple, on_duplicate='ignore')    
+    except Exception as e:
+      get_logger().error("insert {} failed: {}".format(own_room_id_display_table.get_name(), e))
+      raise e
+    """
+
   ##
   ## FansClubTable
   ##
@@ -1294,7 +1677,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | prefer_data           |
     ## +-----------------------+
     ##
-    fans_club_table_tuple = fans_club_table.get_tuple()
+    fans_club_table_tuple = {key:None for key in fans_club_table.get_tuple()}
     owner_user_id          = get_dict_attr(data, "$.data.room.owner_user_id")
     anchor_id              = get_dict_attr(data, "$.data.room.owner.fans_club.data.anchor_id")
     anchor_open_id         = get_dict_attr(data, "$.data.room.owner.fans_club.data.anchor_open_id")
@@ -1316,7 +1699,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     set_dict_attr(fans_club_table_tuple, "$.badge_type",                               badge_type)
     set_dict_attr(fans_club_table_tuple, "$.badge_title",                              badge_title)
     set_dict_attr(fans_club_table_tuple, "$.club_name",                                club_name)
-    if guard_expired_time != 0:
+    if guard_expired_time != None and guard_expired_time != 0:
       set_dict_attr(fans_club_table_tuple, "$.guard_expired_time",                       dat.fromtimestamp(guard_expired_time))
     set_dict_attr(fans_club_table_tuple, "$.level",                                    level)
     set_dict_attr(fans_club_table_tuple, "$.user_fans_club_status",                    user_fans_club_status)
@@ -1352,22 +1735,19 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | available_gift_id    |
     ## +----------------------+
     ##
-    fans_club_available_gift_id_table_tuple = fans_club_available_gift_id_table.get_tuple()
-    # now = get_dict_attr(data, "$.extra.now")
-    # DOUYIN_PLATFORM = "douyin"
-    # room_id = get_dict_attr(data, "$.data.room.id")
+    fans_club_available_gift_id_table_tuple = {key:None for key in fans_club_available_gift_id_table.get_tuple()}
     owner_user_id          = get_dict_attr(data, "$.data.room.owner_user_id")
     anchor_id              = get_dict_attr(data, "$.data.room.owner.fans_club.data.anchor_id")
     available_gift_ids     = get_dict_attr(data, "$.data.room.owner.fans_club.data.available_gift_ids")
     if len(available_gift_ids) != 0:
-      set_dict_attr(fans_club_available_gift_id_table_tuple, "$.now",                                      now)
-      set_dict_attr(fans_club_available_gift_id_table_tuple, "$.platform",                                 DOUYIN_PLATFORM)
-      set_dict_attr(fans_club_available_gift_id_table_tuple, "$.room_id",                                  str(room_id))
-      set_dict_attr(fans_club_available_gift_id_table_tuple, "$.owner_user_id",                            str(owner_user_id))
-      set_dict_attr(fans_club_available_gift_id_table_tuple, "$.anchor_id",                                str(anchor_id))
-      for available_gift_id in available_gift_ids:
-        # available_gift_index auto increment
-        set_dict_attr(fans_club_available_gift_id_table_tuple, "$.available_gift_id",                      str(available_gift_id))
+      set_dict_attr(fans_club_available_gift_id_table_tuple, "$.now",           now)
+      set_dict_attr(fans_club_available_gift_id_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+      set_dict_attr(fans_club_available_gift_id_table_tuple, "$.room_id",       str(room_id))
+      set_dict_attr(fans_club_available_gift_id_table_tuple, "$.owner_user_id", str(owner_user_id))
+      set_dict_attr(fans_club_available_gift_id_table_tuple, "$.anchor_id",     str(anchor_id))
+      for available_gift_id_index in range(0, len(available_gift_ids)):
+        set_dict_attr(fans_club_available_gift_id_table_tuple, "$.available_gift_id_index", available_gift_id_index)
+        set_dict_attr(fans_club_available_gift_id_table_tuple, "$.available_gift_id",       str(available_gift_ids[available_gift_id_index]))
 
         fans_club_available_gift_id_table.insert_record(fans_club_available_gift_id_table_tuple, on_duplicate='ignore')
   except Exception as e:
@@ -1393,7 +1773,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | icon_uri      |
     ## +---------------+
     ##
-    fans_club_badge_icon_table_tuple = fans_club_badge_icon_table.get_tuple()
+    fans_club_badge_icon_table_tuple = {key:None for key in fans_club_badge_icon_table.get_tuple()}
     # now = get_dict_attr(data, "$.extra.now")
     # DOUYIN_PLATFORM = "douyin"
     # room_id = get_dict_attr(data, "$.data.room.id")
@@ -1458,7 +1838,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | pay_grade_icon       |
     ## +----------------------+
     ##
-    pay_grade_icon_table_tuple = pay_grade_icon_table.get_tuple()
+    pay_grade_icon_table_tuple = {key:None for key in pay_grade_icon_table.get_tuple()}
     # now = get_dict_attr(data, "$.extra.now")
     # DOUYIN_PLATFORM = "douyin"
     # room_id = get_dict_attr(data, "$.data.room.id")
@@ -1520,7 +1900,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | open          |
     ## +---------------+
     ##
-    room_subscribe_table_tuple = room_subscribe_table.get_tuple()
+    room_subscribe_table_tuple = {key:None for key in room_subscribe_table.get_tuple()}
     owner_user_id     = get_dict_attr(data, "$.data.room.owner_user_id")
     buy_type          = get_dict_attr(data, "$.data.room.owner.subscribe.buy_type")
     identity_type     = get_dict_attr(data, "$.data.room.owner.subscribe.identity_type")
@@ -1579,7 +1959,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | is_super_admin |
     ## +----------------+
     ##
-    room_owner_user_attr_table_tuple = room_owner_user_attr_table.get_tuple()
+    room_owner_user_attr_table_tuple = {key:None for key in room_owner_user_attr_table.get_tuple()}
     owner_user_id     = get_dict_attr(data, "$.data.room.owner_user_id")
     is_admin          = get_dict_attr(data, "$.data.room.owner.user_attr.is_admin")
     is_muted          = get_dict_attr(data, "$.data.room.owner.user_attr.is_muted")
@@ -1620,7 +2000,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | admin_privilege       |
     ## +-----------------------+
     ##
-    room_admin_privilege_table_tuple = room_admin_privilege_table.get_tuple()
+    room_admin_privilege_table_tuple = {key:None for key in room_admin_privilege_table.get_tuple()}
     owner_user_id     = get_dict_attr(data, "$.data.room.owner_user_id")
     # admin_privilege_index auto increment
     admin_privileges  = get_dict_attr(data, "$.data.room.owner.user_attr.admin_privileges")
@@ -1637,6 +2017,144 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_admin_privilege_table.get_name(), e))
     raise e
+
+  ##
+  ## RoomOwnerAuthorStatsTable
+  ##
+  room_owner_author_stats_table = RoomOwnerAuthorStatsTable(db)
+  try:
+    ##
+    ## create the table if not exist
+    ##
+    if db.is_table_exist(room_owner_author_stats_table.get_name()) is False:
+      room_owner_author_stats_table.create()
+      ##
+      ## +----------------------------+
+      ## | Field                      |
+      ## +----------------------------+
+      ## | start_time                 |
+      ## | platform                   |
+      ## | room_id                    |
+      ## | owner_user_id              |
+      ## | variety_show_play_count    |
+      ## | video_total_count          |
+      ## | video_total_favorite_count |
+      ## | video_total_play_count     |
+      ## | video_total_series_count   |
+      ## | video_total_share_count    |
+      ## +----------------------------+
+      ##
+      author_stats = get_dict_attr(data, "$.data.room.owner.author_stats")
+      if author_stats:
+        room_owner_author_stats_tuple = {key:None for key in room_owner_author_stats_table.get_tuple()}
+        set_dict_attr(room_owner_author_stats_tuple, "$.start_time",                 dat.fromtimestamp(start_time))
+        set_dict_attr(room_owner_author_stats_tuple, "$.platform",                   DOUYIN_PLATFORM)
+        set_dict_attr(room_owner_author_stats_tuple, "$.room_id",                    str(room_id))
+        set_dict_attr(room_owner_author_stats_tuple, "$.owner_user_id",              str(owner_user_id))
+        set_dict_attr(room_owner_author_stats_tuple, "$.variety_show_play_count",    get_dict_attr(author_stats, "$.variety_show_play_count"))
+        set_dict_attr(room_owner_author_stats_tuple, "$.video_total_count",          get_dict_attr(author_stats, "$.video_total_count"))
+        set_dict_attr(room_owner_author_stats_tuple, "$.video_total_favorite_count", get_dict_attr(author_stats, "$.video_total_favorite_count"))
+        set_dict_attr(room_owner_author_stats_tuple, "$.video_total_play_count",     get_dict_attr(author_stats, "$.video_total_play_count"))
+        set_dict_attr(room_owner_author_stats_tuple, "$.video_total_series_count",   get_dict_attr(author_stats, "$.video_total_series_count"))
+        set_dict_attr(room_owner_author_stats_tuple, "$.video_total_share_count",    get_dict_attr(author_stats, "$.video_total_share_count"))
+        room_owner_author_stats_table.insert_record(room_owner_author_stats_tuple, on_duplicate='ignore')
+  except Exception as e:
+    get_logger().error("insert {} failed: {}".format(room_owner_auth_info_table.get_name(), e))
+    raise e
+
+  ##
+  ## RoomOwnerAuthInfoTable
+  ##
+  room_owner_auth_info_table = RoomOwnerAuthInfoTable(db)
+  try:
+    ##
+    ## create the table if not exist
+    ##
+    if db.is_table_exist(room_owner_auth_info_table.get_name()) is False:
+      room_owner_auth_info_table.create()
+    ##
+    ## +-----------------------------+
+    ## | Field                       |
+    ## +-----------------------------+
+    ## | start_time                  |
+    ## | platform                    |
+    ## | room_id                     |
+    ## | owner_user_id               |
+    ## | exist_authentication_info   |
+    ## | account_cert_info           |
+    ## | account_type_map            |
+    ## | custom_verify               |
+    ## | enterprise_verify_reason    |
+    ## +-----------------------------+
+    ##
+    room_owner_auth_info_tuple = {key:None for key in room_owner_auth_info_table.get_tuple()}
+    
+    owner_user_id         = get_dict_attr(data, "$.data.room.owner_user_id")
+    try:
+      authentication_info = get_dict_attr(data, "$.data.room.owner.authentication_info")
+      if authentication_info is None:
+        exist_authentication_info = False
+      else:
+        exist_authentication_info = True
+        account_cert_info         = get_dict_attr(data, "$.data.room.owner.authentication_info.account_cert_info")
+        account_type_map          = get_dict_attr(data, "$.data.room.owner.authentication_info.account_type_info.account_type_map")
+        custom_verify             = get_dict_attr(data, "$.data.room.owner.authentication_info.custom_verify")
+        enterprise_verify_reason  = get_dict_attr(data, "$.data.room.owner.authentication_info.enterprise_verify_reason")
+    except AttributeError as e:
+      get_logger().error(f"{e}: {room_owner_auth_info_table.get_name()} get exist_authentication_info fail, set FALSE as default!")
+      exist_authentication_info = False
+
+    set_dict_attr(room_owner_auth_info_tuple, "$.start_time",                               dat.fromtimestamp(start_time))
+    set_dict_attr(room_owner_auth_info_tuple, "$.platform",                                 DOUYIN_PLATFORM)
+    set_dict_attr(room_owner_auth_info_tuple, "$.room_id",                                  str(room_id))
+    set_dict_attr(room_owner_auth_info_tuple, "$.owner_user_id",                            str(owner_user_id))
+    set_dict_attr(room_owner_auth_info_tuple, "$.exist_authentication_info",                exist_authentication_info)
+    if exist_authentication_info is True:
+      set_dict_attr(room_owner_auth_info_tuple, "$.account_cert_info",        json.dumps(account_cert_info))
+      set_dict_attr(room_owner_auth_info_tuple, "$.account_type_map",         json.dumps(account_type_map))
+      set_dict_attr(room_owner_auth_info_tuple, "$.custom_verify",            custom_verify)
+      set_dict_attr(room_owner_auth_info_tuple, "$.enterprise_verify_reason", enterprise_verify_reason)
+    room_owner_auth_info_table.insert_record(room_owner_auth_info_tuple, on_duplicate='ignore')
+  except Exception as e:
+    get_logger().error("insert {} failed: {}".format(room_owner_auth_info_table.get_name(), e))
+    raise e
+
+  if exist_authentication_info is True:
+    ##
+    ## RoomOwnerAuthLevelTable
+    ##
+    room_owner_auth_level_table = RoomOwnerAuthLevelTable(db)
+    try:
+      ##
+      ## create the table if not exist
+      ##
+      if db.is_table_exist(room_owner_auth_level_table.get_name()) is False:
+        room_owner_auth_level_table.create()
+      ##
+      ## +---------------+
+      ## | Field         |
+      ## +---------------+
+      ## | start_time    |
+      ## | platform      |
+      ## | room_id       |
+      ## | owner_user_id |
+      ## | level_index   |
+      ## | level         |
+      ## +---------------+
+      ##
+      room_owner_auth_level_tuple = {key:None for key in room_owner_auth_level_table.get_tuple()}
+      set_dict_attr(room_owner_auth_level_tuple, "$.start_time",    dat.fromtimestamp(start_time))
+      set_dict_attr(room_owner_auth_level_tuple, "$.platform",      DOUYIN_PLATFORM)
+      set_dict_attr(room_owner_auth_level_tuple, "$.room_id",       str(room_id))
+      set_dict_attr(room_owner_auth_level_tuple, "$.owner_user_id", str(owner_user_id))
+      level_list = get_dict_attr(data, "$.data.room.owner.authentication_info.level_list")
+      for level_index in range(0, len(level_list)):
+        set_dict_attr(room_owner_auth_level_tuple, "$.level_index", level_index)
+        set_dict_attr(room_owner_auth_level_tuple, "$.level",       level_list[level_index])
+        room_owner_auth_level_table.insert_record(room_owner_auth_level_tuple, on_duplicate='ignore')
+    except Exception as e:
+      get_logger().error("insert {} failed: {}".format(room_owner_auth_level_table.get_name(), e))
+      raise e
 
   ##
   ## RoomOwnerUserDressOwnIdTable
@@ -1659,7 +2177,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | dress_own_id    |
     ## +-----------------+
     ##
-    room_owner_user_dress_own_id_table_tuple = room_owner_user_dress_own_id_table.get_tuple()
+    room_owner_user_dress_own_id_table_tuple = {key:None for key in room_owner_user_dress_own_id_table.get_tuple()}
     start_time = get_dict_attr(data, "$.data.room.start_time")
     # dress_own_index auto increment
     dress_own_ids = get_dict_attr(data, "$.data.room.owner.user_dress_info.dress_own_ids")
@@ -1700,7 +2218,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | dress_wear_id    |
     ## +------------------+
     ##
-    room_owner_dress_wear_id_table_tuple = room_owner_dress_wear_id_table.get_tuple()
+    room_owner_dress_wear_id_table_tuple = {key:None for key in room_owner_dress_wear_id_table.get_tuple()}
     start_time = get_dict_attr(data, "$.data.room.start_time")
     # dress_wear_index
     dress_wear_ids = get_dict_attr(data, "$.data.room.owner.user_dress_info.dress_wear_ids")
@@ -1744,7 +2262,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | trace_id                         |
     ## +----------------------------------+
     ##
-    room_pack_meta_table_tuple = room_pack_meta_table.get_tuple()
+    room_pack_meta_table_tuple = {key:None for key in room_pack_meta_table.get_tuple()}
     cluster  = get_dict_attr(data, "$.data.room.pack_meta.cluster")
     dc       = get_dict_attr(data, "$.data.room.pack_meta.dc")
     env      = get_dict_attr(data, "$.data.room.pack_meta.env")
@@ -1797,7 +2315,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | view_right                       |
     ## +----------------------------------+
     ##
-    room_paid_live_data_table_tuple = room_paid_live_data_table.get_tuple()
+    room_paid_live_data_table_tuple = {key:None for key in room_paid_live_data_table.get_tuple()}
     anchor_right            = get_dict_attr(data, "$.data.room.paid_live_data.anchor_right")
     delivery                = get_dict_attr(data, "$.data.room.paid_live_data.delivery")
     duration                = get_dict_attr(data, "$.data.room.paid_live_data.duration")
@@ -2002,7 +2520,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | WordAssociation                  |
     ## +----------------------------------+
     ##
-    room_auth_table_tuple = room_auth_table.get_tuple()
+    room_auth_table_tuple = {key:None for key in room_auth_table.get_tuple()}
     AIClone                          = get_dict_attr(data, "$.data.room.room_auth.AIClone")
     AdminCommentWall                 = get_dict_attr(data, "$.data.room.room_auth.AdminCommentWall")
     AnchorAudioChat                  = get_dict_attr(data, "$.data.room.room_auth.AnchorAudioChat")
@@ -2354,7 +2872,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | sharing_music_id    |
     ## +---------------------+
     ##
-    room_sharing_music_id_table_tuple = room_sharing_music_id_table.get_tuple()
+    room_sharing_music_id_table_tuple = {key:None for key in room_sharing_music_id_table.get_tuple()}
     start_time = get_dict_attr(data, "$.data.room.start_time")
     # dress_wear_index
     sharing_music_id_list = get_dict_attr(data, "$.data.room.sharing_music_id_list")
@@ -2391,7 +2909,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | forbidden_types_map |
     ## +---------------------+
     ##
-    room_short_touch_area_config_table_tuple = room_short_touch_area_config_table.get_tuple()
+    room_short_touch_area_config_table_tuple = {key:None for key in room_short_touch_area_config_table.get_tuple()}
     forbidden_types_map = get_dict_attr(data, "$.data.room.short_touch_area_config.forbidden_types_map")
     
     set_dict_attr(room_short_touch_area_config_table_tuple, "$.now",                 now)
@@ -2426,7 +2944,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | type          |
     ## +---------------+
     ##
-    room_short_touch_area_config_element_table_tuple = room_short_touch_area_config_element_table.get_tuple()
+    room_short_touch_area_config_element_table_tuple = {key:None for key in room_short_touch_area_config_element_table.get_tuple()}
     # element_index
     elements = get_dict_attr(data, "$.data.room.short_touch_area_config.elements")
     if elements is not None:
@@ -2468,18 +2986,16 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | whitelist_tag   |
     ## +-----------------+
     ##
-    room_short_touch_area_config_strategy_feat_whitelist_table_tuple = room_short_touch_area_config_strategy_feat_whitelist_table.get_tuple()
-    # whitelist_index auto increment
+    room_short_touch_area_config_strategy_feat_whitelist_table_tuple = {key:None for key in room_short_touch_area_config_strategy_feat_whitelist_table.get_tuple()}
     strategy_feat_whitelist = get_dict_attr(data, "$.data.room.short_touch_area_config.strategy_feat_whitelist")
     if len(strategy_feat_whitelist) != 0:
-      set_dict_attr(room_short_touch_area_config_strategy_feat_whitelist_table_tuple, "$.now",           now)
+      set_dict_attr(room_short_touch_area_config_strategy_feat_whitelist_table_tuple, "$.start_time",    dat.fromtimestamp(start_time))
       set_dict_attr(room_short_touch_area_config_strategy_feat_whitelist_table_tuple, "$.platform",      DOUYIN_PLATFORM)
       set_dict_attr(room_short_touch_area_config_strategy_feat_whitelist_table_tuple, "$.room_id",       str(room_id))
   
-      for whitelist_tag in strategy_feat_whitelist:
-        # whitelist_index auto increment
-        set_dict_attr(room_short_touch_area_config_strategy_feat_whitelist_table_tuple, "$.whitelist_tag",   whitelist_tag)
-
+      for whitelist_tag_index in range(0, len(strategy_feat_whitelist)):
+        set_dict_attr(room_short_touch_area_config_strategy_feat_whitelist_table_tuple, "$.whitelist_tag_index", whitelist_tag_index)
+        set_dict_attr(room_short_touch_area_config_strategy_feat_whitelist_table_tuple, "$.whitelist_tag",       strategy_feat_whitelist[whitelist_tag_index])
         room_short_touch_area_config_strategy_feat_whitelist_table.insert_record(room_short_touch_area_config_strategy_feat_whitelist_table_tuple, on_duplicate='ignore')
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(room_short_touch_area_config_strategy_feat_whitelist_table.get_name(), e))
@@ -2508,7 +3024,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | strategy_type |
     ## +---------------+
     ##
-    room_temp_state_condition_map_table_tuple = room_temp_state_condition_map_table.get_tuple()
+    room_temp_state_condition_map_table_tuple = {key:None for key in room_temp_state_condition_map_table.get_tuple()}
     # map_index
     temp_state_condition_map = get_dict_attr(data, "$.data.room.short_touch_area_config.temp_state_condition_map")
     if temp_state_condition_map is not None:
@@ -2552,7 +3068,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | ignore_strategy_type        |
     ## +-----------------------------+
     ##
-    room_temp_state_global_condition_ignore_strategy_type_table_tuple = room_temp_state_global_condition_ignore_strategy_type_table.get_tuple()
+    room_temp_state_global_condition_ignore_strategy_type_table_tuple = {key:None for key in room_temp_state_global_condition_ignore_strategy_type_table.get_tuple()}
     ignore_strategy_types = get_dict_attr(data, "$.data.room.short_touch_area_config.temp_state_global_condition.ignore_strategy_types")
     if len(ignore_strategy_types) != 0:
       set_dict_attr(room_temp_state_global_condition_ignore_strategy_type_table_tuple, "$.now",           now)
@@ -2588,7 +3104,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | duration_gap |
     ## +--------------+
     ##
-    room_temp_state_global_condition_table_tuple = room_temp_state_global_condition_table.get_tuple()
+    room_temp_state_global_condition_table_tuple = {key:None for key in room_temp_state_global_condition_table.get_tuple()}
     allow_count = get_dict_attr(data, "$.data.room.short_touch_area_config.temp_state_global_condition.allow_count")
     duration_gap = get_dict_attr(data, "$.data.room.short_touch_area_config.temp_state_global_condition.duration_gap")
     
@@ -2623,7 +3139,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | short_touch_type  |
     ## +-------------------+
     ##
-    room_temp_state_strategy_table_tuple = room_temp_state_strategy_table.get_tuple()
+    room_temp_state_strategy_table_tuple = {key:None for key in room_temp_state_strategy_table.get_tuple()}
     temp_state_strategy = get_dict_attr(data, "$.data.room.short_touch_area_config.temp_state_strategy")
     if temp_state_strategy is not None:
       set_dict_attr(room_temp_state_strategy_table_tuple, "$.now",           now)
@@ -2663,7 +3179,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | strategy_type     |
     ## +-------------------+
     ##
-    room_temp_state_strategy_map_table_tuple = room_temp_state_strategy_map_table.get_tuple()
+    room_temp_state_strategy_map_table_tuple = {key:None for key in room_temp_state_strategy_map_table.get_tuple()}
     temp_state_strategy = get_dict_attr(data, "$.data.room.short_touch_area_config.temp_state_strategy")
     if temp_state_strategy is not None:
       set_dict_attr(room_temp_state_strategy_map_table_tuple, "$.now",           now)
@@ -2789,7 +3305,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | with_linkmic                        |
     ## +-------------------------------------+
     ##
-    room_record_table_tuple = room_record_table.get_tuple()
+    room_record_table_tuple = {key:None for key in room_record_table.get_tuple()}
     id                                  = get_dict_attr(data, "$.data.room.id")
     rank                                = get_dict_attr(data, "$.data.room.living_room_attrs.rank")
     silence_flag                        = get_dict_attr(data, "$.data.room.living_room_attrs.silence_flag")
@@ -3005,7 +3521,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | vr_type                                  |
     ## +------------------------------------------+
     ##
-    live_stream_table_tuple = live_stream_table.get_tuple()
+    live_stream_table_tuple = {key:None for key in live_stream_table.get_tuple()}
     default_resolution         = get_dict_attr(data, "$.data.room.stream_url.default_resolution")
     anchor_interact_profile    = get_dict_attr(data, "$.data.room.stream_url.extra.anchor_interact_profile")
     audience_interact_profile  = get_dict_attr(data, "$.data.room.stream_url.extra.audience_interact_profile")
@@ -3086,6 +3602,180 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     raise e
 
   ##
+  ## RoomLinkMicTable
+  ##
+  room_link_mic_table = RoomLinkMicTable(db)
+  try:
+    ##
+    ## create the table if not exist
+    ##
+    if db.is_table_exist(room_link_mic_table.get_name()) is False:
+      room_link_mic_table.create()
+    ##
+    ## +-----------------------+
+    ## | Field                 |
+    ## +-----------------------+
+    ## | now                   |
+    ## | platform              |
+    ## | room_id               |
+    ## | channel_id            |
+    ## | linkmic_anchor_count  |
+    ## | rival_anchor_id       |
+    ## | rival_anchor_open_id  |
+    ## +-----------------------+
+    ##
+    room_link_mic = get_dict_attr(data, "$.data.room.link_mic")
+    if room_link_mic:
+      room_link_mic_tuple = {key:None for key in room_link_mic_table.get_tuple()}
+      set_dict_attr(room_link_mic_tuple, "$.now",       now)
+      set_dict_attr(room_link_mic_tuple, "$.platform",  DOUYIN_PLATFORM)
+      set_dict_attr(room_link_mic_tuple, "$.room_id",   str(room_id))
+
+      room_link_mic_channel_id = get_dict_attr(room_link_mic, "$.channel_id")
+      set_dict_attr(room_link_mic_tuple, "$.channel_id",           str(room_link_mic_channel_id))
+      set_dict_attr(room_link_mic_tuple, "$.linkmic_anchor_count", get_dict_attr(room_link_mic, "$.linkmic_anchor_count"))
+      set_dict_attr(room_link_mic_tuple, "$.rival_anchor_id",      str(get_dict_attr(room_link_mic, "$.rival_anchor_id")))
+      set_dict_attr(room_link_mic_tuple, "$.rival_anchor_open_id", str(get_dict_attr(room_link_mic, "$.rival_anchor_open_id")))
+      room_link_mic_table.insert_record(room_link_mic_tuple, on_duplicate='ignore')
+  except Exception as e:
+    get_logger().error("insert {} failed: {}".format(room_link_mic_table.get_name(), e))
+    raise e
+
+  if room_link_mic:
+    ##
+    ## RoomLinkMicBattleScoreTable
+    ##
+    room_link_mic_battle_score_table = RoomLinkMicBattleScoreTable(db)
+    try:
+      ##
+      ## create the table if not exist
+      ##
+      if db.is_table_exist(room_link_mic_battle_score_table.get_name()) is False:
+        room_link_mic_battle_score_table.create()
+      ##
+      ## +-----------------------+
+      ## | Field                 |
+      ## +-----------------------+
+      ## | now                   |
+      ## | platform              |
+      ## | room_id               |
+      ## | channel_id            |
+      ## | battle_score_index    |
+      ## | open_id               |
+      ## | score                 |
+      ## | user_id               |
+      ## +-----------------------+
+      ##
+      battle_scores = get_dict_attr(data, "$.data.room.link_mic.battle_scores")
+      if battle_scores:
+        room_link_mic_battle_score_tuple = {key:None for key in room_link_mic_battle_score_table.get_tuple()}
+        for battle_score_index in range(0, len(battle_scores)):
+          set_dict_attr(room_link_mic_battle_score_tuple, "$.now",                  now)
+          set_dict_attr(room_link_mic_battle_score_tuple, "$.platform",             DOUYIN_PLATFORM)
+          set_dict_attr(room_link_mic_battle_score_tuple, "$.room_id",              str(room_id))
+          set_dict_attr(room_link_mic_battle_score_tuple, "$.channel_id",           str(room_link_mic_channel_id))
+          set_dict_attr(room_link_mic_battle_score_tuple, "$.battle_score_index",   battle_score_index)
+          set_dict_attr(room_link_mic_battle_score_tuple, "$.open_id",              get_dict_attr(battle_scores[battle_score_index], "$.open_id"))
+          set_dict_attr(room_link_mic_battle_score_tuple, "$.score",                str(get_dict_attr(battle_scores[battle_score_index], "$.score")))
+          set_dict_attr(room_link_mic_battle_score_tuple, "$.user_id",              str(get_dict_attr(battle_scores[battle_score_index], "$.user_id")))
+          room_link_mic_battle_score_table.insert_record(room_link_mic_battle_score_tuple, on_duplicate='ignore')
+    except Exception as e:
+      get_logger().error("insert {} failed: {}".format(room_link_mic_battle_score_table.get_name(), e))
+      raise e
+
+    ##
+    ## RoomLinkMicBattleSettingTable
+    ##
+    room_link_mic_battle_setting_table = RoomLinkMicBattleSettingTable(db)
+    try:
+      ##
+      ## create the table if not exist
+      ##
+      if db.is_table_exist(room_link_mic_battle_setting_table.get_name()) is False:
+        room_link_mic_battle_setting_table.create()
+      ##
+      ## +---------------+
+      ## | Field         |
+      ## +---------------+
+      ## | now           |
+      ## | platform      |
+      ## | room_id       |
+      ## | channel_id    |
+      ## | activity_mode |
+      ## | battle_id     |
+      ## | duration      |
+      ## | finished      |
+      ## | match_type    |
+      ## | play_mode     |
+      ## | start_time    |
+      ## | start_time_ms |
+      ## | team_mode     |
+      ## | theme         |
+      ## +---------------+
+      ##
+      room_link_mic_battle_settings = get_dict_attr(data, "$.data.room.link_mic.battle_settings")
+      if room_link_mic_battle_settings:
+        room_link_mic_battle_setting_tuple = {key:None for key in room_link_mic_battle_setting_table.get_tuple()}
+        set_dict_attr(room_link_mic_battle_setting_tuple, "$.now",           now)
+        set_dict_attr(room_link_mic_battle_setting_tuple, "$.platform",      DOUYIN_PLATFORM)
+        set_dict_attr(room_link_mic_battle_setting_tuple, "$.room_id",       str(room_id))
+
+        set_dict_attr(room_link_mic_battle_setting_tuple, "$.channel_id",    str(room_link_mic_channel_id))
+        set_dict_attr(room_link_mic_battle_setting_tuple, "$.activity_mode", get_dict_attr(room_link_mic_battle_settings, "$.activity_mode"))
+        set_dict_attr(room_link_mic_battle_setting_tuple, "$.battle_id",     str(get_dict_attr(room_link_mic_battle_settings, "$.battle_id")))
+        set_dict_attr(room_link_mic_battle_setting_tuple, "$.duration",      get_dict_attr(room_link_mic_battle_settings, "$.duration"))
+        set_dict_attr(room_link_mic_battle_setting_tuple, "$.finished",      get_dict_attr(room_link_mic_battle_settings, "$.finished"))
+        set_dict_attr(room_link_mic_battle_setting_tuple, "$.match_type",    get_dict_attr(room_link_mic_battle_settings, "$.match_type"))
+        set_dict_attr(room_link_mic_battle_setting_tuple, "$.play_mode",     get_dict_attr(room_link_mic_battle_settings, "$.play_mode"))
+        set_dict_attr(room_link_mic_battle_setting_tuple, "$.start_time",    dat.fromtimestamp(get_dict_attr(room_link_mic_battle_settings, "$.start_time")))
+        set_dict_attr(room_link_mic_battle_setting_tuple, "$.start_time_ms", dat.fromtimestamp(get_dict_attr(room_link_mic_battle_settings, "$.start_time_ms")/1000.0))
+        set_dict_attr(room_link_mic_battle_setting_tuple, "$.team_mode",     get_dict_attr(room_link_mic_battle_settings, "$.team_mode"))
+        set_dict_attr(room_link_mic_battle_setting_tuple, "$.theme",         str(get_dict_attr(room_link_mic_battle_settings, "$.theme")))
+        room_link_mic_battle_setting_table.insert_record(room_link_mic_battle_setting_tuple, on_duplicate='ignore')
+    except Exception as e:
+      get_logger().error("insert {} failed: {}".format(room_link_mic_battle_setting_table.get_name(), e))
+      raise e
+
+    ##
+    ## RoomLinkMicChannelInfoTable
+    ##
+    room_link_mic_channel_info_table = RoomLinkMicChannelInfoTable(db)
+    try:
+      ##
+      ## create the table if not exist
+      ##
+      if db.is_table_exist(room_link_mic_channel_info_table.get_name()) is False:
+        room_link_mic_channel_info_table.create()
+      ##
+      ## +---------------+
+      ## | Field         |
+      ## +---------------+
+      ## | now           |
+      ## | platform      |
+      ## | room_id       |
+      ## | channel_id    |
+      ## | dimension     |
+      ## | layout        |
+      ## | vendor        |
+      ## +---------------+
+      ##
+      room_link_mic_channel_info = get_dict_attr(data, "$.data.room.link_mic.channel_info")
+      if room_link_mic_channel_info:
+        room_link_mic_channel_info_tuple = {key:None for key in room_link_mic_channel_info_table.get_tuple()}
+        set_dict_attr(room_link_mic_channel_info_tuple, "$.now",        now)
+        set_dict_attr(room_link_mic_channel_info_tuple, "$.platform",   DOUYIN_PLATFORM)
+        set_dict_attr(room_link_mic_channel_info_tuple, "$.room_id",    str(room_id))
+
+        set_dict_attr(room_link_mic_channel_info_tuple, "$.channel_id", str(room_link_mic_channel_id))
+        set_dict_attr(room_link_mic_channel_info_tuple, "$.dimension",  get_dict_attr(room_link_mic_channel_info, "$.dimension"))
+        set_dict_attr(room_link_mic_channel_info_tuple, "$.layout",     get_dict_attr(room_link_mic_channel_info, "$.layout"))
+        set_dict_attr(room_link_mic_channel_info_tuple, "$.vendor",     get_dict_attr(room_link_mic_channel_info, "$.vendor"))
+        room_link_mic_channel_info_table.insert_record(room_link_mic_channel_info_tuple, on_duplicate='ignore')
+    except Exception as e:
+      get_logger().error("insert {} failed: {}".format(room_link_mic_channel_info_table.get_name(), e))
+      raise e
+
+  ##
   ## StreamCandidateResolutionTable
   ##
   stream_candidate_resulution_table = StreamCandidateResolutionTable(db)
@@ -3099,7 +3789,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## +----------------------+
     ## | Field                |
     ## +----------------------+
-    ## | now                  |
+    ## | start_time           |
     ## | platform             |
     ## | room_id              |
     ## | stream_id            |
@@ -3107,21 +3797,17 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | candidate_resolution |
     ## +----------------------+
     ##
-    stream_candidate_resulution_table_tuple = stream_candidate_resulution_table.get_tuple()
+    stream_candidate_resulution_table_tuple = {key:None for key in stream_candidate_resulution_table.get_tuple()}
     stream_id = get_dict_attr(data, "$.data.room.stream_id")
-    # resolution_index auto increment
     candidate_resolutions = get_dict_attr(data, "$.data.room.stream_url.candidate_resolution")
     if len(candidate_resolutions) != 0:
-      set_dict_attr(stream_candidate_resulution_table_tuple, "$.now",                  now)
+      set_dict_attr(stream_candidate_resulution_table_tuple, "$.start_time",           dat.fromtimestamp(start_time))
       set_dict_attr(stream_candidate_resulution_table_tuple, "$.platform",             DOUYIN_PLATFORM)
       set_dict_attr(stream_candidate_resulution_table_tuple, "$.room_id",              str(room_id))
       set_dict_attr(stream_candidate_resulution_table_tuple, "$.stream_id",            str(stream_id))
-      for candidate_resolution in candidate_resolutions:
-        # resolution_index auto increment
-        if not isinstance(candidate_resolution, str):
-          raise TypeError
-        set_dict_attr(stream_candidate_resulution_table_tuple, "$.candidate_resolution", candidate_resolution)
-
+      for resolution_index in range(0, len(candidate_resolutions)):
+        set_dict_attr(stream_candidate_resulution_table_tuple, "$.resolution_index",     resolution_index)
+        set_dict_attr(stream_candidate_resulution_table_tuple, "$.candidate_resolution", candidate_resolutions[resolution_index])
         stream_candidate_resulution_table.insert_record(stream_candidate_resulution_table_tuple, on_duplicate='ignore')
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(stream_candidate_resulution_table.get_name(), e))
@@ -3149,7 +3835,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | complete_push_url       |
     ## +-------------------------+
     ##
-    stream_complete_push_url_table_tuple = stream_complete_push_url_table.get_tuple()
+    stream_complete_push_url_table_tuple = {key:None for key in stream_complete_push_url_table.get_tuple()}
     stream_id = get_dict_attr(data, "$.data.room.stream_id")
     # complete_push_url_index auto increment
     complete_push_urls = get_dict_attr(data, "$.data.room.stream_url.complete_push_urls")
@@ -3190,7 +3876,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | size     |
     ## +----------+
     ##
-    live_core_sdk_data_table_tuple = live_core_sdk_data_table.get_tuple()
+    live_core_sdk_data_table_tuple = {key:None for key in live_core_sdk_data_table.get_tuple()}
     size = get_dict_attr(data, "$.data.room.stream_url.live_core_sdk_data.size")
     
     set_dict_attr(live_core_sdk_data_table_tuple, "$.now",      now)
@@ -3228,7 +3914,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | version              |
     ## +----------------------+
     ##
-    live_core_sdk_pull_data_table_tuple = live_core_sdk_pull_data_table.get_tuple()
+    live_core_sdk_pull_data_table_tuple = {key:None for key in live_core_sdk_pull_data_table.get_tuple()}
     codec                = get_dict_attr(data, "$.data.room.stream_url.live_core_sdk_data.pull_data.codec")
     compensatory_data    = get_dict_attr(data, "$.data.room.stream_url.live_core_sdk_data.pull_data.compensatory_data")
     hls_data_unencrypted = get_dict_attr(data, "$.data.room.stream_url.live_core_sdk_data.pull_data.hls_data_unencrypted")
@@ -3272,7 +3958,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | Flv       |
     ## +-----------+
     ##
-    live_core_sdk_pull_flv_data_table_tuple = live_core_sdk_pull_flv_data_table.get_tuple()
+    live_core_sdk_pull_flv_data_table_tuple = {key:None for key in live_core_sdk_pull_flv_data_table.get_tuple()}
     Flvs = get_dict_attr(data, "$.data.room.stream_url.live_core_sdk_data.pull_data.Flv")
     if len(Flvs) != 0:
       set_dict_attr(live_core_sdk_pull_flv_data_table_tuple, "$.now",                  now)
@@ -3308,7 +3994,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | Hls       |
     ## +-----------+
     ##
-    live_core_sdk_pull_hls_data_table_tuple = live_core_sdk_pull_hls_data_table.get_tuple()
+    live_core_sdk_pull_hls_data_table_tuple = {key:None for key in live_core_sdk_pull_hls_data_table.get_tuple()}
     Hlses = get_dict_attr(data, "$.data.room.stream_url.live_core_sdk_data.pull_data.Hls")
     if len(Hlses) != 0:
       set_dict_attr(live_core_sdk_pull_hls_data_table_tuple, "$.now",                  now)
@@ -3342,7 +4028,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | vpass_default |
     ## +---------------+
     ##
-    live_core_sdk_pull_data_option_table_tuple = live_core_sdk_pull_data_option_table.get_tuple()
+    live_core_sdk_pull_data_option_table_tuple = {key:None for key in live_core_sdk_pull_data_option_table.get_tuple()}
     vpass_default = get_dict_attr(data, "$.data.room.stream_url.live_core_sdk_data.pull_data.options.vpass_default")
     
     set_dict_attr(live_core_sdk_pull_data_option_table_tuple, "$.now",                  now)
@@ -3385,26 +4071,25 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | v_codec            |
     ## +--------------------+
     ##
-    live_core_sdk_pull_quality_data_table_tuple = live_core_sdk_pull_quality_data_table.get_tuple()
-    # quality_index auto increment
+    live_core_sdk_pull_quality_data_table_tuple = {key: None for key in live_core_sdk_pull_quality_data_table.get_tuple()}
     qualities          = get_dict_attr(data, "$.data.room.stream_url.live_core_sdk_data.pull_data.options.qualities")
     if len(qualities) != 0:
-      set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.now",                  now)
+      set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.start_time",           dat.fromtimestamp(start_time))
       set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.platform",             DOUYIN_PLATFORM)
       set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.room_id",              str(room_id))
 
-      for quality in qualities:
-        additional_content = get_dict_attr(quality, "$.additional_content")
-        disable            = get_dict_attr(quality, "$.disable")
-        fps                = get_dict_attr(quality, "$.fps")
-        level              = get_dict_attr(quality, "$.level")
-        name               = get_dict_attr(quality, "$.name")
-        resolution         = get_dict_attr(quality, "$.resolution")
-        sdk_key            = get_dict_attr(quality, "$.sdk_key")
-        v_bit_rate         = get_dict_attr(quality, "$.v_bit_rate")
-        v_codec            = get_dict_attr(quality, "$.v_codec")
+      for quality_index in range(0, len(qualities)):
+        additional_content = get_dict_attr(qualities[quality_index], "$.additional_content")
+        disable            = get_dict_attr(qualities[quality_index], "$.disable")
+        fps                = get_dict_attr(qualities[quality_index], "$.fps")
+        level              = get_dict_attr(qualities[quality_index], "$.level")
+        name               = get_dict_attr(qualities[quality_index], "$.name")
+        resolution         = get_dict_attr(qualities[quality_index], "$.resolution")
+        sdk_key            = get_dict_attr(qualities[quality_index], "$.sdk_key")
+        v_bit_rate         = get_dict_attr(qualities[quality_index], "$.v_bit_rate")
+        v_codec            = get_dict_attr(qualities[quality_index], "$.v_codec")
         
-        # quality_index auto increment
+        set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.quality_index",        quality_index)
         set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.additional_content",   additional_content)
         set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.disable",              disable)
         set_dict_attr(live_core_sdk_pull_quality_data_table_tuple, "$.fps",                  fps)
@@ -3448,7 +4133,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | v_codec            |
     ## +--------------------+
     ##
-    live_core_sdk_pull_default_quality_data_table_tuple = live_core_sdk_pull_default_quality_data_table.get_tuple()
+    live_core_sdk_pull_default_quality_data_table_tuple = {key:None for key in live_core_sdk_pull_default_quality_data_table.get_tuple()}
     # quality_index auto increment
     additional_content = get_dict_attr(data, "$.data.room.stream_url.live_core_sdk_data.pull_data.options.default_quality.additional_content")
     disable            = get_dict_attr(data, "$.data.room.stream_url.live_core_sdk_data.pull_data.options.default_quality.disable")
@@ -3500,7 +4185,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | push_url       |
     ## +----------------+
     ##
-    stream_push_url_table_tuple = stream_push_url_table.get_tuple()
+    stream_push_url_table_tuple = {key:None for key in stream_push_url_table.get_tuple()}
     stream_url_id = get_dict_attr(data, "$.data.room.stream_url.id")
     # push_url_index auto increment
     push_urls = get_dict_attr(data, "$.data.room.stream_url.push_urls")
@@ -3538,7 +4223,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | tag       |
     ## +-----------+
     ##
-    room_tag_table_tuple = room_tag_table.get_tuple()
+    room_tag_table_tuple = {key:None for key in room_tag_table.get_tuple()}
     # tag_index
     tags = get_dict_attr(data, "$.data.room.tags")
     if len(tags) != 0:
@@ -3554,6 +4239,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     get_logger().error("insert {} failed: {}".format(room_tag_table.get_name(), e))
     raise e
 
+  """
   ##
   ## RoomTopFansTable
   ##
@@ -3575,7 +4261,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | top_fans   |
     ## +------------+
     ##
-    room_top_fans_table_tuple = room_top_fans_table.get_tuple()
+    room_top_fans_table_tuple = {key:None for key in room_top_fans_table.get_tuple()}
     top_fans = get_dict_attr(data, "$.data.room.top_fans")
     if len(top_fans) != 0:
       set_dict_attr(room_top_fans_table_tuple, "$.now",      now)
@@ -3591,7 +4277,6 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     get_logger().error("insert {} failed: {}".format(room_top_fans_table.get_name(), e))
     raise e
 
-  """
   ##
   ## RoomUpperRightWidgetDataTable
   ## TBD
@@ -3609,7 +4294,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | upper_right_widget_data       |
     ## +-------------------------------+
     ##
-    room_upper_right_widget_data_table_tuple = room_upper_right_widget_data_table.get_tuple()
+    room_upper_right_widget_data_table_tuple = {key:None for key in room_upper_right_widget_data_table.get_tuple()}
     # now = get_dict_attr(data, "$.extra.now")
     # DOUYIN_PLATFORM = "douyin"
     # room_id = get_dict_attr(data, "$.data.room.id")
@@ -3649,7 +4334,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | vs_role       |
     ## +---------------+
     ##
-    room_vs_role_table_tuple = room_vs_role_table.get_tuple()
+    room_vs_role_table_tuple = {key:None for key in room_vs_role_table.get_tuple()}
     # now = get_dict_attr(data, "$.extra.now")
     # DOUYIN_PLATFORM = "douyin"
     # room_id = get_dict_attr(data, "$.data.room.id")
@@ -3700,180 +4385,334 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | width        |
     ## +--------------+
     ##
-    picture_table_tuple = picture_table.get_tuple()
-    
+    picture_table_tuple = {key:None for key in picture_table.get_tuple()}
+
+    ##
+    ## <=========================== content_label ==================================>
+    ##
+    content_label         = get_dict_attr(data, "$.data.room.content_label")
+    if content_label is not None:
+      start_time    = get_dict_attr(data, "$.data.room.start_time")
+      label         = "content_label"
+      picture_index = 0
+      avg_color     = get_dict_attr(content_label, "$.avg_color")
+      height        = get_dict_attr(content_label, "$.height")
+      image_type    = get_dict_attr(content_label, "$.image_type")
+      is_animated   = get_dict_attr(content_label, "$.is_animated")
+      open_web_url  = get_dict_attr(content_label, "$.open_web_url")
+      uri           = get_dict_attr(content_label, "$.uri")
+      width         = get_dict_attr(content_label, "$.width")
+
+      set_dict_attr(picture_table_tuple, "$.start_time",    dat.fromtimestamp(start_time))
+      set_dict_attr(picture_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+      set_dict_attr(picture_table_tuple, "$.room_id",       str(room_id))
+      set_dict_attr(picture_table_tuple, "$.label",         label)
+      set_dict_attr(picture_table_tuple, "$.avg_color",     avg_color)
+      set_dict_attr(picture_table_tuple, "$.height",        height)
+      set_dict_attr(picture_table_tuple, "$.image_type",    image_type)
+      set_dict_attr(picture_table_tuple, "$.is_animated",   is_animated)
+      set_dict_attr(picture_table_tuple, "$.open_web_url",  open_web_url)
+      set_dict_attr(picture_table_tuple, "$.uri",           uri)
+      set_dict_attr(picture_table_tuple, "$.width",         width)
+      set_dict_attr(picture_table_tuple, "$.picture_index", picture_index)
+
+      if uri is not None:
+        picture_table.insert_record(picture_table_tuple, on_duplicate='ignore')
+
     ##
     ## <=========================== cover ==================================>
     ##
-    cover      = get_dict_attr(data, "$.data.room.cover")
-    start_time = get_dict_attr(data, "$.data.room.start_time")
-    # picture_index auto increment
-    label        = "cover"
-    avg_color    = get_dict_attr(cover, "$.avg_color")
-    height       = get_dict_attr(cover, "$.height")
-    image_type   = get_dict_attr(cover, "$.image_type")
-    is_animated  = get_dict_attr(cover, "$.is_animated")
-    open_web_url = get_dict_attr(cover, "$.open_web_url")
-    uri          = get_dict_attr(cover, "$.uri")
-    width        = get_dict_attr(cover, "$.width")
+    cover         = get_dict_attr(data, "$.data.room.cover")
+    start_time    = get_dict_attr(data, "$.data.room.start_time")
+    label         = "cover"
+    picture_index = 0
+    avg_color     = get_dict_attr(cover, "$.avg_color")
+    height        = get_dict_attr(cover, "$.height")
+    image_type    = get_dict_attr(cover, "$.image_type")
+    is_animated   = get_dict_attr(cover, "$.is_animated")
+    open_web_url  = get_dict_attr(cover, "$.open_web_url")
+    uri           = get_dict_attr(cover, "$.uri")
+    width         = get_dict_attr(cover, "$.width")
     
-    set_dict_attr(picture_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
-    set_dict_attr(picture_table_tuple, "$.platform",     DOUYIN_PLATFORM)
-    set_dict_attr(picture_table_tuple, "$.room_id",      str(room_id))
-    set_dict_attr(picture_table_tuple, "$.label",        label)
-    set_dict_attr(picture_table_tuple, "$.avg_color",    avg_color)
-    set_dict_attr(picture_table_tuple, "$.height",       height)
-    set_dict_attr(picture_table_tuple, "$.image_type",   image_type)
-    set_dict_attr(picture_table_tuple, "$.is_animated",  is_animated)
-    set_dict_attr(picture_table_tuple, "$.open_web_url", open_web_url)
-    set_dict_attr(picture_table_tuple, "$.uri",          uri)
-    set_dict_attr(picture_table_tuple, "$.width",        width)
+    set_dict_attr(picture_table_tuple, "$.start_time",    dat.fromtimestamp(start_time))
+    set_dict_attr(picture_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+    set_dict_attr(picture_table_tuple, "$.room_id",       str(room_id))
+    set_dict_attr(picture_table_tuple, "$.label",         label)
+    set_dict_attr(picture_table_tuple, "$.avg_color",     avg_color)
+    set_dict_attr(picture_table_tuple, "$.height",        height)
+    set_dict_attr(picture_table_tuple, "$.image_type",    image_type)
+    set_dict_attr(picture_table_tuple, "$.is_animated",   is_animated)
+    set_dict_attr(picture_table_tuple, "$.open_web_url",  open_web_url)
+    set_dict_attr(picture_table_tuple, "$.uri",           uri)
+    set_dict_attr(picture_table_tuple, "$.width",         width)
+    set_dict_attr(picture_table_tuple, "$.picture_index", picture_index)
     
     if uri is not None:
       picture_table.insert_record(picture_table_tuple, on_duplicate='ignore')
 
+    if deco_list is not None:
+      for deco_index in range(0, len(deco_list)):
+        ##
+        ## <=========================== deco_list.[x].image ==================================>
+        ##
+        image         = get_dict_attr(deco_list[deco_index], "$.image")
+        if image is not None:
+          label         = "image" + str(deco_index)
+          picture_index = 0
+          avg_color     = get_dict_attr(image, "$.avg_color")
+          height        = get_dict_attr(image, "$.height")
+          image_type    = get_dict_attr(image, "$.image_type")
+          is_animated   = get_dict_attr(image, "$.is_animated")
+          open_web_url  = get_dict_attr(image, "$.open_web_url")
+          uri           = get_dict_attr(image, "$.uri")
+          width         = get_dict_attr(image, "$.width")
+
+          set_dict_attr(picture_table_tuple, "$.start_time",    dat.fromtimestamp(start_time))
+          set_dict_attr(picture_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+          set_dict_attr(picture_table_tuple, "$.room_id",       str(room_id))
+          set_dict_attr(picture_table_tuple, "$.label",         label)
+          set_dict_attr(picture_table_tuple, "$.avg_color",     avg_color)
+          set_dict_attr(picture_table_tuple, "$.height",        height)
+          set_dict_attr(picture_table_tuple, "$.image_type",    image_type)
+          set_dict_attr(picture_table_tuple, "$.is_animated",   is_animated)
+          set_dict_attr(picture_table_tuple, "$.open_web_url",  open_web_url)
+          set_dict_attr(picture_table_tuple, "$.uri",           uri)
+          set_dict_attr(picture_table_tuple, "$.width",         width)
+          set_dict_attr(picture_table_tuple, "$.picture_index", picture_index)
+          if uri is not None:
+            picture_table.insert_record(picture_table_tuple, on_duplicate='ignore')
+
+        ##
+        ## <=========================== deco_list.[x].nine_patch_image ==================================>
+        ##
+        nine_patch_image = get_dict_attr(deco_list[deco_index], "$.nine_patch_image")
+        if nine_patch_image is not None:
+          label            = "nine_patch_image" + str(deco_index)
+          picture_index    = 0
+          avg_color        = get_dict_attr(nine_patch_image, "$.avg_color")
+          height           = get_dict_attr(nine_patch_image, "$.height")
+          image_type       = get_dict_attr(nine_patch_image, "$.image_type")
+          is_animated      = get_dict_attr(nine_patch_image, "$.is_animated")
+          open_web_url     = get_dict_attr(nine_patch_image, "$.open_web_url")
+          uri              = get_dict_attr(nine_patch_image, "$.uri")
+          width            = get_dict_attr(nine_patch_image, "$.width")
+
+          set_dict_attr(picture_table_tuple, "$.start_time",    dat.fromtimestamp(start_time))
+          set_dict_attr(picture_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+          set_dict_attr(picture_table_tuple, "$.room_id",       str(room_id))
+          set_dict_attr(picture_table_tuple, "$.label",         label)
+          set_dict_attr(picture_table_tuple, "$.avg_color",     avg_color)
+          set_dict_attr(picture_table_tuple, "$.height",        height)
+          set_dict_attr(picture_table_tuple, "$.image_type",    image_type)
+          set_dict_attr(picture_table_tuple, "$.is_animated",   is_animated)
+          set_dict_attr(picture_table_tuple, "$.open_web_url",  open_web_url)
+          set_dict_attr(picture_table_tuple, "$.uri",           uri)
+          set_dict_attr(picture_table_tuple, "$.width",         width)
+          set_dict_attr(picture_table_tuple, "$.picture_index", picture_index)
+          if uri is not None:
+            picture_table.insert_record(picture_table_tuple, on_duplicate='ignore')
+
     ##
     ## <=========================== feed_room_label ==================================>
     ##
-    feed_room_label = get_dict_attr(data, "$.data.room.feed_room_label")
-    # picture_index auto increment
-    label        = "feed_room_label"
-    avg_color    = get_dict_attr(feed_room_label, "$.avg_color")
-    height       = get_dict_attr(feed_room_label, "$.height")
-    image_type   = get_dict_attr(feed_room_label, "$.image_type")
-    is_animated  = get_dict_attr(feed_room_label, "$.is_animated")
-    open_web_url = get_dict_attr(feed_room_label, "$.open_web_url")
-    uri          = get_dict_attr(feed_room_label, "$.uri")
-    width        = get_dict_attr(feed_room_label, "$.width")
+    feed_room_label  = get_dict_attr(data, "$.data.room.feed_room_label")
+    label            = "feed_room_label"
+    picture_index    = 0
+    avg_color        = get_dict_attr(feed_room_label, "$.avg_color")
+    height           = get_dict_attr(feed_room_label, "$.height")
+    image_type       = get_dict_attr(feed_room_label, "$.image_type")
+    is_animated      = get_dict_attr(feed_room_label, "$.is_animated")
+    open_web_url     = get_dict_attr(feed_room_label, "$.open_web_url")
+    uri              = get_dict_attr(feed_room_label, "$.uri")
+    width            = get_dict_attr(feed_room_label, "$.width")
     
-    set_dict_attr(picture_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
-    set_dict_attr(picture_table_tuple, "$.platform",     DOUYIN_PLATFORM)
-    set_dict_attr(picture_table_tuple, "$.room_id",      str(room_id))
-    set_dict_attr(picture_table_tuple, "$.label",        label)
-    set_dict_attr(picture_table_tuple, "$.avg_color",    avg_color)
-    set_dict_attr(picture_table_tuple, "$.height",       height)
-    set_dict_attr(picture_table_tuple, "$.image_type",   image_type)
-    set_dict_attr(picture_table_tuple, "$.is_animated",  is_animated)
-    set_dict_attr(picture_table_tuple, "$.open_web_url", open_web_url)
-    set_dict_attr(picture_table_tuple, "$.uri",          uri)
-    set_dict_attr(picture_table_tuple, "$.width",        width)
-    
+    set_dict_attr(picture_table_tuple, "$.start_time",    dat.fromtimestamp(start_time))
+    set_dict_attr(picture_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+    set_dict_attr(picture_table_tuple, "$.room_id",       str(room_id))
+    set_dict_attr(picture_table_tuple, "$.label",         label)
+    set_dict_attr(picture_table_tuple, "$.avg_color",     avg_color)
+    set_dict_attr(picture_table_tuple, "$.height",        height)
+    set_dict_attr(picture_table_tuple, "$.image_type",    image_type)
+    set_dict_attr(picture_table_tuple, "$.is_animated",   is_animated)
+    set_dict_attr(picture_table_tuple, "$.open_web_url",  open_web_url)
+    set_dict_attr(picture_table_tuple, "$.uri",           uri)
+    set_dict_attr(picture_table_tuple, "$.width",         width)
+    set_dict_attr(picture_table_tuple, "$.picture_index", picture_index)
     if uri is not None:
       picture_table.insert_record(picture_table_tuple, on_duplicate='ignore')
     
     ##
     ## <=========================== guide_button ==================================>
     ##
-    guide_button = get_dict_attr(data, "$.data.room.guide_button")
-    # picture_index auto increment
-    label        = "guide_button"
-    avg_color    = get_dict_attr(guide_button, "$.avg_color")
-    height       = get_dict_attr(guide_button, "$.height")
-    image_type   = get_dict_attr(guide_button, "$.image_type")
-    is_animated  = get_dict_attr(guide_button, "$.is_animated")
-    open_web_url = get_dict_attr(guide_button, "$.open_web_url")
-    uri          = get_dict_attr(guide_button, "$.uri")
-    width        = get_dict_attr(guide_button, "$.width")
+    guide_button     = get_dict_attr(data, "$.data.room.guide_button")
+    label            = "guide_button"
+    picture_index    = 0
+    avg_color        = get_dict_attr(guide_button, "$.avg_color")
+    height           = get_dict_attr(guide_button, "$.height")
+    image_type       = get_dict_attr(guide_button, "$.image_type")
+    is_animated      = get_dict_attr(guide_button, "$.is_animated")
+    open_web_url     = get_dict_attr(guide_button, "$.open_web_url")
+    uri              = get_dict_attr(guide_button, "$.uri")
+    width            = get_dict_attr(guide_button, "$.width")
     
-    set_dict_attr(picture_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
-    set_dict_attr(picture_table_tuple, "$.platform",     DOUYIN_PLATFORM)
-    set_dict_attr(picture_table_tuple, "$.room_id",      str(room_id))
-    set_dict_attr(picture_table_tuple, "$.label",        label)
-    set_dict_attr(picture_table_tuple, "$.avg_color",    avg_color)
-    set_dict_attr(picture_table_tuple, "$.height",       height)
-    set_dict_attr(picture_table_tuple, "$.image_type",   image_type)
-    set_dict_attr(picture_table_tuple, "$.is_animated",  is_animated)
-    set_dict_attr(picture_table_tuple, "$.open_web_url", open_web_url)
-    set_dict_attr(picture_table_tuple, "$.uri",          uri)
-    set_dict_attr(picture_table_tuple, "$.width",        width)
-    
+    set_dict_attr(picture_table_tuple, "$.start_time",    dat.fromtimestamp(start_time))
+    set_dict_attr(picture_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+    set_dict_attr(picture_table_tuple, "$.room_id",       str(room_id))
+    set_dict_attr(picture_table_tuple, "$.label",         label)
+    set_dict_attr(picture_table_tuple, "$.avg_color",     avg_color)
+    set_dict_attr(picture_table_tuple, "$.height",        height)
+    set_dict_attr(picture_table_tuple, "$.image_type",    image_type)
+    set_dict_attr(picture_table_tuple, "$.is_animated",   is_animated)
+    set_dict_attr(picture_table_tuple, "$.open_web_url",  open_web_url)
+    set_dict_attr(picture_table_tuple, "$.uri",           uri)
+    set_dict_attr(picture_table_tuple, "$.width",         width)
+    set_dict_attr(picture_table_tuple, "$.picture_index", picture_index)
     if uri is not None:
       picture_table.insert_record(picture_table_tuple, on_duplicate='ignore')
     
+    if exist_authentication_info is True:
+      ##
+      ## <=========================== authentication_badge ==================================>
+      ##
+      authentication_badge = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge")
+      label                = "authentication_badge"
+      picture_index        = 0
+      avg_color            = get_dict_attr(authentication_badge, "$.avg_color")
+      height               = get_dict_attr(authentication_badge, "$.height")
+      image_type           = get_dict_attr(authentication_badge, "$.image_type")
+      is_animated          = get_dict_attr(authentication_badge, "$.is_animated")
+      open_web_url         = get_dict_attr(authentication_badge, "$.open_web_url")
+      uri                  = get_dict_attr(authentication_badge, "$.uri")
+      width                = get_dict_attr(authentication_badge, "$.width")
+      
+      set_dict_attr(picture_table_tuple, "$.start_time",    dat.fromtimestamp(start_time))
+      set_dict_attr(picture_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+      set_dict_attr(picture_table_tuple, "$.room_id",       str(room_id))
+      set_dict_attr(picture_table_tuple, "$.label",         label)
+      set_dict_attr(picture_table_tuple, "$.avg_color",     avg_color)
+      set_dict_attr(picture_table_tuple, "$.height",        height)
+      set_dict_attr(picture_table_tuple, "$.image_type",    image_type)
+      set_dict_attr(picture_table_tuple, "$.is_animated",   is_animated)
+      set_dict_attr(picture_table_tuple, "$.open_web_url",  open_web_url)
+      set_dict_attr(picture_table_tuple, "$.uri",           uri)
+      set_dict_attr(picture_table_tuple, "$.width",         width)
+      set_dict_attr(picture_table_tuple, "$.picture_index", picture_index)
+      if uri is not None:
+        picture_table.insert_record(picture_table_tuple, on_duplicate='ignore')
+
+      ##
+      ## <=========================== authentication_badge_v2 ==================================>
+      ##
+      authentication_badge_v2 = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2")
+      label                   = "authentication_badge_v2"
+      picture_index           = 0
+      avg_color               = get_dict_attr(authentication_badge_v2, "$.avg_color")
+      height                  = get_dict_attr(authentication_badge_v2, "$.height")
+      image_type              = get_dict_attr(authentication_badge_v2, "$.image_type")
+      is_animated             = get_dict_attr(authentication_badge_v2, "$.is_animated")
+      open_web_url            = get_dict_attr(authentication_badge_v2, "$.open_web_url")
+      uri                     = get_dict_attr(authentication_badge_v2, "$.uri")
+      width                   = get_dict_attr(authentication_badge_v2, "$.width")
+      
+      set_dict_attr(picture_table_tuple, "$.start_time",    dat.fromtimestamp(start_time))
+      set_dict_attr(picture_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+      set_dict_attr(picture_table_tuple, "$.room_id",       str(room_id))
+      set_dict_attr(picture_table_tuple, "$.label",         label)
+      set_dict_attr(picture_table_tuple, "$.avg_color",     avg_color)
+      set_dict_attr(picture_table_tuple, "$.height",        height)
+      set_dict_attr(picture_table_tuple, "$.image_type",    image_type)
+      set_dict_attr(picture_table_tuple, "$.is_animated",   is_animated)
+      set_dict_attr(picture_table_tuple, "$.open_web_url",  open_web_url)
+      set_dict_attr(picture_table_tuple, "$.uri",           uri)
+      set_dict_attr(picture_table_tuple, "$.width",         width)
+      set_dict_attr(picture_table_tuple, "$.picture_index", picture_index)
+      if uri is not None:
+        picture_table.insert_record(picture_table_tuple, on_duplicate='ignore')
+
     ##
     ## <=========================== avatar_large ==================================>
     ##
-    avatar_large = get_dict_attr(data, "$.data.room.owner.avatar_large")
-    # picture_index auto increment
-    label        = "avatar_large"
-    avg_color    = get_dict_attr(avatar_large, "$.avg_color")
-    height       = get_dict_attr(avatar_large, "$.height")
-    image_type   = get_dict_attr(avatar_large, "$.image_type")
-    is_animated  = get_dict_attr(avatar_large, "$.is_animated")
-    open_web_url = get_dict_attr(avatar_large, "$.open_web_url")
-    uri          = get_dict_attr(avatar_large, "$.uri")
-    width        = get_dict_attr(avatar_large, "$.width")
+    avatar_large            = get_dict_attr(data, "$.data.room.owner.avatar_large")
+    label                   = "avatar_large"
+    picture_index           = 0
+    avg_color               = get_dict_attr(avatar_large, "$.avg_color")
+    height                  = get_dict_attr(avatar_large, "$.height")
+    image_type              = get_dict_attr(avatar_large, "$.image_type")
+    is_animated             = get_dict_attr(avatar_large, "$.is_animated")
+    open_web_url            = get_dict_attr(avatar_large, "$.open_web_url")
+    uri                     = get_dict_attr(avatar_large, "$.uri")
+    width                   = get_dict_attr(avatar_large, "$.width")
     
-    set_dict_attr(picture_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
-    set_dict_attr(picture_table_tuple, "$.platform",     DOUYIN_PLATFORM)
-    set_dict_attr(picture_table_tuple, "$.room_id",      str(room_id))
-    set_dict_attr(picture_table_tuple, "$.label",        label)
-    set_dict_attr(picture_table_tuple, "$.avg_color",    avg_color)
-    set_dict_attr(picture_table_tuple, "$.height",       height)
-    set_dict_attr(picture_table_tuple, "$.image_type",   image_type)
-    set_dict_attr(picture_table_tuple, "$.is_animated",  is_animated)
-    set_dict_attr(picture_table_tuple, "$.open_web_url", open_web_url)
-    set_dict_attr(picture_table_tuple, "$.uri",          uri)
-    set_dict_attr(picture_table_tuple, "$.width",        width)
-    
+    set_dict_attr(picture_table_tuple, "$.start_time",    dat.fromtimestamp(start_time))
+    set_dict_attr(picture_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+    set_dict_attr(picture_table_tuple, "$.room_id",       str(room_id))
+    set_dict_attr(picture_table_tuple, "$.label",         label)
+    set_dict_attr(picture_table_tuple, "$.avg_color",     avg_color)
+    set_dict_attr(picture_table_tuple, "$.height",        height)
+    set_dict_attr(picture_table_tuple, "$.image_type",    image_type)
+    set_dict_attr(picture_table_tuple, "$.is_animated",   is_animated)
+    set_dict_attr(picture_table_tuple, "$.open_web_url",  open_web_url)
+    set_dict_attr(picture_table_tuple, "$.uri",           uri)
+    set_dict_attr(picture_table_tuple, "$.width",         width)
+    set_dict_attr(picture_table_tuple, "$.picture_index", picture_index)
     if uri is not None:
       picture_table.insert_record(picture_table_tuple, on_duplicate='ignore')
 
     ##
     ## <=========================== avatar_medium ==================================>
     ##
-    avatar_medium = get_dict_attr(data, "$.data.room.owner.avatar_medium")
-    # picture_index auto increment
-    label        = "avatar_medium"
-    avg_color    = get_dict_attr(avatar_medium, "$.avg_color")
-    height       = get_dict_attr(avatar_medium, "$.height")
-    image_type   = get_dict_attr(avatar_medium, "$.image_type")
-    is_animated  = get_dict_attr(avatar_medium, "$.is_animated")
-    open_web_url = get_dict_attr(avatar_medium, "$.open_web_url")
-    uri          = get_dict_attr(avatar_medium, "$.uri")
-    width        = get_dict_attr(avatar_medium, "$.width")
+    avatar_medium           = get_dict_attr(data, "$.data.room.owner.avatar_medium")
+    label                   = "avatar_medium"
+    picture_index           = 0
+    avg_color               = get_dict_attr(avatar_medium, "$.avg_color")
+    height                  = get_dict_attr(avatar_medium, "$.height")
+    image_type              = get_dict_attr(avatar_medium, "$.image_type")
+    is_animated             = get_dict_attr(avatar_medium, "$.is_animated")
+    open_web_url            = get_dict_attr(avatar_medium, "$.open_web_url")
+    uri                     = get_dict_attr(avatar_medium, "$.uri")
+    width                   = get_dict_attr(avatar_medium, "$.width")
     
-    set_dict_attr(picture_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
-    set_dict_attr(picture_table_tuple, "$.platform",     DOUYIN_PLATFORM)
-    set_dict_attr(picture_table_tuple, "$.room_id",      str(room_id))
-    set_dict_attr(picture_table_tuple, "$.label",        label)
-    set_dict_attr(picture_table_tuple, "$.avg_color",    avg_color)
-    set_dict_attr(picture_table_tuple, "$.height",       height)
-    set_dict_attr(picture_table_tuple, "$.image_type",   image_type)
-    set_dict_attr(picture_table_tuple, "$.is_animated",  is_animated)
-    set_dict_attr(picture_table_tuple, "$.open_web_url", open_web_url)
-    set_dict_attr(picture_table_tuple, "$.uri",          uri)
-    set_dict_attr(picture_table_tuple, "$.width",        width)
-    
+    set_dict_attr(picture_table_tuple, "$.start_time",    dat.fromtimestamp(start_time))
+    set_dict_attr(picture_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+    set_dict_attr(picture_table_tuple, "$.room_id",       str(room_id))
+    set_dict_attr(picture_table_tuple, "$.label",         label)
+    set_dict_attr(picture_table_tuple, "$.avg_color",     avg_color)
+    set_dict_attr(picture_table_tuple, "$.height",        height)
+    set_dict_attr(picture_table_tuple, "$.image_type",    image_type)
+    set_dict_attr(picture_table_tuple, "$.is_animated",   is_animated)
+    set_dict_attr(picture_table_tuple, "$.open_web_url",  open_web_url)
+    set_dict_attr(picture_table_tuple, "$.uri",           uri)
+    set_dict_attr(picture_table_tuple, "$.width",         width)
+    set_dict_attr(picture_table_tuple, "$.picture_index", picture_index)
     if uri is not None:
       picture_table.insert_record(picture_table_tuple, on_duplicate='ignore')
 
     ##
     ## <=========================== avatar_thumb ==================================>
     ##
-    avatar_thumb = get_dict_attr(data, "$.data.room.owner.avatar_thumb")
-    # picture_index auto increment
-    label        = "avatar_thumb"
-    avg_color    = get_dict_attr(avatar_thumb, "$.avg_color")
-    height       = get_dict_attr(avatar_thumb, "$.height")
-    image_type   = get_dict_attr(avatar_thumb, "$.image_type")
-    is_animated  = get_dict_attr(avatar_thumb, "$.is_animated")
-    open_web_url = get_dict_attr(avatar_thumb, "$.open_web_url")
-    uri          = get_dict_attr(avatar_thumb, "$.uri")
-    width        = get_dict_attr(avatar_thumb, "$.width")
+    avatar_thumb            = get_dict_attr(data, "$.data.room.owner.avatar_thumb")
+    label                   = "avatar_thumb"
+    picture_index           = 0
+    avg_color               = get_dict_attr(avatar_thumb, "$.avg_color")
+    height                  = get_dict_attr(avatar_thumb, "$.height")
+    image_type              = get_dict_attr(avatar_thumb, "$.image_type")
+    is_animated             = get_dict_attr(avatar_thumb, "$.is_animated")
+    open_web_url            = get_dict_attr(avatar_thumb, "$.open_web_url")
+    uri                     = get_dict_attr(avatar_thumb, "$.uri")
+    width                   = get_dict_attr(avatar_thumb, "$.width")
     
-    set_dict_attr(picture_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
-    set_dict_attr(picture_table_tuple, "$.platform",     DOUYIN_PLATFORM)
-    set_dict_attr(picture_table_tuple, "$.room_id",      str(room_id))
-    set_dict_attr(picture_table_tuple, "$.label",        label)
-    set_dict_attr(picture_table_tuple, "$.avg_color",    avg_color)
-    set_dict_attr(picture_table_tuple, "$.height",       height)
-    set_dict_attr(picture_table_tuple, "$.image_type",   image_type)
-    set_dict_attr(picture_table_tuple, "$.is_animated",  is_animated)
-    set_dict_attr(picture_table_tuple, "$.open_web_url", open_web_url)
-    set_dict_attr(picture_table_tuple, "$.uri",          uri)
-    set_dict_attr(picture_table_tuple, "$.width",        width)
-    
+    set_dict_attr(picture_table_tuple, "$.start_time",    dat.fromtimestamp(start_time))
+    set_dict_attr(picture_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+    set_dict_attr(picture_table_tuple, "$.room_id",       str(room_id))
+    set_dict_attr(picture_table_tuple, "$.label",         label)
+    set_dict_attr(picture_table_tuple, "$.avg_color",     avg_color)
+    set_dict_attr(picture_table_tuple, "$.height",        height)
+    set_dict_attr(picture_table_tuple, "$.image_type",    image_type)
+    set_dict_attr(picture_table_tuple, "$.is_animated",   is_animated)
+    set_dict_attr(picture_table_tuple, "$.open_web_url",  open_web_url)
+    set_dict_attr(picture_table_tuple, "$.uri",           uri)
+    set_dict_attr(picture_table_tuple, "$.width",         width)
+    set_dict_attr(picture_table_tuple, "$.picture_index", picture_index)
     if uri is not None:
       picture_table.insert_record(picture_table_tuple, on_duplicate='ignore')
 
@@ -3884,27 +4723,28 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     if len(badge_image_list) != 0:
       # picture_index auto increment
       label        = "badge_image_list"
-      for badge_image in badge_image_list:
-        avg_color    = get_dict_attr(badge_image, "$.avg_color")
-        height       = get_dict_attr(badge_image, "$.height")
-        image_type   = get_dict_attr(badge_image, "$.image_type")
-        is_animated  = get_dict_attr(badge_image, "$.is_animated")
-        open_web_url = get_dict_attr(badge_image, "$.open_web_url")
-        uri          = get_dict_attr(badge_image, "$.uri")
-        width        = get_dict_attr(badge_image, "$.width")
+      for badge_image_index in range(0, len(badge_image_list)):
+        picture_index = badge_image_index
+        avg_color     = get_dict_attr(badge_image_list[badge_image_index], "$.avg_color")
+        height        = get_dict_attr(badge_image_list[badge_image_index], "$.height")
+        image_type    = get_dict_attr(badge_image_list[badge_image_index], "$.image_type")
+        is_animated   = get_dict_attr(badge_image_list[badge_image_index], "$.is_animated")
+        open_web_url  = get_dict_attr(badge_image_list[badge_image_index], "$.open_web_url")
+        uri           = get_dict_attr(badge_image_list[badge_image_index], "$.uri")
+        width         = get_dict_attr(badge_image_list[badge_image_index], "$.width")
         
-        set_dict_attr(picture_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
-        set_dict_attr(picture_table_tuple, "$.platform",     DOUYIN_PLATFORM)
-        set_dict_attr(picture_table_tuple, "$.room_id",      str(room_id))
-        set_dict_attr(picture_table_tuple, "$.label",        label)
-        set_dict_attr(picture_table_tuple, "$.avg_color",    avg_color)
-        set_dict_attr(picture_table_tuple, "$.height",       height)
-        set_dict_attr(picture_table_tuple, "$.image_type",   image_type)
-        set_dict_attr(picture_table_tuple, "$.is_animated",  is_animated)
-        set_dict_attr(picture_table_tuple, "$.open_web_url", open_web_url)
-        set_dict_attr(picture_table_tuple, "$.uri",          uri)
-        set_dict_attr(picture_table_tuple, "$.width",        width)
-        
+        set_dict_attr(picture_table_tuple, "$.start_time",    dat.fromtimestamp(start_time))
+        set_dict_attr(picture_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+        set_dict_attr(picture_table_tuple, "$.room_id",       str(room_id))
+        set_dict_attr(picture_table_tuple, "$.label",         label)
+        set_dict_attr(picture_table_tuple, "$.avg_color",     avg_color)
+        set_dict_attr(picture_table_tuple, "$.height",        height)
+        set_dict_attr(picture_table_tuple, "$.image_type",    image_type)
+        set_dict_attr(picture_table_tuple, "$.is_animated",   is_animated)
+        set_dict_attr(picture_table_tuple, "$.open_web_url",  open_web_url)
+        set_dict_attr(picture_table_tuple, "$.uri",           uri)
+        set_dict_attr(picture_table_tuple, "$.width",         width)
+        set_dict_attr(picture_table_tuple, "$.picture_index", picture_index)
         if uri is not None:
           picture_table.insert_record(picture_table_tuple, on_duplicate='ignore')
 
@@ -3915,14 +4755,15 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     if len(badge_image_list_v2) != 0:
       # picture_index auto increment
       label        = "badge_image_list_v2"
-      for badge_image in badge_image_list_v2:
-        avg_color    = get_dict_attr(badge_image, "$.avg_color")
-        height       = get_dict_attr(badge_image, "$.height")
-        image_type   = get_dict_attr(badge_image, "$.image_type")
-        is_animated  = get_dict_attr(badge_image, "$.is_animated")
-        open_web_url = get_dict_attr(badge_image, "$.open_web_url")
-        uri          = get_dict_attr(badge_image, "$.uri")
-        width        = get_dict_attr(badge_image, "$.width")
+      for badge_image_index in range(0, len(badge_image_list_v2)):
+        picture_index = badge_image_index
+        avg_color     = get_dict_attr(badge_image_list_v2[badge_image_index], "$.avg_color")
+        height        = get_dict_attr(badge_image_list_v2[badge_image_index], "$.height")
+        image_type    = get_dict_attr(badge_image_list_v2[badge_image_index], "$.image_type")
+        is_animated   = get_dict_attr(badge_image_list_v2[badge_image_index], "$.is_animated")
+        open_web_url  = get_dict_attr(badge_image_list_v2[badge_image_index], "$.open_web_url")
+        uri           = get_dict_attr(badge_image_list_v2[badge_image_index], "$.uri")
+        width         = get_dict_attr(badge_image_list_v2[badge_image_index], "$.width")
         
         set_dict_attr(picture_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
         set_dict_attr(picture_table_tuple, "$.platform",     DOUYIN_PLATFORM)
@@ -3935,7 +4776,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
         set_dict_attr(picture_table_tuple, "$.open_web_url", open_web_url)
         set_dict_attr(picture_table_tuple, "$.uri",          uri)
         set_dict_attr(picture_table_tuple, "$.width",        width)
-        
+        set_dict_attr(picture_table_tuple, "$.picture_index", picture_index)
         if uri is not None:
           picture_table.insert_record(picture_table_tuple, on_duplicate='ignore')
 
@@ -3944,29 +4785,29 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ##
     icons = get_dict_attr(data, "$.data.room.owner.fans_club.data.badge.icons")
     if icons is not None:
-      # picture_index auto increment
       for icon_key, icon_value in dict(icons).items():
-        label        = "icons" + icon_key
-        avg_color    = get_dict_attr(icon_value, "$.avg_color")
-        height       = get_dict_attr(icon_value, "$.height")
-        image_type   = get_dict_attr(icon_value, "$.image_type")
-        is_animated  = get_dict_attr(icon_value, "$.is_animated")
-        open_web_url = get_dict_attr(icon_value, "$.open_web_url")
-        uri          = get_dict_attr(icon_value, "$.uri")
-        width        = get_dict_attr(icon_value, "$.width")
+        label         = "icons" + icon_key
+        picture_index = 0
+        avg_color     = get_dict_attr(icon_value, "$.avg_color")
+        height        = get_dict_attr(icon_value, "$.height")
+        image_type    = get_dict_attr(icon_value, "$.image_type")
+        is_animated   = get_dict_attr(icon_value, "$.is_animated")
+        open_web_url  = get_dict_attr(icon_value, "$.open_web_url")
+        uri           = get_dict_attr(icon_value, "$.uri")
+        width         = get_dict_attr(icon_value, "$.width")
 
-        set_dict_attr(picture_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
-        set_dict_attr(picture_table_tuple, "$.platform",     DOUYIN_PLATFORM)
-        set_dict_attr(picture_table_tuple, "$.room_id",      str(room_id))
-        set_dict_attr(picture_table_tuple, "$.label",        label)
-        set_dict_attr(picture_table_tuple, "$.avg_color",    avg_color)
-        set_dict_attr(picture_table_tuple, "$.height",       height)
-        set_dict_attr(picture_table_tuple, "$.image_type",   image_type)
-        set_dict_attr(picture_table_tuple, "$.is_animated",  is_animated)
-        set_dict_attr(picture_table_tuple, "$.open_web_url", open_web_url)
-        set_dict_attr(picture_table_tuple, "$.uri",          uri)
-        set_dict_attr(picture_table_tuple, "$.width",        width)
-        
+        set_dict_attr(picture_table_tuple, "$.start_time",    dat.fromtimestamp(start_time))
+        set_dict_attr(picture_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+        set_dict_attr(picture_table_tuple, "$.room_id",       str(room_id))
+        set_dict_attr(picture_table_tuple, "$.label",         label)
+        set_dict_attr(picture_table_tuple, "$.avg_color",     avg_color)
+        set_dict_attr(picture_table_tuple, "$.height",        height)
+        set_dict_attr(picture_table_tuple, "$.image_type",    image_type)
+        set_dict_attr(picture_table_tuple, "$.is_animated",   is_animated)
+        set_dict_attr(picture_table_tuple, "$.open_web_url",  open_web_url)
+        set_dict_attr(picture_table_tuple, "$.uri",           uri)
+        set_dict_attr(picture_table_tuple, "$.width",         width)
+        set_dict_attr(picture_table_tuple, "$.picture_index", picture_index)
         if uri is not None:
           picture_table.insert_record(picture_table_tuple, on_duplicate='ignore')
 
@@ -3975,28 +4816,28 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ##
     new_im_icon_with_level = get_dict_attr(data, "$.data.room.owner.pay_grade.new_im_icon_with_level")
     if new_im_icon_with_level is not None:
-      # picture_index auto increment
-      label        = "new_im_icon_with_level"
-      avg_color    = get_dict_attr(new_im_icon_with_level, "$.avg_color")
-      height       = get_dict_attr(new_im_icon_with_level, "$.height")
-      image_type   = get_dict_attr(new_im_icon_with_level, "$.image_type")
-      is_animated  = get_dict_attr(new_im_icon_with_level, "$.is_animated")
-      open_web_url = get_dict_attr(new_im_icon_with_level, "$.open_web_url")
-      uri          = get_dict_attr(new_im_icon_with_level, "$.uri")
-      width        = get_dict_attr(new_im_icon_with_level, "$.width")
+      label         = "new_im_icon_with_level"
+      picture_index = 0
+      avg_color     = get_dict_attr(new_im_icon_with_level, "$.avg_color")
+      height        = get_dict_attr(new_im_icon_with_level, "$.height")
+      image_type    = get_dict_attr(new_im_icon_with_level, "$.image_type")
+      is_animated   = get_dict_attr(new_im_icon_with_level, "$.is_animated")
+      open_web_url  = get_dict_attr(new_im_icon_with_level, "$.open_web_url")
+      uri           = get_dict_attr(new_im_icon_with_level, "$.uri")
+      width         = get_dict_attr(new_im_icon_with_level, "$.width")
       
-      set_dict_attr(picture_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
-      set_dict_attr(picture_table_tuple, "$.platform",     DOUYIN_PLATFORM)
-      set_dict_attr(picture_table_tuple, "$.room_id",      str(room_id))
-      set_dict_attr(picture_table_tuple, "$.label",        label)
-      set_dict_attr(picture_table_tuple, "$.avg_color",    avg_color)
-      set_dict_attr(picture_table_tuple, "$.height",       height)
-      set_dict_attr(picture_table_tuple, "$.image_type",   image_type)
-      set_dict_attr(picture_table_tuple, "$.is_animated",  is_animated)
-      set_dict_attr(picture_table_tuple, "$.open_web_url", open_web_url)
-      set_dict_attr(picture_table_tuple, "$.uri",          uri)
-      set_dict_attr(picture_table_tuple, "$.width",        width)
-      
+      set_dict_attr(picture_table_tuple, "$.start_time",    dat.fromtimestamp(start_time))
+      set_dict_attr(picture_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+      set_dict_attr(picture_table_tuple, "$.room_id",       str(room_id))
+      set_dict_attr(picture_table_tuple, "$.label",         label)
+      set_dict_attr(picture_table_tuple, "$.avg_color",     avg_color)
+      set_dict_attr(picture_table_tuple, "$.height",        height)
+      set_dict_attr(picture_table_tuple, "$.image_type",    image_type)
+      set_dict_attr(picture_table_tuple, "$.is_animated",   is_animated)
+      set_dict_attr(picture_table_tuple, "$.open_web_url",  open_web_url)
+      set_dict_attr(picture_table_tuple, "$.uri",           uri)
+      set_dict_attr(picture_table_tuple, "$.width",         width)
+      set_dict_attr(picture_table_tuple, "$.picture_index", picture_index)
       if uri is not None:
         picture_table.insert_record(picture_table_tuple, on_duplicate='ignore')
       
@@ -4005,28 +4846,28 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ##
     new_live_icon = get_dict_attr(data, "$.data.room.owner.pay_grade.new_live_icon")
     if new_live_icon is not None:
-      # picture_index auto increment
-      label        = "new_live_icon"
-      avg_color    = get_dict_attr(new_live_icon, "$.avg_color")
-      height       = get_dict_attr(new_live_icon, "$.height")
-      image_type   = get_dict_attr(new_live_icon, "$.image_type")
-      is_animated  = get_dict_attr(new_live_icon, "$.is_animated")
-      open_web_url = get_dict_attr(new_live_icon, "$.open_web_url")
-      uri          = get_dict_attr(new_live_icon, "$.uri")
-      width        = get_dict_attr(new_live_icon, "$.width")
+      label         = "new_live_icon"
+      picture_index = 0
+      avg_color     = get_dict_attr(new_live_icon, "$.avg_color")
+      height        = get_dict_attr(new_live_icon, "$.height")
+      image_type    = get_dict_attr(new_live_icon, "$.image_type")
+      is_animated   = get_dict_attr(new_live_icon, "$.is_animated")
+      open_web_url  = get_dict_attr(new_live_icon, "$.open_web_url")
+      uri           = get_dict_attr(new_live_icon, "$.uri")
+      width         = get_dict_attr(new_live_icon, "$.width")
 
-      set_dict_attr(picture_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
-      set_dict_attr(picture_table_tuple, "$.platform",     DOUYIN_PLATFORM)
-      set_dict_attr(picture_table_tuple, "$.room_id",      str(room_id))
-      set_dict_attr(picture_table_tuple, "$.label",        label)
-      set_dict_attr(picture_table_tuple, "$.avg_color",    avg_color)
-      set_dict_attr(picture_table_tuple, "$.height",       height)
-      set_dict_attr(picture_table_tuple, "$.image_type",   image_type)
-      set_dict_attr(picture_table_tuple, "$.is_animated",  is_animated)
-      set_dict_attr(picture_table_tuple, "$.open_web_url", open_web_url)
-      set_dict_attr(picture_table_tuple, "$.uri",          uri)
-      set_dict_attr(picture_table_tuple, "$.width",        width)
-      
+      set_dict_attr(picture_table_tuple, "$.start_time",    dat.fromtimestamp(start_time))
+      set_dict_attr(picture_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+      set_dict_attr(picture_table_tuple, "$.room_id",       str(room_id))
+      set_dict_attr(picture_table_tuple, "$.label",         label)
+      set_dict_attr(picture_table_tuple, "$.avg_color",     avg_color)
+      set_dict_attr(picture_table_tuple, "$.height",        height)
+      set_dict_attr(picture_table_tuple, "$.image_type",    image_type)
+      set_dict_attr(picture_table_tuple, "$.is_animated",   is_animated)
+      set_dict_attr(picture_table_tuple, "$.open_web_url",  open_web_url)
+      set_dict_attr(picture_table_tuple, "$.uri",           uri)
+      set_dict_attr(picture_table_tuple, "$.width",         width)
+      set_dict_attr(picture_table_tuple, "$.picture_index", picture_index)
       if uri is not None:
         picture_table.insert_record(picture_table_tuple, on_duplicate='ignore')
   except Exception as e:
@@ -4054,14 +4895,31 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | flex_setting       |
     ## +--------------------+
     ##
-    picture_flex_setting_table_tuple = picture_flex_setting_table.get_tuple()
+    picture_flex_setting_table_tuple = {key:None for key in picture_flex_setting_table.get_tuple()}
     
     start_time          = get_dict_attr(data, "$.data.room.start_time")
+    ##
+    ## <=========================== content_label ==================================>
+    ##
+    if content_label is not None:
+      uri                 = get_dict_attr(data, "$.data.room.content_label.uri")
+      label               = 'content_label'
+      flex_setting_list   = get_dict_attr(data, "$.data.room.content_label.flex_setting_list")
+      if len(flex_setting_list) != 0:
+        set_dict_attr(picture_flex_setting_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
+        set_dict_attr(picture_flex_setting_table_tuple, "$.platform",     DOUYIN_PLATFORM)
+        set_dict_attr(picture_flex_setting_table_tuple, "$.room_id",      str(room_id))
+        set_dict_attr(picture_flex_setting_table_tuple, "$.label",        label)
+        set_dict_attr(picture_flex_setting_table_tuple, "$.uri",          uri)
+        for flex_setting_index in range(0, len(flex_setting_list)):
+          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting_index", flex_setting_index)
+          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",       flex_setting_list[flex_setting_index])
+          picture_flex_setting_table.insert_record(picture_flex_setting_table_tuple, on_duplicate='ignore')
+
     ##
     ## <=========================== cover ==================================>
     ##
     uri                 = get_dict_attr(data, "$.data.room.cover.uri")
-    # flex_setting_index auto increment
     label               = 'cover'
     flex_setting_list   = get_dict_attr(data, "$.data.room.cover.flex_setting_list")
     if len(flex_setting_list) != 0:
@@ -4070,15 +4928,15 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       set_dict_attr(picture_flex_setting_table_tuple, "$.room_id",      str(room_id))
       set_dict_attr(picture_flex_setting_table_tuple, "$.label",        label)
       set_dict_attr(picture_flex_setting_table_tuple, "$.uri",          uri)
-      for flex_setting in flex_setting_list:
-        set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",      flex_setting)
+      for flex_setting_index in range(0, len(flex_setting_list)):
+        set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting_index", flex_setting_index)
+        set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",       flex_setting_list[flex_setting_index])
         picture_flex_setting_table.insert_record(picture_flex_setting_table_tuple, on_duplicate='ignore')
       
     ##
     ## <=========================== feed_room_label ==================================>
     ##
     uri                 = get_dict_attr(data, "$.data.room.feed_room_label.uri")
-    # flex_setting_index auto increment
     label               = 'feed_room_label'
     flex_setting_list   = get_dict_attr(data, "$.data.room.feed_room_label.flex_setting_list")
     if len(flex_setting_list) != 0:
@@ -4087,15 +4945,15 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       set_dict_attr(picture_flex_setting_table_tuple, "$.room_id",      str(room_id))
       set_dict_attr(picture_flex_setting_table_tuple, "$.label",        label)
       set_dict_attr(picture_flex_setting_table_tuple, "$.uri",          uri)
-      for flex_setting in flex_setting_list:
-        set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",      flex_setting)
+      for flex_setting_index in range(0, len(flex_setting_list)):
+        set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting_index", flex_setting_index)
+        set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",       flex_setting_list[flex_setting_index])
         picture_flex_setting_table.insert_record(picture_flex_setting_table_tuple, on_duplicate='ignore')
 
     ##
     ## <=========================== guide_button ==================================>
     ##
     uri                 = get_dict_attr(data, "$.data.room.guide_button.uri")
-    # flex_setting_index auto increment
     label               = 'guide_button'
     flex_setting_list   = get_dict_attr(data, "$.data.room.guide_button.flex_setting_list")
     if len(flex_setting_list) != 0:
@@ -4104,15 +4962,50 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       set_dict_attr(picture_flex_setting_table_tuple, "$.room_id",      str(room_id))
       set_dict_attr(picture_flex_setting_table_tuple, "$.label",        label)
       set_dict_attr(picture_flex_setting_table_tuple, "$.uri",          uri)
-      for flex_setting in flex_setting_list:
-        set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",      flex_setting)
+      for flex_setting_index in range(0, len(flex_setting_list)):
+        set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting_index", flex_setting_index)
+        set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",       flex_setting_list[flex_setting_index])
         picture_flex_setting_table.insert_record(picture_flex_setting_table_tuple, on_duplicate='ignore')
+
+    if exist_authentication_info is True:
+      ##
+      ## <=========================== authentication_badge ==================================>
+      ##
+      uri                 = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge.uri")
+      label               = 'authentication_badge'
+      flex_setting_list   = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge.flex_setting_list")
+      if len(flex_setting_list) != 0:
+        set_dict_attr(picture_flex_setting_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
+        set_dict_attr(picture_flex_setting_table_tuple, "$.platform",     DOUYIN_PLATFORM)
+        set_dict_attr(picture_flex_setting_table_tuple, "$.room_id",      str(room_id))
+        set_dict_attr(picture_flex_setting_table_tuple, "$.label",        label)
+        set_dict_attr(picture_flex_setting_table_tuple, "$.uri",          uri)
+        for flex_setting_index in range(0, len(flex_setting_list)):
+          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting_index", flex_setting_index)
+          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",       flex_setting_list[flex_setting_index])
+          picture_flex_setting_table.insert_record(picture_flex_setting_table_tuple, on_duplicate='ignore')
+
+      ##
+      ## <=========================== authentication_badge_v2 ==================================>
+      ##
+      uri                 = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2.uri")
+      label               = 'authentication_badge_v2'
+      flex_setting_list   = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2.flex_setting_list")
+      if len(flex_setting_list) != 0:
+        set_dict_attr(picture_flex_setting_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
+        set_dict_attr(picture_flex_setting_table_tuple, "$.platform",     DOUYIN_PLATFORM)
+        set_dict_attr(picture_flex_setting_table_tuple, "$.room_id",      str(room_id))
+        set_dict_attr(picture_flex_setting_table_tuple, "$.label",        label)
+        set_dict_attr(picture_flex_setting_table_tuple, "$.uri",          uri)
+        for flex_setting_index in range(0, len(flex_setting_list)):
+          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting_index", flex_setting_index)
+          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",       flex_setting_list[flex_setting_index])
+          picture_flex_setting_table.insert_record(picture_flex_setting_table_tuple, on_duplicate='ignore')
 
     ##
     ## <=========================== avatar_large ==================================>
     ##
     uri                 = get_dict_attr(data, "$.data.room.owner.avatar_large.uri")
-    # flex_setting_index auto increment
     label               = 'avatar_large'
     flex_setting_list   = get_dict_attr(data, "$.data.room.owner.avatar_large.flex_setting_list")
     if len(flex_setting_list) != 0:
@@ -4121,15 +5014,15 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       set_dict_attr(picture_flex_setting_table_tuple, "$.room_id",      str(room_id))
       set_dict_attr(picture_flex_setting_table_tuple, "$.label",        label)
       set_dict_attr(picture_flex_setting_table_tuple, "$.uri",          uri)
-      for flex_setting in flex_setting_list:
-        set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",      flex_setting)
+      for flex_setting_index in range(0, len(flex_setting_list)):
+        set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting_index", flex_setting_index)
+        set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",       flex_setting_list[flex_setting_index])
         picture_flex_setting_table.insert_record(picture_flex_setting_table_tuple, on_duplicate='ignore')
 
     ##
     ## <=========================== avatar_medium ==================================>
     ##
     uri                 = get_dict_attr(data, "$.data.room.owner.avatar_medium.uri")
-    # flex_setting_index auto increment
     label               = 'avatar_medium'
     flex_setting_list   = get_dict_attr(data, "$.data.room.owner.avatar_medium.flex_setting_list")
     if len(flex_setting_list) != 0:
@@ -4138,15 +5031,15 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       set_dict_attr(picture_flex_setting_table_tuple, "$.room_id",      str(room_id))
       set_dict_attr(picture_flex_setting_table_tuple, "$.label",        label)
       set_dict_attr(picture_flex_setting_table_tuple, "$.uri",          uri)
-      for flex_setting in flex_setting_list:
-        set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",      flex_setting)
+      for flex_setting_index in range(0, len(flex_setting_list)):
+        set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting_index", flex_setting_index)
+        set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",       flex_setting_list[flex_setting_index])
         picture_flex_setting_table.insert_record(picture_flex_setting_table_tuple, on_duplicate='ignore')
         
     ##
     ## <=========================== avatar_thumb ==================================>
     ##
     uri                 = get_dict_attr(data, "$.data.room.owner.avatar_thumb.uri")
-    # flex_setting_index auto increment
     label               = 'avatar_thumb'
     flex_setting_list   = get_dict_attr(data, "$.data.room.owner.avatar_thumb.flex_setting_list")
     if len(flex_setting_list) != 0:
@@ -4155,8 +5048,9 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       set_dict_attr(picture_flex_setting_table_tuple, "$.room_id",      str(room_id))
       set_dict_attr(picture_flex_setting_table_tuple, "$.label",        label)
       set_dict_attr(picture_flex_setting_table_tuple, "$.uri",          uri)
-      for flex_setting in flex_setting_list:
-        set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",      flex_setting)
+      for flex_setting_index in range(0, len(flex_setting_list)):
+        set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting_index", flex_setting_index)
+        set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",       flex_setting_list[flex_setting_index])
         picture_flex_setting_table.insert_record(picture_flex_setting_table_tuple, on_duplicate='ignore')
 
     ##
@@ -4173,7 +5067,6 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       ## loop flex setting list
       ##
       uri                 = get_dict_attr(badge_image, "$.uri")
-      # flex_setting_index auto increment
       label               = 'badge_image_list'
       flex_setting_list   = get_dict_attr(badge_image, "$.flex_setting_list")
       if len(flex_setting_list) != 0:
@@ -4186,9 +5079,9 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
         set_dict_attr(picture_flex_setting_table_tuple, "$.room_id",      str(room_id))
         set_dict_attr(picture_flex_setting_table_tuple, "$.label",        label)
         set_dict_attr(picture_flex_setting_table_tuple, "$.uri",          uri)
-        for flex_setting in flex_setting_list:
-          # flex_setting_index auto increment
-          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",      flex_setting)
+        for flex_setting_index in range(0, len(flex_setting_list)):
+          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting_index", flex_setting_index)
+          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",       flex_setting_list[flex_setting_index])
           if uri is not None:
             picture_flex_setting_table.insert_record(picture_flex_setting_table_tuple, on_duplicate='ignore')
 
@@ -4206,7 +5099,6 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       ## loop flex setting list
       ##
       uri                 = get_dict_attr(badge_image, "$.uri")
-      # flex_setting_index auto increment
       label               = 'badge_image_list_v2'
       flex_setting_list   = get_dict_attr(badge_image, "$.flex_setting_list")
       if len(flex_setting_list) != 0:
@@ -4219,9 +5111,9 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
         set_dict_attr(picture_flex_setting_table_tuple, "$.room_id",      str(room_id))
         set_dict_attr(picture_flex_setting_table_tuple, "$.label",        label)
         set_dict_attr(picture_flex_setting_table_tuple, "$.uri",          uri)
-        for flex_setting in flex_setting_list:
-          # flex_setting_index auto increment
-          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",      flex_setting)
+        for flex_setting_index in range(0, len(flex_setting_list)):
+          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting_index", flex_setting_index)
+          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",       flex_setting_list[flex_setting_index])
           if uri is not None:
             picture_flex_setting_table.insert_record(picture_flex_setting_table_tuple, on_duplicate='ignore')
 
@@ -4240,7 +5132,6 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       ##
       label               = "icons" + icon_key
       uri                 = get_dict_attr(icon_value, "$.uri")
-      # flex_setting_index auto increment
       flex_setting_list   = get_dict_attr(icon_value, "$.flex_setting_list")
       if len(flex_setting_list) != 0:
         
@@ -4252,47 +5143,53 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
         set_dict_attr(picture_flex_setting_table_tuple, "$.room_id",      str(room_id))
         set_dict_attr(picture_flex_setting_table_tuple, "$.label",        label)
         set_dict_attr(picture_flex_setting_table_tuple, "$.uri",          uri)
-        for flex_setting in flex_setting_list:
-          # flex_setting_index auto increment
-          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",      flex_setting)
+        for flex_setting_index in range(0, len(flex_setting_list)):
+          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting_index", flex_setting_index)
+          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",       flex_setting_list[flex_setting_index])
           if uri is not None:
             picture_flex_setting_table.insert_record(picture_flex_setting_table_tuple, on_duplicate='ignore')
 
     ##
     ## <=========================== new_im_icon_with_level ==================================>
     ##
-    uri                 = get_dict_attr(data, "$.data.room.owner.pay_grade.new_im_icon_with_level.uri")
-    # flex_setting_index auto increment
-    label               = "new_im_icon_with_level"
-    flex_setting_list   = get_dict_attr(data, "$.data.room.owner.pay_grade.new_im_icon_with_level.flex_setting_list")
-    if len(flex_setting_list) != 0:
-      set_dict_attr(picture_flex_setting_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
-      set_dict_attr(picture_flex_setting_table_tuple, "$.platform",     DOUYIN_PLATFORM)
-      set_dict_attr(picture_flex_setting_table_tuple, "$.room_id",      str(room_id))
-      set_dict_attr(picture_flex_setting_table_tuple, "$.label",        label)
-      set_dict_attr(picture_flex_setting_table_tuple, "$.uri",          uri)
-      for flex_setting in flex_setting_list:
-        set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",      flex_setting)
-        if uri is not None:
-          picture_flex_setting_table.insert_record(picture_flex_setting_table_tuple, on_duplicate='ignore')
+    try:
+      uri                 = get_dict_attr(data, "$.data.room.owner.pay_grade.new_im_icon_with_level.uri")
+      label               = "new_im_icon_with_level"
+      flex_setting_list   = get_dict_attr(data, "$.data.room.owner.pay_grade.new_im_icon_with_level.flex_setting_list")
+      if len(flex_setting_list) != 0:
+        set_dict_attr(picture_flex_setting_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
+        set_dict_attr(picture_flex_setting_table_tuple, "$.platform",     DOUYIN_PLATFORM)
+        set_dict_attr(picture_flex_setting_table_tuple, "$.room_id",      str(room_id))
+        set_dict_attr(picture_flex_setting_table_tuple, "$.label",        label)
+        set_dict_attr(picture_flex_setting_table_tuple, "$.uri",          uri)
+        for flex_setting_index in range(0, len(flex_setting_list)):
+          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting_index", flex_setting_index)
+          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",       flex_setting_list[flex_setting_index])
+          if uri is not None:
+            picture_flex_setting_table.insert_record(picture_flex_setting_table_tuple, on_duplicate='ignore')
+    except AttributeError as e:
+      get_logger().error(f"{e}")
 
     ##
     ## <=========================== new_live_icon ==================================>
     ##
-    uri                 = get_dict_attr(data, "$.data.room.owner.pay_grade.new_live_icon.uri")
-    # flex_setting_index auto increment
-    label               = "new_live_icon"
-    flex_setting_list   = get_dict_attr(data, "$.data.room.owner.pay_grade.new_live_icon.flex_setting_list")
-    if len(flex_setting_list) != 0:
-      set_dict_attr(picture_flex_setting_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
-      set_dict_attr(picture_flex_setting_table_tuple, "$.platform",     DOUYIN_PLATFORM)
-      set_dict_attr(picture_flex_setting_table_tuple, "$.room_id",      str(room_id))
-      set_dict_attr(picture_flex_setting_table_tuple, "$.label",        label)
-      set_dict_attr(picture_flex_setting_table_tuple, "$.uri",          uri)
-      for flex_setting in flex_setting_list:
-        set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",      flex_setting)
-        if uri is not None:
-          picture_flex_setting_table.insert_record(picture_flex_setting_table_tuple, on_duplicate='ignore')
+    try:
+      uri                 = get_dict_attr(data, "$.data.room.owner.pay_grade.new_live_icon.uri")
+      label               = "new_live_icon"
+      flex_setting_list   = get_dict_attr(data, "$.data.room.owner.pay_grade.new_live_icon.flex_setting_list")
+      if len(flex_setting_list) != 0:
+        set_dict_attr(picture_flex_setting_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
+        set_dict_attr(picture_flex_setting_table_tuple, "$.platform",     DOUYIN_PLATFORM)
+        set_dict_attr(picture_flex_setting_table_tuple, "$.room_id",      str(room_id))
+        set_dict_attr(picture_flex_setting_table_tuple, "$.label",        label)
+        set_dict_attr(picture_flex_setting_table_tuple, "$.uri",          uri)
+        for flex_setting_index in range(0, len(flex_setting_list)):
+          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting_index", flex_setting_index)
+          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",       flex_setting_list[flex_setting_index])
+          if uri is not None:
+            picture_flex_setting_table.insert_record(picture_flex_setting_table_tuple, on_duplicate='ignore')
+    except AttributeError as e:
+      get_logger().error(f"{e}")
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(picture_flex_setting_table.get_name(), e))
     raise e  
@@ -4318,14 +5215,32 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | text_setting       |
     ## +--------------------+
     ##
-    picture_text_setting_table_tuple = picture_text_setting_table.get_tuple()
+    picture_text_setting_table_tuple = {key:None for key in picture_text_setting_table.get_tuple()}
 
     start_time          = get_dict_attr(data, "$.data.room.start_time")
+    ##
+    ## <=========================== content_label ==================================>
+    ##
+    if content_label is not None:
+      uri                 = get_dict_attr(data, "$.data.room.content_label.uri")
+      label               = "content_label"
+      text_setting_list   = get_dict_attr(data, "$.data.room.content_label.text_setting_list")
+      if len(text_setting_list) != 0:
+        set_dict_attr(picture_text_setting_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
+        set_dict_attr(picture_text_setting_table_tuple, "$.platform",     DOUYIN_PLATFORM)
+        set_dict_attr(picture_text_setting_table_tuple, "$.room_id",      str(room_id))
+        set_dict_attr(picture_text_setting_table_tuple, "$.label",        label)
+        set_dict_attr(picture_text_setting_table_tuple, "$.uri",          uri)
+        for text_setting_index in range(0, len(text_setting_list)):
+          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting_index",      text_setting_index)
+          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",            text_setting_list[text_setting_index])
+          if uri is not None:
+            picture_text_setting_table.insert_record(picture_text_setting_table_tuple, on_duplicate='ignore')
+
     ##
     ## <=========================== cover ==================================>
     ##
     uri                 = get_dict_attr(data, "$.data.room.cover.uri")
-    # text_setting_index auto increment
     label               = "cover"
     text_setting_list   = get_dict_attr(data, "$.data.room.cover.text_setting_list")
     if len(text_setting_list) != 0:
@@ -4334,15 +5249,15 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       set_dict_attr(picture_text_setting_table_tuple, "$.room_id",      str(room_id))
       set_dict_attr(picture_text_setting_table_tuple, "$.label",        label)
       set_dict_attr(picture_text_setting_table_tuple, "$.uri",          uri)
-      for text_setting in text_setting_list:
-        set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",      text_setting)        
+      for text_setting_index in range(0, len(text_setting_list)):
+        set_dict_attr(picture_text_setting_table_tuple, "$.text_setting_index",      text_setting_index)
+        set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",            text_setting_list[text_setting_index])
         if uri is not None:
           picture_text_setting_table.insert_record(picture_text_setting_table_tuple, on_duplicate='ignore')
     ##
     ## <=========================== feed_room_label ==================================>
     ##
     uri                 = get_dict_attr(data, "$.data.room.feed_room_label.uri")
-    # text_setting_index auto increment
     label               = "feed_room_label"
     text_setting_list   = get_dict_attr(data, "$.data.room.feed_room_label.text_setting_list")
     if len(text_setting_list) != 0:
@@ -4351,8 +5266,9 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       set_dict_attr(picture_text_setting_table_tuple, "$.room_id",      str(room_id))
       set_dict_attr(picture_text_setting_table_tuple, "$.label",        label)
       set_dict_attr(picture_text_setting_table_tuple, "$.uri",          uri)
-      for text_setting in text_setting_list:
-        set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",      text_setting)
+      for text_setting_index in range(0, len(text_setting_list)):
+        set_dict_attr(picture_text_setting_table_tuple, "$.text_setting_index",      text_setting_index)
+        set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",            text_setting_list[text_setting_index])
         if uri is not None:
           picture_text_setting_table.insert_record(picture_text_setting_table_tuple, on_duplicate='ignore')
 
@@ -4360,7 +5276,6 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## <=========================== guide_button ==================================>
     ##
     uri                 = get_dict_attr(data, "$.data.room.guide_button.uri")
-    # text_setting_index auto increment
     label               = "guide_button"
     text_setting_list   = get_dict_attr(data, "$.data.room.guide_button.text_setting_list")
     if len(text_setting_list) != 0:
@@ -4369,16 +5284,51 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       set_dict_attr(picture_text_setting_table_tuple, "$.room_id",      str(room_id))
       set_dict_attr(picture_text_setting_table_tuple, "$.label",        label)
       set_dict_attr(picture_text_setting_table_tuple, "$.uri",          uri)
-      for text_setting in text_setting_list:
-        set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",      text_setting)        
+      for text_setting_index in range(0, len(text_setting_list)):
+        set_dict_attr(picture_text_setting_table_tuple, "$.text_setting_index",      text_setting_index)
+        set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",            text_setting_list[text_setting_index])
         if uri is not None:
           picture_text_setting_table.insert_record(picture_text_setting_table_tuple, on_duplicate='ignore')
+
+    if exist_authentication_info is True:
+      ##
+      ## <=========================== authentication_badge ==================================>
+      ##
+      uri                 = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge.uri")
+      label               = 'authentication_badge'
+      text_setting_list   = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge.text_setting_list")
+      if len(text_setting_list) != 0:
+        set_dict_attr(picture_text_setting_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
+        set_dict_attr(picture_text_setting_table_tuple, "$.platform",     DOUYIN_PLATFORM)
+        set_dict_attr(picture_text_setting_table_tuple, "$.room_id",      str(room_id))
+        set_dict_attr(picture_text_setting_table_tuple, "$.label",        label)
+        set_dict_attr(picture_text_setting_table_tuple, "$.uri",          uri)
+        for text_setting_index in range(0, len(text_setting_list)):
+          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting_index",      text_setting_index)
+          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",            text_setting_list[text_setting_index])
+          picture_flex_setting_table.insert_record(picture_text_setting_table_tuple, on_duplicate='ignore')
+
+      ##
+      ## <=========================== authentication_badge_v2 ==================================>
+      ##
+      uri                 = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2.uri")
+      label               = 'authentication_badge_v2'
+      text_setting_list   = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2.text_setting_list")
+      if len(text_setting_list) != 0:
+        set_dict_attr(picture_text_setting_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
+        set_dict_attr(picture_text_setting_table_tuple, "$.platform",     DOUYIN_PLATFORM)
+        set_dict_attr(picture_text_setting_table_tuple, "$.room_id",      str(room_id))
+        set_dict_attr(picture_text_setting_table_tuple, "$.label",        label)
+        set_dict_attr(picture_text_setting_table_tuple, "$.uri",          uri)
+        for text_setting_index in range(0, len(text_setting_list)):
+          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting_index",      text_setting_index)
+          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",            text_setting_list[text_setting_index])
+          picture_flex_setting_table.insert_record(picture_text_setting_table_tuple, on_duplicate='ignore')
 
     ##
     ## <=========================== avatar_large ==================================>
     ##
     uri                 = get_dict_attr(data, "$.data.room.owner.avatar_large.uri")
-    # text_setting_index auto increment
     label               = "avatar_large"
     text_setting_list   = get_dict_attr(data, "$.data.room.owner.avatar_large.text_setting_list")
     if len(text_setting_list) != 0:
@@ -4387,8 +5337,9 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       set_dict_attr(picture_text_setting_table_tuple, "$.room_id",      str(room_id))
       set_dict_attr(picture_text_setting_table_tuple, "$.label",        label)
       set_dict_attr(picture_text_setting_table_tuple, "$.uri",          uri)
-      for text_setting in text_setting_list:
-        set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",      text_setting)        
+      for text_setting_index in range(0, len(text_setting_list)):
+        set_dict_attr(picture_text_setting_table_tuple, "$.text_setting_index",      text_setting_index)
+        set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",            text_setting_list[text_setting_index])
         if uri is not None:
           picture_text_setting_table.insert_record(picture_text_setting_table_tuple, on_duplicate='ignore')
 
@@ -4396,7 +5347,6 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## <=========================== avatar_medium ==================================>
     ##
     uri                 = get_dict_attr(data, "$.data.room.owner.avatar_medium.uri")
-    # text_setting_index auto increment
     label               = "avatar_medium"
     text_setting_list   = get_dict_attr(data, "$.data.room.owner.avatar_medium.text_setting_list")
     if len(text_setting_list) != 0:
@@ -4405,8 +5355,9 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       set_dict_attr(picture_text_setting_table_tuple, "$.room_id",      str(room_id))
       set_dict_attr(picture_text_setting_table_tuple, "$.label",        label)
       set_dict_attr(picture_text_setting_table_tuple, "$.uri",          uri)
-      for text_setting in text_setting_list:
-        set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",      text_setting)        
+      for text_setting_index in range(0, len(text_setting_list)):
+        set_dict_attr(picture_text_setting_table_tuple, "$.text_setting_index",      text_setting_index)
+        set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",            text_setting_list[text_setting_index])
         if uri is not None:
           picture_text_setting_table.insert_record(picture_text_setting_table_tuple, on_duplicate='ignore')
 
@@ -4414,7 +5365,6 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## <=========================== avatar_thumb ==================================>
     ##
     uri                 = get_dict_attr(data, "$.data.room.owner.avatar_thumb.uri")
-    # text_setting_index auto increment
     label               = "avatar_thumb"
     text_setting_list   = get_dict_attr(data, "$.data.room.owner.avatar_thumb.text_setting_list")
     if len(text_setting_list) != 0:
@@ -4423,8 +5373,9 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       set_dict_attr(picture_text_setting_table_tuple, "$.room_id",      str(room_id))
       set_dict_attr(picture_text_setting_table_tuple, "$.label",        label)
       set_dict_attr(picture_text_setting_table_tuple, "$.uri",          uri)
-      for text_setting in text_setting_list:
-        set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",      text_setting)        
+      for text_setting_index in range(0, len(text_setting_list)):
+        set_dict_attr(picture_text_setting_table_tuple, "$.text_setting_index",      text_setting_index)
+        set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",            text_setting_list[text_setting_index])
         if uri is not None:
           picture_text_setting_table.insert_record(picture_text_setting_table_tuple, on_duplicate='ignore')
 
@@ -4442,7 +5393,6 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       ## loop text setting list
       ##
       uri                 = get_dict_attr(badge_image, "$.uri")
-      # text_setting_index auto increment
       label               = "badge_image_list"
       text_setting_list   = get_dict_attr(badge_image, "$.text_setting_list")
       if len(text_setting_list) != 0:
@@ -4455,9 +5405,9 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
         set_dict_attr(picture_text_setting_table_tuple, "$.room_id",      str(room_id))
         set_dict_attr(picture_text_setting_table_tuple, "$.label",        label)
         set_dict_attr(picture_text_setting_table_tuple, "$.uri",    uri)
-        for text_setting in text_setting_list:
-          # text_setting_index auto increment
-          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",      text_setting)          
+        for text_setting_index in range(0, len(text_setting_list)):
+          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting_index",      text_setting_index)
+          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",            text_setting_list[text_setting_index])
           if uri is not None:
             picture_text_setting_table.insert_record(picture_text_setting_table_tuple, on_duplicate='ignore')
 
@@ -4475,7 +5425,6 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       ## loop text setting list
       ##
       uri                 = get_dict_attr(badge_image, "$.uri")
-      # text_setting_index auto increment
       label               = "badge_image_list_v2"
       text_setting_list   = get_dict_attr(badge_image, "$.text_setting_list")
       if len(text_setting_list) != 0:
@@ -4488,9 +5437,9 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
         set_dict_attr(picture_text_setting_table_tuple, "$.room_id",      str(room_id))
         set_dict_attr(picture_text_setting_table_tuple, "$.label",        label)
         set_dict_attr(picture_text_setting_table_tuple, "$.uri",          uri)
-        for text_setting in text_setting_list:
-          # text_setting_index auto increment
-          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",      text_setting)          
+        for text_setting_index in range(0, len(text_setting_list)):
+          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting_index",      text_setting_index)
+          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",            text_setting_list[text_setting_index])
           if uri is not None:
             picture_text_setting_table.insert_record(picture_text_setting_table_tuple, on_duplicate='ignore')
 
@@ -4509,7 +5458,6 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       ##
       label               = "icons" + icon_key
       uri                 = get_dict_attr(icon_value, "$.uri")
-      # text_setting_index auto increment
       text_setting_list   = get_dict_attr(icon_value, "$.text_setting_list")
       if len(text_setting_list) != 0:
         
@@ -4521,47 +5469,53 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
         set_dict_attr(picture_text_setting_table_tuple, "$.room_id",      str(room_id))
         set_dict_attr(picture_text_setting_table_tuple, "$.label",        label)
         set_dict_attr(picture_text_setting_table_tuple, "$.uri",          uri)
-        for text_setting in text_setting_list:
-          # text_setting_index auto increment
-          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",      text_setting)          
+        for text_setting_index in range(0, len(text_setting_list)):
+          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting_index",      text_setting_index)
+          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",            text_setting_list[text_setting_index])
           if uri is not None:
             picture_text_setting_table.insert_record(picture_text_setting_table_tuple, on_duplicate='ignore')
 
     ##
     ## <=========================== new_im_icon_with_level ==================================>
     ##
-    uri                 = get_dict_attr(data, "$.data.room.owner.pay_grade.new_im_icon_with_level.uri")
-    # text_setting_index auto increment
-    label               = "new_im_icon_with_level"
-    text_setting_list   = get_dict_attr(data, "$.data.room.owner.pay_grade.new_im_icon_with_level.text_setting_list")
-    if len(text_setting_list) != 0:
-      set_dict_attr(picture_text_setting_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
-      set_dict_attr(picture_text_setting_table_tuple, "$.platform",     DOUYIN_PLATFORM)
-      set_dict_attr(picture_text_setting_table_tuple, "$.room_id",      str(room_id))
-      set_dict_attr(picture_text_setting_table_tuple, "$.label",        label)
-      set_dict_attr(picture_text_setting_table_tuple, "$.uri",          uri)
-      for text_setting in text_setting_list:
-        set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",      text_setting)        
-        if uri is not None:
-          picture_text_setting_table.insert_record(picture_text_setting_table_tuple, on_duplicate='ignore')
+    try:
+      uri                 = get_dict_attr(data, "$.data.room.owner.pay_grade.new_im_icon_with_level.uri")
+      label               = "new_im_icon_with_level"
+      text_setting_list   = get_dict_attr(data, "$.data.room.owner.pay_grade.new_im_icon_with_level.text_setting_list")
+      if len(text_setting_list) != 0:
+        set_dict_attr(picture_text_setting_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
+        set_dict_attr(picture_text_setting_table_tuple, "$.platform",     DOUYIN_PLATFORM)
+        set_dict_attr(picture_text_setting_table_tuple, "$.room_id",      str(room_id))
+        set_dict_attr(picture_text_setting_table_tuple, "$.label",        label)
+        set_dict_attr(picture_text_setting_table_tuple, "$.uri",          uri)
+        for text_setting_index in range(0, len(text_setting_list)):
+          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting_index",      text_setting_index)
+          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",            text_setting_list[text_setting_index])
+          if uri is not None:
+            picture_text_setting_table.insert_record(picture_text_setting_table_tuple, on_duplicate='ignore')
+    except AttributeError as e:
+      get_logger().error(f"{e}")
 
     ##
     ## <=========================== new_live_icon ==================================>
     ##
-    uri                 = get_dict_attr(data, "$.data.room.owner.pay_grade.new_live_icon.uri")
-    # text_setting_index auto increment
-    label               = "new_live_icon"
-    text_setting_list   = get_dict_attr(data, "$.data.room.owner.pay_grade.new_live_icon.text_setting_list")
-    if len(text_setting_list) != 0:
-      set_dict_attr(picture_text_setting_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
-      set_dict_attr(picture_text_setting_table_tuple, "$.platform",     DOUYIN_PLATFORM)
-      set_dict_attr(picture_text_setting_table_tuple, "$.room_id",      str(room_id))
-      set_dict_attr(picture_text_setting_table_tuple, "$.label",        label)
-      set_dict_attr(picture_text_setting_table_tuple, "$.uri",          uri)
-      for text_setting in text_setting_list:
-        set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",      text_setting)        
-        if uri is not None:
-          picture_text_setting_table.insert_record(picture_text_setting_table_tuple, on_duplicate='ignore')
+    try:
+      uri                 = get_dict_attr(data, "$.data.room.owner.pay_grade.new_live_icon.uri")
+      label               = "new_live_icon"
+      text_setting_list   = get_dict_attr(data, "$.data.room.owner.pay_grade.new_live_icon.text_setting_list")
+      if len(text_setting_list) != 0:
+        set_dict_attr(picture_text_setting_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
+        set_dict_attr(picture_text_setting_table_tuple, "$.platform",     DOUYIN_PLATFORM)
+        set_dict_attr(picture_text_setting_table_tuple, "$.room_id",      str(room_id))
+        set_dict_attr(picture_text_setting_table_tuple, "$.label",        label)
+        set_dict_attr(picture_text_setting_table_tuple, "$.uri",          uri)
+        for text_setting_index in range(0, len(text_setting_list)):
+          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting_index",      text_setting_index)
+          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",            text_setting_list[text_setting_index])
+          if uri is not None:
+            picture_text_setting_table.insert_record(picture_text_setting_table_tuple, on_duplicate='ignore')
+    except AttributeError as e:
+      get_logger().error(f"{e}")
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(picture_text_setting_table.get_name(), e))
     raise e
@@ -4586,14 +5540,33 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | url         |
     ## +-------------+
     ##
-    picture_url_table_tuple = picture_url_table.get_tuple()
+    picture_url_table_tuple = {key:None for key in picture_url_table.get_tuple()}
 
     start_time          = get_dict_attr(data, "$.data.room.start_time")
+    ##
+    ## <=========================== content_label ==================================>
+    ##
+    if content_label is not None:
+      uri                 = get_dict_attr(data, "$.data.room.content_label.uri")
+      label               = "content_label"
+      url_list            = get_dict_attr(data, "$.data.room.content_label.url_list")
+      if len(url_list) != 0:
+        set_dict_attr(picture_url_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
+        set_dict_attr(picture_url_table_tuple, "$.platform",     DOUYIN_PLATFORM)
+        set_dict_attr(picture_url_table_tuple, "$.room_id",      str(room_id))
+        set_dict_attr(picture_url_table_tuple, "$.label",        label)
+        set_dict_attr(picture_url_table_tuple, "$.uri_index",    0)
+        set_dict_attr(picture_url_table_tuple, "$.uri",          uri)
+        for url_index in range(0, len(url_list)):
+          set_dict_attr(picture_url_table_tuple, "$.url_index",  url_index)
+          set_dict_attr(picture_url_table_tuple, "$.url",        url_list[url_index])
+          if uri is not None:
+            picture_url_table.insert_record(picture_url_table_tuple, on_duplicate='ignore')
+
     ##
     ## <=========================== cover ==================================>
     ##
     uri                 = get_dict_attr(data, "$.data.room.cover.uri")
-    # url_index auto increment
     label               = "cover"
     url_list            = get_dict_attr(data, "$.data.room.cover.url_list")
     if len(url_list) != 0:
@@ -4601,17 +5574,60 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       set_dict_attr(picture_url_table_tuple, "$.platform",     DOUYIN_PLATFORM)
       set_dict_attr(picture_url_table_tuple, "$.room_id",      str(room_id))
       set_dict_attr(picture_url_table_tuple, "$.label",        label)
+      set_dict_attr(picture_url_table_tuple, "$.uri_index",    0)
       set_dict_attr(picture_url_table_tuple, "$.uri",          uri)
-      for url in url_list:
-        set_dict_attr(picture_url_table_tuple, "$.url",      url)        
+      for url_index in range(0, len(url_list)):
+        set_dict_attr(picture_url_table_tuple, "$.url_index",  url_index)
+        set_dict_attr(picture_url_table_tuple, "$.url",        url_list[url_index])
         if uri is not None:
           picture_url_table.insert_record(picture_url_table_tuple, on_duplicate='ignore')
+
+    if deco_list is not None:
+      for deco_index in range(0, len(deco_list)):
+        ##
+        ## <=========================== deco_list.image ==================================>
+        ##
+        if get_dict_attr(deco_list[deco_index], "$.image") is not None:
+          uri                 = get_dict_attr(deco_list[deco_index], "$.image.uri")
+          label               = "image" + str(deco_index)
+          url_list            = get_dict_attr(deco_list[deco_index], "$.image.url_list")
+          if len(url_list) != 0:
+            set_dict_attr(picture_url_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
+            set_dict_attr(picture_url_table_tuple, "$.platform",     DOUYIN_PLATFORM)
+            set_dict_attr(picture_url_table_tuple, "$.room_id",      str(room_id))
+            set_dict_attr(picture_url_table_tuple, "$.label",        label)
+            set_dict_attr(picture_url_table_tuple, "$.uri_index",    0)
+            set_dict_attr(picture_url_table_tuple, "$.uri",          uri)
+            for url_index in range(0, len(url_list)):
+              set_dict_attr(picture_url_table_tuple, "$.url_index",  url_index)
+              set_dict_attr(picture_url_table_tuple, "$.url",        url_list[url_index])
+              if uri is not None:
+                picture_url_table.insert_record(picture_url_table_tuple, on_duplicate='ignore')
+
+        ##
+        ## <=========================== deco_list.nine_patch_image ==================================>
+        ##
+        if get_dict_attr(deco_list[deco_index], "$.nine_patch_image") is not None:
+          uri                 = get_dict_attr(deco_list[deco_index], "$.nine_patch_image.uri")
+          label               = "nine_patch_image" + str(deco_index)
+          url_list            = get_dict_attr(deco_list[deco_index], "$.nine_patch_image.url_list")
+          if len(url_list) != 0:
+            set_dict_attr(picture_url_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
+            set_dict_attr(picture_url_table_tuple, "$.platform",     DOUYIN_PLATFORM)
+            set_dict_attr(picture_url_table_tuple, "$.room_id",      str(room_id))
+            set_dict_attr(picture_url_table_tuple, "$.label",        label)
+            set_dict_attr(picture_url_table_tuple, "$.uri_index",    0)
+            set_dict_attr(picture_url_table_tuple, "$.uri",          uri)
+            for url_index in range(0, len(url_list)):
+              set_dict_attr(picture_url_table_tuple, "$.url_index",  url_index)
+              set_dict_attr(picture_url_table_tuple, "$.url",        url_list[url_index])
+              if uri is not None:
+                picture_url_table.insert_record(picture_url_table_tuple, on_duplicate='ignore')
 
     ##
     ## <=========================== feed_room_label ==================================>
     ##
     uri                 = get_dict_attr(data, "$.data.room.feed_room_label.uri")
-    # url_index auto increment
     label               = "feed_room_label"
     url_list            = get_dict_attr(data, "$.data.room.feed_room_label.url_list")
     if len(url_list) != 0:
@@ -4619,16 +5635,17 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       set_dict_attr(picture_url_table_tuple, "$.platform",     DOUYIN_PLATFORM)
       set_dict_attr(picture_url_table_tuple, "$.room_id",      str(room_id))
       set_dict_attr(picture_url_table_tuple, "$.label",        label)
+      set_dict_attr(picture_url_table_tuple, "$.uri_index",    0)
       set_dict_attr(picture_url_table_tuple, "$.uri",          uri)
-      for url in url_list:
-        set_dict_attr(picture_url_table_tuple, "$.url",      url)        
+      for url_index in range(0, len(url_list)):
+        set_dict_attr(picture_url_table_tuple, "$.url_index",  url_index)
+        set_dict_attr(picture_url_table_tuple, "$.url",        url_list[url_index])
         if uri is not None:
           picture_url_table.insert_record(picture_url_table_tuple, on_duplicate='ignore')
     ##
     ## <=========================== guide_button ==================================>
     ##
     uri                 = get_dict_attr(data, "$.data.room.guide_button.uri")
-    # url_index auto increment
     label               = "guide_button"
     url_list   = get_dict_attr(data, "$.data.room.guide_button.url_list")
     if len(url_list) != 0:
@@ -4636,17 +5653,57 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       set_dict_attr(picture_url_table_tuple, "$.platform",     DOUYIN_PLATFORM)
       set_dict_attr(picture_url_table_tuple, "$.room_id",      str(room_id))
       set_dict_attr(picture_url_table_tuple, "$.label",        label)
+      set_dict_attr(picture_url_table_tuple, "$.uri_index",    0)
       set_dict_attr(picture_url_table_tuple, "$.uri",          uri)
-      for url in url_list:
-        set_dict_attr(picture_url_table_tuple, "$.url",      url)       
+      for url_index in range(0, len(url_list)):
+        set_dict_attr(picture_url_table_tuple, "$.url_index",  url_index)
+        set_dict_attr(picture_url_table_tuple, "$.url",        url_list[url_index])
         if uri is not None:
           picture_url_table.insert_record(picture_url_table_tuple, on_duplicate='ignore')
+
+    if exist_authentication_info is True:
+      ##
+      ## <=========================== authentication_badge ==================================>
+      ##
+      uri                 = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge.uri")
+      label               = "authentication_badge"
+      url_list   = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge.url_list")
+      if len(url_list) != 0:
+        set_dict_attr(picture_url_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
+        set_dict_attr(picture_url_table_tuple, "$.platform",     DOUYIN_PLATFORM)
+        set_dict_attr(picture_url_table_tuple, "$.room_id",      str(room_id))
+        set_dict_attr(picture_url_table_tuple, "$.label",        label)
+        set_dict_attr(picture_url_table_tuple, "$.uri_index",    0)
+        set_dict_attr(picture_url_table_tuple, "$.uri",          uri)
+        for url_index in range(0, len(url_list)):
+          set_dict_attr(picture_url_table_tuple, "$.url_index",  url_index)
+          set_dict_attr(picture_url_table_tuple, "$.url",        url_list[url_index])
+          if uri is not None:
+            picture_url_table.insert_record(picture_url_table_tuple, on_duplicate='ignore')
+
+      ##
+      ## <=========================== authentication_badge_v2 ==================================>
+      ##
+      uri                 = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2.uri")
+      label               = "authentication_badge_v2"
+      url_list   = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2.url_list")
+      if len(url_list) != 0:
+        set_dict_attr(picture_url_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
+        set_dict_attr(picture_url_table_tuple, "$.platform",     DOUYIN_PLATFORM)
+        set_dict_attr(picture_url_table_tuple, "$.room_id",      str(room_id))
+        set_dict_attr(picture_url_table_tuple, "$.label",        label)
+        set_dict_attr(picture_url_table_tuple, "$.uri_index",    0)
+        set_dict_attr(picture_url_table_tuple, "$.uri",          uri)
+        for url_index in range(0, len(url_list)):
+          set_dict_attr(picture_url_table_tuple, "$.url_index",  url_index)
+          set_dict_attr(picture_url_table_tuple, "$.url",        url_list[url_index])
+          if uri is not None:
+            picture_url_table.insert_record(picture_url_table_tuple, on_duplicate='ignore')
 
     ##
     ## <=========================== avatar_large ==================================>
     ##
     uri                 = get_dict_attr(data, "$.data.room.owner.avatar_large.uri")
-    # url_index auto increment
     label               = "avatar_large"
     url_list   = get_dict_attr(data, "$.data.room.owner.avatar_large.url_list")
     if len(url_list) != 0:
@@ -4654,9 +5711,11 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       set_dict_attr(picture_url_table_tuple, "$.platform",     DOUYIN_PLATFORM)
       set_dict_attr(picture_url_table_tuple, "$.room_id",      str(room_id))
       set_dict_attr(picture_url_table_tuple, "$.label",        label)
+      set_dict_attr(picture_url_table_tuple, "$.uri_index",    0)
       set_dict_attr(picture_url_table_tuple, "$.uri",          uri)
-      for url in url_list:
-        set_dict_attr(picture_url_table_tuple, "$.url",      url)        
+      for url_index in range(0, len(url_list)):
+        set_dict_attr(picture_url_table_tuple, "$.url_index",  url_index)
+        set_dict_attr(picture_url_table_tuple, "$.url",        url_list[url_index])
         if uri is not None:
           picture_url_table.insert_record(picture_url_table_tuple, on_duplicate='ignore')
 
@@ -4664,7 +5723,6 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## <=========================== avatar_medium ==================================>
     ##
     uri                 = get_dict_attr(data, "$.data.room.owner.avatar_medium.uri")
-    # url_index auto increment
     label               = "avatar_medium"
     url_list   = get_dict_attr(data, "$.data.room.owner.avatar_medium.url_list")
     if len(url_list) != 0:
@@ -4672,9 +5730,11 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       set_dict_attr(picture_url_table_tuple, "$.platform",     DOUYIN_PLATFORM)
       set_dict_attr(picture_url_table_tuple, "$.room_id",      str(room_id))
       set_dict_attr(picture_url_table_tuple, "$.label",        label)
+      set_dict_attr(picture_url_table_tuple, "$.uri_index",    0)
       set_dict_attr(picture_url_table_tuple, "$.uri",          uri)
-      for url in url_list:
-        set_dict_attr(picture_url_table_tuple, "$.url",      url)        
+      for url_index in range(0, len(url_list)):
+        set_dict_attr(picture_url_table_tuple, "$.url_index",  url_index)
+        set_dict_attr(picture_url_table_tuple, "$.url",        url_list[url_index])
         if uri is not None:
           picture_url_table.insert_record(picture_url_table_tuple, on_duplicate='ignore')
 
@@ -4682,7 +5742,6 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## <=========================== avatar_thumb ==================================>
     ##
     uri                 = get_dict_attr(data, "$.data.room.owner.avatar_thumb.uri")
-    # url_index auto increment
     label               = "avatar_thumb"
     url_list            = get_dict_attr(data, "$.data.room.owner.avatar_thumb.url_list")
     if len(url_list) != 0:
@@ -4690,9 +5749,11 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       set_dict_attr(picture_url_table_tuple, "$.platform",     DOUYIN_PLATFORM)
       set_dict_attr(picture_url_table_tuple, "$.room_id",      str(room_id))
       set_dict_attr(picture_url_table_tuple, "$.label",        label)
+      set_dict_attr(picture_url_table_tuple, "$.uri_index",    0)
       set_dict_attr(picture_url_table_tuple, "$.uri",          uri)
-      for url in url_list:
-        set_dict_attr(picture_url_table_tuple, "$.url",      url)        
+      for url_index in range(0, len(url_list)):
+        set_dict_attr(picture_url_table_tuple, "$.url_index",  url_index)
+        set_dict_attr(picture_url_table_tuple, "$.url",        url_list[url_index])
         if uri is not None:
           picture_url_table.insert_record(picture_url_table_tuple, on_duplicate='ignore')
 
@@ -4704,15 +5765,14 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ##
     ## loop badge image list
     ##
-    for badge_image in badge_image_list:
+    for badge_image_index in range(0, len(badge_image_list)):
       
       ##
       ## loop text setting list
       ##
-      uri                 = get_dict_attr(badge_image, "$.uri")
-      # url_index auto increment
+      uri                 = get_dict_attr(badge_image_list[badge_image_index], "$.uri")
       label               = "badge_image_list"
-      url_list            = get_dict_attr(badge_image, "$.url_list")
+      url_list            = get_dict_attr(badge_image_list[badge_image_index], "$.url_list")
       if len(url_list) != 0:
         
         ##
@@ -4722,10 +5782,11 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
         set_dict_attr(picture_url_table_tuple, "$.platform",     DOUYIN_PLATFORM)
         set_dict_attr(picture_url_table_tuple, "$.room_id",      str(room_id))
         set_dict_attr(picture_url_table_tuple, "$.label",        label)
+        set_dict_attr(picture_url_table_tuple, "$.uri_index",    badge_image_index)
         set_dict_attr(picture_url_table_tuple, "$.uri",          uri)
-        for url in url_list:
-          # url_index auto increment
-          set_dict_attr(picture_url_table_tuple, "$.url",      url)          
+        for url_index in range(0, len(url_list)):
+          set_dict_attr(picture_url_table_tuple, "$.url_index",  url_index)
+          set_dict_attr(picture_url_table_tuple, "$.url",        url_list[url_index])
           if uri is not None:
             picture_url_table.insert_record(picture_url_table_tuple, on_duplicate='ignore')
 
@@ -4737,17 +5798,14 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ##
     ## loop badge image list
     ##
-    for badge_image in badge_image_list_v2:
-      
+    for badge_image_index in range(0, len(badge_image_list_v2)):      
       ##
       ## loop text setting list
       ##
-      uri                 = get_dict_attr(badge_image, "$.uri")
-      # url_index auto increment
+      uri                 = get_dict_attr(badge_image_list_v2[badge_image_index], "$.uri")
       label               = "badge_image_list_v2"
-      url_list            = get_dict_attr(badge_image, "$.url_list")
-      if len(url_list) != 0:
-        
+      url_list            = get_dict_attr(badge_image_list_v2[badge_image_index], "$.url_list")
+      if len(url_list) != 0:        
         ##
         ## set for every record
         ##
@@ -4755,10 +5813,11 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
         set_dict_attr(picture_url_table_tuple, "$.platform",     DOUYIN_PLATFORM)
         set_dict_attr(picture_url_table_tuple, "$.room_id",      str(room_id))
         set_dict_attr(picture_url_table_tuple, "$.label",        label)
+        set_dict_attr(picture_url_table_tuple, "$.uri_index",    badge_image_index)
         set_dict_attr(picture_url_table_tuple, "$.uri",          uri)
-        for url in url_list:
-          # url_index auto increment
-          set_dict_attr(picture_url_table_tuple, "$.url",      url)          
+        for url_index in range(0, len(url_list)):
+          set_dict_attr(picture_url_table_tuple, "$.url_index",  url_index)
+          set_dict_attr(picture_url_table_tuple, "$.url",        url_list[url_index])
           if uri is not None:
             picture_url_table.insert_record(picture_url_table_tuple, on_duplicate='ignore')
 
@@ -4777,7 +5836,6 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       ##
       label               = "icons" + icon_key
       uri                 = get_dict_attr(icon_value, "$.uri")
-      # url_index auto increment
       url_list   = get_dict_attr(icon_value, "$.url_list")
       if len(url_list) != 0:
         
@@ -4788,48 +5846,57 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
         set_dict_attr(picture_url_table_tuple, "$.platform",     DOUYIN_PLATFORM)
         set_dict_attr(picture_url_table_tuple, "$.room_id",      str(room_id))
         set_dict_attr(picture_url_table_tuple, "$.label",        label)
+        set_dict_attr(picture_url_table_tuple, "$.uri_index",    0)
         set_dict_attr(picture_url_table_tuple, "$.uri",          uri)
-        for url in url_list:
-          # url_index auto increment
-          set_dict_attr(picture_url_table_tuple, "$.url",      url)          
+        for url_index in range(0, len(url_list)):
+          set_dict_attr(picture_url_table_tuple, "$.url_index",  url_index)
+          set_dict_attr(picture_url_table_tuple, "$.url",        url_list[url_index])
           if uri is not None:
             picture_url_table.insert_record(picture_url_table_tuple, on_duplicate='ignore')
 
     ##
     ## <=========================== new_im_icon_with_level ==================================>
     ##
-    uri                 = get_dict_attr(data, "$.data.room.owner.pay_grade.new_im_icon_with_level.uri")
-    # url_index auto increment
-    label               = "new_im_icon_with_level"
-    url_list            = get_dict_attr(data, "$.data.room.owner.pay_grade.new_im_icon_with_level.url_list")
-    if len(url_list) != 0:
-      set_dict_attr(picture_url_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
-      set_dict_attr(picture_url_table_tuple, "$.platform",     DOUYIN_PLATFORM)
-      set_dict_attr(picture_url_table_tuple, "$.room_id",      str(room_id))
-      set_dict_attr(picture_url_table_tuple, "$.label",        label)
-      set_dict_attr(picture_url_table_tuple, "$.uri",          uri)
-      for url in url_list:
-        set_dict_attr(picture_url_table_tuple, "$.url",      url)        
-        if uri is not None:
-          picture_url_table.insert_record(picture_url_table_tuple, on_duplicate='ignore')
+    try:
+      uri                 = get_dict_attr(data, "$.data.room.owner.pay_grade.new_im_icon_with_level.uri")
+      label               = "new_im_icon_with_level"
+      url_list            = get_dict_attr(data, "$.data.room.owner.pay_grade.new_im_icon_with_level.url_list")
+      if len(url_list) != 0:
+        set_dict_attr(picture_url_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
+        set_dict_attr(picture_url_table_tuple, "$.platform",     DOUYIN_PLATFORM)
+        set_dict_attr(picture_url_table_tuple, "$.room_id",      str(room_id))
+        set_dict_attr(picture_url_table_tuple, "$.label",        label)
+        set_dict_attr(picture_url_table_tuple, "$.uri_index",    0)
+        set_dict_attr(picture_url_table_tuple, "$.uri",          uri)
+        for url_index in range(0, len(url_list)):
+          set_dict_attr(picture_url_table_tuple, "$.url_index",  url_index)
+          set_dict_attr(picture_url_table_tuple, "$.url",        url_list[url_index])
+          if uri is not None:
+            picture_url_table.insert_record(picture_url_table_tuple, on_duplicate='ignore')
+    except AttributeError as e:
+      get_logger().error(f"{e}")
 
     ##
     ## <=========================== new_live_icon ==================================>
     ##
-    uri                 = get_dict_attr(data, "$.data.room.owner.pay_grade.new_live_icon.uri")
-    # url_index auto increment
-    label               = "new_live_icon"
-    url_list            = get_dict_attr(data, "$.data.room.owner.pay_grade.new_live_icon.url_list")
-    if len(url_list) != 0:
-      set_dict_attr(picture_url_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
-      set_dict_attr(picture_url_table_tuple, "$.platform",     DOUYIN_PLATFORM)
-      set_dict_attr(picture_url_table_tuple, "$.room_id",      str(room_id))
-      set_dict_attr(picture_url_table_tuple, "$.label",        label)
-      set_dict_attr(picture_url_table_tuple, "$.uri",          uri)
-      for url in url_list:
-        set_dict_attr(picture_url_table_tuple, "$.url",      url)        
-        if uri is not None:
-          picture_url_table.insert_record(picture_url_table_tuple, on_duplicate='ignore')
+    try:
+      uri                 = get_dict_attr(data, "$.data.room.owner.pay_grade.new_live_icon.uri")
+      label               = "new_live_icon"
+      url_list            = get_dict_attr(data, "$.data.room.owner.pay_grade.new_live_icon.url_list")
+      if len(url_list) != 0:
+        set_dict_attr(picture_url_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
+        set_dict_attr(picture_url_table_tuple, "$.platform",     DOUYIN_PLATFORM)
+        set_dict_attr(picture_url_table_tuple, "$.room_id",      str(room_id))
+        set_dict_attr(picture_url_table_tuple, "$.label",        label)
+        set_dict_attr(picture_url_table_tuple, "$.uri_index",    0)
+        set_dict_attr(picture_url_table_tuple, "$.uri",          uri)
+        for url_index in range(0, len(url_list)):
+          set_dict_attr(picture_url_table_tuple, "$.url_index",  url_index)
+          set_dict_attr(picture_url_table_tuple, "$.url",        url_list[url_index])
+          if uri is not None:
+            picture_url_table.insert_record(picture_url_table_tuple, on_duplicate='ignore')
+    except AttributeError as e:
+      get_logger().error(f"{e}")
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(picture_url_table.get_name(), e))
     raise e
@@ -4858,9 +5925,34 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | name             |
     ## +------------------+
     ##
-    picture_content_table_tuple = picture_content_table.get_tuple()
+    picture_content_table_tuple = {key:None for key in picture_content_table.get_tuple()}
 
     start_time          = get_dict_attr(data, "$.data.room.start_time")
+    ##
+    ## <=========================== content_label ==================================>
+    ##
+    if content_label is not None:
+      label               = "content_label"
+      uri                 = get_dict_attr(data, "$.data.room.content_label.uri")
+      alternative_text    = get_dict_attr(data, "$.data.room.content_label.content.alternative_text")
+      font_color          = get_dict_attr(data, "$.data.room.content_label.content.font_color")
+      level               = get_dict_attr(data, "$.data.room.content_label.content.level")
+      name                = get_dict_attr(data, "$.data.room.content_label.content.name")
+
+      # uri_index auto increment
+      set_dict_attr(picture_content_table_tuple, "$.start_time",          dat.fromtimestamp(start_time))
+      set_dict_attr(picture_content_table_tuple, "$.platform",            DOUYIN_PLATFORM)
+      set_dict_attr(picture_content_table_tuple, "$.room_id",             str(room_id))
+      set_dict_attr(picture_content_table_tuple, "$.label",               label)
+      set_dict_attr(picture_content_table_tuple, "$.uri",                 uri)
+      set_dict_attr(picture_content_table_tuple, "$.alternative_text",    alternative_text)
+      set_dict_attr(picture_content_table_tuple, "$.font_color",          font_color)
+      set_dict_attr(picture_content_table_tuple, "$.level",               level)
+      set_dict_attr(picture_content_table_tuple, "$.name",                name)
+
+      if uri is not None:
+        picture_content_table.insert_record(picture_content_table_tuple, on_duplicate='ignore')
+
     ##
     ## <=========================== feed_room_label ==================================>
     ##
@@ -5049,7 +6141,7 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
     ## | with_fusion_shop_entry                   |
     ## +------------------------------------------+
     ##
-    user_table_tuple                          = user_table.get_tuple()
+    user_table_tuple                          = {key:None for key in user_table.get_tuple()}
     id                                        = get_dict_attr(data, "$.data.user.id")
     gender                                    = get_dict_attr(data, "$.data.user.gender")
     allow_be_located                          = get_dict_attr(data, "$.data.user.allow_be_located")

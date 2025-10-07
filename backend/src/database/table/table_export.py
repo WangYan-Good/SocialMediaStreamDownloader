@@ -28,6 +28,8 @@ from backend.src.database.table.room                                  import   R
                                                                                RoomAdminUserOpenIdTable,                            \
                                                                                RoomAssistLabelTable,                                \
                                                                                RoomDecoTable,                                       \
+                                                                               RoomDecoInputRectTable,                              \
+                                                                               RoomDecoReservationTable,                            \
                                                                                RoomRealtimePlaybackQualityTable,                    \
                                                                                FansGroupAdminUserIdTable,                           \
                                                                                FansGroupAdminUserOpenIdTable,                       \
@@ -65,7 +67,8 @@ from backend.src.database.table.source                                import   B
                                                                                PictureFlexSettingTable,                             \
                                                                                PictureTextSettingTable,                             \
                                                                                PictureUrlTable,                                     \
-                                                                               PictureContentTable
+                                                                               PictureContentTable,                                 \
+                                                                               RoomDecoTextFootConfigTable
 from backend.src.database.table.stream                                import   LiveStreamTable,                                     \
                                                                                StreamCandidateResolutionTable,                      \
                                                                                StreamCompletePushUrlTable,                          \
@@ -76,14 +79,23 @@ from backend.src.database.table.stream                                import   L
                                                                                LiveCoreSdkPullDataOptionTable,                      \
                                                                                LiveCoreSdkPullQualityDataTable,                     \
                                                                                LiveCoreSdkPullDefaultQualityDataTable,              \
-                                                                               StreamPushUrlTable
+                                                                               StreamPushUrlTable,                                  \
+                                                                               RoomLinkMicTable,                                    \
+                                                                               RoomLinkMicBattleScoreTable,                         \
+                                                                               RoomLinkMicBattleSettingTable,                       \
+                                                                               RoomLinkMicChannelInfoTable
 from backend.src.database.table.user                                  import   RoomOwnerTable,                                      \
+                                                                               OwnRoomFlagTable,                                    \
+                                                                               OwnRoomIdTable,                                      \
                                                                                FansClubTable,                                       \
                                                                                FansClubAvailableGiftIdTable,                        \
                                                                                FansClubBadgeIconTable,                              \
                                                                                RoomOwnerUserAttrTable,                              \
                                                                                RoomAdminPrivilegeTable,                             \
-                                                                               UserTable
+                                                                               RoomOwnerAuthInfoTable,                              \
+                                                                               RoomOwnerAuthLevelTable,                             \
+                                                                               UserTable,                                           \
+                                                                               RoomOwnerAuthorStatsTable
 ##
 ## initialize the layout of exported data
 ##
@@ -1314,15 +1326,15 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   admin_user_id = RoomAdminUserIdTable(db)
   admin_user_id_tuple = {key: None for key in admin_user_id.get_tuple()}
   
-  set_dict_attr(admin_user_id_tuple, "$.now",      now)
-  set_dict_attr(admin_user_id_tuple, "$.platform", platform)
-  set_dict_attr(admin_user_id_tuple, "$.room_id",  str(room_id))
+  set_dict_attr(admin_user_id_tuple, "$.start_time", start_time)
+  set_dict_attr(admin_user_id_tuple, "$.platform",   platform)
+  set_dict_attr(admin_user_id_tuple, "$.room_id",    str(room_id))
   
   try:
     admin_user_ids = list()
     admin_user_id_list = admin_user_id.get_record(admin_user_id_tuple, fetchall=True)
-    for admin_user_id_record in admin_user_id_list:
-      admin_user_ids.append(int(admin_user_id_record.get('admin_user_id', 0)))
+    for admin_user_id_index in range(0, len(admin_user_id_list)):
+      admin_user_ids.insert(admin_user_id_list[admin_user_id_index].get('admin_user_id_index'), int(admin_user_id_list[admin_user_id_index].get('admin_user_id', 0)))
   except Exception as e:
     get_logger().error(f"{e}: {admin_user_id.get_name()} >> >> >> data.room.admin_user_ids")
     admin_user_ids = []
@@ -1389,7 +1401,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   | room_audit_status                   | unsigned tinyint  |      |     | NULL    |       | "$.data.room.room_audit_status"                        | 直播间审核状态        |
   | room_create_ab_param                | text              |      |     | NULL    |       | "$.data.room.room_create_ab_param"                     | 直播间创建AB参数      |
   | sofa_layout                         | unsigned tinyint  |      |     | NULL    |       | "$.data.room.sofa_layout"                              | 沙发布局              |
-  | stamps                              | tinytext          |      |     | NULL    |       | "$.data.room.stamps"                                   | 印章                 |
+  | stamps                              | text              |      |     | NULL    |       | "$.data.room.stamps"                                   | 印章                 |
   | comment_count                       | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.comment_count"                      | 评论数量              |
   | digg_count                          | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.digg_count"                         | 点赞数量              |
   | dou_plus_promotion                  | tinytext          |      |     | NULL    |       | "$.data.room.stats.dou_plus_promotion"                 | DouPlus推广          |
@@ -1486,7 +1498,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   
   try:
     cover_flex_setting_list = list()
-    cover_pic_flex_setting_tuple_list = cover_pic_flex_setting.get_record(cover_pic_flex_setting_tuple)
+    cover_pic_flex_setting_tuple_list = cover_pic_flex_setting.get_record(cover_pic_flex_setting_tuple, fetchall=True)
     for flex_setting in cover_pic_flex_setting_tuple_list:
       cover_flex_setting_list.append(get_dict_attr(flex_setting, "$.flex_setting"))
   except Exception as e:
@@ -1507,7 +1519,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   
   try:
     cover_text_setting_list = list()
-    cover_pic_text_setting_tuple_list = cover_pic_text_setting.get_record(cover_pic_text_setting_tuple)
+    cover_pic_text_setting_tuple_list = cover_pic_text_setting.get_record(cover_pic_text_setting_tuple, fetchall=True)
     for text_setting in cover_pic_text_setting_tuple_list:
       cover_text_setting_list.append(get_dict_attr(text_setting, "$.text_setting"))
   except Exception as e:
@@ -1536,11 +1548,388 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
     cover_url_list = []
 
   """
-  TODO
   >> >> >> data.room.deco_list
   """
-  deco_list = list()
+  room_deco_list = list()
+  room_deco_dict = dict()
+  room_deco_table = RoomDecoTable(db)
+  room_deco_tuple = {key:None for key in room_deco_table.get_tuple()}
   
+  set_dict_attr(room_deco_tuple, "$.start_time",      start_time)
+  set_dict_attr(room_deco_tuple, "$.platform",        platform)
+  set_dict_attr(room_deco_tuple, "$.room_id",         str(room_id))
+
+  room_deco_input_rect_table = RoomDecoInputRectTable(db)
+  room_deco_input_rect_tuple = {key:None for key in room_deco_input_rect_table.get_tuple()}
+
+  room_deco_reservation_table = RoomDecoReservationTable(db)
+  room_deco_reservation_tuple = {key:None for key in room_deco_reservation_table.get_tuple()}
+
+  room_deco_text_foot_config_table = RoomDecoTextFootConfigTable(db)
+  room_deco_text_foot_config_tuple = {key:None for key in room_deco_text_foot_config_table.get_tuple()}
+
+  try:
+    ##
+    ## RoomDecoTable
+    ##
+    room_deco_tuple_list = room_deco_table.get_record(room_deco_tuple, fetchall=True)
+    room_deco_list                  = list()
+    room_deco_input_rect_list       = list()
+    room_deco_reservation_list      = list()
+    room_deco_text_foot_config_list = list()
+    for room_deco in room_deco_tuple_list:
+      deco_index = get_dict_attr(room_deco, "$.deco_index")
+      set_dict_attr(room_deco_dict, "$.audit_text_color",                     get_dict_attr(room_deco, "$.audit_text_color"))
+      set_dict_attr(room_deco_dict, "$.content",                              get_dict_attr(room_deco, "$.content"))
+      set_dict_attr(room_deco_dict, "$.h",                                    get_dict_attr(room_deco, "$.h"))
+      set_dict_attr(room_deco_dict, "$.id",                                   get_dict_attr(room_deco, "$.id"))
+      set_dict_attr(room_deco_dict, "$.kind",                                 get_dict_attr(room_deco, "$.kind"))
+      set_dict_attr(room_deco_dict, "$.max_length",                           get_dict_attr(room_deco, "$.max_length"))
+      set_dict_attr(room_deco_dict, "$.status",                               get_dict_attr(room_deco, "$.status"))
+      set_dict_attr(room_deco_dict, "$.sub_type",                             get_dict_attr(room_deco, "$.sub_type"))
+      set_dict_attr(room_deco_dict, "$.text_color",                           get_dict_attr(room_deco, "$.text_color"))
+      set_dict_attr(room_deco_dict, "$.text_image_adjustable_end_position",   get_dict_attr(room_deco, "$.text_image_adjustable_end_position"))
+      set_dict_attr(room_deco_dict, "$.text_image_adjustable_start_position", get_dict_attr(room_deco, "$.text_image_adjustable_start_position"))
+      set_dict_attr(room_deco_dict, "$.text_size",                            get_dict_attr(room_deco, "$.text_size"))
+      set_dict_attr(room_deco_dict, "$.type",                                 get_dict_attr(room_deco, "$.type"))
+      set_dict_attr(room_deco_dict, "$.w",                                    get_dict_attr(room_deco, "$.w"))
+      set_dict_attr(room_deco_dict, "$.x",                                    get_dict_attr(room_deco, "$.x"))
+      set_dict_attr(room_deco_dict, "$.y",                                    get_dict_attr(room_deco, "$.y"))
+      room_deco_list.insert(deco_index, room_deco_dict)
+ 
+      ##
+      ## RoomDecoInputRectTable
+      ##
+      set_dict_attr(room_deco_input_rect_tuple, "$.start_time", start_time)
+      set_dict_attr(room_deco_input_rect_tuple, "$.platform",   platform)
+      set_dict_attr(room_deco_input_rect_tuple, "$.room_id",    str(room_id))
+      set_dict_attr(room_deco_input_rect_tuple, "$.deco_index", deco_index)
+      
+      try:
+        deco_input_list = list()
+        room_deco_input_rect_tuple_list = room_deco_input_rect_table.get_record(room_deco_input_rect_tuple, fetchall=True)
+        # deco_input_list = [None] * len(room_deco_input_rect_tuple_list)
+        for room_deco_input_rect in room_deco_input_rect_tuple_list:
+          input_rect       = get_dict_attr(room_deco_input_rect, "$.input_rect")
+          input_rect_index = get_dict_attr(room_deco_input_rect, "$.input_rect_index")
+          deco_input_list.insert(input_rect_index, input_rect)
+        room_deco_input_rect_list.insert(deco_index, deco_input_list)
+      except Exception as e:
+        get_logger().error(f"{e}: {room_deco_input_rect_table.get_name()} >> >> >> >> data.room.deco_list.input_rect")
+        room_deco_input_rect_list = []
+      
+      ##
+      ## RoomDecoReservationTable
+      ##
+      set_dict_attr(room_deco_reservation_tuple, "$.start_time", start_time)
+      set_dict_attr(room_deco_reservation_tuple, "$.platform",   platform)
+      set_dict_attr(room_deco_reservation_tuple, "$.room_id",    str(room_id))
+      set_dict_attr(room_deco_reservation_tuple, "$.deco_index", deco_index)
+      
+      try:
+        room_deco_reservation = dict()
+        room_deco_reservation_tuple_list = room_deco_reservation_table.get_record(room_deco_reservation_tuple)
+        if len(room_deco_reservation_tuple_list) != 0:
+          room_deco_reservation_tuple = room_deco_reservation_tuple_list.pop()
+          set_dict_attr(room_deco_reservation, "$.anchor_id",      get_dict_attr(room_deco_reservation_tuple, "$.anchor_id"),              force=True)
+          set_dict_attr(room_deco_reservation, "$.anchor_open_id", get_dict_attr(room_deco_reservation_tuple, "$.anchor_open_id"),         force=True)
+          set_dict_attr(room_deco_reservation, "$.appointment_id", get_dict_attr(room_deco_reservation_tuple, "$.appointment_id"),         force=True)
+          set_dict_attr(room_deco_reservation, "$.btn_color",      get_dict_attr(room_deco_reservation_tuple, "$.btn_color"),              force=True)
+          set_dict_attr(room_deco_reservation, "$.end_time",       get_dict_attr(room_deco_reservation_tuple, "$.reservation_end_time"),   force=True)
+          set_dict_attr(room_deco_reservation, "$.is_reserved",    get_dict_attr(room_deco_reservation_tuple, "$.is_reserved"),            force=True)
+          set_dict_attr(room_deco_reservation, "$.room_id",        get_dict_attr(room_deco_reservation_tuple, "$.reservation_room_id"),    force=True)
+          set_dict_attr(room_deco_reservation, "$.start_time",     get_dict_attr(room_deco_reservation_tuple, "$.reservation_start_time"), force=True)
+          room_deco_reservation_list.insert(deco_index, room_deco_reservation)          
+      except Exception as e:
+        get_logger().error(f"{e}: {room_deco_reservation_table.get_name()} >> >> >> >> data.room.deco_list.reservation")
+        room_deco_reservation_list = []
+
+      ##
+      ## RoomDecoTextFootConfigTable
+      ##
+      set_dict_attr(room_deco_text_foot_config_tuple, "$.start_time", start_time)
+      set_dict_attr(room_deco_text_foot_config_tuple, "$.platform",   platform)
+      set_dict_attr(room_deco_text_foot_config_tuple, "$.room_id",    str(room_id))
+      set_dict_attr(room_deco_text_foot_config_tuple, "$.deco_index", deco_index)
+      
+      try:
+        room_deco_text_foot_config = dict()
+        room_deco_text_foot_config_tuple_list = room_deco_text_foot_config_table.get_record(room_deco_text_foot_config_tuple, fetchall=True)
+        if len(room_deco_text_foot_config_tuple_list) != 0:
+          room_deco_text_foot_config_tuple = room_deco_text_foot_config_tuple_list.pop()
+          set_dict_attr(room_deco_text_foot_config, "$.DownloadUrl", get_dict_attr(room_deco_text_foot_config_tuple, "$.DownloadUrl"), force=True)
+          set_dict_attr(room_deco_text_foot_config, "$.FontID",      get_dict_attr(room_deco_text_foot_config_tuple, "$.FontID"),      force=True)
+          set_dict_attr(room_deco_text_foot_config, "$.Status",      get_dict_attr(room_deco_text_foot_config_tuple, "$.Status"),      force=True)
+          set_dict_attr(room_deco_text_foot_config, "$.font_name",   get_dict_attr(room_deco_text_foot_config_tuple, "$.font_name"),   force=True)
+          room_deco_text_foot_config_list.insert(deco_index, room_deco_text_foot_config)
+      except Exception as e:
+        get_logger().error(f"{e}: {room_deco_text_foot_config_table.get_name()} >> >> >> >> data.room.deco_list.text_font_config")
+        room_deco_text_foot_config_list = []
+
+    ##
+    ## TODO
+    ## RoomDecoReservationBtnRectTable
+    ##
+    room_deco_reservation_btn_rect_list = [None] * len(room_deco_list)
+    
+    ##
+    ## TODO: text_special_effects
+    ##
+    room_deco_text_special_effects = [None] * len(room_deco_list)
+  except Exception as e:
+    get_logger().error(f"{e}: {room_deco_table.get_name()} >> >> >> data.room.deco_list")
+    room_deco_list = []
+  
+  if len(room_deco_list) != 0:
+    """
+    >> >> >> >> >> data.room.deco_list.[x].image
+    """
+    deco_image_avg_color_list    = list()
+    deco_image_flex_setting_list = list()
+    deco_image_height_list       = list()
+    deco_image_image_type_list   = list()
+    deco_image_is_animated_list  = list()
+    deco_image_open_web_url_list = list()
+    deco_image_text_setting_list = list()
+    deco_image_uri_list          = list()
+    deco_image_url_list          = list()
+    deco_image_width_list        = list()
+    
+    ##
+    ## PictureTable
+    ##
+    deco_image_exist_list = list()
+    image_prefix   = 'image'
+    deco_image_pic = PictureTable(db)
+    deco_image_pic_tuple = {key: None for key in deco_image_pic.get_tuple()}
+    
+    set_dict_attr(deco_image_pic_tuple, "$.start_time",  start_time)
+    set_dict_attr(deco_image_pic_tuple, "$.platform",    platform)
+    set_dict_attr(deco_image_pic_tuple, "$.room_id",     str(room_id))
+  
+    try:
+      deco_image_pic_tuple_list = deco_image_pic.get_record(deco_image_pic_tuple, fetchall=True)
+      for deco_image_pic_tuple in deco_image_pic_tuple_list:
+        deco_image_pic_label = deco_image_pic_tuple.get('label', 'unknown')
+        if str(deco_image_pic_label).startswith(image_prefix):
+          deco_index = int(deco_image_pic_label[len(image_prefix):])
+
+          deco_image_avg_color_list.insert(deco_index, deco_image_pic_tuple.get("avg_color", ''))
+          deco_image_height_list.insert(deco_index, deco_image_pic_tuple.get("height", 0))
+          deco_image_image_type_list.insert(deco_index, deco_image_pic_tuple.get("image_type", 0))
+          deco_image_is_animated_list.insert(deco_index, bool(deco_image_pic_tuple.get("is_animated", False)))
+          deco_image_open_web_url_list.insert(deco_index, deco_image_pic_tuple.get("open_web_url", ''))
+          deco_image_uri_list.insert(deco_index, deco_image_pic_tuple.get("uri", ''))
+          deco_image_width_list.insert(deco_index, deco_image_pic_tuple.get("width", 0))
+          deco_image_exist_list.insert(deco_index, True)
+    except Exception as e:
+      get_logger().error(f"{e}: {room_deco_table.get_name()} >> >> >> >> data.room.deco_list[{deco_index}].image")
+      deco_image_avg_color_list.insert(deco_index, '')
+      deco_image_height_list.insert(deco_index, 0)
+      deco_image_image_type_list.insert(deco_index, 0)
+      deco_image_is_animated_list.insert(deco_index, False)
+      deco_image_open_web_url_list.insert(deco_index, '')
+      deco_image_uri_list.insert(deco_index, '')
+      deco_image_width_list.insert(deco_index, 0)
+      deco_image_exist_list.insert(deco_index, False)
+  
+    for deco_index in range(0, len(room_deco_list)):
+      if deco_image_exist_list[deco_index] is True:
+        ##
+        ## PictureFlexSettingTable
+        ##
+        deco_image_pic_flex_setting = PictureFlexSettingTable(db)
+        deco_image_pic_flex_setting_tuple = {key: None for key in deco_image_pic_flex_setting.get_tuple()}
+        
+        set_dict_attr(deco_image_pic_flex_setting_tuple, "$.uri",        deco_image_uri_list[deco_index])
+        set_dict_attr(deco_image_pic_flex_setting_tuple, "$.platform",   'douyin')
+        set_dict_attr(deco_image_pic_flex_setting_tuple, "$.start_time", start_time)
+        set_dict_attr(deco_image_pic_flex_setting_tuple, "$.room_id",    str(room_id))
+        set_dict_attr(deco_image_pic_flex_setting_tuple, "$.label",      'image' + str(deco_index))
+        
+        try:
+          deco_image_flex_setting = list()
+          deco_image_pic_flex_setting_tuple_list = deco_image_pic_flex_setting.get_record(deco_image_pic_flex_setting_tuple, fetchall=True)
+          for flex_setting in deco_image_pic_flex_setting_tuple_list:
+            deco_image_flex_setting.append(get_dict_attr(flex_setting, "$.flex_setting"))
+        except Exception as e:
+          get_logger().error(f"{e}: {deco_image_pic_flex_setting.get_name()} >> >> >> >> >> data.room.deco_list[{deco_index}].image.flex_setting_list")
+          deco_image_flex_setting = []
+        finally:
+          deco_image_flex_setting_list.insert(deco_index, deco_image_flex_setting)
+    
+        ##
+        ## PictureTextSettingTable
+        ##    
+        deco_image_pic_text_setting = PictureTextSettingTable(db)
+        deco_image_pic_text_setting_tuple = {key: None for key in deco_image_pic_text_setting.get_tuple()}
+        
+        set_dict_attr(deco_image_pic_text_setting_tuple, "$.uri",        deco_image_uri_list[deco_index])
+        set_dict_attr(deco_image_pic_text_setting_tuple, "$.platform",   'douyin')
+        set_dict_attr(deco_image_pic_text_setting_tuple, "$.start_time", start_time)
+        set_dict_attr(deco_image_pic_text_setting_tuple, "$.room_id",    str(room_id))
+        set_dict_attr(deco_image_pic_text_setting_tuple, "$.label",      'image' + str(deco_index))
+        
+        try:
+          single_deco_image_pic_text_setting = list()
+          deco_image_pic_text_setting_tuple_list = deco_image_pic_text_setting.get_record(deco_image_pic_text_setting_tuple, fetchall=True)
+          for text_setting in deco_image_pic_text_setting_tuple_list:
+            single_deco_image_pic_text_setting.append(get_dict_attr(text_setting, "$.text_setting"))
+        except Exception as e:
+          get_logger().error(f"{e}: {deco_image_pic_text_setting.get_name()} >> >> >> >> >> data.room.deco_list[{deco_index}].image.text_setting_list")
+          single_deco_image_pic_text_setting = []
+        finally:
+          deco_image_text_setting_list.insert(deco_index, single_deco_image_pic_text_setting)
+  
+        ##
+        ## PictureUrlTable
+        ##
+        deco_image_picture_url       = PictureUrlTable(db)
+        deco_image_picture_url_tuple = {key: None for key in deco_image_picture_url.get_tuple()}
+        
+        set_dict_attr(deco_image_picture_url_tuple, "$.uri",        deco_image_uri_list[deco_index])
+        set_dict_attr(deco_image_picture_url_tuple, "$.platform",   'douyin')
+        set_dict_attr(deco_image_picture_url_tuple, "$.start_time", start_time)
+        set_dict_attr(deco_image_picture_url_tuple, "$.room_id",    str(room_id))
+        set_dict_attr(deco_image_picture_url_tuple, "$.label",      'image' + str(deco_index))
+        
+        try:
+          deco_image_pic_url_list = list()
+          deco_image_picture_url_tuple_list = deco_image_picture_url.get_record(deco_image_picture_url_tuple, fetchall=True)
+          for url in deco_image_picture_url_tuple_list:
+            deco_image_pic_url_list.append(get_dict_attr(url, "$.url"))
+        except Exception as e:
+          get_logger().error(f"{e}: {deco_image_picture_url.get_name()} >> >> >> >> >> data.room.deco_list[{deco_index}].image.url_list")
+          deco_image_pic_url_list = []
+        finally:
+          deco_image_url_list.insert(deco_index, deco_image_pic_url_list)
+  
+    """
+    >> >> >> data.room.deco_list.[x].nine_patch_image
+    """
+    deco_nine_patch_image_avg_color_list    = list() # [None] * len(room_deco_list)
+    deco_nine_patch_image_flex_setting_list = list() # [None] * len(room_deco_list)
+    deco_nine_patch_image_height_list       = list() # [None] * len(room_deco_list)
+    deco_nine_patch_image_image_type_list   = list() # [None] * len(room_deco_list)
+    deco_nine_patch_image_is_animated_list  = list() # [None] * len(room_deco_list)
+    deco_nine_patch_image_open_web_url_list = list() # [None] * len(room_deco_list)
+    deco_nine_patch_image_text_setting_list = list() # [None] * len(room_deco_list)
+    deco_nine_patch_image_uri_list          = list() # [None] * len(room_deco_list)
+    deco_nine_patch_image_url_list          = list() # [None] * len(room_deco_list)
+    deco_nine_patch_image_width_list        = list() # [None] * len(room_deco_list)
+    
+    ##
+    ## PictureTable
+    ##
+    nine_patch_image_exist_list = [None for _ in room_deco_list]
+    image_prefix           = 'nine_patch_image'
+    deco_nine_patch_image_pic = PictureTable(db)
+    deco_nine_patch_image_pic_tuple = {key: None for key in deco_nine_patch_image_pic.get_tuple()}
+    
+    set_dict_attr(deco_nine_patch_image_pic_tuple, "$.start_time",  start_time)
+    set_dict_attr(deco_nine_patch_image_pic_tuple, "$.platform",    platform)
+    set_dict_attr(deco_nine_patch_image_pic_tuple, "$.room_id",     str(room_id))
+  
+    try:
+      deco_nine_patch_image_pic_tuple_list = deco_nine_patch_image_pic.get_record(deco_nine_patch_image_pic_tuple, fetchall=True)
+      for deco_nine_patch_image_pic_tuple in deco_nine_patch_image_pic_tuple_list:
+        deco_nine_patch_image_pic_label = deco_nine_patch_image_pic_tuple.get('label', 'unknown')
+        if str(deco_nine_patch_image_pic_label).startswith(image_prefix):
+          deco_index = int(deco_nine_patch_image_pic_label[len(image_prefix):])
+
+          deco_nine_patch_image_avg_color_list.insert(deco_index, deco_nine_patch_image_pic_tuple.get("avg_color", ''))
+          deco_nine_patch_image_height_list.insert(deco_index, deco_nine_patch_image_pic_tuple.get("height", 0))
+          deco_nine_patch_image_image_type_list.insert(deco_index, deco_nine_patch_image_pic_tuple.get("image_type", 0))
+          deco_nine_patch_image_is_animated_list.insert(deco_index, bool(deco_nine_patch_image_pic_tuple.get("is_animated", False)))
+          deco_nine_patch_image_open_web_url_list.insert(deco_index, deco_nine_patch_image_pic_tuple.get("open_web_url", ''))
+          deco_nine_patch_image_uri_list.insert(deco_index, deco_nine_patch_image_pic_tuple.get("uri", ''))
+          deco_nine_patch_image_width_list.insert(deco_index, deco_nine_patch_image_pic_tuple.get("width", 0))
+          nine_patch_image_exist_list[deco_index] = True
+    except Exception as e:
+      get_logger().error(f"{e}: {room_deco_table.get_name()} >> >> >> >> data.room.deco_list[{deco_index}].image")
+      deco_nine_patch_image_avg_color_list.insert(deco_index, '')
+      deco_nine_patch_image_height_list.insert(deco_index, 0)
+      deco_nine_patch_image_image_type_list.insert(deco_index, 0)
+      deco_nine_patch_image_is_animated_list.insert(deco_index, False)
+      deco_nine_patch_image_open_web_url_list.insert(deco_index, '')
+      deco_nine_patch_image_uri_list.insert(deco_index, '')
+      deco_nine_patch_image_width_list.insert(deco_index, 0)
+      nine_patch_image_exist_list[deco_index] = None
+
+    print(f"nine_patch_image_exist_list: {nine_patch_image_exist_list}")
+    for deco_index in range(0, len(room_deco_list)):
+      if len(nine_patch_image_exist_list) != 0 and nine_patch_image_exist_list[deco_index] is True:
+        ##
+        ## PictureFlexSettingTable
+        ##
+        deco_nine_patch_image_pic_flex_setting = PictureFlexSettingTable(db)
+        deco_nine_patch_image_pic_flex_setting_tuple = {key: None for key in deco_nine_patch_image_pic_flex_setting.get_tuple()}
+
+        print(f"len(room_deco_list): {len(room_deco_list)}")
+        print(f"len(deco_nine_patch_image_uri_list): {len(deco_nine_patch_image_uri_list)}")
+        set_dict_attr(deco_nine_patch_image_pic_flex_setting_tuple, "$.uri",        deco_nine_patch_image_uri_list[deco_index])
+        set_dict_attr(deco_nine_patch_image_pic_flex_setting_tuple, "$.platform",   'douyin')
+        set_dict_attr(deco_nine_patch_image_pic_flex_setting_tuple, "$.start_time", start_time)
+        set_dict_attr(deco_nine_patch_image_pic_flex_setting_tuple, "$.room_id",    str(room_id))
+        set_dict_attr(deco_nine_patch_image_pic_flex_setting_tuple, "$.label",      'nine_patch_image' + str(deco_index))
+
+        try:
+          deco_nine_patch_image_flex_setting = list()
+          deco_nine_patch_image_pic_flex_setting_tuple_list = deco_nine_patch_image_pic_flex_setting.get_record(deco_nine_patch_image_pic_flex_setting_tuple, fetchall=True)
+          for flex_setting in deco_nine_patch_image_pic_flex_setting_tuple_list:
+            deco_nine_patch_image_flex_setting.append(get_dict_attr(flex_setting, "$.flex_setting"))
+        except Exception as e:
+          get_logger().error(f"{e}: {deco_nine_patch_image_pic_flex_setting.get_name()} >> >> >> >> >> data.room.deco_list[{deco_index}].image.flex_setting_list")
+          deco_nine_patch_image_flex_setting = []
+        finally:
+          deco_nine_patch_image_flex_setting_list.insert(deco_index, deco_nine_patch_image_flex_setting)
+
+        ##
+        ## PictureTextSettingTable
+        ##    
+        deco_nine_patch_image_pic_text_setting = PictureTextSettingTable(db)
+        deco_nine_patch_image_pic_text_setting_tuple = {key: None for key in deco_nine_patch_image_pic_text_setting.get_tuple()}
+
+        set_dict_attr(deco_nine_patch_image_pic_text_setting_tuple, "$.uri",        deco_nine_patch_image_uri_list[deco_index])
+        set_dict_attr(deco_nine_patch_image_pic_text_setting_tuple, "$.platform",   'douyin')
+        set_dict_attr(deco_nine_patch_image_pic_text_setting_tuple, "$.start_time", start_time)
+        set_dict_attr(deco_nine_patch_image_pic_text_setting_tuple, "$.room_id",    str(room_id))
+        set_dict_attr(deco_nine_patch_image_pic_text_setting_tuple, "$.label",      'nine_patch_image' + str(deco_index))
+
+        try:
+          single_deco_nine_patch_image_pic_text_setting = list()
+          deco_nine_patch_image_pic_text_setting_tuple_list = deco_nine_patch_image_pic_text_setting.get_record(deco_nine_patch_image_pic_text_setting_tuple, fetchall=True)
+          for text_setting in deco_nine_patch_image_pic_text_setting_tuple_list:
+            single_deco_nine_patch_image_pic_text_setting.append(get_dict_attr(text_setting, "$.text_setting"))
+        except Exception as e:
+          get_logger().error(f"{e}: {deco_nine_patch_image_pic_text_setting.get_name()} >> >> >> >> >> data.room.deco_list[{deco_index}].image.text_setting_list")
+          single_deco_nine_patch_image_pic_text_setting = []
+        finally:
+          deco_nine_patch_image_text_setting_list.insert(deco_index, single_deco_nine_patch_image_pic_text_setting)
+
+        ##
+        ## PictureUrlTable
+        ##
+        deco_nine_patch_image_picture_url       = PictureUrlTable(db)
+        deco_nine_patch_image_picture_url_tuple = {key: None for key in deco_nine_patch_image_picture_url.get_tuple()}
+
+        set_dict_attr(deco_nine_patch_image_picture_url_tuple, "$.uri",        deco_nine_patch_image_uri_list[deco_index])
+        set_dict_attr(deco_nine_patch_image_picture_url_tuple, "$.platform",   'douyin')
+        set_dict_attr(deco_nine_patch_image_picture_url_tuple, "$.start_time", start_time)
+        set_dict_attr(deco_nine_patch_image_picture_url_tuple, "$.room_id",    str(room_id))
+        set_dict_attr(deco_nine_patch_image_picture_url_tuple, "$.label",      'nine_patch_image' + str(deco_index))
+
+        try:
+          deco_nine_patch_image_pic_url_list = list()
+          deco_nine_patch_image_picture_url_tuple_list = deco_nine_patch_image_picture_url.get_record(deco_nine_patch_image_picture_url_tuple, fetchall=True)
+          for url in deco_nine_patch_image_picture_url_tuple_list:
+            deco_nine_patch_image_pic_url_list.append(get_dict_attr(url, "$.url"))
+        except Exception as e:
+          get_logger().error(f"{e}: {deco_nine_patch_image_picture_url.get_name()} >> >> >> >> >> data.room.deco_list[{deco_index}].image.url_list")
+          deco_nine_patch_image_pic_url_list = []
+        finally:
+          deco_nine_patch_image_url_list.insert(deco_index, deco_nine_patch_image_pic_url_list)
+
   """
   TODO
   >> >> >> data.room.extra.realtime_playback_qualities
@@ -1559,7 +1948,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   
   try:
     fans_group_admin_user_ids = list()
-    fans_group_admin_user_id_tuple_list = fans_group_admin_user_id.get_record(fans_group_admin_user_id_tuple)
+    fans_group_admin_user_id_tuple_list = fans_group_admin_user_id.get_record(fans_group_admin_user_id_tuple, fetchall=True)
     for fans_group_admin_user_id_tuple in fans_group_admin_user_id_tuple_list:
       fans_group_admin_user_ids.append(get_dict_attr(fans_group_admin_user_id_tuple, "$.fans_group_admin_user_id"))
   except Exception as e:
@@ -1584,6 +1973,116 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   except Exception as e:
     get_logger().error(f"{e}: {fans_group_admin_user_open_id.get_name()} >> >> >> data.room.fans_group_admin_user_open_ids")
     fans_group_admin_user_open_ids = []
+
+  """
+  >> >> data.room.content_label
+  """
+  content_label = dict()
+
+  ##
+  ## PictureTable
+  ##
+  content_label_picture       = PictureTable(db)
+  content_label_picture_tuple = {key: None for key in content_label_picture.get_tuple()}
+
+  set_dict_attr(content_label_picture_tuple, "$.start_time",  start_time)
+  set_dict_attr(content_label_picture_tuple, "$.platform",    platform)
+  set_dict_attr(content_label_picture_tuple, "$.room_id",     str(room_id))
+  set_dict_attr(content_label_picture_tuple, "$.label",       'content_label')
+
+  try:
+    content_label_picture_tuple_list = content_label_picture.get_record(content_label_picture_tuple)
+    if len(content_label_picture_tuple_list) != 0:
+      content_label_picture_tuple = content_label_picture_tuple_list.pop()
+    else:
+      content_label_picture_tuple = {}
+  except Exception as e:
+    get_logger().error(f"{e}: {content_label_picture.get_name()} >> >> data.room.content_label")
+    content_label_picture_tuple = {}
+  
+  ##
+  ## PictureContentTable
+  ##
+  content_label_picture_content       = PictureContentTable(db)
+  content_label_picture_content_tuple = {key: None for key in content_label_picture_content.get_tuple()}
+  
+  set_dict_attr(content_label_picture_content_tuple, "$.uri",         content_label_picture_tuple.get('uri', ''))
+  set_dict_attr(content_label_picture_content_tuple, "$.start_time",  start_time)
+  set_dict_attr(content_label_picture_content_tuple, "$.platform",    platform)
+  set_dict_attr(content_label_picture_content_tuple, "$.room_id",     str(room_id))
+  set_dict_attr(content_label_picture_content_tuple, "$.label",       'content_label')
+  
+  try:
+    content_label_picture_content_tuple_list = content_label_picture_content.get_record(content_label_picture_content_tuple)
+    if len(content_label_picture_content_tuple_list) != 0:
+      content_label_picture_content_tuple = content_label_picture_content_tuple_list.pop()
+  except Exception as e:
+    get_logger().error(f"{e}: {content_label_picture_content.get_name()} >> >> data.room.content_label")
+    content_label_picture_content_tuple = {}
+
+  ##
+  ## PictureFlexSettingTable
+  ##
+  content_label_pic_flex_setting = PictureFlexSettingTable(db)
+  content_label_pic_flex_setting_tuple = {key: None for key in content_label_pic_flex_setting.get_tuple()}
+  
+  set_dict_attr(content_label_pic_flex_setting_tuple, "$.uri",        content_label_picture_tuple.get('uri', ''))
+  set_dict_attr(content_label_pic_flex_setting_tuple, "$.platform",   'douyin')
+  set_dict_attr(content_label_pic_flex_setting_tuple, "$.start_time", start_time)
+  set_dict_attr(content_label_pic_flex_setting_tuple, "$.room_id",    str(room_id))
+  set_dict_attr(content_label_pic_flex_setting_tuple, "$.label",       'content_label')
+  
+  try:
+    content_label_flex_setting_list = list()
+    content_label_pic_flex_setting_tuple_list = content_label_pic_flex_setting.get_record(content_label_pic_flex_setting_tuple, fetchall=True)
+    for flex_setting in content_label_pic_flex_setting_tuple_list:
+      content_label_flex_setting_list.append(get_dict_attr(flex_setting, "$.flex_setting"))
+  except Exception as e:
+    get_logger().error(f"{e}: {content_label_pic_flex_setting.get_name()} >> >> data.room.content_label")
+    content_label_flex_setting_list = []
+  
+  ##
+  ## PictureTextSettingTable
+  ##
+  content_label_pic_text_setting = PictureTextSettingTable(db)
+  content_label_pic_text_setting_tuple = {key: None for key in content_label_pic_text_setting.get_tuple()}
+  
+  set_dict_attr(content_label_pic_text_setting_tuple, "$.uri",         content_label_picture_tuple.get('uri', ''))
+  set_dict_attr(content_label_pic_text_setting_tuple, "$.platform",    'douyin')
+  set_dict_attr(content_label_pic_text_setting_tuple, "$.start_time",  start_time)
+  set_dict_attr(content_label_pic_text_setting_tuple, "$.room_id",     str(room_id))
+  set_dict_attr(content_label_pic_text_setting_tuple, "$.label",       'content_label')
+  
+  try:
+    content_label_text_setting_list = list()
+    content_label_pic_text_setting_tuple_list = content_label_pic_text_setting.get_record(content_label_pic_text_setting_tuple, fetchall=True)
+    for text_setting in content_label_pic_text_setting_tuple_list:
+      content_label_text_setting_list.append(get_dict_attr(text_setting, "$.text_setting"))
+  except Exception as e:
+    get_logger().error(f"{e}: {content_label_pic_text_setting.get_name()} >> >> >> >> data.room.content_label.text_setting_list")
+    content_label_text_setting_list = []
+
+  ##
+  ## $.data.room.content_label.url_list
+  ## PictureUrlTable
+  ##
+  content_label_picture_url       = PictureUrlTable(db)
+  content_label_picture_url_tuple = {key: None for key in content_label_picture_url.get_tuple()}
+  
+  set_dict_attr(content_label_picture_url_tuple, "$.uri",         content_label_picture_tuple.get('uri', ''))
+  set_dict_attr(content_label_picture_url_tuple, "$.platform",    'douyin')
+  set_dict_attr(content_label_picture_url_tuple, "$.start_time",  start_time)
+  set_dict_attr(content_label_picture_url_tuple, "$.room_id",     str(room_id))
+  set_dict_attr(content_label_picture_url_tuple, "$.label",       'content_label')
+  
+  try:
+    content_label_url_list = list()
+    content_label_picture_url_tuple_list = content_label_picture_url.get_record(content_label_picture_url_tuple, fetchall=True)
+    for url in content_label_picture_url_tuple_list:
+      content_label_url_list.append(get_dict_attr(url, "$.url"))
+  except Exception as e:
+    get_logger().error(f"{e}: {content_label_picture_url.get_name()} >> >> >> >> data.room.content_label.url_list")
+    content_label_url_list = []
 
   """
   >> >> data.room.feed_room_label
@@ -1643,7 +2142,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   
   try:
     feed_room_label_flex_setting_list = list()
-    feed_room_label_pic_flex_setting_tuple_list = feed_room_label_pic_flex_setting.get_record(feed_room_label_pic_flex_setting_tuple)
+    feed_room_label_pic_flex_setting_tuple_list = feed_room_label_pic_flex_setting.get_record(feed_room_label_pic_flex_setting_tuple, fetchall=True)
     for flex_setting in feed_room_label_pic_flex_setting_tuple_list:
       feed_room_label_flex_setting_list.append(get_dict_attr(flex_setting, "$.flex_setting"))
   except Exception as e:
@@ -1664,7 +2163,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   
   try:
     feed_room_label_text_setting_list = list()
-    feed_room_label_pic_text_setting_tuple_list = feed_room_label_pic_text_setting.get_record(feed_room_label_pic_text_setting_tuple)
+    feed_room_label_pic_text_setting_tuple_list = feed_room_label_pic_text_setting.get_record(feed_room_label_pic_text_setting_tuple, fetchall=True)
     for text_setting in feed_room_label_pic_text_setting_tuple_list:
       feed_room_label_text_setting_list.append(get_dict_attr(text_setting, "$.text_setting"))
   except Exception as e:
@@ -1737,7 +2236,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   
   try:
     guide_button_flex_setting_list = list()
-    guide_button_pic_flex_setting_tuple_list = guide_button_pic_flex_setting.get_record(guide_button_pic_flex_setting_tuple)
+    guide_button_pic_flex_setting_tuple_list = guide_button_pic_flex_setting.get_record(guide_button_pic_flex_setting_tuple, fetchall=True)
     for flex_setting in guide_button_pic_flex_setting_tuple_list:
       guide_button_flex_setting_list.append(get_dict_attr(flex_setting, "$.flex_setting"))
   except Exception as e:
@@ -1758,7 +2257,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   
   try:
     guide_button_text_setting_list = list()
-    guide_button_pic_text_setting_tuple_list = guide_button_pic_text_setting.get_record(guide_button_pic_text_setting_tuple)
+    guide_button_pic_text_setting_tuple_list = guide_button_pic_text_setting.get_record(guide_button_pic_text_setting_tuple, fetchall=True)
     for text_setting in guide_button_pic_text_setting_tuple_list:
       guide_button_text_setting_list.append(get_dict_attr(text_setting, "$.text_setting"))
   except Exception as e:
@@ -1785,6 +2284,99 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   except Exception as e:
     get_logger().error(f"{e}: {guide_button_picture_url.get_name()} >> >> >> >> data.room.guide_button.url_list")
     guide_button_url_list = []
+
+  """
+  >> >> >> data.room.link_mic
+  """
+  room_link_mic_table = RoomLinkMicTable(db)
+  room_link_mic_tuple = {key:None for key in room_link_mic_table.get_tuple()}
+  
+  set_dict_attr(room_link_mic_tuple, "$.now",           now)
+  set_dict_attr(room_link_mic_tuple, "$.platform",      platform)
+  set_dict_attr(room_link_mic_tuple, "$.room_id",       str(room_id))
+  
+  try:
+    room_link_mic_tuple_list = room_link_mic_table.get_record(room_link_mic_tuple)
+    if room_link_mic_tuple_list:
+      room_link_mic_tuple = room_link_mic_tuple_list.pop()
+    else:
+      room_link_mic_tuple = {}
+  except Exception as e:
+    get_logger().error(f"{e}: {room_link_mic_table.get_name()} >> >> >> data.room.link_mic")
+    room_link_mic_tuple = {}
+  
+  if room_link_mic_tuple:
+    room_link_mic_channel_id = get_dict_attr(room_link_mic_tuple, "$.channel_id")
+    
+    ##
+    ## data.room.link_mic.battle_scores
+    ##
+    room_link_mic_battle_score_table = RoomLinkMicBattleScoreTable(db)
+    room_link_mic_battle_score_tuple = {key:None for key in room_link_mic_battle_score_table.get_tuple()}
+    
+    set_dict_attr(room_link_mic_battle_score_tuple, "$.now",           now)
+    set_dict_attr(room_link_mic_battle_score_tuple, "$.platform",      platform)
+    set_dict_attr(room_link_mic_battle_score_tuple, "$.room_id",       str(room_id))
+    set_dict_attr(room_link_mic_battle_score_tuple, "$.channel_id",    room_link_mic_channel_id)
+    
+    try:
+      room_link_mic_battle_score_list = list()
+      room_link_mic_battle_score_tuple_list = room_link_mic_battle_score_table.get_record(room_link_mic_battle_score_tuple, fetchall=True)
+      if room_link_mic_battle_score_tuple_list:
+        for battle_score_tuple in room_link_mic_battle_score_tuple_list:
+          room_link_mic_battle_score_dict = dict()
+          battle_score_index = get_dict_attr(battle_score_tuple, "$.battle_score_index")
+          set_dict_attr(room_link_mic_battle_score_dict, "$.open_id", get_dict_attr(battle_score_tuple, "$.open_id"),      force=True)
+          set_dict_attr(room_link_mic_battle_score_dict, "$.score",   get_dict_attr(battle_score_tuple, "$.score"),        force=True)
+          set_dict_attr(room_link_mic_battle_score_dict, "$.user_id", int(get_dict_attr(battle_score_tuple, "$.user_id")), force=True)
+          room_link_mic_battle_score_list.insert(battle_score_index, room_link_mic_battle_score_dict)
+      else:
+        room_link_mic_battle_score_list = []
+    except Exception as e:
+      get_logger().error(f"{e}: {room_link_mic_battle_score_table.get_name()} >> >> >> >> data.room.link_mic.battle_scores")
+      room_link_mic_battle_score_list = []
+    
+    ##
+    ## data.room.link_mic.battle_settings
+    ##
+    room_link_mic_battle_setting_table = RoomLinkMicBattleSettingTable(db)
+    room_link_mic_battle_setting_tuple = {key:None for key in room_link_mic_battle_setting_table.get_tuple()}
+    
+    set_dict_attr(room_link_mic_battle_setting_tuple, "$.now",           now)
+    set_dict_attr(room_link_mic_battle_setting_tuple, "$.platform",      platform)
+    set_dict_attr(room_link_mic_battle_setting_tuple, "$.room_id",       str(room_id))
+    set_dict_attr(room_link_mic_battle_setting_tuple, "$.channel_id",    room_link_mic_channel_id)
+    
+    try:
+      room_link_mic_battle_setting_tuple_list = room_link_mic_battle_setting_table.get_record(room_link_mic_battle_setting_tuple)
+      if room_link_mic_battle_setting_tuple_list:
+        room_link_mic_battle_setting_tuple = room_link_mic_battle_setting_tuple_list.pop()
+      else:
+        room_link_mic_battle_setting_tuple = {}
+    except Exception as e:
+      get_logger().error(f"{e}: {room_link_mic_battle_setting_table.get_name()} >> >> >> >> data.room.link_mic.battle_settings")
+      room_link_mic_battle_setting_tuple = {}
+
+    ##
+    ## data.room.link_mic.channel_info
+    ##
+    room_link_mic_channel_info_table = RoomLinkMicChannelInfoTable(db)
+    room_link_mic_channel_info_tuple = {key:None for key in room_link_mic_channel_info_table.get_tuple()}
+    
+    set_dict_attr(room_link_mic_channel_info_tuple, "$.now",           now)
+    set_dict_attr(room_link_mic_channel_info_tuple, "$.platform",      platform)
+    set_dict_attr(room_link_mic_channel_info_tuple, "$.room_id",       str(room_id))
+    set_dict_attr(room_link_mic_channel_info_tuple, "$.channel_id",    room_link_mic_channel_id)
+    
+    try:
+      room_link_mic_channel_info_tuple_list = room_link_mic_channel_info_table.get_record(room_link_mic_channel_info_tuple)
+      if room_link_mic_channel_info_tuple_list:
+        room_link_mic_channel_info_tuple = room_link_mic_channel_info_tuple_list.pop()
+      else:
+        room_link_mic_channel_info_tuple = {}
+    except Exception as e:
+      get_logger().error(f"{e}: {room_link_mic_channel_info_table.get_name()} >> >> >> >> data.room.link_mic.channel_info")
+      room_link_mic_channel_info_tuple = {}
 
   """
   TODO
@@ -1814,6 +2406,234 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
     get_logger().error(f"{e}: {room_owner_table.get_name()} >> >> >> data.room.owner")
     room_owner_tuple = {}
 
+  """
+  >> >> >> >> data.room.owner.author_stats
+  """
+  room_owner_author_stats_table = RoomOwnerAuthorStatsTable(db)
+  room_owner_author_stats_tuple = {key:None for key in room_owner_author_stats_table.get_tuple()}
+  
+  set_dict_attr(room_owner_author_stats_tuple, "$.start_time",    start_time)
+  set_dict_attr(room_owner_author_stats_tuple, "$.platform",      platform)
+  set_dict_attr(room_owner_author_stats_tuple, "$.room_id",       str(room_id))
+  set_dict_attr(room_owner_author_stats_tuple, "$.owner_user_id", owner_user_id)
+  
+  try:
+    room_owner_author_stats_tuple_list = room_owner_author_stats_table.get_record(room_owner_author_stats_tuple)
+    if len(room_owner_author_stats_tuple_list) != 0:
+      room_owner_author_stats_tuple = room_owner_author_stats_tuple_list.pop()
+    else:
+      room_owner_author_stats_tuple = {}
+  except Exception as e:
+    get_logger().error(f"{e}: {room_owner_author_stats_table.get_name()} >> >> >> >> data.room.owner.author_stats")
+    room_owner_author_stats_tuple = {}
+  
+  """
+  >> >> >> >> data.room.owner.authentication_info
+  """
+  room_owner_auth_info_table = RoomOwnerAuthInfoTable(db)
+  room_owner_auth_info_tuple = {key:None for key in room_owner_auth_info_table.get_tuple()}
+  
+  set_dict_attr(room_owner_auth_info_tuple, "$.start_time",    start_time)
+  set_dict_attr(room_owner_auth_info_tuple, "$.platform",      platform)
+  set_dict_attr(room_owner_auth_info_tuple, "$.room_id",       str(room_id))
+  set_dict_attr(room_owner_auth_info_tuple, "$.owner_user_id", owner_user_id)
+  
+  try:
+    room_owner_auth_info_tuple_list = room_owner_auth_info_table.get_record(room_owner_auth_info_tuple)
+    if len(room_owner_auth_info_tuple_list) != 0:
+      room_owner_auth_info_tuple = room_owner_auth_info_tuple_list.pop()
+  except Exception as e:
+    get_logger().error(f"{e}: {room_owner_auth_info_table.get_name()} >> >> >> >> data.room.owner.authentication_info")
+    room_owner_auth_info_tuple = {}
+
+  if bool(room_owner_auth_info_tuple.get('exist_authentication_info', False)) is True:
+    room_owner_auth_level_table = RoomOwnerAuthLevelTable(db)
+    room_owner_auth_level_tuple = {key:None for key in room_owner_auth_level_table.get_tuple()}
+    
+    set_dict_attr(room_owner_auth_level_tuple, "$.start_time",    start_time)
+    set_dict_attr(room_owner_auth_level_tuple, "$.platform",      platform)
+    set_dict_attr(room_owner_auth_level_tuple, "$.room_id",       str(room_id))
+    set_dict_attr(room_owner_auth_level_tuple, "$.owner_user_id", owner_user_id)
+    
+    try:
+      room_owner_auth_level_list = list()
+      room_owner_auth_level_tuple_list = room_owner_auth_level_table.get_record(room_owner_auth_level_tuple, fetchall=True)
+      for room_owner_auth_level_tuple in room_owner_auth_level_tuple_list:
+        room_owner_auth_level_list.insert(get_dict_attr(room_owner_auth_level_tuple, "$.level_index"), get_dict_attr(room_owner_auth_level_tuple, "$.level"))
+    except Exception as e:
+      get_logger().error(f"{e}: {room_owner_auth_level_table.get_name()} >> >> >> >> >> data.room.owner.authentication_info.level_list")
+      room_owner_auth_level_list = []
+
+    """
+    >> >> >> >> >> data.room.owner.authentication_info.authentication_badge
+    """
+    ##
+    ## PictureTable
+    ##
+    auth_info_picture       = PictureTable(db)
+    auth_info_picture_tuple = {key: None for key in auth_info_picture.get_tuple()}
+    
+    set_dict_attr(auth_info_picture_tuple, "$.start_time",  start_time)
+    set_dict_attr(auth_info_picture_tuple, "$.platform",    platform)
+    set_dict_attr(auth_info_picture_tuple, "$.room_id",     str(room_id))
+    set_dict_attr(auth_info_picture_tuple, "$.label",       'authentication_badge')
+    
+    try:
+      auth_info_picture_tuple_list = auth_info_picture.get_record(auth_info_picture_tuple)
+      if len(auth_info_picture_tuple_list) != 0:
+        auth_info_picture_tuple = auth_info_picture_tuple_list.pop()
+    except Exception as e:
+      get_logger().error(f"{e}: {auth_info_picture.get_name()} >> >> >> >> >> data.room.owner.authentication_info.authentication_badge")
+      auth_info_picture_tuple = dict()
+    
+    ##
+    ## PictureFlexSettingTable
+    ##
+    auth_info_pic_flex_setting = PictureFlexSettingTable(db)
+    auth_info_pic_flex_setting_tuple = {key: None for key in auth_info_pic_flex_setting.get_tuple()}
+    
+    set_dict_attr(auth_info_pic_flex_setting_tuple, "$.uri",         auth_info_picture_tuple.get('uri', ''))
+    set_dict_attr(auth_info_pic_flex_setting_tuple, "$.platform",    'douyin')
+    set_dict_attr(auth_info_pic_flex_setting_tuple, "$.start_time",  start_time)
+    set_dict_attr(auth_info_pic_flex_setting_tuple, "$.room_id",     str(room_id))
+    set_dict_attr(auth_info_pic_flex_setting_tuple, "$.label",       'authentication_badge')
+    
+    try:
+      auth_info_flex_setting_list = list()
+      auth_info_pic_flex_setting_tuple_list = auth_info_pic_flex_setting.get_record(auth_info_pic_flex_setting_tuple, fetchall=True)
+      for flex_setting in auth_info_pic_flex_setting_tuple_list:
+        auth_info_flex_setting_list.append(get_dict_attr(flex_setting, "$.flex_setting"))
+    except Exception as e:
+      get_logger().error(f"{e}: {auth_info_pic_flex_setting.get_name()} >> >> >> >> >> >> data.room.owner.authentication_info.authentication_badge.flex_setting_list")
+      auth_info_flex_setting_list = []
+  
+    ##
+    ## PictureTextSettingTable
+    ##
+    auth_info_pic_text_setting = PictureTextSettingTable(db)
+    auth_info_pic_text_setting_tuple = {key: None for key in auth_info_pic_text_setting.get_tuple()}
+    
+    set_dict_attr(auth_info_pic_text_setting_tuple, "$.uri",         auth_info_picture_tuple.get('uri', ''))
+    set_dict_attr(auth_info_pic_text_setting_tuple, "$.platform",    'douyin')
+    set_dict_attr(auth_info_pic_text_setting_tuple, "$.start_time",  start_time)
+    set_dict_attr(auth_info_pic_text_setting_tuple, "$.room_id",     str(room_id))
+    set_dict_attr(auth_info_pic_text_setting_tuple, "$.label",       'authentication_badge')
+    
+    try:
+      auth_info_text_setting_list = list()
+      auth_info_pic_text_setting_tuple_list = auth_info_pic_text_setting.get_record(auth_info_pic_text_setting_tuple, fetchall=True)
+      for text_setting in auth_info_pic_text_setting_tuple_list:
+        auth_info_text_setting_list.append(get_dict_attr(text_setting, "$.text_setting"))
+    except Exception as e:
+      get_logger().error(f"{e}: {auth_info_pic_text_setting.get_name()} >> >> >> >> >> >> data.room.owner.authentication_info.text_setting_list")
+      auth_info_text_setting_list = []
+    
+    ##
+    ## PictureUrlTable
+    ##
+    auth_info_picture_url       = PictureUrlTable(db)
+    auth_info_picture_url_tuple = {key: None for key in auth_info_picture_url.get_tuple()}
+    
+    set_dict_attr(auth_info_picture_url_tuple, "$.uri",         auth_info_picture_tuple.get('uri', ''))
+    set_dict_attr(auth_info_picture_url_tuple, "$.platform",    'douyin')
+    set_dict_attr(auth_info_picture_url_tuple, "$.start_time",  start_time)
+    set_dict_attr(auth_info_picture_url_tuple, "$.room_id",     str(room_id))
+    set_dict_attr(auth_info_picture_url_tuple, "$.label",       'authentication_badge')
+    
+    try:
+      auth_info_url_list = list()
+      auth_info_picture_url_tuple_list = auth_info_picture_url.get_record(auth_info_picture_url_tuple, fetchall=True)
+      for url in auth_info_picture_url_tuple_list:
+        auth_info_url_list.append(get_dict_attr(url, "$.url"))
+    except Exception as e:
+      get_logger().error(f"{e}: {auth_info_picture_url.get_name()} >> >> >> >> >> >> data.room.owner.authentication_info.url_list")
+      auth_info_url_list = []
+
+    """
+    >> >> >> >> >> data.room.owner.authentication_info.authentication_badge_v2
+    """
+    ##
+    ## PictureTable
+    ##
+    auth_info_v2_picture       = PictureTable(db)
+    auth_info_v2_picture_tuple = {key: None for key in auth_info_v2_picture.get_tuple()}
+    
+    set_dict_attr(auth_info_v2_picture_tuple, "$.start_time",  start_time)
+    set_dict_attr(auth_info_v2_picture_tuple, "$.platform",    platform)
+    set_dict_attr(auth_info_v2_picture_tuple, "$.room_id",     str(room_id))
+    set_dict_attr(auth_info_v2_picture_tuple, "$.label",       'authentication_badge_v2')
+    
+    try:
+      auth_info_v2_picture_tuple_list = auth_info_v2_picture.get_record(auth_info_v2_picture_tuple)
+      if len(auth_info_v2_picture_tuple_list) != 0:
+        auth_info_v2_picture_tuple = auth_info_v2_picture_tuple_list.pop()
+    except Exception as e:
+      get_logger().error(f"{e}: {auth_info_v2_picture.get_name()} >> >> >> >> >> data.room.owner.authentication_info.authentication_badge_v2")
+      auth_info_v2_picture_tuple = dict()
+    
+    ##
+    ## PictureFlexSettingTable
+    ##
+    auth_info_v2_pic_flex_setting = PictureFlexSettingTable(db)
+    auth_info_v2_pic_flex_setting_tuple = {key: None for key in auth_info_v2_pic_flex_setting.get_tuple()}
+    
+    set_dict_attr(auth_info_v2_pic_flex_setting_tuple, "$.uri",         auth_info_v2_picture_tuple.get('uri', ''))
+    set_dict_attr(auth_info_v2_pic_flex_setting_tuple, "$.platform",    'douyin')
+    set_dict_attr(auth_info_v2_pic_flex_setting_tuple, "$.start_time",  start_time)
+    set_dict_attr(auth_info_v2_pic_flex_setting_tuple, "$.room_id",     str(room_id))
+    set_dict_attr(auth_info_v2_pic_flex_setting_tuple, "$.label",       'authentication_badge_v2')
+    
+    try:
+      auth_info_v2_flex_setting_list = list()
+      auth_info_v2_pic_flex_setting_tuple_list = auth_info_v2_pic_flex_setting.get_record(auth_info_v2_pic_flex_setting_tuple, fetchall=True)
+      for flex_setting in auth_info_v2_pic_flex_setting_tuple_list:
+        auth_info_v2_flex_setting_list.append(get_dict_attr(flex_setting, "$.flex_setting"))
+    except Exception as e:
+      get_logger().error(f"{e}: {auth_info_v2_pic_flex_setting.get_name()} >> >> >> >> >> >> data.room.owner.authentication_info.authentication_badge_v2.flex_setting_list")
+      auth_info_v2_flex_setting_list = []
+  
+    ##
+    ## PictureTextSettingTable
+    ##
+    auth_info_v2_pic_text_setting = PictureTextSettingTable(db)
+    auth_info_v2_pic_text_setting_tuple = {key: None for key in auth_info_v2_pic_text_setting.get_tuple()}
+    
+    set_dict_attr(auth_info_v2_pic_text_setting_tuple, "$.uri",         auth_info_v2_picture_tuple.get('uri', ''))
+    set_dict_attr(auth_info_v2_pic_text_setting_tuple, "$.platform",    'douyin')
+    set_dict_attr(auth_info_v2_pic_text_setting_tuple, "$.start_time",  start_time)
+    set_dict_attr(auth_info_v2_pic_text_setting_tuple, "$.room_id",     str(room_id))
+    set_dict_attr(auth_info_v2_pic_text_setting_tuple, "$.label",       'authentication_badge_v2')
+    
+    try:
+      auth_info_v2_text_setting_list = list()
+      auth_info_v2_pic_text_setting_tuple_list = auth_info_v2_pic_text_setting.get_record(auth_info_v2_pic_text_setting_tuple, fetchall=True)
+      for text_setting in auth_info_v2_pic_text_setting_tuple_list:
+        auth_info_v2_text_setting_list.append(get_dict_attr(text_setting, "$.text_setting"))
+    except Exception as e:
+      get_logger().error(f"{e}: {auth_info_v2_pic_text_setting.get_name()} >> >> >> >> >> >> data.room.owner.authentication_info.authentication_badge_v2.text_setting_list")
+      auth_info_v2_text_setting_list = []
+    
+    ##
+    ## PictureUrlTable
+    ##
+    auth_info_v2_picture_url       = PictureUrlTable(db)
+    auth_info_v2_picture_url_tuple = {key: None for key in auth_info_v2_picture_url.get_tuple()}
+    
+    set_dict_attr(auth_info_v2_picture_url_tuple, "$.uri",         auth_info_v2_picture_tuple.get('uri', ''))
+    set_dict_attr(auth_info_v2_picture_url_tuple, "$.platform",    'douyin')
+    set_dict_attr(auth_info_v2_picture_url_tuple, "$.start_time",  start_time)
+    set_dict_attr(auth_info_v2_picture_url_tuple, "$.room_id",     str(room_id))
+    set_dict_attr(auth_info_v2_picture_url_tuple, "$.label",       'authentication_badge_v2')
+    
+    try:
+      auth_info_v2_url_list = list()
+      auth_info_v2_picture_url_tuple_list = auth_info_v2_picture_url.get_record(auth_info_v2_picture_url_tuple, fetchall=True)
+      for url in auth_info_v2_picture_url_tuple_list:
+        auth_info_v2_url_list.append(get_dict_attr(url, "$.url"))
+    except Exception as e:
+      get_logger().error(f"{e}: {auth_info_v2_picture_url.get_name()} >> >> >> >> >> >> data.room.owner.authentication_info.authentication_badge_v2.url_list")
+      auth_info_v2_url_list = []
+  
   """
   >> >> >> data.room.owner.avatar_large
   """  
@@ -1850,7 +2670,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   
   try:
     avatar_large_flex_setting_list = list()
-    avatar_large_pic_flex_setting_tuple_list = avatar_large_pic_flex_setting.get_record(avatar_large_pic_flex_setting_tuple)
+    avatar_large_pic_flex_setting_tuple_list = avatar_large_pic_flex_setting.get_record(avatar_large_pic_flex_setting_tuple, fetchall=True)
     for flex_setting in avatar_large_pic_flex_setting_tuple_list:
       avatar_large_flex_setting_list.append(get_dict_attr(flex_setting, "$.flex_setting"))
   except Exception as e:
@@ -1871,7 +2691,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   
   try:
     avatar_large_text_setting_list = list()
-    avatar_large_pic_text_setting_tuple_list = avatar_large_pic_text_setting.get_record(avatar_large_pic_text_setting_tuple)
+    avatar_large_pic_text_setting_tuple_list = avatar_large_pic_text_setting.get_record(avatar_large_pic_text_setting_tuple, fetchall=True)
     for text_setting in avatar_large_pic_text_setting_tuple_list:
       avatar_large_text_setting_list.append(get_dict_attr(text_setting, "$.text_setting"))
   except Exception as e:
@@ -1935,7 +2755,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   
   try:
     avatar_medium_flex_setting_list = list()
-    avatar_medium_pic_flex_setting_tuple_list = avatar_medium_pic_flex_setting.get_record(avatar_medium_pic_flex_setting_tuple)
+    avatar_medium_pic_flex_setting_tuple_list = avatar_medium_pic_flex_setting.get_record(avatar_medium_pic_flex_setting_tuple, fetchall=True)
     for flex_setting in avatar_medium_pic_flex_setting_tuple_list:
       avatar_medium_flex_setting_list.append(get_dict_attr(flex_setting, "$.flex_setting"))
   except Exception as e:
@@ -1956,7 +2776,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   
   try:
     avatar_medium_text_setting_list = list()
-    avatar_medium_pic_text_setting_tuple_list = avatar_medium_pic_text_setting.get_record(avatar_medium_pic_text_setting_tuple)
+    avatar_medium_pic_text_setting_tuple_list = avatar_medium_pic_text_setting.get_record(avatar_medium_pic_text_setting_tuple, fetchall=True)
     for text_setting in avatar_medium_pic_text_setting_tuple_list:
       avatar_medium_text_setting_list.append(get_dict_attr(text_setting, "$.text_setting"))
   except Exception as e:
@@ -2020,7 +2840,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   
   try:
     avatar_thumb_flex_setting_list = list()
-    avatar_thumb_pic_flex_setting_tuple_list = avatar_thumb_pic_flex_setting.get_record(avatar_thumb_pic_flex_setting_tuple)
+    avatar_thumb_pic_flex_setting_tuple_list = avatar_thumb_pic_flex_setting.get_record(avatar_thumb_pic_flex_setting_tuple, fetchall=True)
     for flex_setting in avatar_thumb_pic_flex_setting_tuple_list:
       avatar_thumb_flex_setting_list.append(get_dict_attr(flex_setting, "$.flex_setting"))
   except Exception as e:
@@ -2041,7 +2861,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   
   try:
     avatar_thumb_text_setting_list = list()
-    avatar_thumb_pic_text_setting_tuple_list = avatar_thumb_pic_text_setting.get_record(avatar_thumb_pic_text_setting_tuple)
+    avatar_thumb_pic_text_setting_tuple_list = avatar_thumb_pic_text_setting.get_record(avatar_thumb_pic_text_setting_tuple, fetchall=True)
     for text_setting in avatar_thumb_pic_text_setting_tuple_list:
       avatar_thumb_text_setting_list.append(get_dict_attr(text_setting, "$.text_setting"))
   except Exception as e:
@@ -2190,7 +3010,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
     
     try:
       badge_image_pic_text_setting_list = list()
-      owner_badge_image_pic_text_setting_tuple_list = owner_badge_image_pic_text_setting.get_record(owner_badge_image_pic_text_setting_tuple)
+      owner_badge_image_pic_text_setting_tuple_list = owner_badge_image_pic_text_setting.get_record(owner_badge_image_pic_text_setting_tuple, fetchall=True)
       for text_setting in owner_badge_image_pic_text_setting_tuple_list:
         badge_image_pic_text_setting_list.append(get_dict_attr(text_setting, "$.text_setting"))
     except Exception as e:
@@ -2343,7 +3163,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
     
     try:
       badge_image_v2_pic_text_setting = list()
-      owner_badge_image_v2_pic_text_setting_tuple_list = owner_badge_image_v2_pic_text_setting.get_record(owner_badge_image_v2_pic_text_setting_tuple)
+      owner_badge_image_v2_pic_text_setting_tuple_list = owner_badge_image_v2_pic_text_setting.get_record(owner_badge_image_v2_pic_text_setting_tuple, fetchall=True)
       for text_setting in owner_badge_image_v2_pic_text_setting_tuple_list:
         badge_image_v2_pic_text_setting.append(get_dict_attr(text_setting, "$.text_setting"))
     except Exception as e:
@@ -2445,7 +3265,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
     fans_club_available_gift_ids = list()
     fans_club_available_gift_id_list = fans_club_available_gift_id.get_record(fans_club_available_gift_id_tuple, fetchall=True)
     for record in fans_club_available_gift_id_list:
-      fans_club_available_gift_ids.append(get_dict_attr(record, "$.available_gift_id"))
+      fans_club_available_gift_ids.insert(get_dict_attr(record, "$.available_gift_id_index"), get_dict_attr(record, "$.available_gift_id"))
   except Exception as e:
     get_logger().error(f"{e}: {fans_club_available_gift_id.get_name()} >> >> >> >> >> >> data.room.owner.fans_club.data.available_gift_ids")
     fans_club_available_gift_ids = []
@@ -2558,7 +3378,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
     badge_icons_picture_url       = PictureUrlTable(db)
     badge_icons_picture_url_tuple = {key: None for key in badge_icons_picture_url.get_tuple()}
     
-    set_dict_attr(badge_icons_picture_url_tuple, "$.uri",        badge_icon_uri_list[badge_image_index])
+    set_dict_attr(badge_icons_picture_url_tuple, "$.uri",        badge_icon_uri_list[badge_icons_label_index])
     set_dict_attr(badge_icons_picture_url_tuple, "$.platform",   'douyin')
     set_dict_attr(badge_icons_picture_url_tuple, "$.start_time", start_time)
     set_dict_attr(badge_icons_picture_url_tuple, "$.room_id",    str(room_id))
@@ -2588,6 +3408,61 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   owner_new_real_time_icons = list()
   
   """
+  >> >> >> >> data.room.owner.own_room
+  """
+  own_room_flag_table = OwnRoomFlagTable(db)
+  own_room_flag_tuple = {key:None for key in own_room_flag_table.get_tuple()}
+
+  set_dict_attr(own_room_flag_tuple, "$.start_time",       start_time)
+  set_dict_attr(own_room_flag_tuple, "$.platform",         platform)
+  set_dict_attr(own_room_flag_tuple, "$.owner_user_id",    owner_user_id)
+  
+  try:
+    own_room_flag_tuple_list = own_room_flag_table.get_record(own_room_flag_tuple)
+    if len(own_room_flag_tuple_list) != 0:
+      own_room_flag_tuple = own_room_flag_tuple_list.pop()
+  except Exception as e:
+    get_logger().error(f"{e}: {own_room_flag_table.get_name()} >> >> >> >> data.room.owner.own_room")
+    own_room_flag_tuple = {}
+  
+  try:
+    own_room_exist_flag = bool(get_dict_attr(own_room_flag_tuple, "$.exist_flag"))
+  except Exception as e:
+    get_logger().error(f"{e}: {own_room_flag_table.get_name()} get exist_flag fail")
+    own_room_exist_flag = False
+
+  if own_room_exist_flag is True:
+    """
+    >> >> >> >> >> data.room.owner.own_room.room_ids
+    """
+    owner_own_room_id_table = OwnRoomIdTable(db)
+    owner_own_room_id_tuple = {key:None for key in owner_own_room_id_table.get_tuple()}
+    
+    set_dict_attr(owner_own_room_id_tuple, "$.start_time",       start_time)
+    set_dict_attr(owner_own_room_id_tuple, "$.platform",         platform)
+    set_dict_attr(owner_own_room_id_tuple, "$.owner_user_id",    owner_user_id)
+    
+    try:
+      owner_own_room_id_list = list()
+      owner_own_room_id_tuple_list = owner_own_room_id_table.get_record(owner_own_room_id_tuple, fetchall=True)
+      for owner_own_room_id in owner_own_room_id_tuple_list:
+        owner_own_room_id_list.insert(int(get_dict_attr(owner_own_room_id, "$.room_id_index")), int(get_dict_attr(owner_own_room_id, "$.room_id")))
+    except Exception as e:
+      get_logger().error(f"{e}: {owner_own_room_id_table.get_name()} >> >> >> >> data.room.owner.own_room.room_ids")
+      owner_own_room_id_list = []
+    
+    """
+    TODO
+    >> >> >> >> data.room.owner.own_room.room_id_display
+    """
+    owner_own_room_id_display_list = list()
+  
+    """
+    >> >> >> >> data.room.owner.own_room.room_ids_str
+    """
+    owner_own_room_id_str_list = [str(room_id) for room_id in owner_own_room_id_list]
+  
+  """
   TODO
   >> >> >> >> >> data.room.owner.pay_grade.grade_icon_list
   """
@@ -2611,6 +3486,8 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
     owner_new_im_icon_with_level_picture_tuple_list = owner_new_im_icon_with_level_picture.get_record(owner_new_im_icon_with_level_picture_tuple)
     if len(owner_new_im_icon_with_level_picture_tuple_list) != 0:
       owner_new_im_icon_with_level_picture_tuple = owner_new_im_icon_with_level_picture_tuple_list.pop()
+    else:
+      owner_new_im_icon_with_level_picture_tuple = {}
   except Exception as e:
     get_logger().error(f"{e}: {owner_new_im_icon_with_level_picture.get_name()} >> >> >> >> >> data.room.owner.pay_grade.new_im_icon_with_level")
     owner_new_im_icon_with_level_picture_tuple = {}
@@ -2705,6 +3582,8 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
     owner_new_live_icon_picture_tuple_list = owner_new_live_icon_picture.get_record(owner_new_live_icon_picture_tuple)
     if len(owner_new_live_icon_picture_tuple_list) != 0:
       owner_new_live_icon_picture_tuple = owner_new_live_icon_picture_tuple_list.pop()
+    else:
+      owner_new_live_icon_picture_tuple = {}
   except Exception as e:
     get_logger().error(f"{e}: {owner_new_live_icon_picture.get_name()} >> >> >> >> >> data.room.owner.pay_grade.new_live_icon")
     owner_new_live_icon_picture_tuple = {}
@@ -3283,7 +4162,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +-----------------+------------------+------+-----+---------+-------+---------------------------------------------------------------+-----------------------+
   | Field           | Type             | Null | Key | Default | Extra | Topology                                                      | Comment               |
   +-----------------+------------------+------+-----+---------+-------+---------------------------------------------------------------+-----------------------+
-  | now             | timestamp(3)     | NO   | PRI |         |       | "$.extra.now"                                                 | 当前时间戳             |
+  | start_time      | timestamp        | NO   | PRI |         |       | "$.extra.now"                                                 | 当前时间戳             |
   | platform        | varchar(20)      | NO   | PRI |         |       |           -                                                   | 平台                  | 
   | room_id         | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                                              | 直播间ID              | 
   | whitelist_index | unsigned bigint  | NO   | PRI |         |       |           -                                                   | 白名单索引             | 
@@ -3293,9 +4172,9 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   room_strategy_feat_whitelist = RoomShortTouchAreaConfigStrategyFeatWhitelistTable(db)
   room_strategy_feat_whitelist_tuple = {key: None for key in room_strategy_feat_whitelist.get_tuple()}
   
-  set_dict_attr(room_strategy_feat_whitelist_tuple, "$.now", now)
-  set_dict_attr(room_strategy_feat_whitelist_tuple, "$.platform", platform)
-  set_dict_attr(room_strategy_feat_whitelist_tuple, "$.room_id", str(room_id))
+  set_dict_attr(room_strategy_feat_whitelist_tuple, "$.start_time", start_time)
+  set_dict_attr(room_strategy_feat_whitelist_tuple, "$.platform",   platform)
+  set_dict_attr(room_strategy_feat_whitelist_tuple, "$.room_id",    str(room_id))
   
   try:
     room_strategy_feat_whitelist_list = list()
@@ -3477,7 +4356,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +----------------------+-------------------+------+-----+---------+-------+-----------------------------------------------+---------------------+
   | Field                | Type              | Null | Key | Default | Extra | Topology                                      | Comment             |
   +----------------------+-------------------+------+-----+---------+-------+-----------------------------------------------+---------------------+
-  | now                  | timestamp(3)      | NO   | PRI |         |       | "$.data.room.create_time"                     | 当前时间戳           | 
+  | start_time           | timestamp(3)      | NO   | PRI |         |       | "$.data.room.create_time"                     | 当前时间戳           | 
   | platform             | varchar(20)       | NO   | PRI |         |       |           -                                   | 平台                 | 
   | room_id              | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                              | 直播间ID             | 
   | stream_id            | varchar(200)      | NO   | PRI |         |       | "$.data.room.stream_id"                       | 直播间流ID           |
@@ -3488,14 +4367,14 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   stream_url_candidate_resolution = StreamCandidateResolutionTable(db)
   stream_url_candidate_resolution_tuple = {key: None for key in stream_url_candidate_resolution.get_tuple()}
   
-  set_dict_attr(stream_url_candidate_resolution_tuple, "$.now",       now)
-  set_dict_attr(stream_url_candidate_resolution_tuple, "$.platform",  platform)
-  set_dict_attr(stream_url_candidate_resolution_tuple, "$.room_id",   str(room_id))
-  set_dict_attr(stream_url_candidate_resolution_tuple, "$.stream_id", str(room_record_tuple.get("stream_id", 0)))
+  set_dict_attr(stream_url_candidate_resolution_tuple, "$.start_time",   start_time)
+  set_dict_attr(stream_url_candidate_resolution_tuple, "$.platform",     platform)
+  set_dict_attr(stream_url_candidate_resolution_tuple, "$.room_id",      str(room_id))
+  set_dict_attr(stream_url_candidate_resolution_tuple, "$.stream_id",    str(room_record_tuple.get("stream_id", 0)))
   
   try:
     candidate_resolution_list = list()
-    stream_url_candidate_resolution_tuple_list = stream_url_candidate_resolution.get_record(stream_url_candidate_resolution_tuple)
+    stream_url_candidate_resolution_tuple_list = stream_url_candidate_resolution.get_record(stream_url_candidate_resolution_tuple, fetchall=True)
     for stream_url_candidate_resolution in stream_url_candidate_resolution_tuple_list:
       candidate_resolution_list.append(get_dict_attr(stream_url_candidate_resolution, "$.candidate_resolution"))
   except Exception as e:
@@ -3714,7 +4593,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   +--------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------+---------------------+
   | Field              | Type              | Null | Key | Default | Extra | Topology                                                                                   | Comment             |
   +--------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------+---------------------+
-  | now                | timestamp(3)      | NO   | PRI |         |       | "$.data.room.create_time"                                                                  | 当前时间戳           | 
+  | start_time         | timestamp(3)      | NO   | PRI |         |       | "$.data.room.create_time"                                                                  | 当前时间戳           | 
   | platform           | varchar(20)       | NO   | PRI |         |       |           -                                                                                | 平台                 | 
   | room_id            | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                                                                           | 直播间ID             |
   | quality_index      | unsigned bigint   | NO   | PRI |         |       |           -                                                                                | 视频流质量序号        |
@@ -3732,9 +4611,9 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   live_core_sdk_pull_quality =  LiveCoreSdkPullQualityDataTable(db)
   live_core_sdk_pull_quality_tuple = {key: None for key in live_core_sdk_pull_quality.get_tuple()}
   
-  set_dict_attr(live_core_sdk_pull_quality_tuple, "$.now",       now)
-  set_dict_attr(live_core_sdk_pull_quality_tuple, "$.platform",  platform)
-  set_dict_attr(live_core_sdk_pull_quality_tuple, "$.room_id",   str(room_id))
+  set_dict_attr(live_core_sdk_pull_quality_tuple, "$.start_time", start_time)
+  set_dict_attr(live_core_sdk_pull_quality_tuple, "$.platform",   platform)
+  set_dict_attr(live_core_sdk_pull_quality_tuple, "$.room_id",    str(room_id))
   
   try:
     live_core_sdk_pull_quality_list = list()
@@ -4014,6 +4893,31 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   
   set_dict_attr(room, "$.comment_name_mode",                    room_attribute_tuple.get('comment_name_mode', 0),           force=True)
   set_dict_attr(room, "$.common_label_list",                    room_attribute_tuple.get('common_label_list', ''),          force=True)
+  
+  """
+  >> >> >> data.room.content_label
+  """
+  if content_label_picture_tuple:
+    set_dict_attr(room, "$.content_label.avg_color",                content_label_picture_tuple.get('avg_color', ''),                force=True)
+
+    """
+    >> >> >> >> data.room.content_label.content
+    """
+    set_dict_attr(room, "$.content_label.content.alternative_text", content_label_picture_content_tuple.get('alternative_text', ''), force=True)
+    set_dict_attr(room, "$.content_label.content.font_color",       content_label_picture_content_tuple.get('font_color', ''),       force=True)
+    set_dict_attr(room, "$.content_label.content.level",            content_label_picture_content_tuple.get('level', 0),             force=True)
+    set_dict_attr(room, "$.content_label.content.name",             content_label_picture_content_tuple.get('name', ''),             force=True)
+
+    set_dict_attr(room, "$.content_label.flex_setting_list",        content_label_flex_setting_list,                                 force=True)
+    set_dict_attr(room, "$.content_label.height",                   content_label_picture_tuple.get('height', 0),                    force=True)
+    set_dict_attr(room, "$.content_label.image_type",               content_label_picture_tuple.get('image_type', 0),                force=True)
+    set_dict_attr(room, "$.content_label.is_animated",              bool(content_label_picture_tuple.get('is_animated', False)),     force=True)
+    set_dict_attr(room, "$.content_label.open_web_url",             content_label_picture_tuple.get('open_web_url', ''),             force=True)
+    set_dict_attr(room, "$.content_label.text_setting_list",        content_label_text_setting_list,                                 force=True)
+    set_dict_attr(room, "$.content_label.uri",                      content_label_picture_tuple.get('uri', ''),                      force=True)
+    set_dict_attr(room, "$.content_label.url_list",                 content_label_url_list,                                          force=True)
+    set_dict_attr(room, "$.content_label.width",                    content_label_picture_tuple.get('width', 0),                     force=True)
+  
   set_dict_attr(room, "$.content_tag",                          room_attribute_tuple.get('content_tag', ''),                force=True)
   
   """
@@ -4032,7 +4936,95 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   
   set_dict_attr(room, "$.create_time",                          floor(room_attribute_tuple.get('create_time', 0).timestamp()),           force=True)
   set_dict_attr(room, "$.danmaku_detail",                       room_record_tuple.get('danmaku_detail', 0),           force=True)
-  set_dict_attr(room, "$.deco_list",                            deco_list,                                            force=True)
+
+  """
+  >> >> >> data.room.deco_list
+  """
+  deco_list = list()
+  if len(room_deco_list) != 0:
+    room_deco_dict = dict()
+    for deco_index in range(0, len(room_deco_list)):
+      set_dict_attr(room_deco_dict, "$.audit_text_color",          get_dict_attr(room_deco_list[deco_index], '$.audit_text_color'),  force=True)
+      set_dict_attr(room_deco_dict, "$.content",                   get_dict_attr(room_deco_list[deco_index], '$.content'),           force=True)
+      set_dict_attr(room_deco_dict, "$.h",                         get_dict_attr(room_deco_list[deco_index], '$.h'),                 force=True)
+      set_dict_attr(room_deco_dict, "$.id",                        get_dict_attr(room_deco_list[deco_index], '$.id'),                force=True)
+      
+      """
+      >> >> >> >> data.room.deco_list.image
+      """
+      if deco_image_exist_list[deco_index] is True:
+        set_dict_attr(room_deco_dict, "$.image.avg_color",           deco_image_avg_color_list[deco_index],                  force=True)
+        set_dict_attr(room_deco_dict, "$.image.flex_setting_list",   deco_image_flex_setting_list[deco_index],               force=True)
+        set_dict_attr(room_deco_dict, "$.image.height",              deco_image_height_list[deco_index],                     force=True)
+        set_dict_attr(room_deco_dict, "$.image.image_type",          deco_image_image_type_list[deco_index],                 force=True)
+        set_dict_attr(room_deco_dict, "$.image.is_animated",         deco_image_is_animated_list[deco_index],                force=True)
+        set_dict_attr(room_deco_dict, "$.image.open_web_url",        deco_image_open_web_url_list[deco_index],               force=True)
+        set_dict_attr(room_deco_dict, "$.image.text_setting_list",   deco_image_text_setting_list[deco_index],               force=True)
+        set_dict_attr(room_deco_dict, "$.image.uri",                 deco_image_uri_list[deco_index],                        force=True)
+        set_dict_attr(room_deco_dict, "$.image.url_list",            deco_image_url_list[deco_index],                        force=True)
+        set_dict_attr(room_deco_dict, "$.image.width",               deco_image_width_list[deco_index],                      force=True)
+  
+      """
+      >> >> >> >> data.room.deco_list.input_rect
+      """
+      set_dict_attr(room_deco_dict, "$.input_rect",                room_deco_input_rect_list[deco_index],                        force=True)
+      
+      set_dict_attr(room_deco_dict, "$.kind",                      get_dict_attr(room_deco_list[deco_index], '$.kind'),              force=True)
+      set_dict_attr(room_deco_dict, "$.max_length",                get_dict_attr(room_deco_list[deco_index], '$.max_length'),        force=True)
+      
+      """
+      >> >> >> >> data.room.deco_list.nine_patch_image
+      """
+      if nine_patch_image_exist_list[deco_index] is True:
+        set_dict_attr(room_deco_dict, "$.nine_patch_image.avg_color",         deco_nine_patch_image_avg_color_list[deco_index],     force=True)
+        set_dict_attr(room_deco_dict, "$.nine_patch_image.flex_setting_list", deco_nine_patch_image_flex_setting_list[deco_index],  force=True)
+        set_dict_attr(room_deco_dict, "$.nine_patch_image.height",            deco_nine_patch_image_height_list[deco_index],        force=True)
+        set_dict_attr(room_deco_dict, "$.nine_patch_image.image_type",        deco_nine_patch_image_image_type_list[deco_index],    force=True)
+        set_dict_attr(room_deco_dict, "$.nine_patch_image.is_animated",       deco_nine_patch_image_is_animated_list[deco_index],   force=True)
+        set_dict_attr(room_deco_dict, "$.nine_patch_image.open_web_url",      deco_nine_patch_image_open_web_url_list[deco_index],  force=True)
+        set_dict_attr(room_deco_dict, "$.nine_patch_image.text_setting_list", deco_nine_patch_image_text_setting_list[deco_index],  force=True)
+        set_dict_attr(room_deco_dict, "$.nine_patch_image.uri",               deco_nine_patch_image_uri_list[deco_index],           force=True)
+        set_dict_attr(room_deco_dict, "$.nine_patch_image.url_list",          deco_nine_patch_image_url_list[deco_index],           force=True)
+        set_dict_attr(room_deco_dict, "$.nine_patch_image.width",             deco_nine_patch_image_width_list[deco_index],         force=True)
+  
+      """
+      >> >> >> >> data.room.deco_list.reservation
+      """
+      set_dict_attr(room_deco_dict, "$.reservation.anchor_id",      get_dict_attr(room_deco_reservation_list[deco_index], '$.hanchor_id'),           force=True)
+      set_dict_attr(room_deco_dict, "$.reservation.anchor_open_id", get_dict_attr(room_deco_reservation_list[deco_index], '$.anchor_open_id'),       force=True)
+      set_dict_attr(room_deco_dict, "$.reservation.appointment_id", int(get_dict_attr(room_deco_reservation_list[deco_index], '$.appointment_id')),  force=True)
+      set_dict_attr(room_deco_dict, "$.reservation.btn_color",      get_dict_attr(room_deco_reservation_list[deco_index], '$.btn_color'),            force=True)
+      set_dict_attr(room_deco_dict, "$.reservation.btn_rect",       room_deco_reservation_btn_rect_list[deco_index],                                 force=True)
+      set_dict_attr(room_deco_dict, "$.reservation.end_time",       get_dict_attr(room_deco_reservation_list[deco_index], '$.end_time'),             force=True)
+      set_dict_attr(room_deco_dict, "$.reservation.is_reserved",    bool(get_dict_attr(room_deco_reservation_list[deco_index], '$.is_reserved')),    force=True)
+      set_dict_attr(room_deco_dict, "$.reservation.room_id",        int(get_dict_attr(room_deco_reservation_list[deco_index], '$.room_id')),         force=True)
+      set_dict_attr(room_deco_dict, "$.reservation.start_time",     get_dict_attr(room_deco_reservation_list[deco_index], '$.start_time'),           force=True)
+      
+      """
+      >> >> >> >> 
+      """
+      if len(room_deco_text_foot_config_list) > deco_index:
+        set_dict_attr(room_deco_dict, "$.text_font_config.DownloadUrl", get_dict_attr(room_deco_text_foot_config_list[deco_index], '$.DownloadUrl'), force=True)
+        set_dict_attr(room_deco_dict, "$.text_font_config.FontID",      int(get_dict_attr(room_deco_text_foot_config_list[deco_index], '$.FontID')),      force=True)
+        set_dict_attr(room_deco_dict, "$.text_font_config.Status",      get_dict_attr(room_deco_text_foot_config_list[deco_index], '$.Status'),      force=True)
+        set_dict_attr(room_deco_dict, "$.text_font_config.font_name",   get_dict_attr(room_deco_text_foot_config_list[deco_index], '$.font_name'),   force=True)
+      
+      set_dict_attr(room_deco_dict, "$.status",                               get_dict_attr(room_deco_list[deco_index], '$.status'),                                force=True)
+      set_dict_attr(room_deco_dict, "$.sub_type",                             get_dict_attr(room_deco_list[deco_index], '$.sub_type'),                              force=True)
+      set_dict_attr(room_deco_dict, "$.text_color",                           get_dict_attr(room_deco_list[deco_index], '$.text_color'),                            force=True)
+      set_dict_attr(room_deco_dict, "$.text_image_adjustable_end_position",   get_dict_attr(room_deco_list[deco_index], '$.text_image_adjustable_end_position'),    force=True)
+      set_dict_attr(room_deco_dict, "$.text_image_adjustable_start_position", get_dict_attr(room_deco_list[deco_index], '$.text_image_adjustable_start_position'),  force=True)
+      set_dict_attr(room_deco_dict, "$.text_size",                            get_dict_attr(room_deco_list[deco_index], '$.text_size'),                             force=True)
+      set_dict_attr(room_deco_dict, "$.text_special_effects",                 room_deco_text_special_effects[deco_index],                                           force=True)
+      set_dict_attr(room_deco_dict, "$.type",                                 get_dict_attr(room_deco_list[deco_index], '$.type'),                                  force=True)
+      set_dict_attr(room_deco_dict, "$.w",                                    get_dict_attr(room_deco_list[deco_index], '$.w'),                                     force=True)
+      set_dict_attr(room_deco_dict, "$.x",                                    get_dict_attr(room_deco_list[deco_index], '$.x'),                                     force=True)
+      set_dict_attr(room_deco_dict, "$.y",                                    get_dict_attr(room_deco_list[deco_index], '$.y'),                                     force=True)
+      deco_list.append(room_deco_dict)      
+    set_dict_attr(room, "$.deco_list",                          deco_list,                                            force=True)
+  else:
+    set_dict_attr(room, "$.deco_list",                          [],                                                   force=True)
+
   set_dict_attr(room, "$.distance",                             room_attribute_tuple.get('distance', ''),             force=True)
   set_dict_attr(room, "$.distance_city",                        room_attribute_tuple.get('distance_city', ''),        force=True)
   set_dict_attr(room, "$.distance_km",                          room_attribute_tuple.get('distance_km', ''),          force=True)
@@ -4144,9 +5136,37 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   if room_record_tuple.get('last_ping_time', 0) is None:
     set_dict_attr(room, "$.last_ping_time",           0,                        force=True)
   else:
-    set_dict_attr(room, "$.last_ping_time",           room_record_tuple.get('last_ping_time', 0),                        force=True)
+    set_dict_attr(room, "$.last_ping_time",           floor(room_record_tuple.get('last_ping_time', 0).timestamp()),                        force=True)
   set_dict_attr(room, "$.layout",                   room_attribute_tuple.get('layout', 0),                             force=True)
   set_dict_attr(room, "$.like_count",               room_record_tuple.get('room_like_count', 0),                       force=True)
+
+  """
+  >> >> >> data.room.link_mic
+  """
+  if room_link_mic_tuple:
+    set_dict_attr(room, "$.link_mic.battle_scores", room_link_mic_battle_score_list, force=True)
+
+    set_dict_attr(room, "$.link_mic.battle_settings.activity_mode", get_dict_attr(room_link_mic_battle_setting_tuple, "$.activity_mode"),                           force=True)
+    set_dict_attr(room, "$.link_mic.battle_settings.battle_id",     int(get_dict_attr(room_link_mic_battle_setting_tuple, "$.battle_id")),                          force=True)
+    set_dict_attr(room, "$.link_mic.battle_settings.channel_id",    int(get_dict_attr(room_link_mic_battle_setting_tuple, "$.channel_id")),                         force=True)
+    set_dict_attr(room, "$.link_mic.battle_settings.duration",      get_dict_attr(room_link_mic_battle_setting_tuple, "$.duration"),                                force=True)
+    set_dict_attr(room, "$.link_mic.battle_settings.finished",      get_dict_attr(room_link_mic_battle_setting_tuple, "$.finished"),                                force=True)
+    set_dict_attr(room, "$.link_mic.battle_settings.match_type",    get_dict_attr(room_link_mic_battle_setting_tuple, "$.match_type"),                              force=True)
+    set_dict_attr(room, "$.link_mic.battle_settings.play_mode",     get_dict_attr(room_link_mic_battle_setting_tuple, "$.play_mode"),                               force=True)
+    set_dict_attr(room, "$.link_mic.battle_settings.start_time",    floor(get_dict_attr(room_link_mic_battle_setting_tuple, "$.start_time").timestamp()),           force=True)
+    set_dict_attr(room, "$.link_mic.battle_settings.start_time_ms", floor(get_dict_attr(room_link_mic_battle_setting_tuple, "$.start_time_ms").timestamp() * 1000), force=True)
+    set_dict_attr(room, "$.link_mic.battle_settings.team_mode",     get_dict_attr(room_link_mic_battle_setting_tuple, "$.team_mode"),                               force=True)
+    set_dict_attr(room, "$.link_mic.battle_settings.theme",         get_dict_attr(room_link_mic_battle_setting_tuple, "$.theme"),                                   force=True)
+    
+    set_dict_attr(room, "$.link_mic.channel_id", get_dict_attr(room_link_mic_tuple, "$.channel_id"), force=True)
+    
+    set_dict_attr(room, "$.link_mic.channel_info.dimension", get_dict_attr(room_link_mic_channel_info_tuple, "$.dimension"), force=True)
+    set_dict_attr(room, "$.link_mic.channel_info.layout",    get_dict_attr(room_link_mic_channel_info_tuple, "$.layout"),    force=True)
+    set_dict_attr(room, "$.link_mic.channel_info.vendor",    get_dict_attr(room_link_mic_channel_info_tuple, "$.vendor"),    force=True)
+    
+    set_dict_attr(room, "$.link_mic.linkmic_anchor_count", get_dict_attr(room_link_mic_tuple, "$.linkmic_anchor_count"), force=True)
+    set_dict_attr(room, "$.link_mic.rival_anchor_id",      int(get_dict_attr(room_link_mic_tuple, "$.rival_anchor_id")), force=True)
+    set_dict_attr(room, "$.link_mic.rival_anchor_open_id", get_dict_attr(room_link_mic_tuple, "$.rival_anchor_open_id"), force=True)
   
   """
   >> >> >> data.room.linker_map
@@ -4215,7 +5235,58 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   set_dict_attr(room, "$.owner.allow_strange_comment",                    bool(room_owner_tuple.get('allow_strange_comment', False)),                    force=True)
   set_dict_attr(room, "$.owner.allow_unfollower_comment",                 bool(room_owner_tuple.get('allow_unfollower_comment', False)),                 force=True)
   set_dict_attr(room, "$.owner.allow_use_linkmic",                        bool(room_owner_tuple.get('allow_use_linkmic', False)),                        force=True)
-  set_dict_attr(room, "$.owner.authorization_info",                       room_owner_tuple.get('authorization_info', 0),                                 force=True)
+  
+  """
+  >> >> >> >> data.room.owner.author_stats
+  """
+  if room_owner_author_stats_tuple:
+    set_dict_attr(room, "$.owner.author_stats.variety_show_play_count",    get_dict_attr(room_owner_author_stats_tuple, "$.variety_show_play_count"),    force=True)
+    set_dict_attr(room, "$.owner.author_stats.video_total_count",          get_dict_attr(room_owner_author_stats_tuple, "$.video_total_count"),          force=True)
+    set_dict_attr(room, "$.owner.author_stats.video_total_favorite_count", get_dict_attr(room_owner_author_stats_tuple, "$.video_total_favorite_count"), force=True)
+    set_dict_attr(room, "$.owner.author_stats.video_total_play_count",     get_dict_attr(room_owner_author_stats_tuple, "$.video_total_play_count"),     force=True)
+    set_dict_attr(room, "$.owner.author_stats.video_total_series_count",   get_dict_attr(room_owner_author_stats_tuple, "$.video_total_series_count"),   force=True)
+    set_dict_attr(room, "$.owner.author_stats.video_total_share_count",    get_dict_attr(room_owner_author_stats_tuple, "$.video_total_share_count"),    force=True)
+
+  """
+  >> >> >> >> data.room.owner.authentication_info
+  """
+  if bool(room_owner_auth_info_tuple.get('exist_authentication_info', False)) is True:
+    set_dict_attr(room, "$.owner.authentication_info.account_cert_info",                   json.loads(room_owner_auth_info_tuple.get('account_cert_info', {})),     force=True)
+    set_dict_attr(room, "$.owner.authentication_info.account_type_info.account_type_map",  json.loads(room_owner_auth_info_tuple.get('account_type_map', {})),      force=True)
+
+    """
+    >> >> >> >> >> data.room.owner.authentication_info.authentication_badge
+    """
+    set_dict_attr(room, "$.owner.authentication_info.authentication_badge.avg_color",         auth_info_picture_tuple.get('avg_color', ''),            force=True)
+    set_dict_attr(room, "$.owner.authentication_info.authentication_badge.flex_setting_list", auth_info_flex_setting_list,                             force=True)
+    set_dict_attr(room, "$.owner.authentication_info.authentication_badge.height",            auth_info_picture_tuple.get('height', 0),                force=True)
+    set_dict_attr(room, "$.owner.authentication_info.authentication_badge.image_type",        auth_info_picture_tuple.get('image_type', 0),            force=True)
+    set_dict_attr(room, "$.owner.authentication_info.authentication_badge.is_animated",       bool(auth_info_picture_tuple.get('is_animated', False)), force=True)
+    set_dict_attr(room, "$.owner.authentication_info.authentication_badge.open_web_url",      auth_info_picture_tuple.get('open_web_url', ''),         force=True)
+    set_dict_attr(room, "$.owner.authentication_info.authentication_badge.text_setting_list", auth_info_text_setting_list,                             force=True)
+    set_dict_attr(room, "$.owner.authentication_info.authentication_badge.uri",               auth_info_picture_tuple.get('uri', ''),                  force=True)
+    set_dict_attr(room, "$.owner.authentication_info.authentication_badge.url_list",          auth_info_url_list,                                      force=True)
+    set_dict_attr(room, "$.owner.authentication_info.authentication_badge.width",             auth_info_picture_tuple.get('width', 0),                 force=True)
+
+    """
+    >> >> >> >> >> data.room.owner.authentication_info.authentication_badge_v2
+    """
+    set_dict_attr(room, "$.owner.authentication_info.authentication_badge_v2.avg_color",         auth_info_v2_picture_tuple.get('avg_color', ''),            force=True)
+    set_dict_attr(room, "$.owner.authentication_info.authentication_badge_v2.flex_setting_list", auth_info_v2_flex_setting_list,                             force=True)
+    set_dict_attr(room, "$.owner.authentication_info.authentication_badge_v2.height",            auth_info_v2_picture_tuple.get('height', 0),                force=True)
+    set_dict_attr(room, "$.owner.authentication_info.authentication_badge_v2.image_type",        auth_info_v2_picture_tuple.get('image_type', 0),            force=True)
+    set_dict_attr(room, "$.owner.authentication_info.authentication_badge_v2.is_animated",       bool(auth_info_v2_picture_tuple.get('is_animated', False)), force=True)
+    set_dict_attr(room, "$.owner.authentication_info.authentication_badge_v2.open_web_url",      auth_info_v2_picture_tuple.get('open_web_url', ''),         force=True)
+    set_dict_attr(room, "$.owner.authentication_info.authentication_badge_v2.text_setting_list", auth_info_v2_text_setting_list,                             force=True)
+    set_dict_attr(room, "$.owner.authentication_info.authentication_badge_v2.uri",               auth_info_v2_picture_tuple.get('uri', ''),                  force=True)
+    set_dict_attr(room, "$.owner.authentication_info.authentication_badge_v2.url_list",          auth_info_v2_url_list,                                      force=True)
+    set_dict_attr(room, "$.owner.authentication_info.authentication_badge_v2.width",             auth_info_v2_picture_tuple.get('width', 0),                 force=True)
+    
+    set_dict_attr(room, "$.owner.authentication_info.custom_verify",            room_owner_auth_info_tuple.get('custom_verify', ''),            force=True)
+    set_dict_attr(room, "$.owner.authentication_info.enterprise_verify_reason", room_owner_auth_info_tuple.get('enterprise_verify_reason', ''), force=True)
+    set_dict_attr(room, "$.owner.authentication_info.level_list",               room_owner_auth_level_list,                                     force=True)
+
+  set_dict_attr(room, "$.owner.authorization_info",                       room_owner_tuple.get('authorization_info', 0),                                            force=True)
 
   """
   >> >> >> >> data.room.owner.avatar_large
@@ -4364,7 +5435,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   """
   for index in range(0, len(badge_icons_label_list)):
     set_dict_attr(room, f"$.owner.fans_club.data.badge.icons.{badge_icons_label_list[index]}.avg_color",         badge_icon_avg_color_list[index],          force=True)
-    set_dict_attr(room, f"$.owner.fans_club.data.badge.icons.{badge_icons_label_list[index]}.flex_setting",      badge_icon_flex_setting_list[index],       force=True)
+    set_dict_attr(room, f"$.owner.fans_club.data.badge.icons.{badge_icons_label_list[index]}.flex_setting_list", badge_icon_flex_setting_list[index],       force=True)
     set_dict_attr(room, f"$.owner.fans_club.data.badge.icons.{badge_icons_label_list[index]}.height",            badge_icon_height_list[index],             force=True)
     set_dict_attr(room, f"$.owner.fans_club.data.badge.icons.{badge_icons_label_list[index]}.image_type",        badge_icon_image_type_list[index],         force=True)
     set_dict_attr(room, f"$.owner.fans_club.data.badge.icons.{badge_icons_label_list[index]}.is_animated",       bool(badge_icon_is_animated_list[index]),  force=True)
@@ -4410,7 +5481,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   set_dict_attr(room, "$.owner.hotsoon_verified",                 bool(room_owner_tuple.get('hotsoon_verified', False)),     force=True)
   set_dict_attr(room, "$.owner.hotsoon_verified_reason",          room_owner_tuple.get('hotsoon_verified_reason', ''),       force=True)
   set_dict_attr(room, "$.owner.ichat_restrict_type",              room_owner_tuple.get('ichat_restrict_type', 0),            force=True)
-  set_dict_attr(room, "$.owner.id",                               room_owner_tuple.get('id', 0),                             force=True)
+  set_dict_attr(room, "$.owner.id",                               int(room_owner_tuple.get('id', 0)),                        force=True)
   if room_owner_tuple.get('id', 0) == 0:
     set_dict_attr(room, "$.owner.id_str",                         '',                                                        force=True)
   else:
@@ -4438,7 +5509,10 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   """
   set_dict_attr(room, "$.owner.media_badge_image_list",           owner_media_badge_image_list,                              force=True)
 
-  set_dict_attr(room, "$.owner.modify_time",                      floor(room_owner_tuple.get('modify_time', 0).timestamp()),                    force=True)
+  if room_owner_tuple.get('modify_time', 0) is not None:
+    set_dict_attr(room, "$.owner.modify_time",                      floor(room_owner_tuple.get('modify_time', 0).timestamp()), force=True)
+  else:
+    set_dict_attr(room, "$.owner.modify_time",                      0, force=True)
   set_dict_attr(room, "$.owner.mystery_man",                      room_owner_tuple.get('mystery_man', 0),                    force=True)
   set_dict_attr(room, "$.owner.need_profile_guide",               bool(room_owner_tuple.get('need_profile_guide', False)),   force=True)
 
@@ -4448,6 +5522,14 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   set_dict_attr(room, "$.owner.new_real_time_icons",             owner_new_real_time_icons,                           force=True)
 
   set_dict_attr(room, "$.owner.nickname",                        room_owner_tuple.get('nickname', ''),                force=True)
+  
+  """
+  >> >> >> >> data.room.owner.own_room
+  """
+  if own_room_exist_flag is True:
+    set_dict_attr(room, "$.owner.own_room.room_ids",                   owner_own_room_id_list,                            force=True)
+    set_dict_attr(room, "$.owner.own_room.room_ids_display",           owner_own_room_id_display_list,                    force=True)
+    set_dict_attr(room, "$.owner.own_room.room_ids_str",               owner_own_room_id_str_list,                        force=True)
   
   """
   >> >> >> >> data.room.owner.pay_grade
@@ -4468,30 +5550,32 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   """
   >> >> >> >> >> data.room.owner.pay_grade.new_im_icon_with_level
   """
-  set_dict_attr(room, "$.owner.pay_grade.new_im_icon_with_level.avg_color",         owner_new_im_icon_with_level_picture_tuple.get('avg_color', ''),            force=True)
-  set_dict_attr(room, "$.owner.pay_grade.new_im_icon_with_level.flex_setting_list", owner_new_im_icon_with_level_flex_setting_list,                             force=True)
-  set_dict_attr(room, "$.owner.pay_grade.new_im_icon_with_level.height",            owner_new_im_icon_with_level_picture_tuple.get('height', 0),                force=True)
-  set_dict_attr(room, "$.owner.pay_grade.new_im_icon_with_level.image_type",        owner_new_im_icon_with_level_picture_tuple.get('image_type', 0),            force=True)
-  set_dict_attr(room, "$.owner.pay_grade.new_im_icon_with_level.is_animated",       bool(owner_new_im_icon_with_level_picture_tuple.get('is_animated', False)), force=True)
-  set_dict_attr(room, "$.owner.pay_grade.new_im_icon_with_level.open_web_url",      owner_new_im_icon_with_level_picture_tuple.get('open_web_url', ''),         force=True)
-  set_dict_attr(room, "$.owner.pay_grade.new_im_icon_with_level.text_setting_list", owner_new_im_icon_with_level_pic_text_setting_list,                         force=True)
-  set_dict_attr(room, "$.owner.pay_grade.new_im_icon_with_level.uri",               owner_new_im_icon_with_level_picture_tuple.get('uri', ''),                  force=True)
-  set_dict_attr(room, "$.owner.pay_grade.new_im_icon_with_level.url_list",          owner_new_im_icon_with_level_picture_url_list,                              force=True)
-  set_dict_attr(room, "$.owner.pay_grade.new_im_icon_with_level.width",             owner_new_im_icon_with_level_picture_tuple.get('width', 0),                 force=True)
+  if owner_new_im_icon_with_level_picture_tuple:
+    set_dict_attr(room, "$.owner.pay_grade.new_im_icon_with_level.avg_color",         owner_new_im_icon_with_level_picture_tuple.get('avg_color', ''),            force=True)
+    set_dict_attr(room, "$.owner.pay_grade.new_im_icon_with_level.flex_setting_list", owner_new_im_icon_with_level_flex_setting_list,                             force=True)
+    set_dict_attr(room, "$.owner.pay_grade.new_im_icon_with_level.height",            owner_new_im_icon_with_level_picture_tuple.get('height', 0),                force=True)
+    set_dict_attr(room, "$.owner.pay_grade.new_im_icon_with_level.image_type",        owner_new_im_icon_with_level_picture_tuple.get('image_type', 0),            force=True)
+    set_dict_attr(room, "$.owner.pay_grade.new_im_icon_with_level.is_animated",       bool(owner_new_im_icon_with_level_picture_tuple.get('is_animated', False)), force=True)
+    set_dict_attr(room, "$.owner.pay_grade.new_im_icon_with_level.open_web_url",      owner_new_im_icon_with_level_picture_tuple.get('open_web_url', ''),         force=True)
+    set_dict_attr(room, "$.owner.pay_grade.new_im_icon_with_level.text_setting_list", owner_new_im_icon_with_level_pic_text_setting_list,                         force=True)
+    set_dict_attr(room, "$.owner.pay_grade.new_im_icon_with_level.uri",               owner_new_im_icon_with_level_picture_tuple.get('uri', ''),                  force=True)
+    set_dict_attr(room, "$.owner.pay_grade.new_im_icon_with_level.url_list",          owner_new_im_icon_with_level_picture_url_list,                              force=True)
+    set_dict_attr(room, "$.owner.pay_grade.new_im_icon_with_level.width",             owner_new_im_icon_with_level_picture_tuple.get('width', 0),                 force=True)
 
   """
   >> >> >> >> >> data.room.owner.pay_grade.new_live_icon
   """
-  set_dict_attr(room, "$.owner.pay_grade.new_live_icon.avg_color",         owner_new_live_icon_picture_tuple.get('avg_color', ''),            force=True)
-  set_dict_attr(room, "$.owner.pay_grade.new_live_icon.flex_setting_list", owner_new_live_icon_flex_setting_list,                             force=True)
-  set_dict_attr(room, "$.owner.pay_grade.new_live_icon.height",            owner_new_live_icon_picture_tuple.get('height', 0),                force=True)
-  set_dict_attr(room, "$.owner.pay_grade.new_live_icon.image_type",        owner_new_live_icon_picture_tuple.get('image_type', 0),            force=True)
-  set_dict_attr(room, "$.owner.pay_grade.new_live_icon.is_animated",       bool(owner_new_live_icon_picture_tuple.get('is_animated', False)), force=True)
-  set_dict_attr(room, "$.owner.pay_grade.new_live_icon.open_web_url",      owner_new_live_icon_picture_tuple.get('open_web_url', ''),         force=True)
-  set_dict_attr(room, "$.owner.pay_grade.new_live_icon.text_setting_list", owner_new_live_icon_pic_text_setting_list,                         force=True)
-  set_dict_attr(room, "$.owner.pay_grade.new_live_icon.uri",               owner_new_live_icon_picture_tuple.get('uri', ''),                  force=True)
-  set_dict_attr(room, "$.owner.pay_grade.new_live_icon.url_list",          owner_new_live_icon_picture_url_list,                              force=True)
-  set_dict_attr(room, "$.owner.pay_grade.new_live_icon.width",             owner_new_live_icon_picture_tuple.get('width', 0),                 force=True)
+  if owner_new_live_icon_picture_tuple:
+    set_dict_attr(room, "$.owner.pay_grade.new_live_icon.avg_color",         owner_new_live_icon_picture_tuple.get('avg_color', ''),            force=True)
+    set_dict_attr(room, "$.owner.pay_grade.new_live_icon.flex_setting_list", owner_new_live_icon_flex_setting_list,                             force=True)
+    set_dict_attr(room, "$.owner.pay_grade.new_live_icon.height",            owner_new_live_icon_picture_tuple.get('height', 0),                force=True)
+    set_dict_attr(room, "$.owner.pay_grade.new_live_icon.image_type",        owner_new_live_icon_picture_tuple.get('image_type', 0),            force=True)
+    set_dict_attr(room, "$.owner.pay_grade.new_live_icon.is_animated",       bool(owner_new_live_icon_picture_tuple.get('is_animated', False)), force=True)
+    set_dict_attr(room, "$.owner.pay_grade.new_live_icon.open_web_url",      owner_new_live_icon_picture_tuple.get('open_web_url', ''),         force=True)
+    set_dict_attr(room, "$.owner.pay_grade.new_live_icon.text_setting_list", owner_new_live_icon_pic_text_setting_list,                         force=True)
+    set_dict_attr(room, "$.owner.pay_grade.new_live_icon.uri",               owner_new_live_icon_picture_tuple.get('uri', ''),                  force=True)
+    set_dict_attr(room, "$.owner.pay_grade.new_live_icon.url_list",          owner_new_live_icon_picture_url_list,                              force=True)
+    set_dict_attr(room, "$.owner.pay_grade.new_live_icon.width",             owner_new_live_icon_picture_tuple.get('width', 0),                 force=True)
 
   set_dict_attr(room, "$.owner.pay_grade.next_diamond",           room_owner_tuple.get('pay_grade_next_diamond', 0),     force=True)
   set_dict_attr(room, "$.owner.pay_grade.next_name",              room_owner_tuple.get('pay_grade_next_name', ''),       force=True)
@@ -4534,11 +5618,11 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   """
   >> >> >> >> data.room.owner.subscribe
   """
-  set_dict_attr(room, "$.owner.subscribe.buy_type",      room_owner_tuple.get('buy_type', 0),            force=True)
-  set_dict_attr(room, "$.owner.subscribe.identity_type", room_owner_tuple.get('identity_type', 0),       force=True)
-  set_dict_attr(room, "$.owner.subscribe.is_member",     bool(room_owner_tuple.get('is_member', False)), force=True)
-  set_dict_attr(room, "$.owner.subscribe.level",         room_owner_tuple.get('level', 0),               force=True)
-  set_dict_attr(room, "$.owner.subscribe.open",          room_owner_tuple.get('open', 0),                force=True)
+  set_dict_attr(room, "$.owner.subscribe.buy_type",      owner_subscribe_tuple.get('buy_type', 0),            force=True)
+  set_dict_attr(room, "$.owner.subscribe.identity_type", owner_subscribe_tuple.get('identity_type', 0),       force=True)
+  set_dict_attr(room, "$.owner.subscribe.is_member",     bool(owner_subscribe_tuple.get('is_member', False)), force=True)
+  set_dict_attr(room, "$.owner.subscribe.level",         owner_subscribe_tuple.get('level', 0),               force=True)
+  set_dict_attr(room, "$.owner.subscribe.open",          owner_subscribe_tuple.get('open', 0),                force=True)
 
   set_dict_attr(room, "$.owner.telephone",    room_owner_tuple.get('telephone', ''),   force=True)
   set_dict_attr(room, "$.owner.ticket_count", room_owner_tuple.get('ticket_count', 0), force=True)
@@ -4810,16 +5894,16 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   set_dict_attr(room, "$.room_view_stats.display_short_anchor",  room_record_tuple.get('view_stats_display_short_anchor', ''),  force=True)
   set_dict_attr(room, "$.room_view_stats.display_type",          room_record_tuple.get('view_stats_display_type', 0),           force=True)
   set_dict_attr(room, "$.room_view_stats.display_value",         room_record_tuple.get('view_stats_display_value', 0),          force=True)
-  set_dict_attr(room, "$.room_view_stats.display_version",       room_record_tuple.get('view_stats_display_version', 0),        force=True)
-  set_dict_attr(room, "$.room_view_stats.incremental",           bool(room_record_tuple.get('view_stats_incremental', False)),        force=True)
-  set_dict_attr(room, "$.room_view_stats.is_hidden",             bool(room_record_tuple.get('view_stats_is_hidden', False)),          force=True)
+  set_dict_attr(room, "$.room_view_stats.display_version",       int(room_record_tuple.get('view_stats_display_version', 0)),   force=True)
+  set_dict_attr(room, "$.room_view_stats.incremental",           bool(room_record_tuple.get('view_stats_incremental', False)),  force=True)
+  set_dict_attr(room, "$.room_view_stats.is_hidden",             bool(room_record_tuple.get('view_stats_is_hidden', False)),    force=True)
 
   set_dict_attr(room, "$.screen_capture_sharing_title",          room_record_tuple.get('screen_capture_sharing_title', ''),     force=True)
-  set_dict_attr(room, "$.scroll_config",                                   room_attribute_tuple.get('scroll_config', ''),                 force=True)
-  set_dict_attr(room, "$.search_id",                                       room_attribute_tuple.get('search_id', 0),                      force=True)
-  set_dict_attr(room, "$.sell_goods",                                      bool(room_attribute_tuple.get('sell_goods', False)),                 force=True)
-  set_dict_attr(room, "$.share_msg_style",                                 room_attribute_tuple.get('share_msg_style', 0),                force=True)
-  set_dict_attr(room, "$.share_url",                                       room_attribute_tuple.get('share_url', ''),                     force=True)  
+  set_dict_attr(room, "$.scroll_config",                         room_attribute_tuple.get('scroll_config', ''),                 force=True)
+  set_dict_attr(room, "$.search_id",                             int(room_attribute_tuple.get('search_id', 0)),                 force=True)
+  set_dict_attr(room, "$.sell_goods",                            bool(room_attribute_tuple.get('sell_goods', False)),           force=True)
+  set_dict_attr(room, "$.share_msg_style",                       room_attribute_tuple.get('share_msg_style', 0),                force=True)
+  set_dict_attr(room, "$.share_url",                             room_attribute_tuple.get('share_url', ''),                     force=True)  
   
   """
   >> >> >> data.room.sharing_music_id_list

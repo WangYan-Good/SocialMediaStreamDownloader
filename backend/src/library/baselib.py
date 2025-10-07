@@ -33,6 +33,7 @@ def get_dict_attr(source:dict=None, attr:str=None)->any:
   ##
   target = source
   for item in path[1:]:
+    # print(f"target = target.get({item})\ntarget.get({item}) type: {type(target.get(item))}\n{target.get(item)}")
     target = target.get(item)
   return target
 

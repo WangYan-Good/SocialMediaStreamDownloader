@@ -22,11 +22,11 @@ from backend.src.database.table.social_media_stream_db_table          import Soc
 ## | app_id                           | varchar(200)      | YES  |     | NULL    |       | "$.data.room.app_id"                                  | 应用ID                          |
 ## | auth_city                        | varchar(100)      | YES  |     | NULL    |       | "$.data.room.auth_city"                               | 直播间认证城市                   |
 ## | auto_cover                       | unsigned tinyint  | YES  |     | NULL    |       | "$.data.room.auto_cover"                              | 自动封面                         |
-## | base_category                    | unsigned tinyint  | YES  |     | NULL    |       | "$.data.room.base_category"                           | 基础分类                         |
+## | base_category                    | unsigned int      | YES  |     | NULL    |       | "$.data.room.base_category"                           | 基础分类                         |
 ## | book_end_time                    | timestamp         | YES  |     | NULL    |       | "$.data.room.book_end_time"                           | 直播间预约结束时间                |
 ## | book_time                        | timestamp         | YES  |     | NULL    |       | "$.data.room.book_time"                               | 直播间预约开始时间                |
 ## | business_live                    | unsigned tinyint  | YES  |     | NULL    |       | "$.data.room.business_live"                           | 商业直播                         |
-## | category                         | unsigned tinyint  | YES  |     | NULL    |       | "$.data.room.category"                                | 分类                            |
+## | category                         | unsigned int      | YES  |     | NULL    |       | "$.data.room.category"                                | 分类                            |
 ## | cell_style                       | unsigned tinyint  | YES  |     | NULL    |       | "$.data.room.cell_style"                              | 直播间单元样式                   |
 ## | city_top_distance                | tinytext          | YES  |     | NULL    |       | "$.data.room.city_top_distance"                       | 城市顶部距离                     |
 ## | client_version                   | varchar(20)       | YES  |     | NULL    |       | "$.data.room.client_version"                          | 客户端版本                       |
@@ -56,7 +56,7 @@ from backend.src.database.table.social_media_stream_db_table          import Soc
 ## | xigua_uid                        | varchar(200)      | YES  |     | NULL    |       | "$.data.room.extra.xigua_uid"                         | 西瓜用户ID                       |
 ## | fansclub_msg_style               | unsigned tinyint  | YES  |     | NULL    |       | "$.data.room.fansclub_msg_style"                      | 粉丝俱乐部消息样式                |
 ## | fcdn_appid                       | varchar(200)      | YES  |     | NULL    |       | "$.data.room.fcdn_appid"                              | FCDN应用ID                       |
-## | finish_reason                    | unsigned tinyint  | YES  |     | NULL    |       | "$.data.room.finish_reason"                           | 直播结束原因                     |
+## | finish_reason                    | unsigned int      | YES  |     | NULL    |       | "$.data.room.finish_reason"                           | 直播结束原因                     |
 ## | finish_time                      | timestamp         | YES  |     | NULL    |       | "$.data.room.finish_time"                             | 直播结束时间                     |
 ## | finish_url                       | text              | YES  |     | NULL    |       | "$.data.room.finish_url"                              | 直播结束URL                      |
 ## | follow_msg_style                 | unsigned tinyint  | YES  |     | NULL    |       | "$.data.room.follow_msg_style"                        | 关注消息样式                     |
@@ -164,11 +164,11 @@ class RoomAttributeTable(SocialMediaStreamDataTable):
                                         app_id                           varchar(200)   DEFAULT NULL,
                                         auth_city                        varchar(100)   DEFAULT NULL,
                                         auto_cover                       tinyint        DEFAULT NULL,
-                                        base_category                    tinyint        DEFAULT NULL,
+                                        base_category                    int            DEFAULT NULL,
                                         book_end_time                    timestamp      DEFAULT NULL,
                                         book_time                        timestamp      DEFAULT NULL,
                                         business_live                    tinyint        DEFAULT NULL,
-                                        category                         tinyint        DEFAULT NULL,
+                                        category                         int            DEFAULT NULL,
                                         cell_style                       tinyint        DEFAULT NULL,
                                         city_top_distance                tinytext       DEFAULT NULL,
                                         client_version                   varchar(20)    DEFAULT NULL,
@@ -198,7 +198,7 @@ class RoomAttributeTable(SocialMediaStreamDataTable):
                                         xigua_uid                        varchar(200)   DEFAULT NULL,
                                         fansclub_msg_style               tinyint        DEFAULT NULL,
                                         fcdn_appid                       varchar(200)   DEFAULT NULL,
-                                        finish_reason                    tinyint        DEFAULT NULL,
+                                        finish_reason                    int            DEFAULT NULL,
                                         finish_time                      timestamp      DEFAULT NULL,
                                         finish_url                       text           DEFAULT NULL,
                                         follow_msg_style                 tinyint        DEFAULT NULL,
@@ -341,7 +341,7 @@ class RoomAttributeTable(SocialMediaStreamDataTable):
 ##+---------------------+-------------------+------+-----+---------+-------+------------------------------+---------------------+
 ##| Field               | Type              | Null | Key | Default | Extra | Topology                     | Comment             |
 ##+---------------------+-------------------+------+-----+---------+-------+------------------------------+---------------------+
-##| now                 | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"                | 当前时间戳           |
+##| start_time          | timestamp         | NO   | PRI |         |       | "$.data.room.start_time"     | 当前时间戳           |
 ##| platform            | varchar(20)       | NO   | PRI |         |       |           -                  | 平台                 |
 ##| room_id             | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"             | 直播间ID             |
 ##| admin_user_id_index | unsigned bigint   | NO   | PRI |         |       |           -                  | 直播间管理员ID序号    |
@@ -353,21 +353,20 @@ class RoomAdminUserIdTable(SocialMediaStreamDataTable):
 ## >>=============================== attribute ===============================>>
 ##
   __ROOM_ADMIN_USER_ID_TABLE_NAME       = 'room_admin_user_id'
-  __ROOM_ADMIN_USER_ID_TABLE_HEADER     = ['now',                 'platform',     'room_id',
+  __ROOM_ADMIN_USER_ID_TABLE_HEADER     = ['start_time',                 'platform',     'room_id',
                                            'admin_user_id_index', 'admin_user_id'
                                            ]
-  __ROOM_ADMIN_USER_ID_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'admin_user_id_index']
-  __TABLE_AUTO_INCREMENT                = ['admin_user_id_index']
+  __ROOM_ADMIN_USER_ID_TABLE_PRI_KEY    = ['start_time', 'platform', 'room_id', 'admin_user_id_index']
+  __TABLE_AUTO_INCREMENT                = []
   __ROOM_ADMIN_USER_ID_TABLE_TUPLE      = {item:None for item in __ROOM_ADMIN_USER_ID_TABLE_HEADER}
   __SQL_CREATE_ROOM_ADMIN_USER_ID_TABLE = '''
                                           CREATE TABLE IF NOT EXISTS {} (
-                                            now                    timestamp(3) NOT NULL,
+                                            start_time             timestamp    NOT NULL,
                                             platform               varchar(20)  NOT NULL,
                                             room_id                varchar(200) NOT NULL,
-                                            admin_user_id_index    bigint       NOT NULL AUTO_INCREMENT,
+                                            admin_user_id_index    bigint       NOT NULL,
                                             admin_user_id          varchar(200) DEFAULT NULL,
-                                            PRIMARY KEY (admin_user_id_index),
-                                            UNIQUE KEY unique_record (now, platform, room_id, admin_user_id)
+                                            PRIMARY KEY (start_time, platform, room_id, admin_user_id_index)
                                           )
                                           '''.format(__ROOM_ADMIN_USER_ID_TABLE_NAME)
   __SQL_DROP_ROOM_ADMIN_USER_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_ADMIN_USER_ID_TABLE_NAME)
@@ -671,28 +670,132 @@ class RoomAssistLabelTable(SocialMediaStreamDataTable):
 ## | deco       | TBD               |      |     | NULL    |       | "$.data.room.deco_list" | 装饰                 | 
 ## +------------+-------------------+------+-----+---------+-------+-------------------------+----------------------+
 ##
+"""
+deco_list:
+- audit_text_color: ''
+  content: "\u793C\u82B1\u7B52\uFF0C\u70B9\u6B4C"
+  h: 1920
+  id: 1184
+  image:
+    avg_color: '#E6FADC'
+    flex_setting_list: []
+    height: 0
+    image_type: 0
+    is_animated: false
+    open_web_url: ''
+    text_setting_list: []
+    uri: webcast/decoration_8e605288f9089f4ede4a93336586b22c.png
+    url_list:
+    - https://p3-webcast.douyinpic.com/img/webcast/decoration_8e605288f9089f4ede4a93336586b22c.png~tplv-resize:0:0.image
+    - https://p11-webcast.douyinpic.com/img/webcast/decoration_8e605288f9089f4ede4a93336586b22c.png~tplv-resize:0:0.image
+    width: 0
+  input_rect:
+  - 63
+  - 43
+  - 195
+  - 34
+  kind: 0
+  max_length: 8
+  nine_patch_image:
+    avg_color: '#CCB1A3'
+    flex_setting_list: []
+    height: 0
+    image_type: 0
+    is_animated: false
+    open_web_url: ''
+    text_setting_list: []
+    uri: webcast/decoration_6825f92fe146f5938028eb2f3f192a99.png
+    url_list:
+    - https://p3-webcast.douyinpic.com/img/webcast/decoration_6825f92fe146f5938028eb2f3f192a99.png~tplv-obj.image
+    - https://p11-webcast.douyinpic.com/img/webcast/decoration_6825f92fe146f5938028eb2f3f192a99.png~tplv-obj.image
+    width: 0
+  reservation:
+    anchor_id: 0
+    anchor_open_id: ''
+    appointment_id: 0
+    btn_color: ''
+    btn_rect: []
+    end_time: 0
+    is_reserved: false
+    room_id: 0
+    start_time: 0
+  status: 1
+  sub_type: 0
+  text_color: '#000000'
+  text_image_adjustable_end_position: 212
+  text_image_adjustable_start_position: 132
+  text_size: 24
+  text_special_effects: []
+  type: 1
+  w: 1080
+  x: 849
+  y: 453
+"""
+##
+## $.data.room.deco_list
+##
+## +--------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+---------------------+
+## | Field                                | Type              | Null | Key | Default | Extra | Topology                                                           | Comment             |
+## +--------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+---------------------+
+## | start_time                           | timestamp         | YES  |     |         |       | "$.extra.now"                                                      | 当前时间戳           | 
+## | platform                             | varchar(20)       |      |     | NULL    |       |           -                                                        | 平台                 | 
+## | room_id                              | varchar(200)      |      |     |         |       | "$.data.room.id"                                                   | 直播间ID             |
+## | deco_index                           | unsigned bigint   |      |     |         |       |           -                                                        | 装饰索引号            |  
+## | audit_text_color                     | varchar(7)        |      |     |         |       | "$.data.room.deco_list.[x].audit_text_color"                       | 审核文本颜色          | 
+## | content                              | tinytext          |      |     |         |       | "$.data.room.deco_list.[x].content"                                | 内容                 | 
+## | h                                    | unsigned int      |      |     |         |       | "$.data.room.deco_list.[x].h"                                      | 高度                 | 
+## | id                                   | unsigned int      |      |     |         |       | "$.data.room.deco_list.[x].id"                                     | ID                   | 
+## | kind                                 | unsigned tinyint  |      |     |         |       | "$.data.room.deco_list.[x].kind"                                   | 种类                 | 
+## | max_length                           | unsigned tinyint  |      |     |         |       | "$.data.room.deco_list.[x].max_length"                             | 最大长度             | 
+## | status                               | unsigned tinyint  |      |     |         |       | "$.data.room.deco_list.[x].status"                                 | 状态                 |
+## | sub_type                             | unsigned tinyint  |      |     |         |       | "$.data.room.deco_list.[x].sub_type"                               | 子类型               |
+## | text_color                           | varchar(7)        |      |     |         |       | "$.data.room.deco_list.[x].text_color"                             | 文本颜色             |
+## | text_image_adjustable_end_position   | unsigned int      |      |     |         |       | "$.data.room.deco_list.[x].text_image_adjustable_end_position"     | 可调整文本图片结束位置 |
+## | text_image_adjustable_start_position | unsigned int      |      |     |         |       | "$.data.room.deco_list.[x].text_image_adjustable_start_position"   | 可调整文本图片开始位置 |
+## | text_size                            | unsigned int      |      |     |         |       | "$.data.room.deco_list.[x].text_size"                              | 文本大小              |
+## | type                                 | unsigned tinyint  |      |     |         |       | "$.data.room.deco_list.[x].type"                                   | 类型                 |
+## | w                                    | unsigned int      |      |     |         |       | "$.data.room.deco_list.[x].w"                                      |                      |
+## | x                                    | unsigned int      |      |     |         |       | "$.data.room.deco_list.[x].x"                                      |                      |
+## | y                                    | unsigned int      |      |     |         |       | "$.data.room.deco_list.[x].y"                                      |                      |
+## +--------------------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+----------------------+
+##
 class RoomDecoTable(SocialMediaStreamDataTable):
-  pass
-  """
 ##
 ## >>=============================== attribute ===============================>>
 ##
   __ROOM_DECO_TABLE_NAME       = 'room_deco'
-  __ROOM_DECO_TABLE_HEADER     = ['now',        'platform',    'room_id',
-                                  'deco_index', 'deco'
+  __ROOM_DECO_TABLE_HEADER     = ['start_time',       'platform',                           'room_id',                              'deco_index', 
+                                  'audit_text_color', 'content',                            'h',                                    'id',
+                                  'kind',             'max_length',                         'status',                               'sub_type',
+                                  'text_color',       'text_image_adjustable_end_position', 'text_image_adjustable_start_position', 'text_size',
+                                  'type',             'w',                                  'x',                                    'y'
                                   ]
-  __ROOM_DECO_TABLE_PRI_KEY    = ['now', 'platform', 'room_id']
-  __TABLE_AUTO_INCREMENT       = ['deco_index']
+  __ROOM_DECO_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'deco_index']
+  __TABLE_AUTO_INCREMENT       = []
   __ROOM_DECO_TABLE_TUPLE      = {item:None for item in __ROOM_DECO_TABLE_HEADER}
   __SQL_CREATE_ROOM_DECO_TABLE = '''
                                  CREATE TABLE IF NOT EXISTS {} (
-                                   now           timestamp(3) NOT NULL,
-                                   platform      varchar(20)  NOT NULL,
-                                   room_id       varchar(200) NOT NULL,
-                                   deco_index    bigint       DEFAULT NULL AUTO_INCREMENT,
-                                   deco          TBD          DEFAULT NULL,
-                                   PRIMARY KEY (deco_index),
-                                   UNIQUE KEY unique_record (now, platform, room_id, deco_index)
+                                   start_time                           timestamp         NOT NULL,
+                                   platform                             varchar(20)       NOT NULL,
+                                   room_id                              varchar(200)      NOT NULL,
+                                   deco_index                           bigint            NOT NULL,
+                                   audit_text_color                     varchar(7)        DEFAULT NULL,
+                                   content                              tinytext          DEFAULT NULL,
+                                   h                                    int               DEFAULT NULL,
+                                   id                                   int               DEFAULT NULL,
+                                   kind                                 tinyint           DEFAULT NULL,
+                                   max_length                           tinyint           DEFAULT NULL,
+                                   status                               tinyint           DEFAULT NULL,
+                                   sub_type                             tinyint           DEFAULT NULL,
+                                   text_color                           varchar(7)        DEFAULT NULL, 
+                                   text_image_adjustable_end_position   int               DEFAULT NULL,
+                                   text_image_adjustable_start_position int               DEFAULT NULL,
+                                   text_size                            int               DEFAULT NULL,
+                                   type                                 tinyint           DEFAULT NULL,
+                                   w                                    int               DEFAULT NULL,
+                                   x                                    int               DEFAULT NULL,
+                                   y                                    int               DEFAULT NULL,
+                                   PRIMARY KEY (start_time, platform, room_id, deco_index)
                                  )
                                  '''.format(__ROOM_DECO_TABLE_NAME)
   __SQL_DROP_ROOM_DECO_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_DECO_TABLE_NAME)
@@ -764,7 +867,448 @@ class RoomDecoTable(SocialMediaStreamDataTable):
   ##
   def verify_table_schema(self) -> bool:
     return super().verify_table_schema()
-  """
+
+##
+## $.data.room.deco_list.[x].input_rect
+##
+## +------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+---------------------+
+## | Field            | Type              | Null | Key | Default | Extra | Topology                                                           | Comment             |
+## +------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+---------------------+
+## | start_time       | timestamp         |  NO  |     |         |       | "$.extra.now"                                                      | 当前时间戳           | 
+## | platform         | varchar(20)       |  NO  |     |         |       |           -                                                        | 平台                 | 
+## | room_id          | varchar(200)      |  NO  |     |         |       | "$.data.room.id"                                                   | 直播间ID             |
+## | deco_index       | unsigned bigint   |      |     |         |       |           -                                                        | 装饰索引号            |  
+## | input_rect_index | unsigned bigint   |  NO  | PRI |         |       | -                                                                  | 索引                 |
+## | input_rect       | unsigned int      |      |     | NULL    |       | "$.data.room.deco_list.[x].reservation.input_rect"                 |                      |
+## +------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+----------------------+
+##
+class RoomDecoInputRectTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __ROOM_DECO_INPUT_RECT_TABLE_NAME       = 'room_deco_input_rect'
+  __ROOM_DECO_INPUT_RECT_TABLE_HEADER     = ['start_time',       'platform',                           'room_id',                              'deco_index', 
+                                             'input_rect_index', 'input_rect'
+                                             ]
+  __ROOM_DECO_INPUT_RECT_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'deco_index', 'input_rect_index']
+  __TABLE_AUTO_INCREMENT                  = []
+  __ROOM_DECO_INPUT_RECT_TABLE_TUPLE      = {item:None for item in __ROOM_DECO_INPUT_RECT_TABLE_HEADER}
+  __SQL_CREATE_ROOM_DECO_INPUT_RECT_TABLE = '''
+                                            CREATE TABLE IF NOT EXISTS {} (
+                                              start_time       timestamp         NOT NULL,
+                                              platform         varchar(20)       NOT NULL,
+                                              room_id          varchar(200)      NOT NULL,
+                                              deco_index       bigint            NOT NULL,
+                                              input_rect_index bigint            NOT NULL,
+                                              input_rect       int               DEFAULT NULL,
+                                              PRIMARY KEY (start_time, platform, room_id, deco_index, input_rect_index)
+                                            )
+                                            '''.format(__ROOM_DECO_INPUT_RECT_TABLE_NAME)
+  __SQL_DROP_ROOM_DECO_INPUT_RECT_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_DECO_INPUT_RECT_TABLE_NAME)
+
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton pattern
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__ROOM_DECO_INPUT_RECT_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__ROOM_DECO_INPUT_RECT_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__ROOM_DECO_INPUT_RECT_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__ROOM_DECO_INPUT_RECT_TABLE_PRI_KEY
+
+  ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_DECO_INPUT_RECT_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_ROOM_DECO_INPUT_RECT_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
+
+##
+## $.data.room.deco_list.[x].reservation
+##
+## +------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+---------------+
+## | Field                  | Type              | Null | Key | Default | Extra | Topology                                                 | Comment       |
+## +------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+---------------+
+## | start_time             | timestamp         |  NO  |     |         |       | "$.extra.now"                                            | 当前时间戳     | 
+## | platform               | varchar(20)       |  NO  |     | NULL    |       |           -                                              | 平台           | 
+## | room_id                | varchar(200)      |  NO  |     |         |       | "$.data.room.id"                                         | 直播间ID       |
+## | deco_index             | unsigned bigint   |      |     |         |       |           -                                              | 装饰索引号      |
+## | anchor_id              | varchar(200)      |      |     |         |       | "$.data.room.deco_list.[x].reservation.anchor_id"        | 主播ID         | 
+## | anchor_open_id         | varchar(200)      |      |     |         |       | "$.data.room.deco_list.[x].reservation.anchor_open_id"   | 主播开放ID     | 
+## | appointment_id         | varchar(200)      |      |     |         |       | "$.data.room.deco_list.[x].reservation.appointment_id"   | 预约ID         | 
+## | btn_color              | varchar(7)        |      |     |         |       | "$.data.room.deco_list.[x].reservation.btn_color"        | 按钮颜色       | 
+## | reservation_end_time   | timestamp         |      |     |         |       | "$.data.room.deco_list.[x].reservation.end_time"         | 结束时间       | 
+## | is_reserved            | bool              |      |     |         |       | "$.data.room.deco_list.[x].reservation.is_reserved"      | 是否保留       | 
+## | reservation_room_id    | varchar(200)      |      |     |         |       | "$.data.room.deco_list.[x].reservation.room_id"          | 直播间ID       |
+## | reservation_start_time | timestamp         |      |     |         |       | "$.data.room.deco_list.[x].reservation.start_time"       | 开始时间       |
+## +------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+---------------+
+##
+class RoomDecoReservationTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __ROOM_DECO_RESERVATION_TABLE_NAME       = 'room_deco_reservation'
+  __ROOM_DECO_RESERVATION_TABLE_HEADER     = ['start_time',           'platform',       'room_id',             'deco_index', 
+                                             'anchor_id',            'anchor_open_id', 'appointment_id',      'btn_color',
+                                             'reservation_end_time', 'is_reserved',    'reservation_room_id', 'reservation_start_time'
+                                             ]
+  __ROOM_DECO_RESERVATION_TABLE_PRI_KEY    = ['start_time', 'platform', 'room_id', 'deco_index']
+  __TABLE_AUTO_INCREMENT                   = []
+  __ROOM_DECO_RESERVATION_TABLE_TUPLE      = {item:None for item in __ROOM_DECO_RESERVATION_TABLE_HEADER}
+  __SQL_CREATE_ROOM_DECO_RESERVATION_TABLE = '''
+                                               CREATE TABLE IF NOT EXISTS {} (
+                                                 start_time             timestamp       NOT NULL,
+                                                 platform               varchar(20)     NOT NULL,
+                                                 room_id                varchar(200)    NOT NULL,
+                                                 deco_index             bigint          NOT NULL,
+                                                 anchor_id              varchar(200)    DEFAULT NULL,
+                                                 anchor_open_id         varchar(200)    DEFAULT NULL,
+                                                 appointment_id         varchar(200)    DEFAULT NULL,
+                                                 btn_color              varchar(7)      DEFAULT NULL,
+                                                 reservation_end_time   timestamp       DEFAULT NULL,
+                                                 is_reserved            bool            DEFAULT NULL,
+                                                 reservation_room_id    varchar(200)    DEFAULT NULL,
+                                                 reservation_start_time timestamp       DEFAULT NULL,
+                                                 PRIMARY KEY (start_time, platform, room_id, deco_index)
+                                               )
+                                             '''.format(__ROOM_DECO_RESERVATION_TABLE_NAME)
+  __SQL_DROP_ROOM_DECO_RESERVATION_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_DECO_RESERVATION_TABLE_NAME)
+
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton pattern
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__ROOM_DECO_RESERVATION_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__ROOM_DECO_RESERVATION_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__ROOM_DECO_RESERVATION_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__ROOM_DECO_RESERVATION_TABLE_PRI_KEY
+
+  ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_DECO_RESERVATION_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_ROOM_DECO_RESERVATION_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
+
+##
+## TODO
+## $.data.room.deco_list.[x].reservation.btn_rect
+##
+## +----------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+---------------------+
+## | Field          | Type              | Null | Key | Default | Extra | Topology                                                           | Comment             |
+## +----------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+---------------------+
+## | start_time     | timestamp         |  NO  |     |         |       | "$.extra.now"                                                      | 当前时间戳           | 
+## | platform       | varchar(20)       |  NO  |     | NULL    |       |           -                                                        | 平台                 | 
+## | room_id        | varchar(200)      |  NO  |     |         |       | "$.data.room.id"                                                   | 直播间ID             |
+## | deco_index     | unsigned bigint   |      |     |         |       |           -                                                        | 装饰索引号            |
+## | btn_rect_index | unsigned bigint   |      |     |         |       | -                                                                  | 索引                 |
+## | btn_rect       | TBD               |      |     |         |       | "$.data.room.deco_list.[x].reservation.btn_rect"                   |                      |
+## +----------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+----------------------+
+##
+class RoomDecoReservationBtnRectTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __ROOM_DECO_RESERVATION_BTN_RECT_TABLE_NAME       = 'room_deco_reservation_btn_rect'
+  __ROOM_DECO_RESERVATION_BTN_RECT_TABLE_HEADER     = ['start_time',           'platform',       'room_id',             'deco_index', 
+                                                       'btn_rect_index',       'btn_rect'
+                                                       ]
+  __ROOM_DECO_RESERVATION_BTN_RECT_TABLE_PRI_KEY    = ['start_time', 'platform', 'room_id', 'deco_index', 'btn_rect_index']
+  __TABLE_AUTO_INCREMENT                            = []
+  __ROOM_DECO_RESERVATION_BTN_RECT_TABLE_TUPLE      = {item:None for item in __ROOM_DECO_RESERVATION_BTN_RECT_TABLE_HEADER}
+  __SQL_CREATE_ROOM_DECO_RESERVATION_BTN_RECT_TABLE = '''
+                                                        CREATE TABLE IF NOT EXISTS {} (
+                                                          start_time             timestamp       NOT NULL,
+                                                          platform               varchar(20)     NOT NULL,
+                                                          room_id                varchar(200)    NOT NULL,
+                                                          deco_index             bigint          NOT NULL,
+                                                          btn_rect_index         varchar(200)    DEFAULT NULL,
+                                                          btn_rect               TBD             DEFAULT NULL,
+                                                          PRIMARY KEY (start_time, platform, room_id, deco_index, btn_rect_index)
+                                                        )
+                                                      '''.format(__ROOM_DECO_RESERVATION_BTN_RECT_TABLE_NAME)
+  __SQL_DROP_ROOM_DECO_RESERVATION_BTN_RECT_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_DECO_RESERVATION_BTN_RECT_TABLE_NAME)
+
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton pattern
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__ROOM_DECO_RESERVATION_BTN_RECT_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__ROOM_DECO_RESERVATION_BTN_RECT_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__ROOM_DECO_RESERVATION_BTN_RECT_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__ROOM_DECO_RESERVATION_BTN_RECT_TABLE_PRI_KEY
+
+  ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_DECO_RESERVATION_BTN_RECT_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_ROOM_DECO_RESERVATION_BTN_RECT_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
+
+##
+##
+## TODO
+## $.data.room.deco_list.[x].text_special_effects
+##
+## +---------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+---------------------+
+## | Field                     | Type              | Null | Key | Default | Extra | Topology                                                           | Comment             |
+## +---------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+---------------------+
+## | start_time                | timestamp         |  NO  |     |         |       | "$.extra.now"                                                      | 当前时间戳           | 
+## | platform                  | varchar(20)       |  NO  |     | NULL    |       |           -                                                        | 平台                 | 
+## | room_id                   | varchar(200)      |  NO  |     |         |       | "$.data.room.id"                                                   | 直播间ID             |
+## | deco_index                | unsigned bigint   |      |     |         |       |           -                                                        | 装饰索引号            |
+## | text_special_effect_index | unsigned bigint   |      |     |         |       | -                                                                  | 索引                 |
+## | text_special_effect       | TBD               |      |     |         |       | "$.data.room.deco_list.[x].text_special_effects"                   |                      |
+## +---------------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------+----------------------+
+##
+##
+class RoomDecoTextSpecialEffectsTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __ROOM_DECO_TEXT_SPECIAL_EFFECT_TABLE_NAME       = 'room_deco_text_special_effect'
+  __ROOM_DECO_TEXT_SPECIAL_EFFECT_TABLE_HEADER     = ['start_time',                'platform',       'room_id',             'deco_index', 
+                                                       'text_special_effect_index', 'text_special_effect'
+                                                       ]
+  __ROOM_DECO_TEXT_SPECIAL_EFFECT_TABLE_PRI_KEY    = ['start_time', 'platform', 'room_id', 'deco_index', 'text_special_effect_index']
+  __TABLE_AUTO_INCREMENT                            = []
+  __ROOM_DECO_TEXT_SPECIAL_EFFECT_TABLE_TUPLE      = {item:None for item in __ROOM_DECO_TEXT_SPECIAL_EFFECT_TABLE_HEADER}
+  __SQL_CREATE_ROOM_DECO_TEXT_SPECIAL_EFFECT_TABLE = '''
+                                                        CREATE TABLE IF NOT EXISTS {} (
+                                                          start_time                        timestamp       NOT NULL,
+                                                          platform                          varchar(20)     NOT NULL,
+                                                          room_id                           varchar(200)    NOT NULL,
+                                                          deco_index                        bigint          NOT NULL,
+                                                          text_special_effect_index         varchar(200)    DEFAULT NULL,
+                                                          text_special_effect               TBD             DEFAULT NULL,
+                                                          PRIMARY KEY (start_time, platform, room_id, deco_index, text_special_effect_index)
+                                                        )
+                                                      '''.format(__ROOM_DECO_TEXT_SPECIAL_EFFECT_TABLE_NAME)
+  __SQL_DROP_ROOM_DECO_TEXT_SPECIAL_EFFECT_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_DECO_TEXT_SPECIAL_EFFECT_TABLE_NAME)
+
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton pattern
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__ROOM_DECO_TEXT_SPECIAL_EFFECT_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__ROOM_DECO_TEXT_SPECIAL_EFFECT_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__ROOM_DECO_TEXT_SPECIAL_EFFECT_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__ROOM_DECO_TEXT_SPECIAL_EFFECT_TABLE_PRI_KEY
+
+  ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_DECO_TEXT_SPECIAL_EFFECT_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_ROOM_DECO_TEXT_SPECIAL_EFFECT_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
+
 '''
   TBD: no related data type of room_realtime_playback_quality
 '''
@@ -2123,33 +2667,33 @@ class RoomShortTouchAreaConfigElementTable(SocialMediaStreamDataTable):
 ##
 ## data.room.short_touch_area_config.strategy_feat_whitelist
 ##
-## +-----------------+------------------+------+-----+---------+-------+---------------------------------------------------------------+-----------------------+
-## | Field           | Type             | Null | Key | Default | Extra | Topology                                                      | Comment               |
-## +-----------------+------------------+------+-----+---------+-------+---------------------------------------------------------------+-----------------------+
-## | now             | timestamp(3)     | NO   | PRI |         |       | "$.extra.now"                                                 | 当前时间戳             |
-## | platform        | varchar(20)      | NO   | PRI |         |       |           -                                                   | 平台                  | 
-## | room_id         | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                                              | 直播间ID              | 
-## | whitelist_index | unsigned bigint  | NO   | PRI |         |       |           -                                                   | 白名单索引             | 
-## | whitelist_tag   | tinytext         |      |     | NULL    |       | "$.data.room.short_touch_area_config.strategy_feat_whitelist" | 白名单标签             | 
-## +-----------------+------------------+------+-----+---------+-------+---------------------------------------------------------------+-----------------------+
+## +---------------------+------------------+------+-----+---------+-------+---------------------------------------------------------------+-----------------------+
+## | Field               | Type             | Null | Key | Default | Extra | Topology                                                      | Comment               |
+## +---------------------+------------------+------+-----+---------+-------+---------------------------------------------------------------+-----------------------+
+## | start_time          | timestamp        | NO   | PRI |         |       | "$.extra.now"                                                 | 当前时间戳             |
+## | platform            | varchar(20)      | NO   | PRI |         |       |           -                                                   | 平台                  | 
+## | room_id             | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                                              | 直播间ID              | 
+## | whitelist_tag_index | unsigned bigint  | NO   | PRI |         |       |           -                                                   | 白名单索引             | 
+## | whitelist_tag       | tinytext         |      |     | NULL    |       | "$.data.room.short_touch_area_config.strategy_feat_whitelist" | 白名单标签             | 
+## +---------------------+------------------+------+-----+---------+-------+---------------------------------------------------------------+-----------------------+
 ##
 class RoomShortTouchAreaConfigStrategyFeatWhitelistTable(SocialMediaStreamDataTable):
 ##
 ## >>=============================== attribute ===============================>>
 ##
   __ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE_NAME       = "room_short_touch_area_config_strategy_feat_whitelist"
-  __ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE_HEADER     = ['now', 'platform', 'room_id', 'whitelist_index', 'whitelist_tag']
-  __ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE_PRI_KEY    = ['whitelist_index']
-  __TABLE_AUTO_INCREMENT                                                  = ['whitelist_index']
+  __ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE_HEADER     = ['start_time', 'platform', 'room_id', 'whitelist_tag_index', 'whitelist_tag']
+  __ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE_PRI_KEY    = ['start_time', 'platform', 'room_id', 'whitelist_tag_index']
+  __TABLE_AUTO_INCREMENT                                                  = []
   __ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE_TUPLE      = {item:None for item in __ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE_HEADER}
   __SQL_CREATE_ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE = '''
                                                                             CREATE TABLE IF NOT EXISTS {} (
-                                                                              now                    timestamp(3) NOT NULL,
+                                                                              start_time             timestamp    NOT NULL,
                                                                               platform               varchar(20)  NOT NULL,
                                                                               room_id                varchar(200) NOT NULL,
-                                                                              whitelist_index        bigint       NOT NULL AUTO_INCREMENT,
+                                                                              whitelist_tag_index    bigint       NOT NULL,
                                                                               whitelist_tag          tinytext     DEFAULT NULL,
-                                                                              PRIMARY KEY (whitelist_index)
+                                                                              PRIMARY KEY (start_time, platform, room_id, whitelist_tag_index)
                                                                             )
                                                                             '''.format(__ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE_NAME)
   __SQL_DROP_ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_SHORT_TOUCH_AREA_CONFIG_STRATEGY_FEAT_WHITELIST_TABLE_NAME)
@@ -2782,7 +3326,7 @@ class RoomTempStateStrategyMapTable(SocialMediaStreamDataTable):
 ## | room_audit_status                   | unsigned tinyint  |      |     | NULL    |       | "$.data.room.room_audit_status"                        | 直播间审核状态        |
 ## | room_create_ab_param                | text              |      |     | NULL    |       | "$.data.room.room_create_ab_param"                     | 直播间创建AB参数      |
 ## | sofa_layout                         | unsigned tinyint  |      |     | NULL    |       | "$.data.room.sofa_layout"                              | 沙发布局              |
-## | stamps                              | tinytext          |      |     | NULL    |       | "$.data.room.stamps"                                   | 印章                 |
+## | stamps                              | text              |      |     | NULL    |       | "$.data.room.stamps"                                   | 印章                 |
 ## | comment_count                       | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.comment_count"                      | 评论数量              |
 ## | digg_count                          | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.digg_count"                         | 点赞数量              |
 ## | dou_plus_promotion                  | tinytext          |      |     | NULL    |       | "$.data.room.stats.dou_plus_promotion"                 | DouPlus推广          |
@@ -2888,7 +3432,7 @@ class RoomRecordTable(SocialMediaStreamDataTable):
                                      room_audit_status                    tinyint              DEFAULT NULL,
                                      room_create_ab_param                 text                 DEFAULT NULL,
                                      sofa_layout                          tinyint              DEFAULT NULL,
-                                     stamps                               tinytext             DEFAULT NULL,
+                                     stamps                               text                 DEFAULT NULL,
                                      comment_count                        bigint               DEFAULT NULL,
                                      digg_count                           bigint               DEFAULT NULL,
                                      dou_plus_promotion                   tinytext             DEFAULT NULL,

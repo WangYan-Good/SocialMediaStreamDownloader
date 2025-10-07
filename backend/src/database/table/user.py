@@ -359,6 +359,323 @@ class RoomOwnerTable(SocialMediaStreamDataTable):
   def verify_table_schema(self) -> bool:
     return super().verify_table_schema()
 
+"""
+  data.room.owner.own_room
+  data.room.owner.own_room.room_ids
+  data.room.owner.own_room.room_ids_display
+  data.room.owner.own_room.room_ids_str
+'''
+own_room:
+  room_ids:
+  - 7474152752591997707
+  room_ids_display: []
+  room_ids_str:
+  - '7474152752591997707'
+'''
+"""
+##
+## data.room.owner.own_room.room_ids
+## +-----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+## | Field                 | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
+## +-----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+## | start_time            | timestamp         | NO   | PRI |         |       | "$.data.room.start_time"                                 | 开始时间              | 
+## | platform              | varchar(20)       | NO   | PRI |         |       |           -                                              | 平台                  |
+## | owner_user_id         | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner_user_id"                              | 账号作者ID            |
+## | exist_flag_index      | unsigned bigint   |      |     | NULL    |       | -                                                        | 存在标志索引          | 
+## | exist_flag            | bool              |      |     | False   |       | -                                                        | 存在标志              | 
+## +-----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+##
+class OwnRoomFlagTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __OWN_ROOM_FLAG_TABLE_NAME       = 'own_room_flag'
+  __OWN_ROOM_FLAG_TABLE_HEADER     = ['start_time', 'platform', 'owner_user_id', 'exist_flag_index', 'exist_flag']
+  __OWN_ROOM_FLAG_TABLE_PRI_KEY    = ['exist_flag_index']
+  __TABLE_AUTO_INCREMENT           = ['exist_flag_index']
+  __OWN_ROOM_FLAG_TABLE_TUPLE      = {item:None for item in __OWN_ROOM_FLAG_TABLE_HEADER}
+  __SQL_CREATE_OWN_ROOM_FLAG_TABLE = '''
+                                       CREATE TABLE IF NOT EXISTS {} (
+                                         start_time            timestamp     NOT NULL,
+                                         platform              varchar(20)   NOT NULL,
+                                         owner_user_id         varchar(200)  NOT NULL,
+                                         exist_flag_index      bigint        NOT NULL AUTO_INCREMENT,
+                                         exist_flag            bool          DEFAULT NULL,
+                                         PRIMARY KEY (exist_flag_index),
+                                         UNIQUE KEY unique_record (start_time, platform, owner_user_id, exist_flag)
+                                         )
+                                     '''.format(__OWN_ROOM_FLAG_TABLE_NAME)
+  __SQL_DROP_OWN_ROOM_FLAG_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__OWN_ROOM_FLAG_TABLE_NAME)
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton pattern
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__OWN_ROOM_FLAG_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__OWN_ROOM_FLAG_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__OWN_ROOM_FLAG_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__OWN_ROOM_FLAG_TABLE_PRI_KEY
+
+  ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_OWN_ROOM_FLAG_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_OWN_ROOM_FLAG_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
+
+##
+## data.room.owner.own_room.room_ids
+## +-----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+## | Field                 | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
+## +-----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+## | start_time            | timestamp         | NO   | PRI |         |       | "$.data.room.start_time"                                 | 开始时间              | 
+## | platform              | varchar(20)       | NO   | PRI |         |       |           -                                              | 平台                  |
+## | owner_user_id         | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner_user_id"                              | 账号作者ID            |
+## | room_id_index         | unsigned bigint   |      |     | NULL    |       | -                                                        | 直播间ID索引          | 
+## | room_id               | varchar(200)      |      |     | NULL    |       | "$.data.room.owner.own_room.room_ids"                    | 直播间ID              | 
+## +-----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+##
+class OwnRoomIdTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __OWN_ROOM_ID_TABLE_NAME       = 'own_room_id'
+  __OWN_ROOM_ID_TABLE_HEADER     = ['start_time', 'platform', 'owner_user_id', 'room_id_index', 'room_id']
+  __OWN_ROOM_ID_TABLE_PRI_KEY    = ['start_time', 'platform', 'owner_user_id', 'room_id_index']
+  __TABLE_AUTO_INCREMENT         = []
+  __OWN_ROOM_ID_TABLE_TUPLE      = {item:None for item in __OWN_ROOM_ID_TABLE_HEADER}
+  __SQL_CREATE_OWN_ROOM_ID_TABLE = '''
+                                 CREATE TABLE IF NOT EXISTS {} (
+                                   start_time            timestamp     NOT NULL,
+                                   platform              varchar(20)   NOT NULL,
+                                   owner_user_id         varchar(200)  NOT NULL,
+                                   room_id_index         bigint        NOT NULL,
+                                   room_id               varchar(200)  DEFAULT NULL,
+                                   UNIQUE KEY unique_record (start_time, platform, owner_user_id, room_id_index)
+                                   )
+                                   '''.format(__OWN_ROOM_ID_TABLE_NAME)
+  __SQL_DROP_OWN_ROOM_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__OWN_ROOM_ID_TABLE_NAME)
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton pattern
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__OWN_ROOM_ID_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__OWN_ROOM_ID_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__OWN_ROOM_ID_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__OWN_ROOM_ID_TABLE_PRI_KEY
+
+  ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_OWN_ROOM_ID_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_OWN_ROOM_ID_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
+
+##
+## TODO
+## data.room.owner.own_room.room_ids_display
+## +-----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+## | Field                 | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
+## +-----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+## | start_time            | timestamp         | NO   | PRI |         |       | "$.data.room.start_time"                                 | 开始时间              | 
+## | platform              | varchar(20)       | NO   | PRI |         |       |           -                                              | 平台                  |
+## | owner_user_id         | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner_user_id"                              | 账号作者ID            |
+## | room_id_display_index | unsigned bigint   |      |     | NULL    |       | -                                                        | 直播间ID索引          | 
+## | room_id_display       | TBD               |      |     | NULL    |       | "$.data.room.owner.own_room.room_ids_display             | 直播间ID显示          | 
+## +-----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+##
+class OwnRoomIdDisplayTable():
+##
+## >>=============================== attribute ===============================>>
+##
+  __OWN_ROOM_ID_DISPLAY_TABLE_NAME       = 'own_room_id_display'
+  __OWN_ROOM_ID_DISPLAY_TABLE_HEADER     = ['start_time', 'platform', 'owner_user_id', 'room_id_display_index', 'room_id_display']
+  __OWN_ROOM_ID_DISPLAY_TABLE_PRI_KEY    = ['room_id_display_index']
+  __TABLE_AUTO_INCREMENT                 = ['room_id_display_index']
+  __OWN_ROOM_ID_DISPLAY_TABLE_TUPLE      = {item:None for item in __OWN_ROOM_ID_DISPLAY_TABLE_HEADER}
+  __SQL_CREATE_OWN_ROOM_ID_DISPLAY_TABLE = '''
+                                           CREATE TABLE IF NOT EXISTS {} (
+                                             start_time                timestamp     NOT NULL,
+                                             platform                  varchar(20)   NOT NULL,
+                                             owner_user_id             varchar(200)  NOT NULL,
+                                             room_id_display_index     bigint        NOT NULL AUTO_INCREMENT,
+                                             room_id_display           TBD           DEFAULT NULL,
+                                             PRIMARY KEY (room_id_display_index),
+                                             UNIQUE KEY unique_record (start_time, platform, owner_user_id, room_id_display)
+                                             )
+                                           '''.format(__OWN_ROOM_ID_DISPLAY_TABLE_NAME)
+  __SQL_DROP_OWN_ROOM_ID_DISPLAY_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__OWN_ROOM_ID_DISPLAY_TABLE_NAME)
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton pattern
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__OWN_ROOM_ID_DISPLAY_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__OWN_ROOM_ID_DISPLAY_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__OWN_ROOM_ID_DISPLAY_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__OWN_ROOM_ID_DISPLAY_TABLE_PRI_KEY
+
+  ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_OWN_ROOM_ID_DISPLAY_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_OWN_ROOM_ID_DISPLAY_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
+
 ##
 ## fans club
 ##
@@ -509,19 +826,18 @@ class FansClubAvailableGiftIdTable(SocialMediaStreamDataTable):
                                                     'available_gift_id'
                                                      ]
   __FANS_CLUB_AVAILABLE_GIFT_ID_TABLE_PRI_KEY    = ['now', 'platform', 'owner_user_id', 'anchor_id', 'available_gift_index']
-  __TABLE_AUTO_INCREMENT                         = ['available_gift_index']
+  __TABLE_AUTO_INCREMENT                         = []
   __FANS_CLUB_AVAILABLE_GIFT_ID_TABLE_TUPLE      = {item:None for item in __FANS_CLUB_AVAILABLE_GIFT_ID_TABLE_HEADER}
   __SQL_CREATE_FANS_CLUB_AVAILABLE_GIFT_ID_TABLE = '''
                                                    CREATE TABLE IF NOT EXISTS {} (
                                                      now                  timestamp(3)     NOT NULL,
                                                      platform             varchar(20)      NOT NULL,
-                                                     room_id              varchar(200)     DEFAULT NULL,
+                                                     room_id              varchar(200)     NOT NULL,
                                                      owner_user_id        varchar(200)     NOT NULL,
                                                      anchor_id            varchar(200)     NOT NULL,
-                                                     available_gift_index bigint           NOT NULL AUTO_INCREMENT,
+                                                     available_gift_index bigint           NOT NULL,
                                                      available_gift_id    varchar(200)     DEFAULT NULL,
-                                                     PRIMARY KEY (available_gift_index),
-                                                     UNIQUE KEY unique_record (now, platform, owner_user_id, anchor_id, available_gift_index)
+                                                     PRIMARY KEY (now, platform, room_id, owner_user_id, anchor_id, available_gift_index)
                                                      )
                                                      '''.format(__FANS_CLUB_AVAILABLE_GIFT_ID_TABLE_NAME)
   __SQL_DROP_FANS_CLUB_AVAILABLE_GIFT_ID_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__FANS_CLUB_AVAILABLE_GIFT_ID_TABLE_NAME)
@@ -920,6 +1236,273 @@ class RoomAdminPrivilegeTable(SocialMediaStreamDataTable):
   def verify_table_schema(self) -> bool:
     return super().verify_table_schema()
 
+"""
+authentication_info:
+  account_cert_info: "{\"label_style\":5,\"label_text\":\"\u6D77\u53E3\u9F99\
+    \u534E\u9A9E\u73AE\u670D\u9970\u5546\u884C\u5B98\u65B9\u8D26\u53F7\",\"\
+    is_biz_account\":1,\"cert_label_list\":[{\"label_style\":5,\"label_text\"\
+    :\"\u6D77\u53E3\u9F99\u534E\u9A9E\u73AE\u670D\u9970\u5546\u884C\u5B98\u65B9\
+    \u8D26\u53F7\",\"is_biz_account\":1,\"badge\":{\"uri\":\"webcast/linear_blue_authentication_icon_3x.png\"\
+    ,\"url_list\":[\"https://p11-webcast.douyinpic.com/img/webcast/linear_blue_authentication_icon_3x.png~tplv-obj.image\"\
+    ,\"https://p3-webcast.douyinpic.com/img/webcast/linear_blue_authentication_icon_3x.png~tplv-obj.image\"\
+    ],\"image_type\":66}},{\"label_style\":2,\"label_text\":\"\u6D77\u53E3\
+    \u9F99\u534E\u9A9E\u73AE\u670D\u9970\u5546\u884C\u5B98\u65B9\u8D26\u53F7\
+    \",\"is_biz_account\":1,\"badge\":{\"uri\":\"webcast/authentication_icon_02.png\"\
+    ,\"url_list\":[\"https://p3-webcast.douyinpic.com/img/webcast/authentication_icon_02.png~tplv-obj.image\"\
+    ,\"https://p11-webcast.douyinpic.com/img/webcast/authentication_icon_02.png~tplv-obj.image\"\
+    ],\"image_type\":46}}]}"
+  account_type_info:
+    account_type_map: {}
+  authentication_badge:
+    avg_color: ''
+    flex_setting_list: []
+    height: 0
+    image_type: 46
+    is_animated: false
+    open_web_url: sslocal://webcast_lynxview?type=popup&gravity=bottom&height=484&fixed_height=1&add_safe_area_height=0&url=https%3A%2F%2Flf-webcast-sourcecdn-tos.bytegecko.com%2Fobj%2Fbyte-gurd-source%2Fwebcast%2Fmono%2Flynx%2Fwebcast_native_lynx_community_douyin%2Fpages%2Fverifypage%2Ftemplate.js%3Fh5Url%3Daweme%253A%252F%252Fwebview%252F%253Furl%253Dhttps%25253A%25252F%25252Frenzheng.douyin.com%25252Fm%25252Fverified_account%25252Flanding%25253Fsource%25253Dc4k64t65kvkbf97sj3bg
+    text_setting_list: []
+    uri: webcast/authentication_icon_02.png
+    url_list:
+    - https://p3-webcast.douyinpic.com/img/webcast/authentication_icon_02.png~tplv-obj.image
+    - https://p11-webcast.douyinpic.com/img/webcast/authentication_icon_02.png~tplv-obj.image
+    width: 0
+  authentication_badge_v2:
+    avg_color: ''
+    flex_setting_list: []
+    height: 0
+    image_type: 66
+    is_animated: false
+    open_web_url: ''
+    text_setting_list: []
+    uri: webcast/linear_blue_authentication_icon_3x.png
+    url_list:
+    - https://p11-webcast.douyinpic.com/img/webcast/linear_blue_authentication_icon_3x.png~tplv-obj.image
+    - https://p3-webcast.douyinpic.com/img/webcast/linear_blue_authentication_icon_3x.png~tplv-obj.image
+    width: 0
+  custom_verify: ''
+  enterprise_verify_reason: "\u6D77\u53E3\u9F99\u534E\u9A9E\u73AE\u670D\u9970\
+    \u5546\u884C\u5B98\u65B9\u8D26\u53F7"
+  level_list:
+  - 1
+  - 0
+"""
+##
+## data.room.owner.authentication_info
+## +-----------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------------------------+----------------+
+## | Field                       | Type              | Null | Key | Default | Extra | Topology                                                                   | Comment        |
+## +-----------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------------------------+----------------+
+## | start_time                  | timestamp         | NO   | PRI |         |       | "$.extra.now"                                                              | 当前时间戳      | 
+## | platform                    | varchar(20)       | NO   | PRI |         |       |           -                                                                | 平台            | 
+## | room_id                     | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                                                           | 直播间ID        | 
+## | owner_user_id               | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner_user_id"                                                | 直播间主播ID     |
+## | exist_authentication_info   | bool              |      |     |         |       |                                         -                                  | 存在认证信息     |
+## | account_cert_info           | json              |      |     | NULL    |       | "$.data.room.owner.authentication_info.account_cert_info"                  | 认证证书信息     |
+## | account_type_map            | json              |      |     | NULL    |       | "$.data.room.owner.authentication_info.account_type_info.account_type_map" | 认证账号类型映射 |
+## | custom_verify               | text              |      |     | NULL    |       | "$.data.room.owner.authentication_info.custom_verify"                      | 顾客认证        |
+## | enterprise_verify_reason    | text              |      |     | NULL    |       | "$.data.room.owner.authentication_info.enterprise_verify_reason"           | 企业认证理由    |
+## +-----------------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------------------------+----------------+
+##
+class RoomOwnerAuthInfoTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __ROOM_OWNER_AUTH_INFO_TABLE_NAME       = 'room_owner_auth_info'
+  __ROOM_OWNER_AUTH_INFO_TABLE_HEADER     = ['start_time',       'platform',                  'room_id',
+                                             'owner_user_id',    'exist_authentication_info', 'account_cert_info',
+                                             'account_type_map', 'custom_verify',             'enterprise_verify_reason'
+                                             ]
+  __ROOM_OWNER_AUTH_INFO_TABLE_PRI_KEY    = ['start_time', 'platform', 'room_id', 'owner_user_id']
+  __TABLE_AUTO_INCREMENT                  = []
+  __ROOM_OWNER_AUTH_INFO_TABLE_TUPLE      = {item:None for item in __ROOM_OWNER_AUTH_INFO_TABLE_HEADER}
+  __SQL_CREATE_ROOM_OWNER_AUTH_INFO_TABLE = '''
+                                            CREATE TABLE IF NOT EXISTS {} (
+                                              start_time             timestamp        NOT NULL,
+                                              platform               varchar(20)      NOT NULL,
+                                              room_id                varchar(200)     NOT NULL,
+                                              owner_user_id          varchar(200)     NOT NULL,
+                                              exist_authentication_info  bool         DEFAULT FALSE,
+                                              account_cert_info          json         DEFAULT NULL,
+                                              account_type_map           json         DEFAULT NULL,
+                                              custom_verify              text         DEFAULT NULL,
+                                              enterprise_verify_reason   text         DEFAULT NULL,
+                                              PRIMARY KEY (start_time, platform, room_id, owner_user_id)
+                                              )
+                                            '''.format(__ROOM_OWNER_AUTH_INFO_TABLE_NAME)
+  __SQL_DROP_ROOM_OWNER_AUTH_INFO_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_OWNER_AUTH_INFO_TABLE_NAME)
+
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton pattern
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__ROOM_OWNER_AUTH_INFO_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__ROOM_OWNER_AUTH_INFO_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__ROOM_OWNER_AUTH_INFO_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__ROOM_OWNER_AUTH_INFO_TABLE_PRI_KEY
+
+  ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_OWNER_AUTH_INFO_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_ROOM_OWNER_AUTH_INFO_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
+
+##
+## data.room.owner.authentication_info.level_list
+## +---------------+-------------------+------+-----+---------+-------+----------------------------------------------------------------------------+---------------+
+## | Field         | Type              | Null | Key | Default | Extra | Topology                                                                   | Comment       |
+## +---------------+-------------------+------+-----+---------+-------+----------------------------------------------------------------------------+---------------+
+## | start_time    | timestamp         | NO   |     |         |       | "$.extra.now"                                                              | 当前时间戳     | 
+## | platform      | varchar(20)       | NO   |     |         |       |           -                                                                | 平台           | 
+## | room_id       | varchar(200)      | NO   |     |         |       | "$.data.room.id"                                                           | 直播间ID       | 
+## | owner_user_id | varchar(200)      | NO   |     |         |       | "$.data.room.owner_user_id"                                                | 直播间主播ID   |
+## | level_index   | unsigned bigint   | NO   | PRI |         |       |                                 -                                          | 认证等级索引   |
+## | level         | int               |      |     | NULL    |       | "$.data.room.owner.authentication_info.level_list"                         | 认证等级       |
+## +---------------+-------------------+------+-----+---------+-------+----------------------------------------------------------------------------+---------------+
+##
+class RoomOwnerAuthLevelTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __ROOM_OWNER_AUTH_LEVEL_TABLE_NAME       = 'room_owner_auth_level'
+  __ROOM_OWNER_AUTH_LEVEL_TABLE_HEADER     = ['start_time',   'platform',    'room_id',
+                                             'owner_user_id', 'level_index', 'level'
+                                             ]
+  __ROOM_OWNER_AUTH_LEVEL_TABLE_PRI_KEY    = ['start_time', 'platform', 'owner_user_id', 'room_id', 'level_index']
+  __TABLE_AUTO_INCREMENT                   = []
+  __ROOM_OWNER_AUTH_LEVEL_TABLE_TUPLE      = {item:None for item in __ROOM_OWNER_AUTH_LEVEL_TABLE_HEADER}
+  __SQL_CREATE_ROOM_OWNER_AUTH_LEVEL_TABLE = '''
+                                            CREATE TABLE IF NOT EXISTS {} (
+                                              start_time    timestamp    NOT NULL,
+                                              platform      varchar(20)  NOT NULL,
+                                              room_id       varchar(200) NOT NULL,
+                                              owner_user_id varchar(200) NOT NULL,
+                                              level_index   bigint       NOT NULL,
+                                              level         int          DEFAULT NULL,
+                                              PRIMARY KEY (start_time, platform, owner_user_id, room_id, level_index)
+                                              )
+                                            '''.format(__ROOM_OWNER_AUTH_LEVEL_TABLE_NAME)
+  __SQL_DROP_ROOM_OWNER_AUTH_LEVEL_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_OWNER_AUTH_LEVEL_TABLE_NAME)
+
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton pattern
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__ROOM_OWNER_AUTH_LEVEL_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__ROOM_OWNER_AUTH_LEVEL_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__ROOM_OWNER_AUTH_LEVEL_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__ROOM_OWNER_AUTH_LEVEL_TABLE_PRI_KEY
+
+  ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_OWNER_AUTH_LEVEL_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_ROOM_OWNER_AUTH_LEVEL_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
+
 ##
 ## user
 ##
@@ -1157,6 +1740,121 @@ class UserTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_USER_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
+
+##
+## data.room.owner.author_stats
+##
+## +----------------------------+------------------+------+-----+---------+-------+----------------------------------------------------------------------------+--------------------------+
+## | Field                      | Type             | Null | Key | Default | Extra | Topology                                                                   | Comment                  |
+## +----------------------------+------------------+------+-----+---------+-------+----------------------------------------------------------------------------+--------------------------+
+## | start_time                 | timestamp        | NO   | PRI |         |       | "$.extra.now"                                                              | 当前时间戳                | 
+## | platform                   | varchar(20)      | NO   | PRI |         |       |           -                                                                | 平台                      | 
+## | room_id                    | varchar(200)     | NO   | PRI |         |       | "$.data.room.id"                                                           | 直播间ID                  | 
+## | owner_user_id              | varchar(200)     | NO   | PRI |         |       | "$.data.room.owner_user_id"                                                | 直播间主播ID              |
+## | variety_show_play_count    | unsigned int     |      |     | 0       |       | "$.data.room.owner.author_stats.variety_show_play_count"                   |                          |
+## | video_total_count          | unsigned int     |      |     | 0       |       | "$.data.room.owner.author_stats.video_total_count"                         |                          |      
+## | video_total_favorite_count | unsigned int     |      |     | 0       |       | "$.data.room.owner.author_stats.video_total_favorite_count"                |                          |      
+## | video_total_play_count     | unsigned int     |      |     | 0       |       | "$.data.room.owner.author_stats.video_total_play_count"                    |                          |      
+## | video_total_series_count   | unsigned int     |      |     | 0       |       | "$.data.room.owner.author_stats.video_total_series_count"                  |                          |      
+## | video_total_share_count    | unsigned int     |      |     | 0       |       | "$.data.room.owner.author_stats.video_total_share_count"                   |                          |      
+## +----------------------------+------------------+------+-----+---------+-------+----------------------------------------------------------------------------+--------------------------+
+##
+class RoomOwnerAuthorStatsTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __ROOM_OWNER_AUTHOR_STATS_TABLE_NAME       = 'room_owner_author_stats'
+  __ROOM_OWNER_AUTHOR_STATS_TABLE_HEADER     = ['start_time',               'platform',               'room_id',                    'owner_user_id', 
+                                                'variety_show_play_count',  'video_total_count',      'video_total_favorite_count', 'video_total_play_count',
+                                                'video_total_series_count', 'video_total_share_count'
+                                               ]
+  __ROOM_OWNER_AUTHOR_STATS_TABLE_PRI_KEY    = ['start_time', 'platform', 'owner_user_id', 'room_id']
+  __TABLE_AUTO_INCREMENT                     = []
+  __ROOM_OWNER_AUTHOR_STATS_TABLE_TUPLE      = {item:None for item in __ROOM_OWNER_AUTHOR_STATS_TABLE_HEADER}
+  __SQL_CREATE_ROOM_OWNER_AUTHOR_STATS_TABLE = '''
+                                                 CREATE TABLE IF NOT EXISTS {} (
+                                                   start_time                  timestamp     NOT NULL,
+                                                   platform                    varchar(20)   NOT NULL,
+                                                   room_id                     varchar(200)  NOT NULL,
+                                                   owner_user_id               varchar(200)  NOT NULL,
+                                                   variety_show_play_count     int           DEFAULT NULL,
+                                                   video_total_count           int           DEFAULT NULL,
+                                                   video_total_favorite_count  int           DEFAULT NULL,
+                                                   video_total_play_count      int           DEFAULT NULL,
+                                                   video_total_series_count    int           DEFAULT NULL,
+                                                   video_total_share_count     int           DEFAULT NULL,
+                                                   PRIMARY KEY (start_time, platform, owner_user_id, room_id)
+                                                   )
+                                               '''.format(__ROOM_OWNER_AUTHOR_STATS_TABLE_NAME)
+  __SQL_DROP_ROOM_OWNER_AUTHOR_STATS_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__ROOM_OWNER_AUTHOR_STATS_TABLE_NAME)
+
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton pattern
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__ROOM_OWNER_AUTHOR_STATS_TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__ROOM_OWNER_AUTHOR_STATS_TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__ROOM_OWNER_AUTHOR_STATS_TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__ROOM_OWNER_AUTHOR_STATS_TABLE_PRI_KEY
+
+  ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_OWNER_AUTHOR_STATS_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_ROOM_OWNER_AUTHOR_STATS_TABLE
   
   ##
   ## verify table schema

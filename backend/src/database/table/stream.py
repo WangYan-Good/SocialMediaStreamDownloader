@@ -360,7 +360,7 @@ class LiveStreamTable(SocialMediaStreamDataTable):
 ## +----------------------+-------------------+------+-----+---------+-------+-----------------------------------------------+---------------------+
 ## | Field                | Type              | Null | Key | Default | Extra | Topology                                      | Comment             |
 ## +----------------------+-------------------+------+-----+---------+-------+-----------------------------------------------+---------------------+
-## | now                  | timestamp(3)      | NO   | PRI |         |       | "$.data.room.create_time"                     | 当前时间戳           | 
+## | start_time           | timestamp         | NO   | PRI |         |       | "$.data.room.create_time"                     | 当前时间戳           | 
 ## | platform             | varchar(20)       | NO   | PRI |         |       |           -                                   | 平台                 | 
 ## | room_id              | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                              | 直播间ID             | 
 ## | stream_id            | varchar(200)      | NO   | PRI |         |       | "$.data.room.stream_id"                       | 直播间流ID           |
@@ -373,20 +373,19 @@ class StreamCandidateResolutionTable(SocialMediaStreamDataTable):
 ## >>=============================== attribute ===============================>>
 ##
   __STREAM_CANDIDATE_RESOLUTION_TABLE_NAME       = "stream_candidate_resolution"
-  __STREAM_CANDIDATE_RESOLUTION_TABLE_HEADER     = ['now', 'platform', 'room_id', 'stream_id', 'resolution_index', 'candidate_resolution']
-  __STREAM_CANDIDATE_RESOLUTION_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'stream_id', 'resolution_index']
-  __TABLE_AUTO_INCREMENT                         = ['resolution_index']
+  __STREAM_CANDIDATE_RESOLUTION_TABLE_HEADER     = ['start_time', 'platform', 'room_id', 'stream_id', 'resolution_index', 'candidate_resolution']
+  __STREAM_CANDIDATE_RESOLUTION_TABLE_PRI_KEY    = ['start_time', 'platform', 'room_id', 'stream_id', 'resolution_index']
+  __TABLE_AUTO_INCREMENT                         = []
   __STREAM_CANDIDATE_RESOLUTION_TABLE_TUPLE      = {item:None for item in __STREAM_CANDIDATE_RESOLUTION_TABLE_HEADER}
   __SQL_CREATE_STREAM_CANDIDATE_RESOLUTION_TABLE = '''
                                                    CREATE TABLE IF NOT EXISTS {} (
-                                                     now                    timestamp(3) NOT NULL,
+                                                     start_time             timestamp    NOT NULL,
                                                      platform               varchar(20)  NOT NULL,
                                                      room_id                varchar(200) NOT NULL,
                                                      stream_id              varchar(200) NOT NULL,
-                                                     resolution_index       bigint       NOT NULL AUTO_INCREMENT,
+                                                     resolution_index       bigint       NOT NULL,
                                                      candidate_resolution   varchar(20)  DEFAULT NULL,
-                                                     PRIMARY KEY (resolution_index),
-                                                     UNIQUE KEY unique_record (now, platform, room_id, stream_id, resolution_index)
+                                                     PRIMARY KEY (start_time, platform, room_id, stream_id, resolution_index)
                                                    )
                                                    '''.format(__STREAM_CANDIDATE_RESOLUTION_TABLE_NAME)
   __SQL_DROP_STREAM_CANDIDATE_RESOLUTION_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__STREAM_CANDIDATE_RESOLUTION_TABLE_NAME)
@@ -1080,7 +1079,7 @@ class LiveCoreSdkPullDataOptionTable(SocialMediaStreamDataTable):
 ## +--------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------+---------------------+
 ## | Field              | Type              | Null | Key | Default | Extra | Topology                                                                                   | Comment             |
 ## +--------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------+---------------------+
-## | now                | timestamp(3)      | NO   | PRI |         |       | "$.data.room.create_time"                                                                  | 当前时间戳           | 
+## | start_time         | timestamp         | NO   | PRI |         |       | "$.data.room.create_time"                                                                  | 当前时间戳           | 
 ## | platform           | varchar(20)       | NO   | PRI |         |       |           -                                                                                | 平台                 | 
 ## | room_id            | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                                                                           | 直播间ID             |
 ## | quality_index      | unsigned bigint   | NO   | PRI |         |       |           -                                                                                | 视频流质量序号        |
@@ -1091,7 +1090,7 @@ class LiveCoreSdkPullDataOptionTable(SocialMediaStreamDataTable):
 ## | name               | varchar(50)       |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.qualities.name"               | 名称                |
 ## | resolution         | varchao(50)       |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.qualities.resolution"         | 分辨率              |
 ## | sdk_key            | varchar(100)      |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.qualities.sdk_key"            | SDK密钥             |
-## | v_bit_rate         | unsigned tinyint  |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.qualities.v_bit_rate"         | 视频比特率           |
+## | v_bit_rate         | unsigned bigint   |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.qualities.v_bit_rate"         | 视频比特率           |
 ## | v_codec            | varchar(100)      |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.qualities.v_codec"            | 视频编解码器         |
 ## +--------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------+---------------------+
 ##
@@ -1100,16 +1099,16 @@ class LiveCoreSdkPullQualityDataTable(SocialMediaStreamDataTable):
 ## >>=============================== attribute ===============================>>
 ##
   __LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_NAME       = "live_core_sdk_pull_quality_data"
-  __LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_HEADER     = ['now', 'platform', 'room_id', 'quality_index', 'additional_content', 'disable', 'fps', 'level', 'name', 'resolution', 'sdk_key', 'v_bit_rate', 'v_codec']
-  __LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'quality_index']
-  __TABLE_AUTO_INCREMENT                             = ['quality_index']
+  __LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_HEADER     = ['start_time', 'platform', 'room_id', 'quality_index', 'additional_content', 'disable', 'fps', 'level', 'name', 'resolution', 'sdk_key', 'v_bit_rate', 'v_codec']
+  __LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_PRI_KEY    = ['start_time', 'platform', 'room_id', 'quality_index']
+  __TABLE_AUTO_INCREMENT                             = []
   __LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_TUPLE      = {item:None for item in __LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_HEADER}
   __SQL_CREATE_LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE = '''
                                                        CREATE TABLE IF NOT EXISTS {} (
-                                                         now                     timestamp(3) NOT NULL,
+                                                         start_time              timestamp    NOT NULL,
                                                          platform                varchar(20)  NOT NULL,
                                                          room_id                 varchar(200) NOT NULL,
-                                                         quality_index           bigint       NOT NULL AUTO_INCREMENT,
+                                                         quality_index           bigint       NOT NULL,
                                                          additional_content      text         DEFAULT NULL,
                                                          disable                 tinyint      DEFAULT NULL,
                                                          fps                     tinyint      DEFAULT NULL,
@@ -1117,10 +1116,9 @@ class LiveCoreSdkPullQualityDataTable(SocialMediaStreamDataTable):
                                                          name                    varchar(50)  DEFAULT NULL,
                                                          resolution              varchar(50)  DEFAULT NULL,
                                                          sdk_key                 varchar(100) DEFAULT NULL,
-                                                         v_bit_rate              tinyint      DEFAULT NULL,
+                                                         v_bit_rate              bigint       DEFAULT NULL,
                                                          v_codec                 varchar(100) DEFAULT NULL,
-                                                         PRIMARY KEY (quality_index),
-                                                         UNIQUE KEY unique_record (now, platform, room_id, quality_index)
+                                                         PRIMARY KEY (start_time, platform, room_id, quality_index)
                                                        )
                                                        '''.format(__LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_NAME)
   __SQL_DROP_LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__LIVE_CORE_SDK_PULL_QUALITY_DATA_TABLE_NAME)
@@ -1208,7 +1206,7 @@ class LiveCoreSdkPullQualityDataTable(SocialMediaStreamDataTable):
 ## | name               | varchar(50)       |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.default_quality.name"               | 名称                |
 ## | resolution         | varchao(50)       |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.default_quality.resolution"         | 分辨率              |
 ## | sdk_key            | varchar(100)      |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.default_quality.sdk_key"            | SDK密钥             |
-## | v_bit_rate         | unsigned tinyint  |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.default_quality.v_bit_rate"         | 视频比特率           |
+## | v_bit_rate         | unsigned bigint   |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.default_quality.v_bit_rate"         | 视频比特率           |
 ## | v_codec            | varchar(100)      |      |     | NULL    |       | "$.data.room.stream_url.live_core_sdk_data.pull_data.options.default_quality.v_codec"            | 视频编解码器         |
 ## +--------------------+-------------------+------+-----+---------+-------+--------------------------------------------------------------------------------------------------+---------------------+
 ##
@@ -1233,7 +1231,7 @@ class LiveCoreSdkPullDefaultQualityDataTable(SocialMediaStreamDataTable):
                                                                  name                    varchar(50)  DEFAULT NULL,
                                                                  resolution              varchar(50)  DEFAULT NULL,
                                                                  sdk_key                 varchar(100) DEFAULT NULL,
-                                                                 v_bit_rate              tinyint      DEFAULT NULL,
+                                                                 v_bit_rate              bigint       DEFAULT NULL,
                                                                  v_codec                 varchar(100) DEFAULT NULL,
                                                                  PRIMARY KEY (now, platform, room_id)
                                                                )
@@ -1403,6 +1401,442 @@ class StreamPushUrlTable(SocialMediaStreamDataTable):
   ##
   def get_drop_sql_cmd(self) -> str:
     return self.__SQL_DROP_STREAM_PUSH_URL_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
+
+##
+## link_mic_stats == 1
+## data.room.link_mic
+## +-----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+## | Field                 | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
+## +-----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+## | now                   | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"                                            | 当前时间              | 
+## | platform              | varchar(20)       | NO   | PRI |         |       |           -                                              | 平台                  |
+## | room_id               | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner_user_id"                              | 直播间ID              |
+## | channel_id            | varchar(200)      | NO   | PRI |         |       | "$.data.room.link_mic.channel_id"                        |                      | 
+## | linkmic_anchor_count  | unsigned int      |      |     | False   |       | "$.data.room.link_mic.linkmic_anchor_count"              |                      | 
+## | rival_anchor_id       | varchar(200)      |      |     | NULL    |       | "$.data.room.link_mic.rival_anchor_id"                   |                      | 
+## | rival_anchor_open_id  | varchar(200)      |      |     | NULL    |       | "$.data.room.link_mic.rival_anchor_open_id"              |                      | 
+## +-----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+##
+class RoomLinkMicTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __TABLE_NAME            = "room_link_mic"
+  __TABLE_HEADER          = ['now', 'platform', 'room_id', 'channel_id', 'linkmic_anchor_count', 'rival_anchor_id', 'rival_anchor_open_id']
+  __TABLE_PRI_KEY         = ['now', 'platform', 'room_id', 'channel_id']
+  __TABLE_AUTO_INCREMENT  = []
+  __TABLE_TUPLE           = {item:None for item in __TABLE_HEADER}
+  __SQL_CREATE_TABLE      = '''
+                            CREATE TABLE IF NOT EXISTS {} (
+                              now                  timestamp(3) NOT NULL,
+                              platform             varchar(20)  NOT NULL,
+                              room_id              varchar(200) NOT NULL,
+                              channel_id           varchar(200) NOT NULL,
+                              linkmic_anchor_count int          DEFAULT NULL,
+                              rival_anchor_id      varchar(200) DEFAULT NULL,
+                              rival_anchor_open_id varchar(200) DEFAULT NULL,
+                              PRIMARY KEY (now, platform, room_id, channel_id)
+                            )
+                            '''.format(__TABLE_NAME)
+  __SQL_DROP_TABLE        = 'DROP TABLE IF EXISTS {};'.format(__TABLE_NAME)
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton mode
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__TABLE_PRI_KEY
+
+  ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
+
+##
+## data.room.link_mic.battle_scores
+## +-----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+## | Field                 | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
+## +-----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+## | now                   | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"                                            | 当前时间              | 
+## | platform              | varchar(20)       | NO   | PRI |         |       |           -                                              | 平台                 |
+## | room_id               | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                                         | 直播间ID             |
+## | channel_id            | varchar(200)      | NO   | PRI |         |       | "$.data.room.link_mic.channel_id"                        |                      | 
+## | battle_score_index    | unsigned int      | NO   | PRI |         |       | -                                                        |                      | 
+## | open_id               | varchar(200)      |      |     | NULL    |       | "$.data.room.link_mic.battle_scores.open_id"             |                      | 
+## | score                 | unsigned int      |      |     | NULL    |       | "$.data.room.link_mic.battle_scores.score"               |                      | 
+## | user_id               | varchar(200)      |      |     | NULL    |       | "$.data.room.link_mic.battle_scores.user_id"             |                      | 
+## +-----------------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+##
+class RoomLinkMicBattleScoreTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __TABLE_NAME            = "room_link_mic_battle_score"
+  __TABLE_HEADER          = ['now', 'platform', 'room_id', 'channel_id', 'battle_score_index', 'open_id', 'score', 'user_id']
+  __TABLE_PRI_KEY         = ['now', 'platform', 'room_id', 'channel_id', 'battle_score_index']
+  __TABLE_AUTO_INCREMENT  = []
+  __TABLE_TUPLE           = {item:None for item in __TABLE_HEADER}
+  __SQL_CREATE_TABLE      = '''
+                            CREATE TABLE IF NOT EXISTS {} (
+                              now                timestamp(3)  NOT NULL,
+                              platform           varchar(20)   NOT NULL,
+                              room_id            varchar(200)  NOT NULL,
+                              channel_id         varchar(200)  NOT NULL,
+                              battle_score_index int           NOT NULL,
+                              open_id            varchar(200)  DEFAULT NULL,
+                              score              int           DEFAULT NULL,
+                              user_id            varchar(200)  DEFAULT NULL,
+                              PRIMARY KEY (now, platform, room_id, channel_id, battle_score_index)
+                            )
+                            '''.format(__TABLE_NAME)
+  __SQL_DROP_TABLE        = 'DROP TABLE IF EXISTS {};'.format(__TABLE_NAME)
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton mode
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__TABLE_PRI_KEY
+
+  ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
+
+
+##
+## data.room.link_mic.battle_settings
+## +---------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+## | Field         | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
+## +---------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+## | now           | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"                                            | 当前时间              | 
+## | platform      | varchar(20)       | NO   | PRI |         |       |           -                                              | 平台                 |
+## | room_id       | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                                         | 直播间ID             |
+## | channel_id    | varchar(200)      | NO   | PRI |         |       | "$.data.room.link_mic.channel_id"                        |                      |
+## | activity_mode | unsigned tinyint  | NO   | PRI |         |       | "$.data.room.link_mic.battle_settings.activity_mode"     |                      |
+## | battle_id     | varchar(200)      | NO   | PRI |         |       | "$.data.room.link_mic.battle_settings.battle_id"         |                      |
+## | duration      | unsigned int      | NO   | PRI |         |       | "$.data.room.link_mic.battle_settings.duration"          |                      |
+## | finished      | unsigned tinyint  | NO   | PRI |         |       | "$.data.room.link_mic.battle_settings.finished"          |                      |
+## | match_type    | unsigned tinyint  | NO   | PRI |         |       | "$.data.room.link_mic.battle_settings.match_type"        |                      |
+## | play_mode     | unsigned tinyint  | NO   | PRI |         |       | "$.data.room.link_mic.battle_settings.play_mode"         |                      |
+## | start_time    | timestamp         | NO   | PRI |         |       | "$.data.room.link_mic.battle_settings.start_time"        |                      |
+## | start_time_ms | timestamp(3)      | NO   | PRI |         |       | "$.data.room.link_mic.battle_settings.start_time_ms"     |                      |
+## | team_mode     | unsigned tinyint  | NO   | PRI |         |       | "$.data.room.link_mic.battle_settings.team_mode"         |                      |
+## | theme         | text              | NO   | PRI |         |       | "$.data.room.link_mic.battle_settings.theme"             |                      |
+## +---------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+##
+class RoomLinkMicBattleSettingTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __TABLE_NAME            = "room_link_mic_battle_setting"
+  __TABLE_HEADER          = ['now',        'platform',  'room_id',    'channel_id',    'activity_mode', 'battle_id', 'duration', 'finished',
+                             'match_type', 'play_mode', 'start_time', 'start_time_ms', 'team_mode',     'theme'
+                            ]
+  __TABLE_PRI_KEY         = ['now', 'platform', 'room_id', 'channel_id']
+  __TABLE_AUTO_INCREMENT  = []
+  __TABLE_TUPLE           = {item:None for item in __TABLE_HEADER}
+  __SQL_CREATE_TABLE      = '''
+                            CREATE TABLE IF NOT EXISTS {} (
+                              now           timestamp(3)      NOT NULL,
+                              platform      varchar(20)       NOT NULL,
+                              room_id       varchar(200)      NOT NULL,
+                              channel_id    varchar(200)      NOT NULL,
+                              activity_mode tinyint           DEFAULT NULL,
+                              battle_id     varchar(200)      DEFAULT NULL,
+                              duration      int               DEFAULT NULL,
+                              finished      tinyint           DEFAULT NULL,
+                              match_type    tinyint           DEFAULT NULL,
+                              play_mode     tinyint           DEFAULT NULL,
+                              start_time    timestamp         DEFAULT NULL,
+                              start_time_ms timestamp(3)      DEFAULT NULL,
+                              team_mode     tinyint           DEFAULT NULL,
+                              theme         text              DEFAULT NULL,
+                              PRIMARY KEY (now, platform, room_id, channel_id)
+                            )
+                            '''.format(__TABLE_NAME)
+  __SQL_DROP_TABLE        = 'DROP TABLE IF EXISTS {};'.format(__TABLE_NAME)
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton mode
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__TABLE_PRI_KEY
+
+  ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_TABLE
+  
+  ##
+  ## verify table schema
+  ## TODO
+  ##
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()
+
+##
+## data.room.link_mic.channel_info
+## +---------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+## | Field         | Type              | Null | Key | Default | Extra | Topology                                                 | Comment              |
+## +---------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+## | now           | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"                                            | 当前时间              | 
+## | platform      | varchar(20)       | NO   | PRI |         |       |           -                                              | 平台                 |
+## | room_id       | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"                                         | 直播间ID             |
+## | channel_id    | varchar(200)      | NO   | PRI |         |       | "$.data.room.link_mic.channel_id"                        |                      |
+## | dimension     | unsigned int      | NO   | PRI |         |       | "$.data.room.link_mic.channel_id"                        | 尺寸                 |
+## | layout        | unsigned int      | NO   | PRI |         |       | "$.data.room.link_mic.channel_id"                        | 布局                 |
+## | vendor        | unsigned int      | NO   | PRI |         |       | "$.data.room.link_mic.channel_id"                        |                      |
+## +---------------+-------------------+------+-----+---------+-------+----------------------------------------------------------+----------------------+
+##
+class RoomLinkMicChannelInfoTable(SocialMediaStreamDataTable):
+##
+## >>=============================== attribute ===============================>>
+##
+  __TABLE_NAME            = "room_link_mic_channel_info"
+  __TABLE_HEADER          = ['now', 'platform', 'room_id', 'channel_id', 'dimension', 'layout', 'vendor']
+  __TABLE_PRI_KEY         = ['now', 'platform', 'room_id', 'channel_id']
+  __TABLE_AUTO_INCREMENT  = []
+  __TABLE_TUPLE           = {item:None for item in __TABLE_HEADER}
+  __SQL_CREATE_TABLE      = f'''
+                            CREATE TABLE IF NOT EXISTS {__TABLE_NAME} (
+                              now        timestamp(3)  NOT NULL,
+                              platform   varchar(20)   NOT NULL,
+                              room_id    varchar(200)  NOT NULL,
+                              channel_id varchar(200)  NOT NULL,
+                              dimension  int           DEFAULT NULL,
+                              layout     int           DEFAULT NULL,
+                              vendor     int           DEFAULT NULL,
+                              PRIMARY KEY (now, platform, room_id, channel_id)
+                            )
+                            '''
+  __SQL_DROP_TABLE        = f'DROP TABLE IF EXISTS {__TABLE_NAME};'
+
+##
+## >>============================= private method =============================>>
+##
+  ##
+  ## singleton mode
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
+
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    super().__init__(db_instance)
+
+##
+## >>============================= abstract method =============================>>
+##
+  ##
+  ## get table name
+  ##
+  def get_name(self) -> str:
+    return self.__TABLE_NAME
+  
+  ##
+  ## get table header
+  ##
+  def get_header(self) -> list:
+    return self.__TABLE_HEADER
+
+  ##
+  ## get table tuple
+  ##
+  def get_tuple(self) -> dict:
+    return self.__TABLE_TUPLE
+
+  ##
+  ## get table primary key
+  ##
+  def get_pri_key(self) -> list:
+    return self.__TABLE_PRI_KEY
+
+  ##
+  ## auto increment field
+  ##
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  ##
+  ## get SQL command of create table
+  ##
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_TABLE
+
+  ##
+  ## get SQL command of drop table
+  ##
+  def get_drop_sql_cmd(self) -> str:
+    return self.__SQL_DROP_TABLE
   
   ##
   ## verify table schema
