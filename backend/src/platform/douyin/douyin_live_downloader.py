@@ -28,7 +28,9 @@ from backend.src.platform.douyin.douyin_login               import DouyinLogin
 from backend.src.platform.douyin.douyin_url_list_config     import UrlListConfig
 from backend.src.platform.douyin.douyin_live_external_info  import LiveExternal
 from backend.src.platform.douyin.douyin_api                 import DouyinApi
+from backend.src.database.social_media_stream_database      import SocialMediaStreamDataBase
 from backend.src.database.table.share_url                   import DouyinShareUrlTable
+from backend.src.database.table.table_import                import import_douyin_live_info_to_database
 from backend.src.base.log                                   import get_logger
 
 ## TODO
@@ -199,8 +201,9 @@ class DouyinLiveDownloader(Downloader):
     ##
     output_fuse = False
     while self._actived_task_number >= self.config.get_config_dict_attr("$.max_thread") and self.config.get_config_dict_attr("$.max_thread") != 0:
-
-      # stop download if listener is end
+      ##
+      ## stop download if listener is end
+      ##
       if self.live_douyin_listener.is_listening_ending() is True and output_fuse is False:
         get_logger().info("download task {} is interrupt because of listener stop.".format(url))
         output_fuse = True
@@ -244,10 +247,10 @@ class DouyinLiveDownloader(Downloader):
                         url=url, 
                         params=None, 
                         timeout=self.config.get_config_dict_attr("$.MAX_TIMEOUT"), 
-                        headers=header)
-
+                        headers=header
+                        )
       ##
-      ## random delay between 1.5s - 4.5s
+      ## WA: random delay between 1.5s - 4.5s
       ##
       sleep(randint(15, 45) * 0.1)
       response.raise_for_status()
@@ -311,11 +314,16 @@ class DouyinLiveDownloader(Downloader):
       self.header = DouyinLiveInfoHeader(self.config.header_config_path)
       self.header.init_header(self.config.get_config_dict_attr("$.login"))
       header = self.header.update_header(self.config.get_config_dict_attr("$.login"), header)
+      
+      ##
+      ## output debug information
+      ##
       if self.config.get_config_dict_attr("$.debug") is True:
         get_logger().info("Url query response:")
         output_dict(params)
         output_dict(header)
         get_logger().info(api)
+
       ##
       ## request for live stream
       ##
@@ -324,7 +332,8 @@ class DouyinLiveDownloader(Downloader):
           url=api,
           params=params,
           timeout=self.config.get_config_dict_attr("$.MAX_TIMEOUT"),
-          headers=header)
+          headers=header
+          )
       if live_response.status_code != 200:
         raise exceptions.HTTPError
     except exceptions.HTTPError:
@@ -340,8 +349,14 @@ class DouyinLiveDownloader(Downloader):
       get_logger().error("Query live response failed! {}".format(e))
       raise e
     
-    # delay random
+    ##
+    ## WA: delay random
+    ##
     sleep(randint(15, 45) * 0.1)
+
+    ##
+    ## output debug information
+    ##
     if self.config.get_config_dict_attr("$.debug") is True:
       get_logger().info("Live external information:")
       output_dict(live_response.json())
@@ -351,6 +366,7 @@ class DouyinLiveDownloader(Downloader):
     ##
     try:
       live_response.raise_for_status()
+
       ##
       ## check live status
       ##
@@ -402,6 +418,10 @@ class DouyinLiveDownloader(Downloader):
         stream_url, stream_name = self.live_external_info.get_flv_pull_url(live_response, self.config.get_config_dict_attr("$.flv_clarity"))
         set_dict_attr(summary, "$.stream_url", stream_url)
         set_dict_attr(summary, "$.stream_name", stream_name)
+        
+        ##
+        ## output debug information
+        ##
         if self.config.get_config_dict_attr("$.debug") is True:
           get_logger().info("stream url: {}\nstream name:{}".format(stream_url, stream_name))  
     except TypeError:
@@ -433,13 +453,31 @@ class DouyinLiveDownloader(Downloader):
       if self.config.get_config_dict_attr("$.save_response") is True:
         set_dict_attr(build, "$.live_payload", get_dict_attr(self.__build, "$.live_payload"))
         save_dict_as_file(source=build, save_path=Path(path))
+        
+        ##
+        ## output debug information
+        ##
         if self.config.get_config_dict_attr("$.debug") is True:
           get_logger().info("Save file {} success!".format(path))
       
       ##
       ## save share url information into database
       ##
-      if self.database is not None:
+      if self.config.get_config_dict_attr("$.database_enable") is True:
+        ##
+        ## WA: use a single database connector to save live info
+        ## save live response into database
+        ##
+        try:
+          db = SocialMediaStreamDataBase(host=self.config.get_config_dict_attr("$.database_ip"),
+                                        user=self.config.get_config_dict_attr("$.database_user"),
+                                        passwd=self.config.get_config_dict_attr("$.database_password"),
+                                        database=self.config.get_config_dict_attr("$.database_name")
+                                        )
+          import_douyin_live_info_to_database(db, live_response_dict)
+        except Exception as e:
+          get_logger().error("import live info to database failed! {}\nskip this step!".format(e))
+
         ##
         ## construct record tuple
         ##
@@ -458,7 +496,7 @@ class DouyinLiveDownloader(Downloader):
           set_dict_attr(record_tuple, "$.user_status",    "已注销")
 
         ##
-        ## random wait for 0.1s - 0.5s to avoid being blocked
+        ## WA: random wait for 0.1s - 0.5s to avoid being blocked
         ## store record into database
         ##
         sleep(randint(1, 5) * 0.1)
@@ -759,7 +797,6 @@ def download_multiple_live(token_list:list):
   ##
   ## get live url list
   ##
-  # live_url_list = downloader.url_list.get_config_list("live")
   for token in token_list:
     item = ListenerItem(func=downloader.run, args=(token,))
     item.start_item()
