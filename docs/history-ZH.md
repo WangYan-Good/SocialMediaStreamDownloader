@@ -69,3 +69,27 @@
 - 🩹修复了当主播修改抖音用户名后，分享的直播间链接在下载时会创建新的直播视频目录。
 - 🩹修复了长期运行服务下的日志轮转问题，按照 `年-月-日` 文件格式保存。
 - 🩹修复了在网页上一次性下载多个链接的情况下会触发多次重复下载的情况。
+
+## 🎉 v0.7.1 - TBD
+### 🐞 BUG修复/优化
+- 🩹修复了下载出错时, 错误响应数据无法保存.
+```shell
+[2025-11-01 23:11:07,613]-[default]-[ERROR]: Try download live stream https://v.douyin.com/yipKRJGSAbY/ failed! 'FULL_HD1'
+Exception in thread Thread-259 (run):
+Traceback (most recent call last):
+  File "/usr/local/python312/lib/python3.12/threading.py", line 1075, in _bootstrap_inner
+    self.run()
+  File "/usr/local/python312/lib/python3.12/threading.py", line 1012, in run
+    self._target(*self._args, **self._kwargs)
+  File "/mnt/main/Service/SocialMediaStreamDownloader/backend/src/platform/douyin/douyin_live_downloader.py", line 422, in run
+    raise e
+  File "/mnt/main/Service/SocialMediaStreamDownloader/backend/src/platform/douyin/douyin_live_downloader.py", line 402, in run
+    stream_url, stream_name = self.live_external_info.get_flv_pull_url(live_response, self.config.get_config_dict_attr("$.flv_clarity"))
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/main/Service/SocialMediaStreamDownloader/backend/src/platform/douyin/douyin_live_external_info.py", line 98, in get_flv_pull_url
+    raise e
+  File "/mnt/main/Service/SocialMediaStreamDownloader/backend/src/platform/douyin/douyin_live_external_info.py", line 72, in get_flv_pull_url
+    if flv_clarity == 1 and build_dict["data"]["room"]["stream_url"]["flv_pull_url"]["FULL_HD1"] is not None:
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+KeyError: 'FULL_HD1'
+```
