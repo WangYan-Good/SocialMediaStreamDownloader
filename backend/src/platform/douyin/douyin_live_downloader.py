@@ -424,7 +424,9 @@ class DouyinLiveDownloader(Downloader):
         ##
         if self.config.get_config_dict_attr("$.debug") is True:
           get_logger().info("stream url: {}\nstream name:{}".format(stream_url, stream_name))  
-    except TypeError:
+    except Exception as e:
+      get_logger().error("Try download live stream {} failed! {}".format(url, e))
+
       ##
       ## save error information
       ##
@@ -436,9 +438,6 @@ class DouyinLiveDownloader(Downloader):
         save_dict_as_file(source=params, save_path=Path(error_response_path))
         if self.config.get_config_dict_attr("$.debug") is True:
           get_logger().info("Save error response file {} success!".format(error_response_path))
-      return None
-    except Exception as e:
-      get_logger().error("Try download live stream {} failed! {}".format(url, e))
       raise e
     
     try:
