@@ -770,7 +770,7 @@ class RoomDecoTable(SocialMediaStreamDataTable):
                                   'text_color',       'text_image_adjustable_end_position', 'text_image_adjustable_start_position', 'text_size',
                                   'type',             'w',                                  'x',                                    'y'
                                   ]
-  __ROOM_DECO_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'deco_index']
+  __ROOM_DECO_TABLE_PRI_KEY    = ['start_time', 'platform', 'room_id', 'deco_index']
   __TABLE_AUTO_INCREMENT       = []
   __ROOM_DECO_TABLE_TUPLE      = {item:None for item in __ROOM_DECO_TABLE_HEADER}
   __SQL_CREATE_ROOM_DECO_TABLE = '''
@@ -890,7 +890,7 @@ class RoomDecoInputRectTable(SocialMediaStreamDataTable):
   __ROOM_DECO_INPUT_RECT_TABLE_HEADER     = ['start_time',       'platform',                           'room_id',                              'deco_index', 
                                              'input_rect_index', 'input_rect'
                                              ]
-  __ROOM_DECO_INPUT_RECT_TABLE_PRI_KEY    = ['now', 'platform', 'room_id', 'deco_index', 'input_rect_index']
+  __ROOM_DECO_INPUT_RECT_TABLE_PRI_KEY    = ['start_time', 'platform', 'room_id', 'deco_index', 'input_rect_index']
   __TABLE_AUTO_INCREMENT                  = []
   __ROOM_DECO_INPUT_RECT_TABLE_TUPLE      = {item:None for item in __ROOM_DECO_INPUT_RECT_TABLE_HEADER}
   __SQL_CREATE_ROOM_DECO_INPUT_RECT_TABLE = '''

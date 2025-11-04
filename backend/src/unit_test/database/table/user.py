@@ -490,8 +490,10 @@ def test_insert_fans_club_available_gift_id_record(db:SocialMediaStreamDataBase 
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
+    'room_id': '7411524533301119798',
     'owner_user_id': '2700838411446480',
-    'anchor_id': '0'
+    'anchor_id': '0',
+    'available_gift_index': 1
   }
   
   try:
@@ -557,6 +559,7 @@ def test_update_fans_club_available_gift_id_record(db:SocialMediaStreamDataBase 
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
+    'room_id': '7411524533301119798',
     'owner_user_id': '2700838411446480',
     'anchor_id': '0',
     'available_gift_index': 1,
@@ -592,6 +595,7 @@ def test_get_fans_club_available_gift_id_record(db:SocialMediaStreamDataBase = N
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
+    'room_id': '7411524533301119798',
     'owner_user_id': '2700838411446480',
     'anchor_id': '0',
     'available_gift_index': 1
