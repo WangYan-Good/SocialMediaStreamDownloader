@@ -10,3 +10,4 @@ logs/
 config/build/
 .vscode/
 .obsidian/
+nohup.out

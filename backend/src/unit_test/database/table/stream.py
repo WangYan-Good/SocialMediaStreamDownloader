@@ -106,7 +106,7 @@ def test_insert_live_stream_record(db:SocialMediaStreamDataBase = None):
   ## insert a sample live stream record
   ##
   try:
-    live_stream.insert_record(sample_record)
+    live_stream.insert_record(sample_record, on_duplicate='ignore')
     get_logger().info("sample live stream record inserted successfully")
   except Exception as e:
     get_logger().error("failed to insert sample {} record: {}".format(live_stream.get_name(), e))
@@ -285,10 +285,11 @@ def test_insert_stream_candidate_resolution_record(db:SocialMediaStreamDataBase 
   ## insert a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'start_time': dat.fromtimestamp(1740301577026/1000),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'stream_id': '691500607505433258'
+    'stream_id': '691500607505433258',
+    'resolution_index': 1
   }
   
   try:
@@ -318,7 +319,7 @@ def test_delete_stream_candidate_resolution_record(db:SocialMediaStreamDataBase 
   ## delete a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'start_time': dat.fromtimestamp(1740301577026/1000),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
     'stream_id': '691500607505433258',
@@ -352,7 +353,7 @@ def test_update_stream_candidate_resolution_record(db:SocialMediaStreamDataBase 
   ## update a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'start_time': dat.fromtimestamp(1740301577026/1000),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
     'stream_id': '691500607505433258',
@@ -1638,9 +1639,10 @@ def test_insert_live_core_sdk_pull_quality_data_record(db:SocialMediaStreamDataB
   ## insert a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'start_time': dat.fromtimestamp(1740301577026/1000),
     'platform': 'douyin',
-    'room_id': '7411524533301119798'
+    'room_id': '7411524533301119798',
+    'quality_index': 1
   }
   
   try:
@@ -1670,7 +1672,7 @@ def test_delete_live_core_sdk_pull_quality_data_record(db:SocialMediaStreamDataB
   ## delete a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'start_time': dat.fromtimestamp(1740301577026/1000),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
     'quality_index': 1
@@ -1703,7 +1705,7 @@ def test_update_live_core_sdk_pull_quality_data_record(db:SocialMediaStreamDataB
   ## update a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'start_time': dat.fromtimestamp(1740301577026/1000),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
     'quality_index': 1,
@@ -1737,7 +1739,7 @@ def test_get_live_core_sdk_pull_quality_data_record(db:SocialMediaStreamDataBase
   ## get a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'start_time': dat.fromtimestamp(1740301577026/1000),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
     'quality_index': 1
