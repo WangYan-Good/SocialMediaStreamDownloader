@@ -19,6 +19,10 @@ from backend.src.database.table.room                                  import Roo
                                                                              RoomAdminUserIdTable, \
                                                                              RoomAdminUserOpenIdTable, \
                                                                              RoomAssistLabelTable, \
+                                                                             RoomDecoTable, \
+                                                                             RoomDecoInputRectTable, \
+                                                                             RoomDecoReservationTable, \
+                                                                             RoomDecoReservationBtnRectTable, \
                                                                              FansGroupAdminUserIdTable, \
                                                                              FansGroupAdminUserOpenIdTable, \
                                                                              RoomSubscribeTable, \
@@ -891,9 +895,10 @@ def test_insert_room_admin_user_id_record(db:SocialMediaStreamDataBase = None):
   ## 'admin_user_id_index' auto increment
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'start_time': dat.fromtimestamp(1740301577026/1000),
     'platform': 'douyin',
-    'room_id': '7411524533301119798'
+    'room_id': '7411524533301119798',
+    'admin_user_id_index': 1
   }
   
   try:
@@ -923,7 +928,7 @@ def test_delete_room_admin_user_id_record(db:SocialMediaStreamDataBase = None):
   ## delete a sample record
   ##
   sample_record = {
-    'now':dat.fromtimestamp(1740301577026/1000.0),
+    'start_time':dat.fromtimestamp(1740301577026/1000),
     'platform':'douyin',
     'room_id':'7411524533301119798',
     'admin_user_id_index': 1
@@ -956,7 +961,7 @@ def test_update_room_admin_user_id_record(db:SocialMediaStreamDataBase = None):
   ## update a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'start_time': dat.fromtimestamp(1740301577026/1000),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
     'admin_user_id_index':1,
@@ -990,7 +995,7 @@ def test_get_room_admin_user_id_record(db:SocialMediaStreamDataBase = None):
   ## get a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'start_time': dat.fromtimestamp(1740301577026/1000),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
     'admin_user_id_index': 1
@@ -1396,9 +1401,722 @@ def test_get_room_assist_label_record(db:SocialMediaStreamDataBase = None):
     raise e
 
 ##
+## >>================================ room deco test method ===============================>>
+##
+def test_create_room_deco_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if db is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table
+  ##
+  room_deco = RoomDecoTable(db_instance=db)
+  room_deco.create()
+  return
+
+def test_drop_room_deco_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## drop table
+  ##
+  room_deco = RoomDecoTable(db_instance=db)
+  room_deco.drop(confirm=True)
+  return
+
+def test_check_room_deco_exists(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  room_deco = RoomDecoTable(db)
+  
+  ##
+  ## check if table exists
+  ##
+  if db.is_table_exist(room_deco.get_name()):
+    get_logger().info("{} table exists!".format(room_deco.get_name()))
+  else:
+    get_logger().info("{} table not exists!".format(room_deco.get_name()))
+  return
+
+def test_insert_room_deco_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_deco = RoomDecoTable(db_instance=db)
+  
+  ##
+  ## insert a sample record
+  ##
+  sample_record = {
+    'start_time': dat.fromtimestamp(1740301577026/1000),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'deco_index': 1
+  }
+  
+  try:
+    room_deco.insert_record(sample_record)
+    get_logger().info("sample record inserted successfully")
+  except Exception as e:
+    get_logger().error("failed to insert sample record: {}".format(e))
+    raise e
+
+def test_get_room_deco_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exist
+  ##
+  room_deco = RoomDecoTable(db)
+  
+  ##
+  ## get a sample record
+  ##
+  sample_record = {
+    'start_time': dat.fromtimestamp(1740301577026/1000),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'deco_index': 1
+  }
+  
+  try:
+    record = room_deco.get_record(sample_record)
+    if record:
+      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(room_deco.get_name(), record))
+    else:
+      get_logger().warning("sample {} record not found".format(room_deco.get_name()))
+  except Exception as e:
+    get_logger().error("failed to retrieve sample {} record: {}".format(room_deco.get_name(), e))
+    raise e
+
+def test_update_room_deco_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_deco = RoomDecoTable(db_instance=db)
+  
+  ##
+  ## update a sample record
+  ##
+  sample_record = {
+    'start_time': dat.fromtimestamp(1740301577026/1000),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'deco_index':1,
+    'audit_text_color':'#FFFFFF'
+  }
+  
+  try:
+    room_deco.update_record(sample_record)
+    get_logger().info("sample record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample record: {}".format(e))
+    raise e
+
+def test_delete_room_deco_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_deco = RoomDecoTable(db_instance=db)
+  
+  ##
+  ## delete a sample record
+  ##
+  sample_record = {
+    'start_time':dat.fromtimestamp(1740301577026/1000),
+    'platform':'douyin',
+    'room_id':'7411524533301119798',
+    'deco_index': 1
+  }
+  
+  try:
+    room_deco.delete_record(sample_record)
+    get_logger().info("sample record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample record: {}".format(e))
+    raise e
+
+##
+## >>================================ room deco input rect test method ===============================>>
+##
+def test_create_room_deco_input_rect_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if db is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table
+  ##
+  room_deco_input_rect = RoomDecoInputRectTable(db_instance=db)
+  room_deco_input_rect.create()
+  return
+
+def test_drop_room_deco_input_rect_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## drop table
+  ##
+  room_deco_input_rect = RoomDecoInputRectTable(db_instance=db)
+  room_deco_input_rect.drop(confirm=True)
+  return
+
+def test_check_room_deco_input_rect_exists(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  room_deco_input_rect = RoomDecoInputRectTable(db)
+  
+  ##
+  ## check if table exists
+  ##
+  if db.is_table_exist(room_deco_input_rect.get_name()):
+    get_logger().info("{} table exists!".format(room_deco_input_rect.get_name()))
+  else:
+    get_logger().info("{} table not exists!".format(room_deco_input_rect.get_name()))
+  return
+
+def test_insert_room_deco_input_rect_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_deco_input_rect = RoomDecoInputRectTable(db_instance=db)
+  
+  ##
+  ## insert a sample record
+  ##
+  sample_record = {
+    'start_time': dat.fromtimestamp(1740301577026/1000),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'deco_index': 1,
+    'input_rect_index': 1
+  }
+  
+  try:
+    room_deco_input_rect.insert_record(sample_record, on_duplicate='ignore')
+    get_logger().info("sample record inserted successfully")
+  except Exception as e:
+    get_logger().error("failed to insert sample record: {}".format(e))
+    raise e
+
+def test_delete_room_deco_input_rect_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_deco_input_rect = RoomDecoInputRectTable(db_instance=db)
+  
+  ##
+  ## delete a sample record
+  ##
+  sample_record = {
+    'start_time':dat.fromtimestamp(1740301577026/1000),
+    'platform':'douyin',
+    'room_id':'7411524533301119798',
+    'deco_index': 1,
+    'input_rect_index': 1
+  }
+  
+  try:
+    room_deco_input_rect.delete_record(sample_record)
+    get_logger().info("sample record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample record: {}".format(e))
+    raise e
+
+def test_get_room_deco_input_rect_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exist
+  ##
+  room_deco_input_rect = RoomDecoInputRectTable(db)
+  
+  ##
+  ## get a sample record
+  ##
+  sample_record = {
+    'start_time': dat.fromtimestamp(1740301577026/1000),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'deco_index': 1,
+    'input_rect_index': 1
+  }
+  
+  try:
+    record = room_deco_input_rect.get_record(sample_record)
+    if record:
+      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(room_deco_input_rect.get_name(), record))
+    else:
+      get_logger().warning("sample {} record not found".format(room_deco_input_rect.get_name()))
+  except Exception as e:
+    get_logger().error("failed to retrieve sample {} record: {}".format(room_deco_input_rect.get_name(), e))
+    raise e
+
+def test_update_room_deco_input_rect_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_deco_input_rect = RoomDecoInputRectTable(db_instance=db)
+  
+  ##
+  ## update a sample record
+  ##
+  sample_record = {
+    'start_time': dat.fromtimestamp(1740301577026/1000),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'deco_index': 1,
+    'input_rect_index':1,
+    'input_rect':100
+  }
+  
+  try:
+    room_deco_input_rect.update_record(sample_record)
+    get_logger().info("sample record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample record: {}".format(e))
+    raise e
+
+##
+## >>================================ room deco reservation test method ===============================>>
+##
+def test_create_room_deco_reservation_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if db is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table
+  ##
+  room_deco_reservation = RoomDecoReservationTable(db_instance=db)
+  room_deco_reservation.create()
+  return
+
+def test_drop_room_deco_reservation_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## drop table
+  ##
+  room_deco_reservation = RoomDecoReservationTable(db_instance=db)
+  room_deco_reservation.drop(confirm=True)
+  return
+
+def test_check_room_deco_reservation_exists(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  room_deco_reservation = RoomDecoReservationTable(db)
+  
+  ##
+  ## check if table exists
+  ##
+  if db.is_table_exist(room_deco_reservation.get_name()):
+    get_logger().info("{} table exists!".format(room_deco_reservation.get_name()))
+  else:
+    get_logger().info("{} table not exists!".format(room_deco_reservation.get_name()))
+  return
+
+def test_insert_room_deco_reservation_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_deco_reservation = RoomDecoReservationTable(db_instance=db)
+  
+  ##
+  ## insert a sample record
+  ##
+  sample_record = {
+    'start_time': dat.fromtimestamp(1740301577026/1000),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'deco_index': 1
+  }
+  
+  try:
+    room_deco_reservation.insert_record(sample_record, on_duplicate='ignore')
+    get_logger().info("sample record inserted successfully")
+  except Exception as e:
+    get_logger().error("failed to insert sample record: {}".format(e))
+    raise e
+
+def test_delete_room_deco_reservation_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_deco_reservation = RoomDecoReservationTable(db_instance=db)
+  
+  ##
+  ## delete a sample record
+  ##
+  sample_record = {
+    'start_time':dat.fromtimestamp(1740301577026/1000),
+    'platform':'douyin',
+    'room_id':'7411524533301119798',
+    'deco_index': 1
+  }
+  
+  try:
+    room_deco_reservation.delete_record(sample_record)
+    get_logger().info("sample record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample record: {}".format(e))
+    raise e
+
+def test_get_room_deco_reservation_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exist
+  ##
+  room_deco_reservation = RoomDecoReservationTable(db)
+  
+  ##
+  ## get a sample record
+  ##
+  sample_record = {
+    'start_time': dat.fromtimestamp(1740301577026/1000),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'deco_index': 1
+  }
+  
+  try:
+    record = room_deco_reservation.get_record(sample_record)
+    if record:
+      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(room_deco_reservation.get_name(), record))
+    else:
+      get_logger().warning("sample {} record not found".format(room_deco_reservation.get_name()))
+  except Exception as e:
+    get_logger().error("failed to retrieve sample {} record: {}".format(room_deco_reservation.get_name(), e))
+    raise e
+
+def test_update_room_deco_reservation_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_deco_reservation = RoomDecoReservationTable(db_instance=db)
+  
+  ##
+  ## update a sample record
+  ##
+  sample_record = {
+    'start_time': dat.fromtimestamp(1740301577026/1000),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'deco_index': 1,
+    'btn_color': '#FF0000'
+  }
+  
+  try:
+    room_deco_reservation.update_record(sample_record)
+    get_logger().info("sample record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample record: {}".format(e))
+    raise e
+
+"""
+##
+## >>================================ room deco reservation btn rect test method ===============================>>
+##
+def test_create_room_deco_reservation_btn_rect_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if db is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table
+  ##
+  room_deco_reservation_btn_rect = RoomDecoReservationBtnRectTable(db_instance=db)
+  room_deco_reservation_btn_rect.create()
+  return
+
+def test_drop_room_deco_reservation_btn_rect_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## drop table
+  ##
+  room_deco_reservation_btn_rect = RoomDecoReservationBtnRectTable(db_instance=db)
+  room_deco_reservation_btn_rect.drop(confirm=True)
+  return
+
+def test_check_room_deco_reservation_btn_rect_exists(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  room_deco_reservation_btn_rect = RoomDecoReservationBtnRectTable(db)
+  
+  ##
+  ## check if table exists
+  ##
+  if db.is_table_exist(room_deco_reservation_btn_rect.get_name()):
+    get_logger().info("{} table exists!".format(room_deco_reservation_btn_rect.get_name()))
+  else:
+    get_logger().info("{} table not exists!".format(room_deco_reservation_btn_rect.get_name()))
+  return
+
+def test_insert_room_deco_reservation_btn_rect_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_deco_reservation_btn_rect = RoomDecoReservationBtnRectTable(db_instance=db)
+  
+  ##
+  ## insert a sample record
+  ##
+  sample_record = {
+    'start_time': dat.fromtimestamp(1740301577026/1000),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'deco_index': 1,
+    'btn_rect_index': 1
+  }
+  
+  try:
+    room_deco_reservation_btn_rect.insert_record(sample_record, on_duplicate='ignore')
+    get_logger().info("sample record inserted successfully")
+  except Exception as e:
+    get_logger().error("failed to insert sample record: {}".format(e))
+    raise e
+
+def test_delete_room_deco_reservation_btn_rect_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_deco_reservation_btn_rect = RoomDecoReservationBtnRectTable(db_instance=db)
+  
+  ##
+  ## delete a sample record
+  ##
+  sample_record = {
+    'start_time':dat.fromtimestamp(1740301577026/1000),
+    'platform':'douyin',
+    'room_id':'7411524533301119798',
+    'deco_index': 1,
+    'btn_rect_index': 1
+  }
+  
+  try:
+    room_deco_reservation_btn_rect.delete_record(sample_record)
+    get_logger().info("sample record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample record: {}".format(e))
+    raise e
+
+def test_get_room_deco_reservation_btn_rect_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exist
+  ##
+  room_deco_reservation_btn_rect = RoomDecoReservationBtnRectTable(db)
+  
+  ##
+  ## get a sample record
+  ##
+  sample_record = {
+    'start_time': dat.fromtimestamp(1740301577026/1000),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'deco_index': 1,
+    'btn_rect_index': 1
+  }
+  
+  try:
+    record = room_deco_reservation_btn_rect.get_record(sample_record)
+    if record:
+      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(room_deco_reservation_btn_rect.get_name(), record))
+    else:
+      get_logger().warning("sample {} record not found".format(room_deco_reservation_btn_rect.get_name()))
+  except Exception as e:
+    get_logger().error("failed to retrieve sample {} record: {}".format(room_deco_reservation_btn_rect.get_name(), e))
+    raise e
+
+def test_update_room_deco_reservation_btn_rect_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_deco_reservation_btn_rect = RoomDecoReservationBtnRectTable(db_instance=db)
+  
+  ##
+  ## update a sample record
+  ##
+  sample_record = {
+    'start_time': dat.fromtimestamp(1740301577026/1000),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'deco_index': 1,
+    'btn_rect_index':1,
+    'btn_rect':200
+  }
+  
+  try:
+    room_deco_reservation_btn_rect.update_record(sample_record)
+    get_logger().info("sample record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample record: {}".format(e))
+    raise e
+"""
+
+##
 ## >>================================ fans group admin user id test method ===============================>>
 ##
-
 def test_create_fans_group_admin_user_id_table(db:SocialMediaStreamDataBase = None):
   ##
   ## check if db is valid
@@ -2443,13 +3161,14 @@ def test_insert_room_short_touch_area_config_strategy_feat_whitelist_record(db:S
   ## insert a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'start_time': dat.fromtimestamp(1740301577026/1000),
     'platform': 'douyin',
-    'room_id': '7411524533301119798'
+    'room_id': '7411524533301119798',
+    'whitelist_tag_index': 1
   }
   
   try:
-    room_short_touch_area_config_strategy_feat_whitelist.insert_record(sample_record)
+    room_short_touch_area_config_strategy_feat_whitelist.insert_record(sample_record, on_duplicate='ignore')
     get_logger().info("sample record inserted successfully")
   except Exception as e:
     get_logger().error("failed to insert sample record: {}".format(e))
@@ -2475,10 +3194,10 @@ def test_delete_room_short_touch_area_config_strategy_feat_whitelist_record(db:S
   ## delete a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'start_time': dat.fromtimestamp(1740301577026/1000),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'whitelist_index': 1
+    'whitelist_tag_index': 1
   }
   
   try:
@@ -2508,10 +3227,10 @@ def test_update_room_short_touch_area_config_strategy_feat_whitelist_record(db:S
   ## update a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'start_time': dat.fromtimestamp(1740301577026/1000),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'whitelist_index': 1,
+    'whitelist_tag_index': 1,
     'whitelist_tag': 'abc'
   }
   
@@ -2542,10 +3261,10 @@ def test_get_room_short_touch_area_config_strategy_feat_whitelist_record(db:Soci
   ## get a sample record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'start_time': dat.fromtimestamp(1740301577026/1000),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
-    'whitelist_index': 1
+    'whitelist_tag_index': 1
   }
   
   try:
@@ -3996,6 +4715,7 @@ if __name__ == "__main__":
   test_check_room_admin_user_open_id_exists(db)
   test_drop_room_admin_user_open_id_data(db)
   test_check_room_admin_user_open_id_exists(db)
+
   """
   ##
   ## room assist label table
@@ -4011,12 +4731,54 @@ if __name__ == "__main__":
   test_get_room_assist_label_record(db)
   test_drop_room_assist_label_table(db)
   test_check_room_assist_label_exists(db)
+  """
   
   ##
   ## room deco table
-  ## TBD
   ##
-  """
+  test_create_room_deco_table(db)
+  test_check_room_deco_exists(db)
+  test_insert_room_deco_record(db)
+  test_get_room_deco_record(db)
+  test_update_room_deco_record(db)
+  test_get_room_deco_record(db)
+  test_delete_room_deco_record(db)
+  test_get_room_deco_record(db)
+  test_drop_room_deco_table(db)
+  test_check_room_deco_exists(db)
+  
+  ##
+  ## room_deco_input_rect
+  ##
+  test_create_room_deco_input_rect_table(db)
+  test_check_room_deco_input_rect_exists(db)
+  test_insert_room_deco_input_rect_record(db)
+  test_get_room_deco_input_rect_record(db)
+  test_update_room_deco_input_rect_record(db)
+  test_get_room_deco_input_rect_record(db)
+  test_delete_room_deco_input_rect_record(db)
+  test_get_room_deco_input_rect_record(db)
+  test_drop_room_deco_input_rect_table(db)
+  test_check_room_deco_input_rect_exists(db)
+  
+  ##
+  ## room_deco_reservation
+  ##
+  test_create_room_deco_reservation_table(db)
+  test_check_room_deco_reservation_exists(db)
+  test_insert_room_deco_reservation_record(db)
+  test_get_room_deco_reservation_record(db)
+  test_update_room_deco_reservation_record(db)
+  test_get_room_deco_reservation_record(db)
+  test_delete_room_deco_reservation_record(db)
+  test_get_room_deco_reservation_record(db)
+  test_drop_room_deco_reservation_table(db)
+  test_check_room_deco_reservation_exists(db)
+  
+  ##
+  ## room deco reservation btn rect table
+  ## TODO
+  ##
 
   ##
   ## fans group admin user id table

@@ -17,7 +17,8 @@ from backend.src.database.table.source                                import Bad
                                                                              PictureFlexSettingTable, \
                                                                              PictureTextSettingTable, \
                                                                              PictureUrlTable, \
-                                                                             PictureContentTable
+                                                                             PictureContentTable, \
+                                                                             RoomDecoTextFootConfigTable
 from backend.src.base.log                                             import get_logger
 
 ##
@@ -867,6 +868,8 @@ def test_insert_picture_record(db:SocialMediaStreamDataBase = None):
     'start_time': dat.fromtimestamp(1714227435),
     'platform':'douyin',
     'room_id': '7411524533301119798',
+    'picture_index': 1,
+    'label': 'a',
     'avg_color': 'abc'
   }
   
@@ -1057,11 +1060,13 @@ def test_insert_picture_flex_setting_record(db:SocialMediaStreamDataBase = None)
     'start_time': dat.fromtimestamp(1714227435),
     'platform':'douyin',
     'room_id': '7411524533301119798',
-    'uri': 'abc'
+    'label': 'a',
+    'uri': 'abc',
+    'flex_setting_index': 1
   }
   
   try:
-    picture_flex_setting.insert_record(sample_record)
+    picture_flex_setting.insert_record(sample_record, on_duplicate='ignore')
     get_logger().info("sample record inserted successfully")
   except Exception as e:
     get_logger().error("failed to insert sample record: {}".format(e))
@@ -1117,8 +1122,12 @@ def test_update_picture_flex_setting_record(db:SocialMediaStreamDataBase = None)
   ## update a sample record
   ##
   sample_record = {
+    'start_time': dat.fromtimestamp(1714227435),
+    'platform':'douyin',
+    'room_id': '7411524533301119798',
+    'label': 'a',
+    'uri': 'abc',
     'flex_setting_index': 1,
-    'uri': 'xxx',
     'flex_setting': 'TBD'
   }
   
@@ -1244,11 +1253,13 @@ def test_insert_picture_text_setting_record(db:SocialMediaStreamDataBase = None)
     'start_time': dat.fromtimestamp(1714227435),
     'platform':'douyin',
     'room_id': '7411524533301119798',
-    'uri': 'abc'
+    'label': 'a',
+    'uri': 'abc',
+    'text_setting_index':1
   }
   
   try:
-    picture_text_setting.insert_record(sample_record)
+    picture_text_setting.insert_record(sample_record, on_duplicate='ignore')
     get_logger().info("sample record inserted successfully")
   except Exception as e:
     get_logger().error("failed to insert sample record: {}".format(e))
@@ -1304,8 +1315,11 @@ def test_update_picture_text_setting_record(db:SocialMediaStreamDataBase = None)
   ## update a sample record
   ##
   sample_record = {
-    'text_setting_index': 1,
-    'uri': 'xxx',
+    'start_time': dat.fromtimestamp(1714227435),
+    'platform':'douyin',
+    'room_id': '7411524533301119798',
+    'label': 'a',
+    'text_setting_index':1,
     'text_setting': 'TBD'
   }
   
@@ -1431,11 +1445,14 @@ def test_insert_picture_url_record(db:SocialMediaStreamDataBase = None):
     'start_time': dat.fromtimestamp(1714227435),
     'platform':'douyin',
     'room_id': '7411524533301119798',
-    'uri': 'abc'
+    'label': 'a',
+    'uri_index': 1,
+    'uri': 'abc',
+    'url_index': 1
   }
   
   try:
-    picture_url.insert_record(sample_record)
+    picture_url.insert_record(sample_record, on_duplicate='ignore')
     get_logger().info("sample record inserted successfully")
   except Exception as e:
     get_logger().error("failed to insert sample record: {}".format(e))
@@ -1491,8 +1508,13 @@ def test_update_picture_url_record(db:SocialMediaStreamDataBase = None):
   ## update a sample record
   ##
   sample_record = {
+    'start_time': dat.fromtimestamp(1714227435),
+    'platform':'douyin',
+    'room_id': '7411524533301119798',
+    'label': 'a',
+    'uri_index': 1,
+    'uri': 'abc',
     'url_index': 1,
-    'uri': 'xxx',
     'url': 'TBD'
   }
   
@@ -1724,6 +1746,178 @@ def test_get_picture_content_record(db:SocialMediaStreamDataBase = None):
     raise e
 
 ##
+## >>================================ room deco text foot config test method ===============================>>
+##
+def test_create_room_deco_text_foot_config_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if db is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table
+  ##
+  room_deco_text_foot_config_table = RoomDecoTextFootConfigTable(db_instance=db)
+  room_deco_text_foot_config_table.create()
+  return
+
+def test_check_room_deco_text_foot_config_exists(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+
+  room_deco_text_foot_config_table = RoomDecoTextFootConfigTable(db)
+
+  ##
+  ## check if table exists
+  ##
+  if db.is_table_exist(room_deco_text_foot_config_table.get_name()):
+    get_logger().info("{} table exists!".format(room_deco_text_foot_config_table.get_name()))
+  else:
+    get_logger().info("{} table not exists!".format(room_deco_text_foot_config_table.get_name()))
+  return
+
+def test_drop_room_deco_text_foot_config_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## drop table
+  ##
+  room_deco_text_foot_config_table = RoomDecoTextFootConfigTable(db_instance=db)
+  room_deco_text_foot_config_table.drop(confirm=True)
+  return
+
+def test_insert_room_deco_text_foot_config_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_deco_text_foot_config = RoomDecoTextFootConfigTable(db_instance=db)
+
+  ##
+  ## insert a sample record
+  ##
+  sample_record = {
+    'start_time': dat.fromtimestamp(1714227435),
+    'platform':'douyin',
+    'room_id': '7411524533301119798',
+    'deco_index': 1,
+    'FontID': 'abc'
+  }
+  
+  try:
+    room_deco_text_foot_config.insert_record(sample_record, on_duplicate='ignore')
+    get_logger().info("sample record inserted successfully")
+  except Exception as e:
+    get_logger().error("failed to insert sample record: {}".format(e))
+    raise e
+
+def test_get_room_deco_text_foot_config_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exist
+  ##
+  room_deco_text_foot_config = RoomDecoTextFootConfigTable(db_instance=db)
+
+  ##
+  ## get a sample record
+  ##
+  sample_record = {
+    'deco_index': 1
+  }
+  
+  try:
+    record = room_deco_text_foot_config.get_record(sample_record)
+    if record:
+      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(room_deco_text_foot_config.get_name(), record))
+    else:
+      get_logger().warning("sample {} record not found".format(room_deco_text_foot_config.get_name()))
+  except Exception as e:
+    get_logger().error("failed to retrieve sample {} record: {}".format(room_deco_text_foot_config.get_name(), e))
+    raise e
+
+def test_update_room_deco_text_foot_config_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_deco_text_foot_config = RoomDecoTextFootConfigTable(db_instance=db)
+  
+  ##
+  ## update a sample record
+  ##
+  sample_record = {
+    'start_time': dat.fromtimestamp(1714227435),
+    'platform':'douyin',
+    'room_id': '7411524533301119798',
+    'deco_index': 1,
+    'FontID': 'abc',
+    'font_name': 'TBD'
+  }
+  
+  try:
+    room_deco_text_foot_config.update_record(sample_record)
+    get_logger().info("sample record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample record: {}".format(e))
+    raise e
+
+def test_delete_room_deco_text_foot_config_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_deco_text_foot_config = RoomDecoTextFootConfigTable(db_instance=db)
+  
+  ##
+  ## delete a sample record
+  ##
+  sample_record = {
+    'deco_index': 1
+  }
+  
+  try:
+    room_deco_text_foot_config.delete_record(sample_record)
+    get_logger().info("sample record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample record: {}".format(e))
+    raise e
+
+##
 ## >>================================ main method ===============================>>
 ##
 if __name__ == "__main__":
@@ -1854,3 +2048,17 @@ if __name__ == "__main__":
   test_get_picture_content_record(db)
   test_drop_picture_content_table(db)
   test_check_picture_content_exists(db)
+  
+  ##
+  ## room deco text foot config table
+  ##
+  test_create_room_deco_text_foot_config_table(db)
+  test_check_room_deco_text_foot_config_exists(db)
+  test_insert_room_deco_text_foot_config_record(db)
+  test_get_room_deco_text_foot_config_record(db)
+  test_update_room_deco_text_foot_config_record(db)
+  test_get_room_deco_text_foot_config_record(db)
+  test_delete_room_deco_text_foot_config_record(db)
+  test_get_room_deco_text_foot_config_record(db)
+  test_drop_room_deco_text_foot_config_table(db)
+  test_check_room_deco_text_foot_config_exists(db)

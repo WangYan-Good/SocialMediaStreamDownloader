@@ -93,3 +93,14 @@ Traceback (most recent call last):
                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
 KeyError: 'FULL_HD1'
 ```
+
+- 🩹修复了直播响应数据由于数据库表因为不一致保存失败的问题.
+```shell
+[2025-11-04 13:41:17,703]-[default]-[DEBUG]: xxx
+[2025-11-04 13:41:17,706]-[default]-[INFO]: connect database social_media_stream_downloader successfully!
+[2025-11-04 13:41:17,709]-[default]-[ERROR]: failed to insert record into room_owner: (1054, "Unknown column 'follow_info_follow_status' in 'field list'")
+[2025-11-04 13:41:17,710]-[default]-[ERROR]: record data: xxx
+[2025-11-04 13:41:17,711]-[default]-[ERROR]: insert room_owner failed: (1054, "Unknown column 'follow_info_follow_status' in 'field list'")
+[2025-11-04 13:41:17,711]-[default]-[ERROR]: import live info to database failed! (1054, "Unknown column 'follow_info_follow_status' in 'field list'")
+skip this step!
+```
