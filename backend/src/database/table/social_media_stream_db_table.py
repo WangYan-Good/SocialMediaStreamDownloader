@@ -7,6 +7,7 @@ sys.path.append(os.getcwd())
 ## <<Base>>
 from threading import Lock
 from abc       import ABC, abstractmethod
+from typing    import ClassVar, Dict, Type
 
 ## <<Third-Part>>
 from backend.src.database.social_media_stream_database       import SocialMediaStreamDataBase
@@ -27,7 +28,11 @@ class SocialMediaStreamDataTable(ABC):
   
   __SQL_CMD_CREATE_TABLE = str()
   __SQL_CMD_DROP_TABLE   = str()
-  
+
+  ##
+  ## registry for subclasses
+  ##
+  __REGISTRY: ClassVar[Dict[str, Type['SocialMediaStreamDataTable']]] = {}
 
 ##
 ## >>============================= private method =============================>>
@@ -69,6 +74,17 @@ class SocialMediaStreamDataTable(ABC):
     else:
       get_logger().info("{} table is already registered or does not exist".format(self.get_name()))
     return
+  
+  def __init_subclass__(cls, **kwargs):
+    """
+    subclass registration hook
+    """
+    super().__init_subclass__(**kwargs)
+    
+    ##
+    ## register subclass
+    ##
+    cls.__REGISTRY[cls.get_name(cls)] = cls
 
 ##
 ## >>============================= abstract method =============================>>
@@ -132,6 +148,17 @@ class SocialMediaStreamDataTable(ABC):
 ##
 ## >>============================= sub class method =============================>>
 ##
+  ##
+  ## get subclass by table name
+  ##
+  @classmethod
+  def get_subclass_by_table_name(cls, table:str) -> Type['SocialMediaStreamDataTable']:
+    if table in cls.__REGISTRY:
+      return cls.__REGISTRY[table]
+    else:
+      get_logger().error("No subclass found for table name: {}".format(table))
+      raise ValueError("No subclass found for table name: {}".format(table))
+
   ##
   ## create table
   ##

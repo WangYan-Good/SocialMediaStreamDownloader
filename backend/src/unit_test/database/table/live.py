@@ -230,7 +230,7 @@ def test_update_live_record(db:SocialMediaStreamDataBase = None):
 ## >>================================ main method ===============================>>
 ##
 if __name__ == "__main__":
-  db = SocialMediaStreamDataBase(host='192.168.1.12', user='wangyan', passwd='wuyu1998', database='social_media_stream_downloader')
+  db = SocialMediaStreamDataBase(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
 
   ##
   ## live record table

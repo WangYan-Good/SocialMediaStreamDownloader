@@ -17,12 +17,14 @@ from backend.src.database.table.user                                  import Roo
                                                                              RoomAdminPrivilegeTable, \
                                                                              UserTable
 from backend.src.base.log                                             import get_logger
+from backend.src.library.databaselib                                  import create_table, is_table_exist, drop_table, \
+                                                                             insert_record, delete_record, update_record, get_record
+from backend.src.library.baselib                                      import set_dict_attr
 
 ##
 ## >>================================ room owner table test method ===============================>>
 ##
-
-def test_create_room_owner_table(db:SocialMediaStreamDataBase = None):
+def test_room_owner_table(db:SocialMediaStreamDataBase = None):
   ##
   ## check if db is valid
   ##
@@ -33,68 +35,15 @@ def test_create_room_owner_table(db:SocialMediaStreamDataBase = None):
   ##
   ## create table
   ##
-  room_owner = RoomOwnerTable(db_instance=db)
-  room_owner.create()
-  return
-
-##
-## test: drop table
-##
-def test_drop_room_owner_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## drop table
-  ##
-  room_owner = RoomOwnerTable(db_instance=db)
-  room_owner.drop(confirm=True)
-  return
-
-##
-## test: check if table exists
-##
-def test_check_room_owner_exists(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  room_owner = RoomOwnerTable(db)
-  
-  ##
-  ## check if table exists
-  ##
-  if db.is_table_exist(room_owner.get_name()):
-    get_logger().info("{} table exists!".format(room_owner.get_name()))
+  create_table(db, "room_owner")
+  if is_table_exist(db, "room_owner"):
+    get_logger().info("room_owner table exists!")
   else:
-    get_logger().info("{} table not exists!".format(room_owner.get_name()))
-  return
-
-##
-## test: insert record
-##
-def test_insert_room_owner_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
+    get_logger().error("room_owner table not exists!")
+    raise RuntimeError("room_owner table not exists after creation!")
   
   ##
-  ## create table if not exists
-  ##
-  room_owner = RoomOwnerTable(db_instance=db)
-  
-  ##
-  ## insert a sample record
+  ## insert record
   ##
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
@@ -102,123 +51,99 @@ def test_insert_room_owner_record(db:SocialMediaStreamDataBase = None):
     'room_id': '7411524533301119798',
     'owner_user_id': '2700838411446480'
   }
-  
   try:
-    room_owner.insert_record(sample_record)
+    insert_record(db, "room_owner", sample_record)
     get_logger().info("sample record inserted successfully")
   except Exception as e:
     get_logger().error("failed to insert sample record: {}".format(e))
     raise e
 
-##
-## test: delete record
-##
-def test_delete_room_owner_record(db:SocialMediaStreamDataBase = None):
   ##
-  ## check if database instance is valid
+  ## get record
   ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  room_owner = RoomOwnerTable(db_instance=db)
-  
-  ##
-  ## delete a sample record
-  ##
-  sample_record = {
-    'now':dat.fromtimestamp(1740301577026/1000.0),
-    'platform':'douyin',
-    'room_id':'7411524533301119798',
-    'owner_user_id': '2700838411446480'
-  }
-  
   try:
-    room_owner.delete_record(sample_record)
-    get_logger().info("sample record deleted successfully")
+    record = get_record(db, "room_owner", sample_record)
+    if record:
+      get_logger().info("sample room owner record retrieved successfully: \n\t{}".format(record))
+    else:
+      get_logger().warning("sample room owner record not found")
   except Exception as e:
-    get_logger().error("failed to delete sample record: {}".format(e))
+    get_logger().error("failed to retrieve sample room owner record: {}".format(e))
     raise e
-
-##
-## test: update record
-##
-def test_update_room_owner_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
   
   ##
-  ## create table if not exists
+  ## update record
   ##
-  room_owner = RoomOwnerTable(db_instance=db)
-  
-  ##
-  ## update a sample record
-  ##
-  sample_record = {
+  sample_record_update = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'room_id': '7411524533301119798',
     'owner_user_id': '2700838411446480',
-    'webcast_uid': 'MS4wLjMljH3nsEUH1oduoEHICOyLO_mi_GCJdTJEys1TI9mE8kaaf7-cX-5cj3yS5qMPbqI',
-    'web_rid':'827868393976'
+    'city': 'Beijing'
   }
-  
   try:
-    room_owner.update_record(sample_record)
+    update_record(db, "room_owner", sample_record_update)
     get_logger().info("sample record updated successfully")
   except Exception as e:
     get_logger().error("failed to update sample record: {}".format(e))
     raise e
-
-##
-## test: get record
-## 
-def test_get_room_owner_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
   
   ##
-  ## create table if not exist
+  ## get updated record
   ##
-  room_owner = RoomOwnerTable(db)
-  
-  ##
-  ## get a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'owner_user_id': '2700838411446480'
-  }
-  
   try:
-    record = room_owner.get_record(sample_record)
+    set_dict_attr(sample_record_update, "$.city", None)
+    record = get_record(db, "room_owner", sample_record_update)
     if record:
-      get_logger().info("sample room paid live data record retrieved successfully: \n\t{}".format(record))
+      get_logger().info("updated room owner record retrieved successfully: \n\t{}".format(record))
     else:
-      get_logger().warning("sample room paid live data record not found")
+      get_logger().warning("updated room owner record not found")
   except Exception as e:
-    get_logger().error("failed to retrieve sample room paid live data record: {}".format(e))
+    get_logger().error("failed to retrieve updated room owner record: {}".format(e))
     raise e
 
-##
-## >>================================ fans club table test method ===============================>>
-##
+  ##
+  ## delete record
+  ##
+  try:
+    delete_record(db, "room_owner", sample_record)
+    get_logger().info("sample record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample record: {}".format(e))
+    raise e
 
-def test_create_fans_club_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if record is deleted
+  ##
+  try:
+    record = get_record(db, "room_owner", sample_record)
+    if record:
+      get_logger().warning("sample room owner record still exists after deletion: \n\t{}".format(record))
+    else:
+      get_logger().info("sample room owner record not found after deletion")
+  except Exception as e:
+    get_logger().error("failed to verify deletion of sample room owner record: {}".format(e))
+    raise e
+  
+  ##
+  ## drop table
+  ##
+  drop_table(db, "room_owner")
+
+  ##
+  ## check if table is dropped
+  ##
+  if not is_table_exist(db, "room_owner"):
+    get_logger().info("room_owner table dropped successfully")
+  else:
+    get_logger().warning("room_owner table still exists after deletion")
+
+  return
+
+##
+## >>================================ own room flag table test method ===============================>>
+##
+def test_own_room_flag_table(db:SocialMediaStreamDataBase = None):
   ##
   ## check if db is valid
   ##
@@ -229,101 +154,491 @@ def test_create_fans_club_table(db:SocialMediaStreamDataBase = None):
   ##
   ## create table
   ##
-  fans_club = FansClubTable(db_instance=db)
-  fans_club.create()
-  return
-
-##
-## test: drop table
-##
-def test_drop_fans_club_table(db:SocialMediaStreamDataBase = None):
+  create_table(db, "own_room_flag")
+  if is_table_exist(db, "own_room_flag"):
+    get_logger().info("own_room_flag table exists!")
+  else:
+    get_logger().error("own_room_flag table not exists!")
+    raise RuntimeError("own_room_flag table not exists after creation!")
+  
   ##
-  ## check if database instance is valid
+  ## insert record
   ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
+  sample_record = {
+    'start_time': dat.fromtimestamp(1740301577026/1000),
+    'platform': 'douyin',
+    'owner_user_id': '2700838411446480',
+    'exist_flag_index': 1,
+    'exist_flag': True
+  }
+  try:
+    insert_record(db, "own_room_flag", sample_record)
+    get_logger().info("sample record inserted successfully")
+  except Exception as e:
+    get_logger().error("failed to insert sample record: {}".format(e))
+    raise e
+  
+  ##
+  ## get record
+  ##
+  try:
+    record = get_record(db, "own_room_flag", sample_record)
+    if record:
+      get_logger().info("sample own room flag record retrieved successfully: \n\t{}".format(record))
+    else:
+      get_logger().warning("sample own room flag record not found")
+  except Exception as e:
+    get_logger().error("failed to retrieve sample own room flag record: {}".format(e))
+    raise e
+  
+  ##
+  ## update record
+  ##
+  sample_record_update = {
+    'start_time': dat.fromtimestamp(1740301577026/1000),
+    'platform': 'douyin',
+    'owner_user_id': '2700838411446480',
+    'exist_flag_index': 1,
+    'exist_flag': False
+  }
+  try:
+    update_record(db, "own_room_flag", sample_record, sample_record_update)
+    get_logger().info("sample own room flag record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample own room flag record: {}".format(e))
+    raise e
+  
+  ##
+  ## get updated record
+  ##
+  try:
+    record = get_record(db, "own_room_flag", sample_record_update)
+    if record:
+      get_logger().info("updated own room flag record retrieved successfully: \n\t{}".format(record))
+    else:
+      get_logger().warning("updated own room flag record not found")
+  except Exception as e:
+    get_logger().error("failed to retrieve updated own room flag record: {}".format(e))
+    raise e
+  
+  ##
+  ## delete record
+  ##
+  try:
+    delete_record(db, "own_room_flag", sample_record)
+    get_logger().info("sample own room flag record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample own room flag record: {}".format(e))
+    raise e
+  
+  ##
+  ## check if record is deleted
+  ##
+  try:
+    record = get_record(db, "own_room_flag", sample_record)
+    if record:
+      get_logger().warning("sample own room flag record still exists after deletion: \n\t{}".format(record))
+    else:
+      get_logger().info("sample own room flag record not found after deletion")
+  except Exception as e:
+    get_logger().error("failed to verify deletion of sample own room flag record: {}".format(e))
+    raise e
   
   ##
   ## drop table
   ##
-  fans_club = FansClubTable(db_instance=db)
-  fans_club.drop(confirm=True)
-  return
+  drop_table(db, "own_room_flag")
 
-##
-## test: check if table exists
-##
-def test_check_fans_club_exists(db:SocialMediaStreamDataBase = None):
   ##
-  ## check if database instance is valid
+  ## check if table is dropped
   ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  fans_club = FansClubTable(db)
-  
-  ##
-  ## check if table exists
-  ##
-  if db.is_table_exist(fans_club.get_name()):
-    get_logger().info("{} table exists!".format(fans_club.get_name()))
+  if not is_table_exist(db, "own_room_flag"):
+    get_logger().info("own_room_flag table dropped successfully")
   else:
-    get_logger().info("{} table not exists!".format(fans_club.get_name()))
+    get_logger().warning("own_room_flag table still exists after deletion")
+
   return
 
 ##
-## test: insert record
+## >>================================ own room id table test method ===============================>>
 ##
-def test_insert_fans_club_record(db:SocialMediaStreamDataBase = None):
+def test_own_room_id_table(db:SocialMediaStreamDataBase = None):
   ##
-  ## check if database instance is valid
+  ## check if db is valid
   ##
   if db is None:
     get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
     raise ValueError
   
   ##
-  ## create table if not exists
+  ## create table
   ##
-  fans_club = FansClubTable(db_instance=db)
+  create_table(db, "own_room_id")
+  if is_table_exist(db, "own_room_id"):
+    get_logger().info("own_room_id table exists!")
+  else:
+    get_logger().error("own_room_id table not exists!")
+    raise RuntimeError("own_room_id table not exists after creation!")
   
   ##
-  ## insert a sample record
+  ## insert record
   ##
   sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'start_time': dat.fromtimestamp(1740301577026/1000),
     'platform': 'douyin',
     'owner_user_id': '2700838411446480',
-    'anchor_id': '0'
+    'room_id_index': 1,
+    'room_id': '7411524533301119798'
   }
-  
   try:
-    fans_club.insert_record(sample_record)
+    insert_record(db, "own_room_id", sample_record)
+    get_logger().info("sample record inserted successfully")
+  except Exception as e:
+    get_logger().error("failed to insert sample record: {}".format(e))
+    raise e
+  
+  ##
+  ## get record
+  ##
+  try:
+    record = get_record(db, "own_room_id", sample_record)
+    if record:
+      get_logger().info("sample own room id record retrieved successfully: \n\t{}".format(record))
+    else:
+      get_logger().warning("sample own room id record not found")
+  except Exception as e:
+    get_logger().error("failed to retrieve sample own room id record: {}".format(e))
+    raise e
+  
+  ##
+  ## update record
+  ##
+  sample_record_update = {
+    'start_time': dat.fromtimestamp(1740301577026/1000),
+    'platform': 'douyin',
+    'owner_user_id': '2700838411446480',
+    'room_id_index': 0,
+    'room_id': '7411524533301119798'
+  }
+  try:
+    update_record(db, "own_room_id", sample_record, sample_record_update)
+    get_logger().info("sample own room id record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample own room id record: {}".format(e))
+    raise e
+  
+  ##
+  ## get updated record
+  ##
+  try:
+    record = get_record(db, "own_room_id", sample_record_update)
+    if record:
+      get_logger().info("sample own room id record retrieved successfully: \n\t{}".format(record))
+    else:
+      get_logger().warning("sample own room id record not found")
+  except Exception as e:
+    get_logger().error("failed to retrieve sample own room id record: {}".format(e))
+    raise e
+  
+  ##
+  ## delete record
+  ##
+  try:
+    delete_record(db, "own_room_id", sample_record)
+    get_logger().info("sample own room id record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample own room id record: {}".format(e))
+    raise e
+  
+  ##
+  ## check if record is deleted
+  ##
+  try:
+    record = get_record(db, "own_room_id", sample_record)
+    if record:
+      get_logger().warning("sample own room id record still exists after deletion: \n\t{}".format(record))
+    else:
+      get_logger().info("sample own room id record not found after deletion")
+  except Exception as e:
+    get_logger().error("failed to verify deletion of sample own room id record: {}".format(e))
+    raise e
+  
+  ##
+  ## drop table
+  ##
+  drop_table(db, "own_room_id")
+
+  ##
+  ## check if table is dropped
+  ##
+  if not is_table_exist(db, "own_room_id"):
+    get_logger().info("own_room_id table dropped successfully")
+  else:
+    get_logger().warning("own_room_id table still exists after deletion")
+  return
+
+##
+## >>================================ room owner auth info table test method ===============================>>
+##
+def test_room_owner_auth_info_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if db is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table
+  ##
+  create_table(db, "room_owner_auth_info")
+  if is_table_exist(db, "room_owner_auth_info"):
+    get_logger().info("room_owner_auth_info table exists!")
+  else:
+    get_logger().error("room_owner_auth_info table not exists!")
+    raise RuntimeError("room_owner_auth_info table not exists after creation!")
+  
+  ##
+  ## insert record
+  ##
+  sample_record = {
+    'start_time': dat.fromtimestamp(1740301577026/1000),
+    'platform': 'douyin',
+    'owner_user_id': '2700838411446480',
+    'room_id': '7411524533301119798',
+    'exist_authentication_info': True
+  }
+  try:
+    insert_record(db, "room_owner_auth_info", sample_record)
+    get_logger().info("sample record inserted successfully")
+  except Exception as e:
+    get_logger().error("failed to insert sample record: {}".format(e))
+    raise e
+  
+  ##
+  ## get record
+  ##
+  try:
+    record = get_record(db, "room_owner_auth_info", sample_record)
+    if record:
+      get_logger().info("sample room owner auth info record retrieved successfully: \n\t{}".format(record))
+    else:
+      get_logger().warning("sample room owner auth info record not found")
+  except Exception as e:
+    get_logger().error("failed to retrieve sample room owner auth info record: {}".format(e))
+    raise e
+  
+  ##
+  ## update record
+  ##
+  sample_record_update = {
+    'start_time': dat.fromtimestamp(1740301577026/1000),
+    'platform': 'douyin',
+    'owner_user_id': '2700838411446480',
+    'room_id': '7411524533301119798',
+    'exist_authentication_info': False
+  }
+  try:
+    update_record(db, "room_owner_auth_info", sample_record_update)
+    get_logger().info("sample record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample record: {}".format(e))
+    raise e
+  
+  ##
+  ## get updated record
+  ##
+  try:
+    record = get_record(db, "room_owner_auth_info", sample_record)
+    if record:
+      get_logger().info("updated room owner auth info record retrieved successfully: \n\t{}".format(record))
+    else:
+      get_logger().warning("updated room owner auth info record not found")
+  except Exception as e:
+    get_logger().error("failed to retrieve updated room owner auth info record: {}".format(e))
+    raise e
+  
+  ##
+  ## delete record
+  ##
+  try:
+    set_dict_attr(sample_record, "$.exist_authentication_info", None)
+    delete_record(db, "room_owner_auth_info", sample_record)
+    get_logger().info("sample record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample record: {}".format(e))
+    raise e
+  
+  ##
+  ## check if record is deleted
+  ##
+  try:
+    record = get_record(db, "room_owner_auth_info", sample_record)
+    if record:
+      get_logger().warning("sample room owner auth info record still exists after deletion: \n\t{}".format(record))
+    else:
+      get_logger().info("sample room owner auth info record not found after deletion")
+  except Exception as e:
+    get_logger().error("failed to verify deletion of sample room owner auth info record: {}".format(e))
+    raise e
+  
+  ##
+  ## drop table
+  ##
+  drop_table(db, "room_owner_auth_info")
+
+  ##
+  ## check if table is dropped
+  ##
+  if not is_table_exist(db, "room_owner_auth_info"):
+    get_logger().info("room_owner_auth_info table dropped successfully")
+  else:
+    get_logger().warning("room_owner_auth_info table still exists after deletion")
+
+  return
+
+##
+## >>================================ room owner auth level table test method ===============================>>
+##
+def test_room_owner_auth_level_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if db is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table
+  ##
+  create_table(db, "room_owner_auth_level")
+  if is_table_exist(db, "room_owner_auth_level"):
+    get_logger().info("room_owner_auth_level table exists!")
+  else:
+    get_logger().error("room_owner_auth_level table not exists!")
+    raise RuntimeError("room_owner_auth_level table not exists after creation!")
+  
+  ##
+  ## insert record
+  ##
+  sample_record = {
+    'start_time': dat.fromtimestamp(1740301577026/1000),
+    'platform': 'douyin',
+    'owner_user_id': '2700838411446480',
+    'level_index': 1,
+    'level': 5
+  }
+  try:
+    insert_record(db, "room_owner_auth_level", sample_record)
     get_logger().info("sample record inserted successfully")
   except Exception as e:
     get_logger().error("failed to insert sample record: {}".format(e))
     raise e
 
-##
-## test: delete record
-##
-def test_delete_fans_club_record(db:SocialMediaStreamDataBase = None):
   ##
-  ## check if database instance is valid
+  ## get record
+  ##
+  try:
+    record = get_record(db, "room_owner_auth_level", sample_record)
+    if record:
+      get_logger().info("sample room owner auth level record retrieved successfully: \n\t{}".format(record))
+    else:
+      get_logger().warning("sample room owner auth level record not found")
+  except Exception as e:
+    get_logger().error("failed to retrieve sample room owner auth level record: {}".format(e))
+    raise e
+  
+  ##
+  ## update record
+  ##
+  sample_record_update = {
+    'start_time': dat.fromtimestamp(1740301577026/1000),
+    'platform': 'douyin',
+    'owner_user_id': '2700838411446480',
+    'level_index': 1,
+    'level': 10
+  }
+  try:
+    update_record(db, "room_owner_auth_level", sample_record_update)
+    get_logger().info("sample record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample record: {}".format(e))
+    raise e
+  
+  ##
+  ## get updated record
+  ##
+  try:
+    record = get_record(db, "room_owner_auth_level", sample_record)
+    if record:
+      get_logger().info("updated room owner auth level record retrieved successfully: \n\t{}".format(record))
+    else:
+      get_logger().warning("updated room owner auth level record not found")
+  except Exception as e:
+    get_logger().error("failed to retrieve updated room owner auth level record: {}".format(e))
+    raise e
+  
+  ##
+  ## delete record
+  ##
+  try:
+    delete_record(db, "room_owner_auth_level", sample_record)
+    get_logger().info("sample record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample record: {}".format(e))
+    raise e
+  
+  ##
+  ## check if record is deleted
+  ##
+  try:
+    record = get_record(db, "room_owner_auth_level", sample_record)
+    if record:
+      get_logger().warning("sample room owner auth level record still exists after deletion: \n\t{}".format(record))
+    else:
+      get_logger().info("sample room owner auth level record not found after deletion")
+  except Exception as e:
+    get_logger().error("failed to verify deletion of sample rroom owner auth level record: {}".format(e))
+    raise e
+  
+  ##
+  ## drop table
+  ##
+  drop_table(db, "room_owner_auth_level")
+
+  ##
+  ## check if table is dropped
+  ##
+  if not is_table_exist(db, "room_owner_auth_level"):
+    get_logger().info("room_owner_auth_level table dropped successfully")
+  else:
+    get_logger().warning("room_owner_auth_level table still exists after deletion")
+
+  return
+
+##
+## >>================================ fans club table test method ===============================>>
+##
+def test_fans_club_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if db is valid
   ##
   if db is None:
     get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
     raise ValueError
   
   ##
-  ## create table if not exists
+  ## create table
   ##
-  fans_club = FansClubTable(db_instance=db)
+  create_table(db, "fans_club")
+  if is_table_exist(db, "fans_club"):
+    get_logger().info("fans_club table exists!")
+  else:
+    get_logger().error("fans_club table not exists!")
+    raise RuntimeError("fans_club table not exists after creation!")
   
   ##
-  ## delete a sample record
+  ## insert record
   ##
   sample_record = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
@@ -331,142 +646,71 @@ def test_delete_fans_club_record(db:SocialMediaStreamDataBase = None):
     'owner_user_id': '2700838411446480',
     'anchor_id': '0'
   }
-  
   try:
-    fans_club.delete_record(sample_record)
-    get_logger().info("sample record deleted successfully")
+    insert_record(db, "fans_club", sample_record)
+    get_logger().info("sample record inserted successfully")
   except Exception as e:
-    get_logger().error("failed to delete sample record: {}".format(e))
+    get_logger().error("failed to insert sample record: {}".format(e))
     raise e
 
-##
-## test: update record
-##
-def test_update_fans_club_record(db:SocialMediaStreamDataBase = None):
   ##
-  ## check if database instance is valid
+  ## get record
   ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
+  try:
+    record = get_record(db, "fans_club", sample_record)
+    if record:
+      get_logger().info("sample fans club record retrieved successfully: \n\t{}".format(record))
+    else:
+      get_logger().warning("sample fans club record not found")
+  except Exception as e:
+    get_logger().error("failed to retrieve sample fans club record: {}".format(e))
+    raise e
   
   ##
-  ## create table if not exists
+  ## update record
   ##
-  fans_club = FansClubTable(db_instance=db)
-  
-  ##
-  ## update a sample record
-  ##
-  sample_record = {
+  sample_record_update = {
     'now': dat.fromtimestamp(1740301577026/1000.0),
     'platform': 'douyin',
     'owner_user_id': '2700838411446480',
     'anchor_id': '0',
     'badge_type': 0
   }
-  
   try:
-    fans_club.update_record(sample_record)
+    update_record(db, "fans_club", sample_record_update)
     get_logger().info("sample record updated successfully")
   except Exception as e:
     get_logger().error("failed to update sample record: {}".format(e))
     raise e
-
-##
-## test: get record
-## 
-def test_get_fans_club_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
   
   ##
-  ## create table if not exist
+  ## get updated record
   ##
-  fans_club = FansClubTable(db)
-  
-  ##
-  ## get a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'owner_user_id': '2700838411446480',
-    'anchor_id': '0'
-  }
-  
   try:
-    record = fans_club.get_record(sample_record)
+    record = get_record(db, "fans_club", sample_record)
     if record:
-      get_logger().info("sample record retrieved successfully: \n\t{}".format(record))
+      get_logger().info("updated fans club record retrieved successfully: \n\t{}".format(record))
     else:
-      get_logger().warning("sample record not found")
+      get_logger().warning("updated fans club record not found")
   except Exception as e:
-    get_logger().error("failed to retrieve sample record: {}".format(e))
+    get_logger().error("failed to retrieve updated fans club record: {}".format(e))
     raise e
+  
+  ##
+  ## delete record
+  ##
+  try:
+    delete_record(db, "fans_club", sample_record)
+    get_logger().info("sample record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample record: {}".format(e))
+    raise e
+
+  return
 
 ##
 ## >>================================ fans club available gift id table test method ===============================>>
 ##
-
-def test_create_fans_club_available_gift_id_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if db is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table
-  ##
-  fans_club_available_gift_id = FansClubAvailableGiftIdTable(db_instance=db)
-  fans_club_available_gift_id.create()
-  return
-
-##
-## test: drop table
-##
-def test_drop_fans_club_available_gift_id_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## drop table
-  ##
-  fans_club_available_gift_id = FansClubAvailableGiftIdTable(db_instance=db)
-  fans_club_available_gift_id.drop(confirm=True)
-  return
-
-##
-## test: check if table exists
-##
-def test_check_fans_club_available_gift_id_exists(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  fans_club_available_gift_id = FansClubAvailableGiftIdTable(db)
-  
-  ##
-  ## check if table exists
-  ##
-  if db.is_table_exist(fans_club_available_gift_id.get_name()):
-    get_logger().info("{} table exists!".format(fans_club_available_gift_id.get_name()))
-  else:
-    get_logger().info("{} table not exists!".format(fans_club_available_gift_id.get_name()))
-  return
 
 ##
 ## test: insert record
@@ -574,101 +818,8 @@ def test_update_fans_club_available_gift_id_record(db:SocialMediaStreamDataBase 
     raise e
 
 ##
-## test: get record
-## 
-def test_get_fans_club_available_gift_id_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exist
-  ##
-  fans_club_available_gift_id = FansClubAvailableGiftIdTable(db)
-  
-  ##
-  ## get a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'owner_user_id': '2700838411446480',
-    'anchor_id': '0',
-    'available_gift_index': 1
-  }
-  
-  try:
-    record = fans_club_available_gift_id.get_record(sample_record)
-    if record:
-      get_logger().info("sample record retrieved successfully: \n\t{}".format(record))
-    else:
-      get_logger().warning("sample record not found")
-  except Exception as e:
-    get_logger().error("failed to retrieve sample record: {}".format(e))
-    raise e
-
-##
 ## >>================================ fans club badge icon table test method ===============================>>
 ##
-
-def test_create_fans_club_badge_icon_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if db is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table
-  ##
-  fans_club_badge_icon = FansClubBadgeIconTable(db_instance=db)
-  fans_club_badge_icon.create()
-  return
-
-##
-## test: drop table
-##
-def test_drop_fans_club_badge_icon_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## drop table
-  ##
-  fans_club_badge_icon = FansClubBadgeIconTable(db_instance=db)
-  fans_club_badge_icon.drop(confirm=True)
-  return
-
-##
-## test: check if table exists
-##
-def test_check_fans_club_badge_icon_exists(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  fans_club_badge_icon = FansClubBadgeIconTable(db)
-  
-  ##
-  ## check if table exists
-  ##
-  if db.is_table_exist(fans_club_badge_icon.get_name()):
-    get_logger().info("{} table exists!".format(fans_club_badge_icon.get_name()))
-  else:
-    get_logger().info("{} table not exists!".format(fans_club_badge_icon.get_name()))
-  return
 
 ##
 ## test: insert record
@@ -774,100 +925,8 @@ def test_update_fans_club_badge_icon_record(db:SocialMediaStreamDataBase = None)
     raise e
 
 ##
-## test: get record
-## 
-def test_get_fans_club_badge_icon_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exist
-  ##
-  fans_club_badge_icon = FansClubBadgeIconTable(db)
-  
-  ##
-  ## get a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'owner_user_id': '2700838411446480',
-    'icon_index': 1
-  }
-  
-  try:
-    record = fans_club_badge_icon.get_record(sample_record)
-    if record:
-      get_logger().info("sample record retrieved successfully: \n\t{}".format(record))
-    else:
-      get_logger().warning("sample record not found")
-  except Exception as e:
-    get_logger().error("failed to retrieve sample record: {}".format(e))
-    raise e
-
-##
 ## >>================================ room owner user attr table test method ===============================>>
 ##
-
-def test_create_room_owner_user_attr_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if db is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table
-  ##
-  room_owner_user_attr = RoomOwnerUserAttrTable(db_instance=db)
-  room_owner_user_attr.create()
-  return
-
-##
-## test: drop table
-##
-def test_drop_room_owner_user_attr_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## drop table
-  ##
-  room_owner_user_attr = RoomOwnerUserAttrTable(db_instance=db)
-  room_owner_user_attr.drop(confirm=True)
-  return
-
-##
-## test: check if table exists
-##
-def test_check_room_owner_user_attr_exists(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  room_owner_user_attr = RoomOwnerUserAttrTable(db)
-  
-  ##
-  ## check if table exists
-  ##
-  if db.is_table_exist(room_owner_user_attr.get_name()):
-    get_logger().info("{} table exists!".format(room_owner_user_attr.get_name()))
-  else:
-    get_logger().info("{} table not exists!".format(room_owner_user_attr.get_name()))
-  return
 
 ##
 ## test: insert record
@@ -971,99 +1030,8 @@ def test_update_room_owner_user_attr_record(db:SocialMediaStreamDataBase = None)
     raise e
 
 ##
-## test: get record
-## 
-def test_get_room_owner_user_attr_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exist
-  ##
-  room_owner_user_attr = RoomOwnerUserAttrTable(db)
-  
-  ##
-  ## get a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'owner_user_id': '2700838411446480',
-    'room_id': '7411524533301119798'
-  }
-  
-  try:
-    record = room_owner_user_attr.get_record(sample_record)
-    if record:
-      get_logger().info("sample record retrieved successfully: \n\t{}".format(record))
-    else:
-      get_logger().warning("sample record not found")
-  except Exception as e:
-    get_logger().error("failed to retrieve sample record: {}".format(e))
-    raise e
-
-##
 ## >>================================ room admin privilege table test method ===============================>>
 ##
-
-def test_create_room_admin_privilege_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if db is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table
-  ##
-  room_admin_privilege = RoomAdminPrivilegeTable(db_instance=db)
-  room_admin_privilege.create()
-  return
-
-##
-## test: drop table
-##
-def test_drop_room_admin_privilege_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## drop table
-  ##
-  room_admin_privilege = RoomAdminPrivilegeTable(db_instance=db)
-  room_admin_privilege.drop(confirm=True)
-  return
-
-##
-## test: check if table exists
-##
-def test_check_room_admin_privilege_exists(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  room_admin_privilege = RoomAdminPrivilegeTable(db)
-  
-  ##
-  ## check if table exists
-  ##
-  if db.is_table_exist(room_admin_privilege.get_name()):
-    get_logger().info("{} table exists!".format(room_admin_privilege.get_name()))
-  else:
-    get_logger().info("{} table not exists!".format(room_admin_privilege.get_name()))
-  return
 
 ##
 ## test: insert record
@@ -1168,100 +1136,8 @@ def test_update_room_admin_privilege_record(db:SocialMediaStreamDataBase = None)
     raise e
 
 ##
-## test: get record
-## 
-def test_get_room_admin_privilege_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exist
-  ##
-  room_admin_privilege = RoomAdminPrivilegeTable(db)
-  
-  ##
-  ## get a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'owner_user_id': '2700838411446480',
-    'room_id': '7411524533301119798',
-    'admin_privilege_index': 1
-  }
-  
-  try:
-    record = room_admin_privilege.get_record(sample_record)
-    if record:
-      get_logger().info("sample record retrieved successfully: \n\t{}".format(record))
-    else:
-      get_logger().warning("sample record not found")
-  except Exception as e:
-    get_logger().error("failed to retrieve sample record: {}".format(e))
-    raise e
-
-##
 ## >>================================ user table test method ===============================>>
 ##
-
-def test_create_user_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if db is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table
-  ##
-  user = UserTable(db_instance=db)
-  user.create()
-  return
-
-##
-## test: drop table
-##
-def test_drop_user_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## drop table
-  ##
-  user = UserTable(db_instance=db)
-  user.drop(confirm=True)
-  return
-
-##
-## test: check if table exists
-##
-def test_check_user_exists(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  user = UserTable(db)
-  
-  ##
-  ## check if table exists
-  ##
-  if db.is_table_exist(user.get_name()):
-    get_logger().info("{} table exists!".format(user.get_name()))
-  else:
-    get_logger().info("{} table not exists!".format(user.get_name()))
-  return
 
 ##
 ## test: insert record
@@ -1355,71 +1231,40 @@ def test_update_user_record(db:SocialMediaStreamDataBase = None):
     raise e
 
 ##
-## test: get record
-## 
-def test_get_user_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exist
-  ##
-  user = UserTable(db)
-  
-  ##
-  ## get a sample record
-  ##
-  sample_record = {
-    'id': '2700838411446480'
-  }
-  
-  try:
-    record = user.get_record(sample_record)
-    if record:
-      get_logger().info("sample record retrieved successfully: \n\t{}".format(record))
-    else:
-      get_logger().warning("sample record not found")
-  except Exception as e:
-    get_logger().error("failed to retrieve sample record: {}".format(e))
-    raise e
-
-##
 ## >>================================ main method ===============================>>
 ##
 if __name__ == "__main__":
-  db = SocialMediaStreamDataBase(host='192.168.1.12', user='wangyan', passwd='wuyu1998', database='social_media_stream_downloader')
+  db = SocialMediaStreamDataBase(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
 
   ##
   ## room owner table
   ##
-  test_create_room_owner_table(db)
-  test_check_room_owner_exists(db)
-  test_insert_room_owner_record(db)
-  test_get_room_owner_record(db)
-  test_update_room_owner_record(db)
-  test_get_room_owner_record(db)
-  test_delete_room_owner_record(db)
-  test_get_room_owner_record(db)
-  test_drop_room_owner_table(db)
-  test_check_room_owner_exists(db)
+  test_room_owner_table(db)
+
+  ##
+  ## own room flag table
+  ## 
+  test_own_room_flag_table(db)
+
+  ##
+  ## own room id table
+  ##
+  test_own_room_id_table(db)
+
+  ##
+  ## room owner auth info table
+  ##
+  test_room_owner_auth_info_table(db)
+
+  ##
+  ## room owner auth level table
+  ##
+  test_room_owner_auth_level_table(db)
 
   ##
   ## fans club table
   ##
-  test_create_fans_club_table(db)
-  test_check_fans_club_exists(db)
-  test_insert_fans_club_record(db)
-  test_get_fans_club_record(db)
-  test_update_fans_club_record(db)
-  test_get_fans_club_record(db)
-  test_delete_fans_club_record(db)
-  test_get_fans_club_record(db)
-  test_drop_fans_club_table(db)
-  test_check_fans_club_exists(db)
+  test_fans_club_table(db)
 
   ##
   ## fans club available gift id table
@@ -1490,3 +1335,17 @@ if __name__ == "__main__":
   test_get_user_record(db)
   test_drop_user_table(db)
   test_check_user_exists(db)
+
+  ##
+  ## room owner author stats table
+  ##
+  create_table(db, "room_owner_author_stats")
+  is_table_exist(db, "room_owner_author_stats")
+  # test_insert_room_owner_author_stats_record(db)
+  # test_get_room_owner_author_stats_record(db)
+  # test_update_room_owner_author_stats_record(db)
+  # test_get_room_owner_author_stats_record(db)
+  # test_delete_room_owner_author_stats_record(db)
+  # test_get_room_owner_author_stats_record(db)
+  drop_table(db, "room_owner_author_stats")
+  is_table_exist(db, "room_owner_author_stats")

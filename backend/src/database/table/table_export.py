@@ -5146,23 +5146,25 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   if room_link_mic_tuple:
     set_dict_attr(room, "$.link_mic.battle_scores", room_link_mic_battle_score_list, force=True)
 
-    set_dict_attr(room, "$.link_mic.battle_settings.activity_mode", get_dict_attr(room_link_mic_battle_setting_tuple, "$.activity_mode"),                           force=True)
-    set_dict_attr(room, "$.link_mic.battle_settings.battle_id",     int(get_dict_attr(room_link_mic_battle_setting_tuple, "$.battle_id")),                          force=True)
-    set_dict_attr(room, "$.link_mic.battle_settings.channel_id",    int(get_dict_attr(room_link_mic_battle_setting_tuple, "$.channel_id")),                         force=True)
-    set_dict_attr(room, "$.link_mic.battle_settings.duration",      get_dict_attr(room_link_mic_battle_setting_tuple, "$.duration"),                                force=True)
-    set_dict_attr(room, "$.link_mic.battle_settings.finished",      get_dict_attr(room_link_mic_battle_setting_tuple, "$.finished"),                                force=True)
-    set_dict_attr(room, "$.link_mic.battle_settings.match_type",    get_dict_attr(room_link_mic_battle_setting_tuple, "$.match_type"),                              force=True)
-    set_dict_attr(room, "$.link_mic.battle_settings.play_mode",     get_dict_attr(room_link_mic_battle_setting_tuple, "$.play_mode"),                               force=True)
-    set_dict_attr(room, "$.link_mic.battle_settings.start_time",    floor(get_dict_attr(room_link_mic_battle_setting_tuple, "$.start_time").timestamp()),           force=True)
-    set_dict_attr(room, "$.link_mic.battle_settings.start_time_ms", floor(get_dict_attr(room_link_mic_battle_setting_tuple, "$.start_time_ms").timestamp() * 1000), force=True)
-    set_dict_attr(room, "$.link_mic.battle_settings.team_mode",     get_dict_attr(room_link_mic_battle_setting_tuple, "$.team_mode"),                               force=True)
-    set_dict_attr(room, "$.link_mic.battle_settings.theme",         get_dict_attr(room_link_mic_battle_setting_tuple, "$.theme"),                                   force=True)
+    if room_link_mic_battle_setting_tuple:
+      set_dict_attr(room, "$.link_mic.battle_settings.activity_mode", get_dict_attr(room_link_mic_battle_setting_tuple, "$.activity_mode"),                           force=True)
+      set_dict_attr(room, "$.link_mic.battle_settings.battle_id",     int(get_dict_attr(room_link_mic_battle_setting_tuple, "$.battle_id")),                          force=True)
+      set_dict_attr(room, "$.link_mic.battle_settings.channel_id",    int(get_dict_attr(room_link_mic_battle_setting_tuple, "$.channel_id")),                         force=True)
+      set_dict_attr(room, "$.link_mic.battle_settings.duration",      get_dict_attr(room_link_mic_battle_setting_tuple, "$.duration"),                                force=True)
+      set_dict_attr(room, "$.link_mic.battle_settings.finished",      get_dict_attr(room_link_mic_battle_setting_tuple, "$.finished"),                                force=True)
+      set_dict_attr(room, "$.link_mic.battle_settings.match_type",    get_dict_attr(room_link_mic_battle_setting_tuple, "$.match_type"),                              force=True)
+      set_dict_attr(room, "$.link_mic.battle_settings.play_mode",     get_dict_attr(room_link_mic_battle_setting_tuple, "$.play_mode"),                               force=True)
+      set_dict_attr(room, "$.link_mic.battle_settings.start_time",    floor(get_dict_attr(room_link_mic_battle_setting_tuple, "$.start_time").timestamp()),           force=True)
+      set_dict_attr(room, "$.link_mic.battle_settings.start_time_ms", floor(get_dict_attr(room_link_mic_battle_setting_tuple, "$.start_time_ms").timestamp() * 1000), force=True)
+      set_dict_attr(room, "$.link_mic.battle_settings.team_mode",     get_dict_attr(room_link_mic_battle_setting_tuple, "$.team_mode"),                               force=True)
+      set_dict_attr(room, "$.link_mic.battle_settings.theme",         get_dict_attr(room_link_mic_battle_setting_tuple, "$.theme"),                                   force=True)
     
     set_dict_attr(room, "$.link_mic.channel_id", get_dict_attr(room_link_mic_tuple, "$.channel_id"), force=True)
     
-    set_dict_attr(room, "$.link_mic.channel_info.dimension", get_dict_attr(room_link_mic_channel_info_tuple, "$.dimension"), force=True)
-    set_dict_attr(room, "$.link_mic.channel_info.layout",    get_dict_attr(room_link_mic_channel_info_tuple, "$.layout"),    force=True)
-    set_dict_attr(room, "$.link_mic.channel_info.vendor",    get_dict_attr(room_link_mic_channel_info_tuple, "$.vendor"),    force=True)
+    if room_link_mic_channel_info_tuple:
+      set_dict_attr(room, "$.link_mic.channel_info.dimension", get_dict_attr(room_link_mic_channel_info_tuple, "$.dimension"), force=True)
+      set_dict_attr(room, "$.link_mic.channel_info.layout",    get_dict_attr(room_link_mic_channel_info_tuple, "$.layout"),    force=True)
+      set_dict_attr(room, "$.link_mic.channel_info.vendor",    get_dict_attr(room_link_mic_channel_info_tuple, "$.vendor"),    force=True)
     
     set_dict_attr(room, "$.link_mic.linkmic_anchor_count", get_dict_attr(room_link_mic_tuple, "$.linkmic_anchor_count"), force=True)
     set_dict_attr(room, "$.link_mic.rival_anchor_id",      int(get_dict_attr(room_link_mic_tuple, "$.rival_anchor_id")), force=True)
@@ -5986,7 +5988,7 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   set_dict_attr(room, "$.stats.user_count_composition.other",        room_record_tuple.get('user_count_composition_other', 0),        force=True)
   set_dict_attr(room, "$.stats.user_count_composition.video_detail", room_record_tuple.get('user_count_composition_video_detail', 0), force=True)
   
-  set_dict_attr(room, "$.stats.user_count_str",                      str(room_record_tuple.get('user_count_str', '')),                     force=True)
+  set_dict_attr(room, "$.stats.user_count_str",                      str(room_record_tuple.get('user_count_str', '')),                force=True)
   set_dict_attr(room, "$.stats.watermelon",                          room_record_tuple.get('watermelon', 0),                          force=True)
   set_dict_attr(room, "$.stats.welfare_donation_amount",             room_record_tuple.get('welfare_donation_amount', 0),             force=True)
 
