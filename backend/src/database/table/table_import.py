@@ -4604,30 +4604,31 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       ## <=========================== authentication_badge_v2 ==================================>
       ##
       authentication_badge_v2 = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2")
-      label                   = "authentication_badge_v2"
-      picture_index           = 0
-      avg_color               = get_dict_attr(authentication_badge_v2, "$.avg_color")
-      height                  = get_dict_attr(authentication_badge_v2, "$.height")
-      image_type              = get_dict_attr(authentication_badge_v2, "$.image_type")
-      is_animated             = get_dict_attr(authentication_badge_v2, "$.is_animated")
-      open_web_url            = get_dict_attr(authentication_badge_v2, "$.open_web_url")
-      uri                     = get_dict_attr(authentication_badge_v2, "$.uri")
-      width                   = get_dict_attr(authentication_badge_v2, "$.width")
-      
-      set_dict_attr(picture_table_tuple, "$.start_time",    dat.fromtimestamp(start_time))
-      set_dict_attr(picture_table_tuple, "$.platform",      DOUYIN_PLATFORM)
-      set_dict_attr(picture_table_tuple, "$.room_id",       str(room_id))
-      set_dict_attr(picture_table_tuple, "$.label",         label)
-      set_dict_attr(picture_table_tuple, "$.avg_color",     avg_color)
-      set_dict_attr(picture_table_tuple, "$.height",        height)
-      set_dict_attr(picture_table_tuple, "$.image_type",    image_type)
-      set_dict_attr(picture_table_tuple, "$.is_animated",   is_animated)
-      set_dict_attr(picture_table_tuple, "$.open_web_url",  open_web_url)
-      set_dict_attr(picture_table_tuple, "$.uri",           uri)
-      set_dict_attr(picture_table_tuple, "$.width",         width)
-      set_dict_attr(picture_table_tuple, "$.picture_index", picture_index)
-      if uri is not None:
-        picture_table.insert_record(picture_table_tuple, on_duplicate='ignore')
+      if authentication_badge_v2:
+        label                   = "authentication_badge_v2"
+        picture_index           = 0
+        avg_color               = get_dict_attr(authentication_badge_v2, "$.avg_color")
+        height                  = get_dict_attr(authentication_badge_v2, "$.height")
+        image_type              = get_dict_attr(authentication_badge_v2, "$.image_type")
+        is_animated             = get_dict_attr(authentication_badge_v2, "$.is_animated")
+        open_web_url            = get_dict_attr(authentication_badge_v2, "$.open_web_url")
+        uri                     = get_dict_attr(authentication_badge_v2, "$.uri")
+        width                   = get_dict_attr(authentication_badge_v2, "$.width")
+        
+        set_dict_attr(picture_table_tuple, "$.start_time",    dat.fromtimestamp(start_time))
+        set_dict_attr(picture_table_tuple, "$.platform",      DOUYIN_PLATFORM)
+        set_dict_attr(picture_table_tuple, "$.room_id",       str(room_id))
+        set_dict_attr(picture_table_tuple, "$.label",         label)
+        set_dict_attr(picture_table_tuple, "$.avg_color",     avg_color)
+        set_dict_attr(picture_table_tuple, "$.height",        height)
+        set_dict_attr(picture_table_tuple, "$.image_type",    image_type)
+        set_dict_attr(picture_table_tuple, "$.is_animated",   is_animated)
+        set_dict_attr(picture_table_tuple, "$.open_web_url",  open_web_url)
+        set_dict_attr(picture_table_tuple, "$.uri",           uri)
+        set_dict_attr(picture_table_tuple, "$.width",         width)
+        set_dict_attr(picture_table_tuple, "$.picture_index", picture_index)
+        if uri is not None:
+          picture_table.insert_record(picture_table_tuple, on_duplicate='ignore')
 
     ##
     ## <=========================== avatar_large ==================================>
@@ -4988,19 +4989,21 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       ##
       ## <=========================== authentication_badge_v2 ==================================>
       ##
-      uri                 = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2.uri")
-      label               = 'authentication_badge_v2'
-      flex_setting_list   = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2.flex_setting_list")
-      if len(flex_setting_list) != 0:
-        set_dict_attr(picture_flex_setting_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
-        set_dict_attr(picture_flex_setting_table_tuple, "$.platform",     DOUYIN_PLATFORM)
-        set_dict_attr(picture_flex_setting_table_tuple, "$.room_id",      str(room_id))
-        set_dict_attr(picture_flex_setting_table_tuple, "$.label",        label)
-        set_dict_attr(picture_flex_setting_table_tuple, "$.uri",          uri)
-        for flex_setting_index in range(0, len(flex_setting_list)):
-          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting_index", flex_setting_index)
-          set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",       flex_setting_list[flex_setting_index])
-          picture_flex_setting_table.insert_record(picture_flex_setting_table_tuple, on_duplicate='ignore')
+      authentication_badge_v2 = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2")
+      if authentication_badge_v2:
+        uri                 = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2.uri")
+        label               = 'authentication_badge_v2'
+        flex_setting_list   = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2.flex_setting_list")
+        if len(flex_setting_list) != 0:
+          set_dict_attr(picture_flex_setting_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
+          set_dict_attr(picture_flex_setting_table_tuple, "$.platform",     DOUYIN_PLATFORM)
+          set_dict_attr(picture_flex_setting_table_tuple, "$.room_id",      str(room_id))
+          set_dict_attr(picture_flex_setting_table_tuple, "$.label",        label)
+          set_dict_attr(picture_flex_setting_table_tuple, "$.uri",          uri)
+          for flex_setting_index in range(0, len(flex_setting_list)):
+            set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting_index", flex_setting_index)
+            set_dict_attr(picture_flex_setting_table_tuple, "$.flex_setting",       flex_setting_list[flex_setting_index])
+            picture_flex_setting_table.insert_record(picture_flex_setting_table_tuple, on_duplicate='ignore')
 
     ##
     ## <=========================== avatar_large ==================================>
@@ -5311,19 +5314,21 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       ##
       ## <=========================== authentication_badge_v2 ==================================>
       ##
-      uri                 = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2.uri")
-      label               = 'authentication_badge_v2'
-      text_setting_list   = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2.text_setting_list")
-      if len(text_setting_list) != 0:
-        set_dict_attr(picture_text_setting_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
-        set_dict_attr(picture_text_setting_table_tuple, "$.platform",     DOUYIN_PLATFORM)
-        set_dict_attr(picture_text_setting_table_tuple, "$.room_id",      str(room_id))
-        set_dict_attr(picture_text_setting_table_tuple, "$.label",        label)
-        set_dict_attr(picture_text_setting_table_tuple, "$.uri",          uri)
-        for text_setting_index in range(0, len(text_setting_list)):
-          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting_index",      text_setting_index)
-          set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",            text_setting_list[text_setting_index])
-          picture_flex_setting_table.insert_record(picture_text_setting_table_tuple, on_duplicate='ignore')
+      authentication_badge_v2 = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2")
+      if authentication_badge_v2:
+        uri                 = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2.uri")
+        label               = 'authentication_badge_v2'
+        text_setting_list   = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2.text_setting_list")
+        if len(text_setting_list) != 0:
+          set_dict_attr(picture_text_setting_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
+          set_dict_attr(picture_text_setting_table_tuple, "$.platform",     DOUYIN_PLATFORM)
+          set_dict_attr(picture_text_setting_table_tuple, "$.room_id",      str(room_id))
+          set_dict_attr(picture_text_setting_table_tuple, "$.label",        label)
+          set_dict_attr(picture_text_setting_table_tuple, "$.uri",          uri)
+          for text_setting_index in range(0, len(text_setting_list)):
+            set_dict_attr(picture_text_setting_table_tuple, "$.text_setting_index",      text_setting_index)
+            set_dict_attr(picture_text_setting_table_tuple, "$.text_setting",            text_setting_list[text_setting_index])
+            picture_flex_setting_table.insert_record(picture_text_setting_table_tuple, on_duplicate='ignore')
 
     ##
     ## <=========================== avatar_large ==================================>
@@ -5684,21 +5689,23 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       ##
       ## <=========================== authentication_badge_v2 ==================================>
       ##
-      uri                 = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2.uri")
-      label               = "authentication_badge_v2"
-      url_list   = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2.url_list")
-      if len(url_list) != 0:
-        set_dict_attr(picture_url_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
-        set_dict_attr(picture_url_table_tuple, "$.platform",     DOUYIN_PLATFORM)
-        set_dict_attr(picture_url_table_tuple, "$.room_id",      str(room_id))
-        set_dict_attr(picture_url_table_tuple, "$.label",        label)
-        set_dict_attr(picture_url_table_tuple, "$.uri_index",    0)
-        set_dict_attr(picture_url_table_tuple, "$.uri",          uri)
-        for url_index in range(0, len(url_list)):
-          set_dict_attr(picture_url_table_tuple, "$.url_index",  url_index)
-          set_dict_attr(picture_url_table_tuple, "$.url",        url_list[url_index])
-          if uri is not None:
-            picture_url_table.insert_record(picture_url_table_tuple, on_duplicate='ignore')
+      authentication_badge_v2 = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2")
+      if authentication_badge_v2:
+        uri                 = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2.uri")
+        label               = "authentication_badge_v2"
+        url_list   = get_dict_attr(data, "$.data.room.owner.authentication_info.authentication_badge_v2.url_list")
+        if len(url_list) != 0:
+          set_dict_attr(picture_url_table_tuple, "$.start_time",   dat.fromtimestamp(start_time))
+          set_dict_attr(picture_url_table_tuple, "$.platform",     DOUYIN_PLATFORM)
+          set_dict_attr(picture_url_table_tuple, "$.room_id",      str(room_id))
+          set_dict_attr(picture_url_table_tuple, "$.label",        label)
+          set_dict_attr(picture_url_table_tuple, "$.uri_index",    0)
+          set_dict_attr(picture_url_table_tuple, "$.uri",          uri)
+          for url_index in range(0, len(url_list)):
+            set_dict_attr(picture_url_table_tuple, "$.url_index",  url_index)
+            set_dict_attr(picture_url_table_tuple, "$.url",        url_list[url_index])
+            if uri is not None:
+              picture_url_table.insert_record(picture_url_table_tuple, on_duplicate='ignore')
 
     ##
     ## <=========================== avatar_large ==================================>

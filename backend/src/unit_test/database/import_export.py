@@ -63,12 +63,12 @@ def test_export_live_info_to_yml(db: SocialMediaStreamDataBase, output_path: str
   export_live_info_to_yml(db, living_data, output_path)
 
 if __name__ == "__main__":
-  db = SocialMediaStreamDataBase(host='localhost', user='admin', passwd='admin', database='social_media_stream_downloader')
+  db = SocialMediaStreamDataBase(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
   
   ##
   ## text single file
   ##
-  # file = '西瓜皮_2.yml'
+  # file = '一汽_大众菏泽众志新能源.yml'
   # identifier = test_import_live_info_to_database(db, f'./config/build/douyin/live/{file}')
   # export_live_info_to_yml(db, identifier, f"./config/export/{file}")
 
@@ -77,7 +77,7 @@ if __name__ == "__main__":
   ## config/build/douyin/live
   ##
   input_path_list = glob.glob(os.path.join('./config/build/douyin/live', "*.yml"))
-  for input_path in input_path_list:
+  for input_path in input_path_list[::-1]:
     ##
     ## 获取文件名（不含扩展名）作为缓存变量名
     ##

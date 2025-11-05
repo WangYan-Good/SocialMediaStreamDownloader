@@ -21,7 +21,7 @@ def test_search_sec_user_id(live_share_url:str):
           FROM share_url
           WHERE live_share_url = "{}";
         '''.format(live_share_url)
-  db = SocialMediaStreamDataBase(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
+  db = SocialMediaStreamDataBase(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
   cursor = db.get_db_connector().cursor()
   get_logger().debug(sql)
   cursor.execute(sql)
@@ -37,7 +37,7 @@ def test_insert_owner_into_liked_table(owner_user_id:str, platform:str):
     sql = '''
             insert into favorite_owner (owner_user_id, platform) values ("{}", "{}");
           '''.format(owner_user_id, platform)
-    db = SocialMediaStreamDataBase(host='192.168.1.9', user='wangyan', passwd='wuyu1998', database='social_media_stream_downloader')
+    db = SocialMediaStreamDataBase(host='127.0.0.1', user='wangyan', passwd='wuyu1998', database='test_social_media_stream_downloader')
     connector = db.get_db_connector()
     cursor = connector.cursor()
     cursor.execute(sql)
@@ -58,7 +58,7 @@ def test_search_nickname_from_liked_table(owner_user_id:str):
 ## test: check if live_record table exists
 ##
 def test_check_live_record_table_exists():
-  db = SocialMediaStreamDataBase(host='192.168.1.12', user='wangyan', passwd='wuyu1998', database='social_media_stream_downloader')
+  db = SocialMediaStreamDataBase(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
   if db.is_table_exist("live_record"):
     get_logger().info("live_record table exists!")
   else:

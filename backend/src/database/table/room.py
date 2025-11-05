@@ -3345,7 +3345,7 @@ class RoomTempStateStrategyMapTable(SocialMediaStreamDataTable):
 ## | user_count_composition_my_follow    | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.user_count_composition.my_follow"   | 我的关注              |
 ## | user_count_composition_other        | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.user_count_composition.other"       | 其他                 |
 ## | user_count_composition_video_detail | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.user_count_composition.video_detail"| 视频详情              |
-## | user_count_str                      | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.user_count_str"                     | 用户数量字符串        |
+## | user_count_str                      | varchar(20)       |      |     | NULL    |       | "$.data.room.stats.user_count_str"                     | 用户数量字符串        |
 ## | watermelon                          | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.watermelon"                         | 西瓜                 |
 ## | welfare_donation_amount             | unsigned bigint   |      |     | NULL    |       | "$.data.room.stats.welfare_donation_amount"            | 福利捐赠金额          |
 ## | status                              | unsigned tinyint  |      |     | NULL    |       | "$.data.room.status"                                   | 直播状态             | 
@@ -3451,7 +3451,7 @@ class RoomRecordTable(SocialMediaStreamDataTable):
                                      user_count_composition_my_follow     bigint               DEFAULT NULL,
                                      user_count_composition_other         bigint               DEFAULT NULL,
                                      user_count_composition_video_detail  bigint               DEFAULT NULL,
-                                     user_count_str                       bigint               DEFAULT NULL,
+                                     user_count_str                       varchar(20)          DEFAULT NULL,
                                      watermelon                           bigint               DEFAULT NULL,
                                      welfare_donation_amount              bigint               DEFAULT NULL,
                                      status                               tinyint              DEFAULT NULL,
