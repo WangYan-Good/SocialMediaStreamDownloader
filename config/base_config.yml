@@ -106,6 +106,6 @@ douyin_base_config_save_path: null
 database_enable: false
 database_ip: "localhost"
 database_port: 3306
-database_name: social_media_stream_downloader
+database_name: test_social_media_stream_downloader
 database_user: "admin"
 database_password: "admin"

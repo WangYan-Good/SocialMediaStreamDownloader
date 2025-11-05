@@ -32,6 +32,8 @@ from backend.src.database.table.room                                  import Roo
                                                                              RoomTempStateConditionMapTable, \
                                                                              RoomTempStateGlobalConditionIgnoreStrategyTypeTable, \
                                                                              RoomTempStateGlobalConditionTable, \
+                                                                             RoomTempStateStrategyTable, \
+                                                                             RoomTempStateStrategyMapTable, \
                                                                              RoomRecordTable, \
                                                                              RoomTagTable, \
                                                                              RoomTopFansTable, \
@@ -3857,6 +3859,353 @@ def test_get_room_temp_state_global_condition_record(db:SocialMediaStreamDataBas
     raise e
 
 ##
+## >>================================ room temp state strategy test method ===============================>>
+##
+def test_create_room_temp_state_strategy_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if db is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table
+  ##
+  room_temp_state_strategy = RoomTempStateStrategyTable(db_instance=db)
+  room_temp_state_strategy.create()
+  return
+
+def test_drop_room_temp_state_strategy_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## drop table
+  ##
+  room_temp_state_strategy = RoomTempStateStrategyTable(db_instance=db)
+  room_temp_state_strategy.drop(confirm=True)
+  return
+
+def test_check_room_temp_state_strategy_exists(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  room_temp_state_strategy = RoomTempStateStrategyTable(db)
+  
+  ##
+  ## check if table exists
+  ##
+  if db.is_table_exist(room_temp_state_strategy.get_name()):
+    get_logger().info("{} table exists!".format(room_temp_state_strategy.get_name()))
+  else:
+    get_logger().info("{} table not exists!".format(room_temp_state_strategy.get_name()))
+  return
+
+def test_insert_room_temp_state_strategy_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_temp_state_strategy = RoomTempStateStrategyTable(db_instance=db)
+  
+  ##
+  ## insert a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'short_touch_type': 2
+  }
+  
+  try:
+    room_temp_state_strategy.insert_record(sample_record, on_duplicate='ignore')
+    get_logger().info("sample record inserted successfully")
+  except Exception as e:
+    get_logger().error("failed to insert sample record: {}".format(e))
+    raise e
+
+def test_delete_room_temp_state_strategy_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_temp_state_strategy = RoomTempStateStrategyTable(db_instance=db)
+
+  ##
+  ## delete a sample record
+  ##
+  sample_record = {
+    'short_touch_type_index': 1
+  }
+  
+  try:
+    room_temp_state_strategy.delete_record(sample_record)
+    get_logger().info("sample record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample record: {}".format(e))
+    raise e
+
+def test_update_room_temp_state_strategy_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_temp_state_strategy = RoomTempStateStrategyTable(db_instance=db)
+
+  ##
+  ## update a sample record
+  ##
+  sample_record = {
+    'short_touch_type': 5,
+    'short_touch_type_index': 1
+  }
+  
+  try:
+    room_temp_state_strategy.update_record(sample_record)
+    get_logger().info("sample record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample record: {}".format(e))
+    raise e
+
+def test_get_room_temp_state_strategy_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exist
+  ##
+  room_temp_state_strategy = RoomTempStateStrategyTable(db)
+
+  ##
+  ## get a sample record
+  ##
+  sample_record = {
+    'short_touch_type_index': 1
+  }
+  
+  try:
+    record = room_temp_state_strategy.get_record(sample_record)
+    if record:
+      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(room_temp_state_strategy.get_name(), record))
+    else:
+      get_logger().warning("sample {} record not found".format(room_temp_state_strategy.get_name()))
+  except Exception as e:
+    get_logger().error("failed to retrieve sample {} record: {}".format(room_temp_state_strategy.get_name(), e))
+    raise e
+
+##
+## >>================================ room temp state strategy map test method ===============================>>
+##
+def test_create_room_temp_state_strategy_map_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if db is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table
+  ##
+  room_temp_state_strategy_map = RoomTempStateStrategyMapTable(db_instance=db)
+  room_temp_state_strategy_map.create()
+  return
+
+def test_drop_room_temp_state_strategy_map_table(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## drop table
+  ##
+  room_temp_state_strategy_map = RoomTempStateStrategyMapTable(db_instance=db)
+  room_temp_state_strategy_map.drop(confirm=True)
+  return
+
+def test_check_room_temp_state_strategy_map_exists(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  room_temp_state_strategy_map = RoomTempStateStrategyMapTable(db)
+  
+  ##
+  ## check if table exists
+  ##
+  if db.is_table_exist(room_temp_state_strategy_map.get_name()):
+    get_logger().info("{} table exists!".format(room_temp_state_strategy_map.get_name()))
+  else:
+    get_logger().info("{} table not exists!".format(room_temp_state_strategy_map.get_name()))
+  return
+
+def test_insert_room_temp_state_strategy_map_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_temp_state_strategy_map = RoomTempStateStrategyMapTable(db_instance=db)
+  
+  ##
+  ## insert a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'short_touch_type': 2,
+    'strategy_type': 3
+  }
+  
+  try:
+    room_temp_state_strategy_map.insert_record(sample_record)
+    get_logger().info("sample record inserted successfully")
+  except Exception as e:
+    get_logger().error("failed to insert sample record: {}".format(e))
+    raise e
+  
+def test_delete_room_temp_state_strategy_map_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_temp_state_strategy_map = RoomTempStateStrategyMapTable(db_instance=db)
+
+  ##
+  ## delete a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'short_touch_type': 2,
+    'strategy_type': 3
+  }
+  
+  try:
+    room_temp_state_strategy_map.delete_record(sample_record)
+    get_logger().info("sample record deleted successfully")
+  except Exception as e:
+    get_logger().error("failed to delete sample record: {}".format(e))
+    raise e
+
+def test_update_room_temp_state_strategy_map_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exists
+  ##
+  room_temp_state_strategy_map = RoomTempStateStrategyMapTable(db_instance=db)
+
+  ##
+  ## update a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'short_touch_type': 2,
+    'strategy_type': 3,
+    'priority': 7
+  }
+  
+  try:
+    room_temp_state_strategy_map.update_record(sample_record)
+    get_logger().info("sample record updated successfully")
+  except Exception as e:
+    get_logger().error("failed to update sample record: {}".format(e))
+    raise e
+
+def test_get_room_temp_state_strategy_map_record(db:SocialMediaStreamDataBase = None):
+  ##
+  ## check if database instance is valid
+  ##
+  if db is None:
+    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
+    raise ValueError
+  
+  ##
+  ## create table if not exist
+  ##
+  room_temp_state_strategy_map = RoomTempStateStrategyMapTable(db)
+
+  ##
+  ## get a sample record
+  ##
+  sample_record = {
+    'now': dat.fromtimestamp(1740301577026/1000.0),
+    'platform': 'douyin',
+    'room_id': '7411524533301119798',
+    'short_touch_type': 2,
+    'strategy_type': 3
+  }
+  
+  try:
+    record = room_temp_state_strategy_map.get_record(sample_record)
+    if record:
+      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(room_temp_state_strategy_map.get_name(), record))
+    else:
+      get_logger().warning("sample {} record not found".format(room_temp_state_strategy_map.get_name()))
+  except Exception as e:
+    get_logger().error("failed to retrieve sample {} record: {}".format(room_temp_state_strategy_map.get_name(), e))
+    raise e
+
+##
 ## >>================================ room record table test method ===============================>>
 ##
 
@@ -4048,198 +4397,6 @@ def test_get_room_record(db:SocialMediaStreamDataBase = None):
     get_logger().error("failed to retrieve sample {} record: {}".format(room_record.get_name(), e))
     raise e
 
-"""
-##
-## >>================================ room record table test method ===============================>>
-##
-
-def test_create_room_record_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if db is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table
-  ##
-  room_record = RoomRecordTable(db_instance=db)
-  room_record.create()
-  return
-
-##
-## test: drop table
-##
-def test_drop_room_record_table(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## drop table
-  ##
-  room_record = RoomRecordTable(db_instance=db)
-  room_record.drop(confirm=True)
-  return
-
-##
-## test: check if table exists
-##
-def test_check_room_record_exists(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-
-  room_record = RoomRecordTable(db)
-
-  ##
-  ## check if table exists
-  ##
-  if db.is_table_exist(room_record.get_name()):
-    get_logger().info("{} table exists!".format(room_record.get_name()))
-  else:
-    get_logger().info("{} table not exists!".format(room_record.get_name()))
-  return
-
-##
-## test: insert record
-##
-def test_insert_room_record_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  room_record = RoomRecordTable(db_instance=db)
-
-  ##
-  ## insert a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798'
-  }
-  
-  try:
-    room_record.insert_record(sample_record)
-    get_logger().info("sample record inserted successfully")
-  except Exception as e:
-    get_logger().error("failed to insert sample record: {}".format(e))
-    raise e
-
-##
-## test: delete record
-##
-def test_delete_room_record_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  room_record = RoomRecordTable(db_instance=db)
-
-  ##
-  ## delete a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798'
-  }
-  
-  try:
-    room_record.delete_record(sample_record)
-    get_logger().info("sample record deleted successfully")
-  except Exception as e:
-    get_logger().error("failed to delete sample record: {}".format(e))
-    raise e
-
-##
-## test: update record
-##
-def test_update_room_record_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exists
-  ##
-  room_record = RoomRecordTable(db_instance=db)
-
-  ##
-  ## update a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798',
-    'status': 1
-  }
-  
-  try:
-    room_record.update_record(sample_record)
-    get_logger().info("sample record updated successfully")
-  except Exception as e:
-    get_logger().error("failed to update sample record: {}".format(e))
-    raise e
-
-##
-## test: get record
-##
-def test_get_room_record_record(db:SocialMediaStreamDataBase = None):
-  ##
-  ## check if database instance is valid
-  ##
-  if db is None:
-    get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
-    raise ValueError
-  
-  ##
-  ## create table if not exist
-  ##
-  room_record = RoomRecordTable(db)
-
-  ##
-  ## get a sample record
-  ##
-  sample_record = {
-    'now': dat.fromtimestamp(1740301577026/1000.0),
-    'platform': 'douyin',
-    'room_id': '7411524533301119798'
-  }
-  
-  try:
-    record = room_record.get_record(sample_record)
-    if record:
-      get_logger().info("sample {} record retrieved successfully: \n\t{}".format(room_record.get_name(), record))
-    else:
-      get_logger().warning("sample {} record not found".format(room_record.get_name()))
-  except Exception as e:
-    get_logger().error("failed to retrieve sample {} record: {}".format(room_record.get_name(), e))
-    raise e
-"""
 ##
 ## >>================================ room tag table test method ===============================>>
 ##
@@ -4632,7 +4789,7 @@ def test_get_room_top_fans_record(db:SocialMediaStreamDataBase = None):
 ## >>================================ main method ===============================>>
 ##
 if __name__ == "__main__":
-  db = SocialMediaStreamDataBase(host='192.168.1.12', user='wangyan', passwd='wuyu1998', database='social_media_stream_downloader')
+  db = SocialMediaStreamDataBase(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
 
   ##
   ## room attribute table
@@ -4905,6 +5062,34 @@ if __name__ == "__main__":
   test_get_room_temp_state_global_condition_record(db)
   test_drop_room_temp_state_global_condition_table(db)
   test_check_room_temp_state_global_condition_exists(db)
+
+  ##
+  ## room temp state strategy table
+  ##
+  test_create_room_temp_state_strategy_table(db)
+  test_check_room_temp_state_strategy_exists(db)
+  test_insert_room_temp_state_strategy_record(db)
+  test_get_room_temp_state_strategy_record(db)
+  test_update_room_temp_state_strategy_record(db)
+  test_get_room_temp_state_strategy_record(db)
+  test_delete_room_temp_state_strategy_record(db)
+  test_get_room_temp_state_strategy_record(db)
+  test_drop_room_temp_state_strategy_table(db)
+  test_check_room_temp_state_strategy_exists(db)
+
+  ##
+  ## room temp state strategy map table
+  ##
+  test_create_room_temp_state_strategy_map_table(db)
+  test_check_room_temp_state_strategy_map_exists(db)
+  test_insert_room_temp_state_strategy_map_record(db)
+  test_get_room_temp_state_strategy_map_record(db)
+  test_update_room_temp_state_strategy_map_record(db)
+  test_get_room_temp_state_strategy_map_record(db)
+  test_delete_room_temp_state_strategy_map_record(db)
+  test_get_room_temp_state_strategy_map_record(db)
+  test_drop_room_temp_state_strategy_map_table(db)
+  test_check_room_temp_state_strategy_map_exists(db)
 
   ##
   ## room record table

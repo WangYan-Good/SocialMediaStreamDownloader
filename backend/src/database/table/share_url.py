@@ -524,7 +524,7 @@ def test_create_share_url_table():
   ## test for connect to database
   ##
   try:
-    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
+    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
     connector = db.get_db_connector()
     cursor = connector.cursor()
     sql = '''
@@ -552,7 +552,7 @@ def test_drop_db_table():
   ## test for connect to database
   ##
   try:
-    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
+    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
     connector = db.get_db_connector()
     cursor = connector.cursor()
     sql = '''
@@ -578,7 +578,7 @@ def test_insert_record():
   record["user_status"]    = "正常"
 
   try:
-    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
+    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
     db.insert_live_share_url_record(record)
   except Exception as e:
     get_logger().error("insert a record failed {}".format(e))
@@ -588,7 +588,7 @@ def test_insert_record():
 ##
 def test_search_record_from_table():
   try:
-    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
+    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
     url = "https://v.douyin.com/ikRBs7Sy/"
     if db.is_live_share_url_record_exist(url) is True:
       get_logger().info("live share url {} is exist".format(url))
@@ -602,7 +602,7 @@ def test_search_record_from_table():
 def test_increment_actived_count():
   try:
     owner_user_id = "55262425391"
-    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
+    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
     db.increment_live_actived_count(owner_user_id)      
   except Exception as e:
     pass
@@ -613,7 +613,7 @@ def test_increment_actived_count():
 def test_increment_actived_count():
   try:
     owner_user_id = "55262425391"
-    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='social_media_stream_downloader')
+    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
     db.increment_live_actived_count(owner_user_id)      
   except Exception as e:
     pass

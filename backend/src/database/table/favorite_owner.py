@@ -53,7 +53,7 @@ def test_create_favorite_owner_table():
   ## test for create a table
   ##
   try:
-    db = FavoriteOwnerTable(host='192.168.1.9', user='wangyan', passwd='wuyu1998', database='social_media_stream_downloader')
+    db = FavoriteOwnerTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
     connector = db.get_db_connector()
     cursor = connector.cursor()
     sql = '''

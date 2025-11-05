@@ -11,3 +11,4 @@ config/build/
 .vscode/
 .obsidian/
 nohup.out
+config/export/
