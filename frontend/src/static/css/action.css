@@ -1,0 +1,23 @@
+/* 隐藏的复选框用于控制状态 */
+#sidebar-toggle {
+    display: none;
+}
+
+/* 收缩状态 - 使用 :checked 伪类 */
+#sidebar-toggle:checked ~ .content-siderbar {
+    width: 10%;
+    opacity: 0;
+    width: 0;
+}
+
+#sidebar-toggle:checked ~ .content-siderbar {
+    opacity: 0;
+}
+
+#sidebar-toggle:checked ~ .content-siderbar .toggle-btn::before {
+    content: '▶';
+}
+
+#sidebar-toggle:not(:checked) ~ .content-siderbar .toggle-btn::before {
+    content: '◀';
+}
