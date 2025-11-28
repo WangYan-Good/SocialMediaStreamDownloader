@@ -4,20 +4,47 @@
 }
 
 /* 收缩状态 - 使用 :checked 伪类 */
-#sidebar-toggle:checked ~ .content-siderbar {
-    width: 10%;
+#sidebar-toggle:checked ~ .content-container .sidebar {
+    width: 60px;
+}
+
+#sidebar-toggle:checked ~ .content-container .sidebar .sidebar-header .logo-text {
+    opacity: 0;
+    display: none;
+}
+
+#sidebar-toggle:checked ~ .content-container .sidebar .sidebar-menu-text {
     opacity: 0;
     width: 0;
 }
 
-#sidebar-toggle:checked ~ .content-siderbar {
-    opacity: 0;
+#sidebar-toggle:checked ~ .content-container .sidebar .sidebar-header .toggle-btn::before {
+    content: '▶️';
 }
 
-#sidebar-toggle:checked ~ .content-siderbar .toggle-btn::before {
-    content: '▶';
+#sidebar-toggle:not(:checked) ~ .content-container .sidebar .sidebar-header .toggle-btn::before {
+    content: '◀️';
 }
 
-#sidebar-toggle:not(:checked) ~ .content-siderbar .toggle-btn::before {
-    content: '◀';
+#sidebar-toggle:checked ~ .content-container .content-main {
+    width: calc(80% - 60px);
+}
+
+/* 悬停自动展开效果 */
+.sidebar:hover {
+    width: 20%;
+}
+
+.sidebar:hover .sidebar-menu-text {
+    opacity: 1;
+    width: auto;
+}
+
+.sidebar:hover .logo-text {
+    opacity: 1;
+}
+
+/* 当菜单收缩时，悬停显示工具提示 */
+#sidebar-toggle:checked ~ .sidebar .sidebar-menu-item:hover .tooltip {
+    display: block;
 }

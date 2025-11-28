@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Social Media Stream Downloader</title>
     <link rel="stylesheet" href="../static/css/div.css" >
-    <link rel="stylesheet" href="../static/css/style.css">
     <link rel="stylesheet" href="../static/css/action.css">
     <link rel="stylesheet" href="../static/css/index.css">
     <link rel="stylesheet" href="../static/css/precentage.css">
@@ -17,7 +16,7 @@
             <!-- Logo -->
             <div class="header-container-start-item">
                 <div class="logo-container">
-                    <img src="../../media/logo.JPG" alt="Logo" class="logo">
+                    <img src="../../media/logo.JPG" alt="Logo" class="logo-img">
                 </div>
             </div>
         </div>
@@ -37,18 +36,44 @@
     <!-- 页面内容 -->
     <div class="content-container">
         <!-- 侧边栏 -->
-        <div class="content-siderbar">
-            <div class="siderbar-menu">
-                <ul>
-                    <li><a href="#home">Home</a></li>
-                    <!-- <li><a href="#download">Download</a></li> -->
-                    <!-- <li><a href="#history">History</a></li> -->
-                </ul>
-            </div>
-            <label for="sidebar-toggle" class="toggle-btn"></label>
-            <div class="sidebar-end">
-                <div>SMSD</div>
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-text">SMSD</div>
                 <label for="sidebar-toggle" class="toggle-btn"></label>
+            </div>
+
+            <div class="sidebar-content">
+                <div class="sidebar-menu-item sidebar-has-submenu">
+                    <!--  -->
+                    <div class="sidebar-menu">
+                        <div class="sidebar-menu-item">
+                            <!--  -->
+                            <a href="#" class="sidebar-menu-link">
+                                <span class="sidebar-menu-icon">⬇️</span>
+                                <span class="sidebar-menu-text">Download</span>
+                                <div class="tooltip">Download</div>
+                            </a>
+                        </div>
+
+                        <div class="sidebar-menu-item">
+                            <!--  -->
+                            <a href="#" class="sidebar-menu-link">
+                                <!-- <span class="sidebar-menu-icon">🕒</span> -->
+                                <!-- <span class="sidebar-menu-text">History</span> -->
+                                <!-- <div class="tooltip">History</div> -->
+                            </a>
+                        </div>
+
+                        <div class="sidebar-menu-item">
+                            <!--  -->
+                            <a href="#" class="sidebar-menu-link">
+                                <!-- <span class="sidebar-menu-icon">⚙️</span> -->
+                                <!-- <span class="sidebar-menu-text">Setting</span> -->
+                                <!-- <div class="tooltip">Setting</div> -->
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         <!-- 主要内容 -->
@@ -85,7 +110,7 @@
 
         <!-- 额外内容 -->
         <div class="content-extra">
-            <p>猜你喜欢</p>
+            <div class="extra-may-like"><p></p></div>
         </div>
     </div>
 
