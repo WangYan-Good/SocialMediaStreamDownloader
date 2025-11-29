@@ -1,0 +1,8 @@
+.sidebar-menu-text:hover {
+    color: #007bff; /* 颜色: #007bff */
+}
+
+.content-section {
+    display: none;                /* 显示: 无 */
+    animation: fadeIn 0.5s ease;  /* 动画: 淡入 0.5秒 缓动 */
+}

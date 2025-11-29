@@ -1,0 +1,62 @@
+/* 隐藏的复选框用于控制状态 */
+#sidebar-toggle {
+    display: none; /* 隐藏复选框 */
+}
+
+/* 收缩状态 - 使用 :checked 伪类 */
+#sidebar-toggle:checked ~ .content-container .sidebar {
+    width: 60px; /* 宽度: 60px */
+}
+
+#sidebar-toggle:checked ~ .content-container .sidebar .sidebar-header .logo-text {
+    opacity: 0; /* 透明度: 0 */
+    display: none; /* 显示: 无 */
+}
+
+#sidebar-toggle:checked ~ .content-container .sidebar .sidebar-menu-text {
+    opacity: 0; /* 透明度: 0 */
+    width: 0; /* 宽度: 0 */
+}
+
+#sidebar-toggle:checked ~ .content-container .sidebar .sidebar-header .toggle-btn::before {
+    content: '▶️'; /* 内容: ▶️ */
+}
+
+#sidebar-toggle:not(:checked) ~ .content-container .sidebar .sidebar-header .toggle-btn::before {
+    content: '◀️'; /* 内容: ◀️ */
+}
+
+#sidebar-toggle:checked ~ .content-container .content-main {
+    width: calc(80% - 60px); /* 宽度: 计算值(80% - 60px) */
+}
+
+/* 悬停自动展开效果 */
+.sidebar:hover {
+    width: 20%; /* 宽度: 20% */
+}
+
+.sidebar:hover .sidebar-menu-text {
+    opacity: 1; /* 透明度: 1 */
+    width: auto; /* 宽度: 自动 */
+}
+
+.sidebar:hover .logo-text {
+    opacity: 1; /* 透明度: 1 */
+}
+
+/* 当菜单收缩时，悬停显示工具提示 */
+#sidebar-toggle:checked ~ .sidebar {
+    display: block; /* 显示: 块 */
+}
+
+#download:target ~ .sidebar .sidebar-content .sidebar-menu .sidebar-menu-item .sidebar-menu-link[href="#download"],
+#history:target ~ .sidebar .sidebar-content .sidebar-menu .sidebar-menu-item .sidebar-menu-link[href="#history"] {
+    color: #007bff;               /* 颜色: #007bff */
+    border-right: 3px solid aqua; /* 边框右: 3px 实线 #007bff */
+    background-color:#34495e;
+}
+
+#download:target ~ .content-main #download-content,
+#history:target ~ .content-main #history-content {
+    display: block; /* 显示: 块 */
+}
