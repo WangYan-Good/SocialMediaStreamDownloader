@@ -1,0 +1,208 @@
+/* header div 属性 */
+.header-container {
+    display: flex;                 /* 布局方式: 水平排列 */
+    width: 100%;                   /* 宽度: 100% */
+    height: calc(5vh);             /* 高度: 视口高度的5% */
+    margin-bottom: 5px;            /* 下边距: 5 px */
+    border-radius: 5px;            /* 圆角边框: 5 px */
+    background-color:#e5e6e7;    /* 背景颜色: #e5e6e7 */
+}
+
+.header-container-start {
+    direction: ltr;                 /* 文字方向: 从左到右 */
+    width: 50%;                     /* 宽度: 50% */
+    height: auto;                   /* 高度: 自动 */
+    margin: 0 left;                /* 外边距: 0 左 */
+}
+
+.header-container-start-item {
+    width: auto;                  /* 宽度: 自动 */
+    height: 100%;                 /* 高度: 100% */
+}
+
+.logo-container {
+    width: auto;                  /* 宽度: 自动 */
+    height: 100%;                 /* 高度: 100% */
+}
+
+.logo-img {
+    width: auto;                  /* 宽度: 自动 */
+    height: 100%;                 /* 高度: 100% */
+    border-radius: 50%;           /* 圆角边框: 50% */
+    object-fit: cover;            /* 对象适应: cover */
+}
+
+.logo-text {
+    color: white;               /* 颜色: 白色 */
+    font-size: 1.5rem;            /* 字体大小: 1.5rem */
+    font-weight: bold;            /* 字体粗细: 粗体 */
+    white-space: nowrap;          /* 不换行 */
+    overflow: hidden;             /* 溢出隐藏 */
+    transition: opacity 0.3s;     /* 过渡效果: 透明度变化 0.3秒 */
+}
+
+.toggle-btn {
+    background: none;             /* 背景: 无 */
+    border: none;                 /* 边框: 无 */
+    color: white;               /* 颜色: 白色 */
+    font-size: 1.2rem;            /* 字体大小: 1.2rem */
+    cursor: pointer;              /* 光标: 指针 */
+    padding: 5px;                 /* 内边距: 5px */
+    border-radius: 4px;           /* 圆角边框: 4px */
+    transition: background 0.3s;  /* 过渡效果: 背景变化 0.3秒 */
+}
+
+.toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.1);  /* 背景: rgba(255, 255, 255, 0.1) */
+}
+
+.header-container-end {
+    direction: rtl;               /* 文字方向: 从右到左 */
+    width: 50%;                  /* 宽度: 50% */
+    height: auto;                /* 高度: 自动 */
+    margin: 0 right;             /* 外边距 */
+    border-radius: 5px;          /* 圆角边框: 5px */
+}
+
+.header-container-end-item {
+    width: auto;                 /* 宽度: 自动 */
+    height: 100%;                /* 高度: 100% */
+    border-radius: 5px;          /* 圆角边框: 5px */
+}
+
+.avatar-container {
+    width: 30px;                   /* 宽度: 30px */
+    height: 30px;                  /* 高度: 30px */
+    margin-top: 10px;              /* 上边距: 10px */
+    border-radius: 50%;            /* 圆角边框: 50% */
+    border: 1px solid #34495e;   /* 边框: 1px 实线 #34495e */
+    object-fit: cover;             /* 对象适应: cover */
+    background-color: darkgray;  /* 背景颜色: darkgray */
+}
+
+.avatar {
+    width: auto;                  /* 宽度: 自动 */
+    height: 100%;                 /* 高度: 100% */
+}
+
+/* content div 属性 */
+.content-container {
+    display: flex;                /* 布局方式: 水平排列 */
+    height: calc(90vh);           /* 高度: 视口高度的90% */
+    margin-bottom: 5px;           /* 下边距: 5 px */
+}
+
+/*  */
+.sidebar {
+    width: 20%;                  /* 宽度: 20% */
+    margin-right: 5px;           /* 右边距: 5px */
+    border-radius: 5px;          /* 圆角边框: 5px */
+    
+    /* TODO */
+    background: #2c3e50;          /* 背景颜色: #2c3e50 */
+}
+
+.sidebar-header {
+    padding: 20px;                /* 内边距: 20px */
+    border-bottom: 1px solid #34495e;  /* 底部边框: 1px 实线 #34495e */
+    display: flex;                /* 布局方式: 弹性盒子 */
+    align-items: center;          /* 对齐方式: 居中 */
+    justify-content: space-between; /* 主轴对齐: 两端对齐 */
+}
+
+.sidebar-content {
+    width: 100%;                  /* 宽度: 100% */
+    padding: 15px 0;              /* 内边距: 15px 0 */
+    overflow-y: auto;             /* 垂直溢出: 自动 */
+}
+
+.sidebar-menu-item {
+    position: relative;          /* 位置: 相对 */
+}
+
+.sidebar-menu-link {
+    display: flex;                /* 布局方式: 弹性盒子 */
+    align-items: center;          /* 对齐方式: 居中 */
+    padding: 12px 20px;           /* 内边距: 12px 20px */
+    color: #bdc3c7;              /* 颜色: #bdc3c7 */
+    text-decoration: none;        /* 文本装饰: 无 */
+    transition: all 0.3s;         /* 过渡效果: 所有属性 0.3秒 */
+    white-space: nowrap;          /* 不换行 */
+    overflow: hidden;             /* 溢出隐藏 */
+}
+
+.sidebar-menu-link:hover {
+    background: #34495e;          /* 背景颜色: #34495e */
+    color: white;                 /* 颜色: 白色 */
+}
+
+.sidebar-menu-icon {
+    font-size: 1.2rem;            /* 字体大小: 1.2rem */
+    width: 24px;                  /* 宽度: 24px */
+    text-align: center;           /* 文本对齐: 居中 */
+    margin-right: 15px;           /* 右边距: 15px */
+    flex-shrink: 0;               /* 弹性盒子收缩: 0 */
+}
+
+.sidebar-menu-text {
+    transition: all 0.3s;         /* 过渡效果: 所有属性 0.3秒 */
+}
+
+.sidebar-has-submenu > .sidebar-menu-link::after {
+    content: '▸';                /* 内容: ▸ */
+    position: absolute;          /* 位置: 绝对 */
+    right: 20px;                 /* 右边距: 20px */
+    transition: transform 0.3s;  /* 过渡效果: 变换 0.3秒 */
+}
+
+.tooltip {
+    display: none;               /* 显示方式: 无 */
+    position: absolute;          /* 位置: 绝对 */
+    left: 100%;                 /* 左边距: 100% */
+    top: 50%;                   /* 上边距: 50% */
+    transform: translateY(-50%); /* 变换: 垂直平移 -50% */
+    background: #2c3e50;        /* 背景颜色: #2c3e50 */
+    color: white;               /* 颜色: 白色 */
+    padding: 8px 12px;          /* 内边距: 8px 12px */
+    border-radius: 4px;         /* 圆角边框: 4px */
+    white-space: nowrap;        /* 不换行 */
+    z-index: 1001;              /* 堆叠顺序: 1001 */
+    margin-left: 10px;          /* 左边距: 10px */
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2); /* 盒子阴影: 2px 2px 5px rgba(0, 0, 0, 0.2) */
+}
+
+.tooltip::before {
+    content: '';                 /* 内容: 空字符串 */
+    position: absolute;          /* 位置: 绝对 */
+    right: 100%;                 /* 右边距: 100% */
+    top: 50%;                   /* 上边距: 50% */
+    transform: translateY(-50%); /* 变换: 垂直平移 -50% */
+    border: 5px solid transparent; /* 边框: 5px 实线 透明 */
+    border-right-color: #2c3e50;   /* 边框右侧颜色: #2c3e50 */
+}
+
+.content-main {
+    width: 60%;                  /* 宽度: 60% */
+    height: auto;                /* 高度: 自动 */
+    margin-right: 5px;           /* 右边距: 5px */
+    padding-left: 5px;           /* 左内边距: 5px */
+    padding-right: 5px;          /* 右内边距: 5px */
+    border-radius: 5px;          /* 圆角边框: 5px */
+}
+
+.content-extra {
+    width: 20%;                  /* 宽度: 20% */
+    height: auto;                /* 高度: 自动 */
+    float: right;                /* 浮动: 右 */
+    border-radius: 5px;          /* 圆角边框: 5px */
+
+    /* TODO remove */
+    background-color:antiquewhite; /* 背景颜色: antiquewhite */
+}
+
+/* footer div 属性 */
+.footer-container {
+    text-align: center; /* 对齐方式: 居中 */
+    color: #6c757d;   /* 颜色: #6c757d */
+    font-size: 0.9rem;  /* 字体大小: 0.9rem */
+}
