@@ -109,3 +109,12 @@ skip this step!
 ```
 
 - 🩹修复了直播下载由于网络负载失败时，下载线程数不能正确反应当前下载线程情况的问题
+```shell
+[2025-11-30 03:26:33,601]-[default]-[INFO]: 当前总下载数：13
+
+[2025-11-30 03:34:57,538]-[default]-[ERROR]: request error: [Errno 104] Connection reset by peer
+[2025-11-30 03:34:57,539]-[default]-[ERROR]: 	name:xx👩🏻
+	path:/mnt/video/douyin/live/xx__/20251129234109_stream-406639270267978411_or4.flv
+	url:http://xxx
+	download failed!!!
+```
