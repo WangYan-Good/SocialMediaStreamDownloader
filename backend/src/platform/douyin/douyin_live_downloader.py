@@ -120,11 +120,6 @@ class DouyinLiveDownloader(Downloader):
         self.auto_down (url, save_path, file_name, 0)
       
       ##
-      ## reset actived number
-      ##
-      self._actived_task_number -= 1
-      
-      ##
       ## update download message
       ##
       get_logger().info("name:{} \nurl:{} \ndownload complete!\n".format(nickname, url))    
@@ -132,7 +127,14 @@ class DouyinLiveDownloader(Downloader):
     except Exception as e:
         get_logger().error("request error: {err}".format(err=e))
         get_logger().error("\tname:{}\n\tpath:{}\n\turl:{}\n\tdownload failed!!!\n".format(nickname, save_path + "/" + file_name, url))
-        return None
+    finally:
+      ##
+      ## release actived task number
+      ##
+      self.acquire()
+      self._actived_task_number -= 1
+      self.release()
+    return None
 
 ##
 ## >>============================= abstract method =============================>>

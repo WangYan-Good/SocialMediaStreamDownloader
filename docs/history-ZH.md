@@ -107,3 +107,5 @@ KeyError: 'FULL_HD1'
 [2025-11-04 13:41:17,711]-[default]-[ERROR]: import live info to database failed! (1054, "Unknown column 'follow_info_follow_status' in 'field list'")
 skip this step!
 ```
+
+- 🩹修复了直播下载由于网络负载失败时，下载线程数不能正确反应当前下载线程情况的问题
