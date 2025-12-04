@@ -118,12 +118,6 @@ class DouyinLiveDownloader(Downloader):
       ##
       if self.config.get_config_dict_attr("$.test_mode") is not True:
         self.auto_down (url, save_path, file_name, 0)
-      
-      ##
-      ## update download message
-      ##
-      get_logger().info("name:{} \nurl:{} \ndownload complete!\n".format(nickname, url))    
-      get_logger().info("当前总下载数：{}\n".format(self._actived_task_number))
     except Exception as e:
         get_logger().error("request error: {err}".format(err=e))
         get_logger().error("\tname:{}\n\tpath:{}\n\turl:{}\n\tdownload failed!!!\n".format(nickname, save_path + "/" + file_name, url))
@@ -134,6 +128,12 @@ class DouyinLiveDownloader(Downloader):
       self.acquire()
       self._actived_task_number -= 1
       self.release()
+      
+      ##
+      ## update download message
+      ##
+      get_logger().info("name:{} \nurl:{} \ndownload complete!\n".format(nickname, url))    
+      get_logger().info("当前总下载数：{}\n".format(self._actived_task_number))
     return None
 
 ##
