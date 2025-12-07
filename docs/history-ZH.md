@@ -70,7 +70,7 @@
 - 🩹修复了长期运行服务下的日志轮转问题，按照 `年-月-日` 文件格式保存。
 - 🩹修复了在网页上一次性下载多个链接的情况下会触发多次重复下载的情况。
 
-## 🎉 v0.7.1 - TBD
+## 🎉 v0.7.1 - 2025.11.29
 ### 🚀 功能开发
 - ✨构造了前端页面的基本框架结构
 
@@ -106,4 +106,15 @@ KeyError: 'FULL_HD1'
 [2025-11-04 13:41:17,711]-[default]-[ERROR]: insert room_owner failed: (1054, "Unknown column 'follow_info_follow_status' in 'field list'")
 [2025-11-04 13:41:17,711]-[default]-[ERROR]: import live info to database failed! (1054, "Unknown column 'follow_info_follow_status' in 'field list'")
 skip this step!
+```
+
+- 🩹修复了直播下载由于网络负载失败时，下载线程数不能正确反应当前下载线程情况的问题
+```shell
+[2025-11-30 03:26:33,601]-[default]-[INFO]: 当前总下载数：13
+
+[2025-11-30 03:34:57,538]-[default]-[ERROR]: request error: [Errno 104] Connection reset by peer
+[2025-11-30 03:34:57,539]-[default]-[ERROR]: 	name:xx👩🏻
+	path:/mnt/video/douyin/live/xx__/20251129234109_stream-406639270267978411_or4.flv
+	url:http://xxx
+	download failed!!!
 ```
