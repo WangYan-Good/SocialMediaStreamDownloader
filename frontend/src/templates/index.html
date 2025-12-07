@@ -39,6 +39,7 @@
         <!-- 锚点目标，用于:target选择器 -->
         <div id="download"></div>
         <div id="history"></div>
+        <div id="log"></div>
 
         <!-- 侧边栏 -->
         <div class="sidebar">
@@ -50,7 +51,7 @@
             <div class="sidebar-content">
                 <div class="sidebar-menu">
                     <div class="sidebar-menu-item">
-                        <!--  -->
+                        <!-- 下载框 -->
                         <a href="#download" class="sidebar-menu-link">
                             <span class="sidebar-menu-icon">⬇️</span>
                             <span class="sidebar-menu-text">Download</span>
@@ -59,11 +60,19 @@
                     </div>
 
                     <div class="sidebar-menu-item">
-                        <!--  -->
+                        <!-- 历史记录 -->
                         <a href="#history" class="sidebar-menu-link">
                             <span class="sidebar-menu-icon">🕒</span>
                             <span class="sidebar-menu-text">History</span>
                             <div class="tooltip">History</div>
+                        </a>
+                    </div>
+                    <div class="sidebar-menu-item">
+                        <!-- 下载日志 -->
+                        <a href="#log" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">📝</span>
+                            <span class="sidebar-menu-text">Log</span>
+                            <div class="tooltip">Log</div>
                         </a>
                     </div>
                 </div>
@@ -105,6 +114,10 @@
             <section id="history-content" class="content-section">
                 <!-- 历史内容 -->
                  <p>History</p>
+            </section>
+            <section id="log-content" class="content-section">
+                <!-- 下载日志内容 -->
+                 <p>Log</p>
             </section>
         </div>
 
