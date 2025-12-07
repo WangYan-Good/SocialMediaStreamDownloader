@@ -49,14 +49,18 @@
     display: block; /* 显示: 块 */
 }
 
+/* 侧边栏选中效果 */
 #download:target ~ .sidebar .sidebar-content .sidebar-menu .sidebar-menu-item .sidebar-menu-link[href="#download"],
-#history:target ~ .sidebar .sidebar-content .sidebar-menu .sidebar-menu-item .sidebar-menu-link[href="#history"] {
+#history:target ~ .sidebar .sidebar-content .sidebar-menu .sidebar-menu-item .sidebar-menu-link[href="#history"],
+#log:target ~ .sidebar .sidebar-content .sidebar-menu .sidebar-menu-item .sidebar-menu-link[href="#log"] {
     color: #007bff;               /* 颜色: #007bff */
     border-right: 3px solid aqua; /* 边框右: 3px 实线 #007bff */
     background-color:#34495e;
 }
 
+/* 主要内容显示控制，点击侧边栏按钮会显示对应 section 内容 */
 #download:target ~ .content-main #download-content,
-#history:target ~ .content-main #history-content {
+#history:target ~ .content-main #history-content,
+#log:target ~ .content-main #log-content {
     display: block; /* 显示: 块 */
 }

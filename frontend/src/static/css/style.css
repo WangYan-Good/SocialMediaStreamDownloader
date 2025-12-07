@@ -6,3 +6,37 @@
     display: none;                /* 显示: 无 */
     animation: fadeIn 0.5s ease;  /* 动画: 淡入 0.5秒 缓动 */
 }
+
+/* 移动端样式，侧边栏默认收缩状态，推荐栏默认隐藏 */
+@media (max-width: 768px) {
+    /* 收缩状态 - 使用 :checked 伪类 */
+    .content-container .sidebar {
+        width: 60px; /* 宽度: 60px */
+    }
+
+    #sidebar-toggle:not(:checked) ~ .content-container .sidebar .sidebar-menu-text {
+        opacity: 0; /* 透明度: 0 */
+        width: 0; /* 宽度: 0 */
+    }
+
+    #sidebar-toggle:not(:checked) ~ .content-container .sidebar .sidebar-header .toggle-btn::before {
+        content: '▶️'; /* 内容: ▶️ */
+    }
+
+    #sidebar-toggle:checked ~ .content-container .sidebar .sidebar-header .toggle-btn::before {
+        content: '◀️'; /* 内容: ◀️ */
+    }
+
+    /* 主要内容显示比例 */
+    #sidebar-toggle:checked ~ .content-container .content-main {
+        width: calc(100% - 60px); /* 宽度: 计算值(100% - 60px) */
+    }
+    #sidebar-toggle:not(:checked) ~ .content-container .content-main {
+        width: calc(100% - 60px); /* 宽度: 计算值(100% - 60px) */
+    }
+
+    /* 推荐栏在移动端默认隐藏 */
+    .content-extra {
+        display: none; /* 显示: 无 */
+    }
+}
