@@ -74,7 +74,9 @@ pip install -r ./requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple/ -
 # pip install -r ./requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple/ --trusted-host pypi.tuna.tsinghua.edu.cn
 
 # echo "启动 docker 环境"
-# python3 Server.py
+
+@echo "后台运行服务，可使用 tail -f ./logs/social_media_stream_downloader 查看日志"
+nohup python3 ./server.py &
 
 
 
