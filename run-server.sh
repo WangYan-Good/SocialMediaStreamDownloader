@@ -140,7 +140,7 @@ fi
 
 # echo "启动 docker 环境"
 
-# nohup python3 ./server.py > /dev/null 2>&1 &
+nohup python3 ./server.py > /dev/null 2>&1 &
 echo -e "服务进入后台运行，可使用 tail -f ./logs/social_media_stream_downloader 查看日志\n"
 
 
