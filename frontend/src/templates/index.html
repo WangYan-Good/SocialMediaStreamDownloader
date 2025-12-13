@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Social Media Stream Downloader</title>
-    <link rel="stylesheet" href="../static/css/div.css" >
     <link rel="stylesheet" href="../static/css/action.css">
     <link rel="stylesheet" href="../static/css/index.css">
     <link rel="stylesheet" href="../static/css/precentage.css">
@@ -40,6 +39,7 @@
         <div id="download"></div>
         <div id="history"></div>
         <div id="log"></div>
+        <div id="setting"></div>
 
         <!-- 侧边栏 -->
         <div class="sidebar">
@@ -73,6 +73,19 @@
                             <span class="sidebar-menu-icon">📝</span>
                             <span class="sidebar-menu-text">Log</span>
                             <div class="tooltip">Log</div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="sidebar-menu">
+                    <div class="sidebar-menu-item">
+                    <!-- 设置 -->
+                        <a href="#setting" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">⚙️</span>
+                            <span class="sidebar-menu-text">Settings</span>
+                            <div class="tooltip">Settings</div>
                         </a>
                     </div>
                 </div>
@@ -119,9 +132,13 @@
                 <!-- 下载日志内容 -->
                  <p>Log</p>
             </section>
+            <section id="setting-content" class="content-section">
+                <!-- 设置内容 -->
+                <p>Settings</p>
+            </section>
         </div>
 
-        <!-- 额外内容 -->
+        <!-- 扩展栏 -->
         <div class="content-extra">
             <div class="extra-may-like"><p style="text-align:center">May Like</p></div>
         </div>
