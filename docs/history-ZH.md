@@ -119,3 +119,5 @@ skip this step!
 	url:http://xxx
 	download failed!!!
 ```
+
+- 🩹修复了前端页面链接文本框内容超过当前页面时显示错乱的情况
