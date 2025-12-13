@@ -1,3 +1,35 @@
+.toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.1);  /* 背景: rgba(255, 255, 255, 0.1) */
+}
+
+/* 侧边栏菜单文本悬停效果 */
+.sidebar-menu-text:hover {
+    color: #007bff; /* 颜色: #007bff */
+}
+
+/* 侧边栏菜单链接悬停效果 */
+.sidebar-menu-link:hover {
+    background: #34495e;          /* 背景颜色: #34495e */
+    color: white;                 /* 颜色: 白色 */
+}
+
+.sidebar-has-submenu > .sidebar-menu-link::after {
+    content: '▸';                /* 内容: ▸ */
+    position: absolute;          /* 位置: 绝对 */
+    right: 20px;                 /* 右边距: 20px */
+    transition: transform 0.3s;  /* 过渡效果: 变换 0.3秒 */
+}
+
+.tooltip::before {
+    content: '';                 /* 内容: 空字符串 */
+    position: absolute;          /* 位置: 绝对 */
+    right: 100%;                 /* 右边距: 100% */
+    top: 50%;                   /* 上边距: 50% */
+    transform: translateY(-50%); /* 变换: 垂直平移 -50% */
+    border: 5px solid transparent; /* 边框: 5px 实线 透明 */
+    border-right-color: #2c3e50;   /* 边框右侧颜色: #2c3e50 */
+}
+
 /* 隐藏的复选框用于控制状态 */
 #sidebar-toggle {
     display: none; /* 隐藏复选框 */
@@ -52,7 +84,8 @@
 /* 侧边栏选中效果 */
 #download:target ~ .sidebar .sidebar-content .sidebar-menu .sidebar-menu-item .sidebar-menu-link[href="#download"],
 #history:target ~ .sidebar .sidebar-content .sidebar-menu .sidebar-menu-item .sidebar-menu-link[href="#history"],
-#log:target ~ .sidebar .sidebar-content .sidebar-menu .sidebar-menu-item .sidebar-menu-link[href="#log"] {
+#log:target ~ .sidebar .sidebar-content .sidebar-menu .sidebar-menu-item .sidebar-menu-link[href="#log"],
+#setting:target ~ .sidebar .sidebar-footer .sidebar-menu-link[href="#setting"] {
     color: #007bff;               /* 颜色: #007bff */
     border-right: 3px solid aqua; /* 边框右: 3px 实线 #007bff */
     background-color:#34495e;
@@ -61,6 +94,11 @@
 /* 主要内容显示控制，点击侧边栏按钮会显示对应 section 内容 */
 #download:target ~ .content-main #download-content,
 #history:target ~ .content-main #history-content,
-#log:target ~ .content-main #log-content {
+#log:target ~ .content-main #log-content,
+#setting:target ~ .content-main #setting-content {
     display: block; /* 显示: 块 */
+}
+
+button:hover {
+  background-color: #e0e0e0; /* 悬停背景颜色 */
 }

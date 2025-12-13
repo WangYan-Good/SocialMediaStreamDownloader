@@ -33,7 +33,3 @@ button {
   border: 1px solid #ccc;    /* 边框 */
   border-radius: 4px;          /* 圆角边框 */
 }
-
-button:hover {
-  background-color: #e0e0e0; /* 悬停背景颜色 */
-}
