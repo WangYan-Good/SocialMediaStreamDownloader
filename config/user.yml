@@ -1,0 +1,25 @@
+##
+## for user personalize download
+## a user could fill those config below to override default setting
+##
+
+## **************************
+## *  user download config  *
+## **************************
+
+##
+## 下载线程数，当为 0 时，将不做下载数量限制，可能会出现下载失败的情况
+## 当下载数量过大时，建议适当调整线程数
+##
+max_thread: 0
+max_thread: 0
+
+##
+## 是否按照文件夹保存
+##
+folderize: true
+
+##
+## user login config
+##
+login: false
