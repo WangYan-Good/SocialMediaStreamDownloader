@@ -3,82 +3,80 @@
 ## ****************************
 
 ##
-## 下载内容保存路径，请使用绝对路径
+## 下载配置
 ##
-save_path: /mnt/video
+download:
+  ##
+  ## 下载内容保存路径，请使用绝对路径
+  ##
+  save_path: /mnt/video
+  ##
+  ## 下载文件名前面加上时间
+  ##
+  tick_naming: true
+  ##
+  ## 是否按照文件夹保存
+  ##
+  folderize: true
+  ##
+  ## 下载线程数，当为 0 时，将不做下载数量限制，可能会出现下载失败的情况
+  ## 当下载数量过大时，建议适当调整线程数
+  ##
+  max_thread: 0
+  ##
+  ## 是否保存下载过程中服务器响应内容
+  ##
+  save_response: false
+  ##
+  ## 当下载失败时是否保存错误响应内容
+  ## 该开关对出现 BUG 时，有助于分析原因
+  ##
+  save_error_response: true
+  ##
+  ## 最大重试次数
+  ##
+  max_retry: 3
+  ##
+  ## develop/test/production 模式选择
+  ## 测试模式：该模式下不会下载数据，仅会执行下载流程
+  ##
+  mode: develop
+  ##
+  ## 监听下载列表
+  ## 当为 True 时，会不断监听列表
+  ##
+  polling_mode: false
 
 ##
-## 日志打印开关
-## true: 打印日志
-## false: 不打印日志
+## 日志配置
 ##
-log_enable: true
+log:
+  ##
+  ## 日志打印开关
+  ## true: 打印日志
+  ## false: 不打印日志
+  ##
+  enable: true
+  ##
+  ## 日志保存相对路径，以本项目所在路径为基准
+  ##
+  path: ./logs
+  ##
+  ## log 模式 verbose | debug | info | warning | error | critical
+  ## 执行时会打印更多的过程日志信息
+  ##
+  level: 'info'
 
 ##
-## 日志保存相对路径，以本项目所在路径为基准
+## login 配置
 ##
-log_path: ./logs
+login:
+  ##
+  ## 是否以登录用户身份下载, 系统配置默认 false
+  ## 最终以用户在前端选择为准
+  ##
+  is_login: false
 
-##
-## 下载线程数，当为 0 时，将不做下载数量限制，可能会出现下载失败的情况
-## 当下载数量过大时，建议适当调整线程数
-##
-max_thread: 0
-
-##
-## 是否按照文件夹保存
-##
-folderize: true
-
-##
-## 是否以登录用户身份下载
-##
-login: false
-
-##
-## 是否保存下载过程中服务器响应内容
-##
-save_response: false
-
-##
-## 当下载失败时是否保存错误响应内容
-## 该开关对出现 BUG 时，有助于分析原因
-##
-save_error_response: true
-
-##
-## 是否开启 debug 模式
-## 执行时会打印更多的过程日志信息
-##
-debug: false
-
-##
-## 最大重试次数
-##
-max_retry: 3
-
-##
-## 测试模式：该模式下不会下载数据，仅会执行下载流程
-##
-test_mode: false
-
-##
-## 监听下载列表
-## 当为 True 时，会不断监听列表
-##
-listening: false
-
-##
-## 下载文件名前面加上时间
-##
-tick_naming: true
-
-##
-## do not modify
-##
-config_directory: "config"
-stream_platform: "douyin"
-build_directory: "build"
 ##>>------------------ network download config -------------------->>
 ## "headers.yml"  # path = [stream_platform] + [headers_config_path]
 headers_file:
@@ -182,7 +180,7 @@ headers_file:
 ##>>------------------ download config -------------------->>
 #  "download.yml"
 download_file:
-  ##<<--------------------- user login cofnig --------------------<<
+  ##<<--------------------- user login config --------------------<<
   #  login.yml
   login_config_file:
     ##
@@ -199,11 +197,11 @@ download_file:
       http:
       https:
 
-  ##<<------------------ download cofnig -------------<<
+  ##<<------------------ download config -------------<<
   ## post/live
   type: live
 
-  ##<<------------------ post download cofnig -------------<<
+  ##<<------------------ post download config -------------<<
   #  post.yml
   post_download_config_file:
     share_url: null
@@ -272,7 +270,7 @@ download_file:
     # msToken: 7YURhBYi8aCImhZURjL7CVihHVPP74jxkfjg2MckJH6LfVu8lY7NGC6nYTtheSiXCyzKSV1FUvDNZ-0A7Th3GrJJ-Eis8_r8Wjs7TVFNwkGqd06Gck3NOPS05vMeQgELNsZciLWJCzebu8XpIJvv
     # a_bogus: xvW0%2Ff8kmEVTXfEX5W5LfYpq33q3Y%2FSs0SVkMD2LJxVwn639HMPa9exo7VhvD1ujN4%2FkIbDjy4hCY3NMxQ2jA3sfHYJOW9aBmDSkKl5Q5xSa5ZRetyDmE0Ux-ws1tMc2-i1UrOJQqJKGKuRplnl60fAAPa8%3D
 
-  ##<<------------------ live download cofnig -------------<<
+  ##<<------------------ live download config -------------<<
   #  live.yml
   live_download_config_file:
     ##
@@ -332,140 +330,180 @@ download_file:
   multiple_download: true
   share_url_file: conf.ini
 
-  ##<<------------------ API -------------------------<<
-  #  api.yml
-  api_file:
-    ##
-    ## 请求 API
-    ##
-
-    # 抖音域名 (Douyin Domain)
-    DOUYIN_DOMAIN: "https://www.douyin.com"
-
-    # 抖音短域名 (Short Domain)
-    IESDOUYIN_DOMAIN: "https://www.iesdouyin.com"
-    IESDOUYIN_HEADER_REFERER: "https://www.iesdouyin.com/share/user/"
-
-    # 无登录直播头
-    # WEBCAST_HEADER_: "https://webcast.amemv.com/webcast/room/reflow/info/"
-
-    # 直播域名 (Live Domain)
-    LIVE_DOMAIN: "https://live.douyin.com"
-
-    # 直播域名2 (Live Domain 2)
-    LIVE_DOMAIN2: "https://webcast.amemv.com"
-
-    # SSO域名 (SSO Domain)
-    SSO_DOMAIN: "https://sso.douyin.com"
-
-    # WSS域名 (WSS Domain)
-    WEBCAST_WSS_DOMAIN: "wss://webcast5-ws-web-lf.douyin.com"
-
-    # 首页Feed (Home Feed)
-    TAB_FEED: "https://www.douyin.com/aweme/v1/web/tab/feed/"
-
-    # 用户短信息 (User Short Info)
-    USER_SHORT_INFO: "https://www.douyin.com/aweme/v1/web/im/user/info/"
-
-    # 用户详细信息 (User Detail Info)
-    USER_DETAIL: "https://www.douyin.com/aweme/v1/web/user/profile/other/"
-
-    # 作品基本 (Post Basic)
-    BASE_AWEME: "https://www.douyin.com/aweme/v1/web/aweme/"
-
-    # 用户作品 (User Post)
-    USER_POST: "https://www.douyin.com/aweme/v1/web/aweme/post/"
-    IESDOUYIN_USER_POST: "https://www.iesdouyin.com/web/api/v2/aweme/post/"
-
-    # 定位作品 (Post Local)
-    LOCATE_POST: "https://www.douyin.com/aweme/v1/web/locate/post/"
-
-    # 搜索作品 (Post Search)
-    POST_SEARCH: "https://www.douyin.com/aweme/v1/web/general/search/single/"
-
-    # 作品信息 (Post Detail)
-    POST_DETAIL: "https://www.douyin.com/aweme/v1/web/aweme/detail/"
-
-    # 用户喜欢A (User Like A)
-    USER_FAVORITE_A: "https://www.douyin.com/aweme/v1/web/aweme/favorite/"
-
-    # 用户喜欢B (User Like B)
-    USER_FAVORITE_B: "https://www.iesdouyin.com/web/api/v2/aweme/like/"
-
-    # 关注用户(User Following)
-    USER_FOLLOWING: "https://www.douyin.com/aweme/v1/web/user/following/list/"
-
-    # 粉丝用户 (User Follower)
-    USER_FOLLOWER: "https://www.douyin.com/aweme/v1/web/user/follower/list/"
-
-    # 合集作品
-    MIX_AWEME: "https://www.douyin.com/aweme/v1/web/mix/aweme/"
-
-    # 用户历史 (User History)
-    USER_HISTORY: "https://www.douyin.com/aweme/v1/web/history/read/"
-
-    # 用户收藏 (User Collection)
-    USER_COLLECTION: "https://www.douyin.com/aweme/v1/web/aweme/listcollection/"
-
-    # 用户收藏夹 (User Collects)
-    USER_COLLECTS: "https://www.douyin.com/aweme/v1/web/collects/list/"
-
-    # 用户收藏夹作品 (User Collects Posts)
-    USER_COLLECTS_VIDEO: "https://www.douyin.com/aweme/v1/web/collects/video/list/"
-
-    # 用户音乐收藏 (User Music Collection)
-    USER_MUSIC_COLLECTION: "https://www.douyin.com/aweme/v1/web/music/listcollection/"
-
-    # 首页朋友作品 (Friend Feed)
-    FRIEND_FEED: "https://www.douyin.com/aweme/v1/web/familiar/feed/"
-
-    # 关注用户作品 (Follow Feed)
-    FOLLOW_FEED: "https://www.douyin.com/aweme/v1/web/follow/feed/"
-
-    # 相关推荐 (Related Feed)
-    POST_RELATED: "https://www.douyin.com/aweme/v1/web/aweme/related/"
-
-    # 关注用户列表直播 (Follow User Live)
-    FOLLOW_USER_LIVE: "https://www.douyin.com/webcast/web/feed/follow/"
-
-    # 直播信息接口 (Live Info)
-    LIVE_INFO: "https://live.douyin.com/webcast/room/web/enter/"
-
-    # 直播信息接口2 (Live Info 2)
-    LIVE_INFO_ROOM_ID: "https://webcast.amemv.com/webcast/room/reflow/info/"
-
-    # 直播用户信息 (Live User Info)
-    LIVE_USER_INFO: "https://live.douyin.com/webcast/user/me/"
-
-    # 推荐搜索词 (Suggest Words)
-    SUGGEST_WORDS: "https://www.douyin.com/aweme/v1/web/api/suggest_words/"
-
-    # SSO登录 (SSO Login)
-    SSO_LOGIN_GET_QR: "https://sso.douyin.com/get_qrcode/"
-
-    # 登录检查 (Login Check)
-    SSO_LOGIN_CHECK_QR: "https://sso.douyin.com/check_qrconnect/"
-
-    # 登录确认 (Login Confirm)
-    SSO_LOGIN_CHECK_LOGIN: "https://sso.douyin.com/check_login/"
-
-    # 登录重定向 (Login Redirect)
-    SSO_LOGIN_REDIRECT: "https://www.douyin.com/login/"
-
-    # 登录回调 (Login Callback)
-    SSO_LOGIN_CALLBACK: "https://www.douyin.com/passport/sso/login/callback/"
-
-    # 作品评论 (Post Comment)
-    POST_COMMENT: "https://www.douyin.com/aweme/v1/web/comment/list/"
-
-    # 回复评论 (Reply Comment)
-    POST_COMMENT_PUBLISH: "https://www.douyin.com/aweme/v1/web/comment/publish"
-
-    # 删除评论 (Delete Comment)
-    POST_COMMENT_DELETE: "https://www.douyin.com/aweme/v1/web/comment/delete/"
-
-    # 点赞评论 (Like Comment)
-    POST_COMMENT_DIGG: "https://www.douyin.com/aweme/v1/web/comment/digg"
+##
+## 请求 API
+##
+api:
+  ##
+  ## 抖音域名 (Douyin Domain)
+  ##
+  DOUYIN_DOMAIN: "https://www.douyin.com"
+  ##
+  ## 抖音短域名 (Short Domain)
+  ##
+  IESDOUYIN_DOMAIN: "https://www.iesdouyin.com"
+  IESDOUYIN_HEADER_REFERER: "https://www.iesdouyin.com/share/user/"
+  ##
+  ## 无登录直播头
+  ##
+  WEBCAST_HEADER_: "https://webcast.amemv.com/webcast/room/reflow/info/"
+  ##
+  ## 直播域名 (Live Domain)
+  ##
+  LIVE_DOMAIN: "https://live.douyin.com"
+  ##
+  ## 直播域名2 (Live Domain 2)
+  ##
+  LIVE_DOMAIN2: "https://webcast.amemv.com"
+  ##
+  ## SSO域名 (SSO Domain)
+  ##
+  SSO_DOMAIN: "https://sso.douyin.com"
+  ##
+  ## WSS域名 (WSS Domain)
+  ##
+  WEBCAST_WSS_DOMAIN: "wss://webcast5-ws-web-lf.douyin.com"
+  ##
+  ## 首页Feed (Home Feed)
+  ##
+  TAB_FEED: "https://www.douyin.com/aweme/v1/web/tab/feed/"
+  ##
+  ## 用户短信息 (User Short Info)
+  ##
+  USER_SHORT_INFO: "https://www.douyin.com/aweme/v1/web/im/user/info/"
+  ##
+  ## 用户详细信息 (User Detail Info)
+  ##
+  USER_DETAIL: "https://www.douyin.com/aweme/v1/web/user/profile/other/"
+  ##
+  ## 作品基本 (Post Basic)
+  ##
+  BASE_AWEME: "https://www.douyin.com/aweme/v1/web/aweme/"
+  ##
+  ## 用户作品 (User Post)
+  ##
+  USER_POST: "https://www.douyin.com/aweme/v1/web/aweme/post/"
+  IESDOUYIN_USER_POST: "https://www.iesdouyin.com/web/api/v2/aweme/post/"
+  ##
+  ## 定位作品 (Post Local)
+  ##
+  LOCATE_POST: "https://www.douyin.com/aweme/v1/web/locate/post/"
+  ##
+  ## 搜索作品 (Post Search)
+  ##
+  POST_SEARCH: "https://www.douyin.com/aweme/v1/web/general/search/single/"
+  ##
+  ## 作品信息 (Post Detail)
+  ##
+  POST_DETAIL: "https://www.douyin.com/aweme/v1/web/aweme/detail/"
+  ##
+  ## 用户喜欢A (User Like A)
+  ##
+  USER_FAVORITE_A: "https://www.douyin.com/aweme/v1/web/aweme/favorite/"
+  ##
+  ## 用户喜欢B (User Like B)
+  ##
+  USER_FAVORITE_B: "https://www.iesdouyin.com/web/api/v2/aweme/like/"
+  ##
+  ## 关注用户(User Following)
+  ##
+  USER_FOLLOWING: "https://www.douyin.com/aweme/v1/web/user/following/list/"
+  ##
+  ## 粉丝用户 (User Follower)
+  ##
+  USER_FOLLOWER: "https://www.douyin.com/aweme/v1/web/user/follower/list/"
+  ##
+  ## 合集作品
+  ##
+  MIX_AWEME: "https://www.douyin.com/aweme/v1/web/mix/aweme/"
+  ##
+  ## 用户历史 (User History)
+  ##
+  USER_HISTORY: "https://www.douyin.com/aweme/v1/web/history/read/"
+  ##
+  ## 用户收藏 (User Collection)
+  ##
+  USER_COLLECTION: "https://www.douyin.com/aweme/v1/web/aweme/listcollection/"
+  ##
+  ## 用户收藏夹 (User Collects)
+  ##
+  USER_COLLECTS: "https://www.douyin.com/aweme/v1/web/collects/list/"
+  ##
+  ## 用户收藏夹作品 (User Collects Posts)
+  ##
+  USER_COLLECTS_VIDEO: "https://www.douyin.com/aweme/v1/web/collects/video/list/"
+  ##
+  ## 用户音乐收藏 (User Music Collection)
+  ##
+  USER_MUSIC_COLLECTION: "https://www.douyin.com/aweme/v1/web/music/listcollection/"
+  ##
+  ## 首页朋友作品 (Friend Feed)
+  ##
+  FRIEND_FEED: "https://www.douyin.com/aweme/v1/web/familiar/feed/"
+  ##
+  ## 关注用户作品 (Follow Feed)
+  ##
+  FOLLOW_FEED: "https://www.douyin.com/aweme/v1/web/follow/feed/"
+  ##
+  ## 相关推荐 (Related Feed)
+  ##
+  POST_RELATED: "https://www.douyin.com/aweme/v1/web/aweme/related/"
+  ##
+  ## 关注用户列表直播 (Follow User Live)
+  ##
+  FOLLOW_USER_LIVE: "https://www.douyin.com/webcast/web/feed/follow/"
+  ##
+  ## 直播信息接口 (Live Info)
+  ##
+  LIVE_INFO: "https://live.douyin.com/webcast/room/web/enter/"
+  ##
+  ## 直播信息接口2 (Live Info 2)
+  ##
+  LIVE_INFO_ROOM_ID: "https://webcast.amemv.com/webcast/room/reflow/info/"
+  ##
+  ## 直播用户信息 (Live User Info)
+  ##
+  LIVE_USER_INFO: "https://live.douyin.com/webcast/user/me/"
+  ##
+  ## 推荐搜索词 (Suggest Words)
+  ##
+  SUGGEST_WORDS: "https://www.douyin.com/aweme/v1/web/api/suggest_words/"
+  ##
+  ## SSO登录 (SSO Login)
+  ##
+  SSO_LOGIN_GET_QR: "https://sso.douyin.com/get_qrcode/"
+  ##
+  ## 登录检查 (Login Check)
+  ##
+  SSO_LOGIN_CHECK_QR: "https://sso.douyin.com/check_qrconnect/"
+  ##
+  ## 登录确认 (Login Confirm)
+  ##
+  SSO_LOGIN_CHECK_LOGIN: "https://sso.douyin.com/check_login/"
+  ##
+  ## 登录重定向 (Login Redirect)
+  ##
+  SSO_LOGIN_REDIRECT: "https://www.douyin.com/login/"
+  ##
+  ## 登录回调 (Login Callback)
+  ##
+  SSO_LOGIN_CALLBACK: "https://www.douyin.com/passport/sso/login/callback/"
+  ##
+  ## 作品评论 (Post Comment)
+  ##
+  POST_COMMENT: "https://www.douyin.com/aweme/v1/web/comment/list/"
+  ##
+  ## 回复评论 (Reply Comment)
+  ##
+  POST_COMMENT_PUBLISH: "https://www.douyin.com/aweme/v1/web/comment/publish"
+  ##
+  ## 删除评论 (Delete Comment)
+  ##
+  POST_COMMENT_DELETE: "https://www.douyin.com/aweme/v1/web/comment/delete/"
+  ##
+  ## 点赞评论 (Like Comment)
+  ##
+  POST_COMMENT_DIGG: "https://www.douyin.com/aweme/v1/web/comment/digg"
 
 ##>>------------------ config path -------------------------------->>
 base_config_directory: null

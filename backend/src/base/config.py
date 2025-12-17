@@ -26,8 +26,8 @@ class BaseConfig():
   save_path: /mnt/nvme2/vedio
   max_thread: 0
   folderize: True
-  config_directory: config
-  stream_platform: douyin
+  # config_directory: config
+  # stream_platform: douyin
   build_directory: build
   login: True
   save_response: True

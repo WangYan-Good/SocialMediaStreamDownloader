@@ -34,12 +34,18 @@ class PlatformDispatcher:
 ##
 ## >>============================= private method =============================>>
 ##
+  ##
+  ## singleton mode
+  ##
   def __new__(cls, *args, **kwargs):    
     with cls.__instance_lock:
       if not hasattr(cls, "_instance"):
         cls._instance = super(PlatformDispatcher, cls).__new__(cls)
     return cls._instance
 
+  ##
+  ## initialize handler and executor
+  ##
   def __init__(self):
     self.handlers  = dict()
     self.executors = dict()
@@ -54,7 +60,6 @@ class PlatformDispatcher:
   ## register handler
   ##
   def __platform_register_handler(self, event, handler, max_threads=1):
-    
     ##
     ## check attribute
     ##
