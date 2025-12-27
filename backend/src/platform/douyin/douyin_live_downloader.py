@@ -437,7 +437,7 @@ class DouyinLiveDownloader(Downloader):
         error_response_path = self.config.get_config_dict_attr("$.build_path") + "/" + self.config.get_config_dict_attr("$.stream_platform") + "/" + self.config.get_config_dict_attr("$.type") + "/error_response/" + self.live_external_info.get_nickname(live_response)  + ".yml"
         set_dict_attr(summary, "$.error_response_path", error_response_path)
         set_dict_attr(build, "$.summary", summary)
-        save_dict_as_file(source=params, save_path=Path(error_response_path))
+        save_dict_as_file(source=build, save_path=Path(error_response_path))
         if self.config.get_config_dict_attr("$.debug") is True:
           get_logger().info("Save error response file {} success!".format(error_response_path))
       raise e
