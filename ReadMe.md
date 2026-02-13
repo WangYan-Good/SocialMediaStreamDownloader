@@ -47,12 +47,194 @@ Looking in indexes: https://pypi.tuna.tsinghua.edu.cn/simple/
 
 # 📋 项目说明\(Instructions\)
 
-TODO
+## 项目概述
+
+SocialMediaStreamDownloader 是一个用于下载社交媒体平台视频、直播等内容的工具。它支持多种社交媒体平台，通过简单的Web界面提供便捷的下载功能。
+
+## 架构设计
+
+项目采用前后端分离的架构：
+
+- **前端**：提供用户友好的Web界面，用户可以通过输入分享链接来触发下载
+- **后端**：基于Flask的API服务，处理下载请求并分发给相应的平台处理器
+- **核心引擎**：平台分发器（PlatformDispatcher）负责识别平台类型并调用相应处理器
+
+## 支持的平台
+
+- 抖音 (Douyin)
+- 其他平台可通过配置轻松扩展
+
+## 功能特性
+
+- 支持批量下载
+- 多线程下载
+- 视频和直播内容下载
+- 配置化管理
+- 结构化日志记录
+- 速率限制保护
+- 动态平台扩展
+
+## 配置说明
+
+### 速率限制配置
+
+系统默认启用了速率限制，如需调整，请参考以下配置：
+
+- 默认限制：每小时100个请求
+- POST端点限制：每分钟10个请求
+
+### 日志配置
+
+在 `config/base_config.yml` 中可以配置日志相关选项：
+
+```yaml
+log_enable: true      # 启用日志
+log_path: ./logs      # 日志保存路径
+structured_logging: false  # 结构化日志输出
+```
+
+### 平台配置
+
+#### 添加新平台支持
+
+通过编辑 `config/platforms.yml` 文件可以添加新平台支持：
+
+```yaml
+new_platform:
+  handler: backend.src.platform.new_platform.handler_function
+  domains:
+    - example.com
+    - www.example.com
+  enabled: true
+```
+
+## 部署和运行
+
+### 使用部署脚本
+
+新版本的部署脚本支持以下命令：
+
+```bash
+# 启动服务
+./run-server.sh start
+
+# 停止服务
+./run-server.sh stop
+
+# 重启服务
+./run-server.sh restart
+```
+
+### 系统要求
+
+- Python 3.11 或更高版本
+- 虚拟环境 (推荐使用 venv)
+- 系统需要安装 FFmpeg (用于视频处理)
+
+### 数据库配置
+
+系统遵循以下数据类型存储原则：
+- 状态：unsigned tinyint (0~255)
+- ID: varchar(200)
+- 姓名昵称: varchar(50)
+- 时间：timestamp
+- URL: text (最大 64KB)
+- 等级: unsigned smallint (0-65535)
+- 粉丝数量：unsigned bigint (0 - 18,446,744,073,709,551,615)
+
+### 平台支持
+
+系统当前支持以下社交媒体平台：
+- **抖音 (Douyin)**：支持直播下载、视频下载等功能
+- **其他平台**：可通过配置文件轻松扩展
+
+要添加新平台支持，请编辑 `config/platforms.yml` 文件。
 
 # ⚠️ 免责声明\(Disclaimers\)
 
 ## **项目性质说明**
 **SocialMediaStreamDownloader**（下称“本项目”）是一个**技术研究项目**，旨在探讨多媒体内容获取与处理的技术实现。本项目提供的所有代码、文档及相关资源**仅供学习、研究与合法合规用途参考**。
+
+# 项目改进总结
+
+## 改进概述
+
+我们对SocialMediaStreamDownloader项目进行了全面的改进，解决了之前识别出的多个问题，包括代码质量、安全性、性能、配置管理、文档和维护性等方面的问题。
+
+## 具体改进内容
+
+### 1. 输入验证和错误处理
+- 在server.py中增加了URL格式验证
+- 改进了错误处理机制，返回有意义的错误消息
+- 添加了针对不同错误类型的HTTP状态码
+
+### 2. 平台分发器改进
+- 增强了PlatformDispatcher中的错误处理
+- 改进了URL解析和验证逻辑
+- 添加了更好的日志记录
+- 实现了更可靠的URL匹配机制
+
+### 3. 代码标准化
+- 将中文注释替换为英文注释
+- 添加了适当的文档字符串
+- 改进了代码可读性和维护性
+
+### 4. 资源管理
+- 添加了线程池的正确关闭机制
+- 实现了资源清理功能，防止资源泄漏
+- 在应用关闭时确保线程池被正确释放
+
+### 5. 动态平台配置
+- 创建了PlatformConfig类来管理平台配置
+- 将硬编码的平台列表替换为配置文件驱动
+- 允许通过配置文件轻松添加新平台
+
+### 6. 日志系统增强
+- 添加了结构化日志输出支持(JSON格式)
+- 实现了可配置的日志格式
+- 改进了日志记录的一致性
+
+### 7. 文档改进
+- 更新了README.md，添加了项目说明章节
+- 补充了架构设计、支持平台和功能特性的描述
+- 在README.md中添加了配置说明和部署指南
+- 将安全设计相关内容整合到开发笔记中
+
+### 8. 安全性增强
+- 添加了速率限制功能，使用Flask-Limiter
+- 设置了默认全局限制和特定端点限制
+- 防止API滥用
+
+### 9. 测试覆盖
+- 创建了基本的单元测试套件
+- 包括对PlatformDispatcher和URL验证函数的测试
+- 添加了错误处理场景的测试
+
+### 10. 部署脚本改进
+- 重构了run-server.sh脚本，提高了健壮性
+- 添加了start/stop/restart命令
+- 实现了PID文件管理
+- 改进了依赖安装和缓存机制
+- 添加了更好的错误处理和日志记录
+
+## 提交历史
+
+以下是本次改进的所有提交记录：
+1. feat: enhance input validation and error handling in server.py
+2. fix: improve error handling and input validation in platform_dispatcher.py
+3. refactor: standardize code comments and add docstrings in platform_dispatcher.py
+4. feat: add resource management for thread pools
+5. feat: implement dynamic platform configuration system
+6. feat: enhance logging system with structured output support
+7. docs: update README with project instructions section
+8. feat: add rate limiting to protect API endpoints
+9. test: add basic unit tests for core functionality
+10. refactor: improve deployment script with better error handling
+11. docs: consolidate documentation to reduce maintenance overhead
+12. docs: further consolidate documentation by merging feature.md into design.md
+13. docs: remove minimal user_guide.md as content is covered in README.md
+14. docs: consolidate database design documentation into design.md and remove database.md
+15. docs: enhance README.md with additional system requirements and configuration info
 
 ## **使用责任与法律风险**
 - **用户责任**：您在使用本项目时，应自行了解并遵守所在国家/地区关于数据获取、版权保护、隐私保护等相关法律法规。**因使用本项目所产生的任何法律风险及后果，由用户自行承担**。    
