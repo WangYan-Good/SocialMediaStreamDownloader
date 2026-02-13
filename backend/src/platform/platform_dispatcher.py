@@ -26,14 +26,14 @@ class PlatformDispatcher:
 ##
   __event_list      = ['douyin', 'other']
   __handler_dict    = {'douyin': douyin_handler, 'other':other_handler}
-
-##
-## >>============================= private method =============================>>
-##
+  
   def __init__(self):
     self.handlers  = dict()
     self.executors = dict()
 
+##
+## >>============================= private method =============================>>
+##
   ##
   ## other register handler
   ##
@@ -44,23 +44,27 @@ class PlatformDispatcher:
   ## register handler
   ##
   def __platform_register_handler(self, event, handler, max_threads=1):
-    
+
     ##
     ## check attribute
     ##
     if event is None or handler is None:
-      get_logger().error("invalid attribute of registered handler")
-      raise ValueError
+      get_logger().error("Invalid attribute of registered handler")
+      raise ValueError("Event and handler cannot be None")
 
     ##
     ## initialize handler
     ##
     self.handlers[event] = handler
-    
+
     ##
     ## initialize executor
     ##
-    self.executors[event] = ThreadPoolExecutor(max_workers=max_threads)
+    try:
+        self.executors[event] = ThreadPoolExecutor(max_workers=max_threads)
+    except Exception as e:
+        get_logger().error(f"Failed to create ThreadPoolExecutor for event {event}: {e}")
+        raise
 
 ##
 ## >>============================= abstract method =============================>>
@@ -85,58 +89,72 @@ class PlatformDispatcher:
     ## extended data related to the event
     ##
     token = dict()
-    
+
     ##
     ## check attribute
     ##
     if jsonData is None:
-      get_logger().error("invalid attribute of dispatch")
-      raise ValueError
-    
+      get_logger().error("Invalid attribute of dispatch")
+      raise ValueError("jsonData cannot be None")
+
     ##
     ## split jsonData
     ##
     urls = jsonData.get('urls')
     if urls is None:
-      get_logger().error("invalid attribute of urls")
-      raise ValueError
+      get_logger().error("Invalid attribute of urls")
+      raise ValueError("'urls' field is required in jsonData")
     if not isinstance(urls, list):
-      get_logger().error("invalid attribute of urls")
-      raise ValueError
+      get_logger().error("Invalid attribute of urls")
+      raise ValueError("'urls' field must be a list")
     if len(urls) == 0:
-      get_logger().error("invalid attribute of urls")
-      raise ValueError
-    
+      get_logger().error("Invalid attribute of urls")
+      raise ValueError("'urls' field cannot be empty")
+
     url_dict = {event:list() for event in self.__event_list}
-    
+
     for url in urls:
-      
       ##
       ## extract domain
       ##
-      domain = urlparse(url).netloc
+      try:
+        parsed_url = urlparse(url)
+        if not parsed_url.netloc:
+          get_logger().error(f"Invalid URL: {url}")
+          continue  # Skip invalid URLs
+          
+        domain = parsed_url.netloc
+      except Exception as e:
+        get_logger().error(f"Error parsing URL {url}: {e}")
+        continue  # Skip invalid URLs
 
       ##
       ## check domain and create event
       ##
-      try:
-        for event in self.__event_list:
-          if event in domain:
-            
-            ##
-            ## set extended data
-            ##
-            set_dict_attr(token, "$.url", url)
-            set_dict_attr(token, "$.score", jsonData.get('score'))
-            set_dict_attr(token, "$.favorite", jsonData.get('favorite'))
-            
-            ##
-            ## tail insert extended data into url_dict list
-            ##
-            url_dict.get(event).append(token.copy())
-      except:
-        get_logger().error("invalid domain: {}".format(domain))
-        event = 'other'
+      matched = False
+      for event in self.__event_list:
+        if event in domain:
+          matched = True
+          ##
+          ## set extended data
+          ##
+          set_dict_attr(token, "$.url", url)
+          set_dict_attr(token, "$.score", jsonData.get('score'))
+          set_dict_attr(token, "$.favorite", jsonData.get('favorite'))
+
+          ##
+          ## tail insert extended data into url_dict list
+          ##
+          url_dict.get(event).append(token.copy())
+          break  # Only match one event per URL
+      
+      if not matched:
+        # If no specific platform matched, assign to 'other'
+        set_dict_attr(token, "$.url", url)
+        set_dict_attr(token, "$.score", jsonData.get('score'))
+        set_dict_attr(token, "$.favorite", jsonData.get('favorite'))
+        url_dict.get('other').append(token.copy())
+
       token.clear()
 
     ##
@@ -147,15 +165,19 @@ class PlatformDispatcher:
         ##
         ## dispatch event
         ##
-        get_logger().info("dispatching event: {}".format(event))        
-        
+        get_logger().info(f"Dispatching event: {event} with {len(token_list)} items")
+
         ##
         ## submit handler
         ##
-        for token in token_list:  
-          self.executors[event].submit(self.handlers[event], token)
+        for token in token_list:
+          try:
+            self.executors[event].submit(self.handlers[event], token)
+          except Exception as e:
+            get_logger().error(f"Failed to submit task for event {event}: {e}")
+            # Continue with other tokens even if one submission fails
       else:
-        get_logger().error("invalid event: {}".format(event))
+        get_logger().warning(f"No handler registered for event: {event}")
 
 ##
 ## >>================================ test method ===============================>>
