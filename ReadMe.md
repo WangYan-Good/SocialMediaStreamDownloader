@@ -110,7 +110,7 @@ new_platform:
 
 ## 部署和运行
 
-### 使用部署脚本
+### 使用传统部署脚本
 
 新版本的部署脚本支持以下命令：
 
@@ -124,6 +124,128 @@ new_platform:
 # 重启服务
 ./run-server.sh restart
 ```
+
+### 使用 Docker 部署（推荐）
+
+Docker 部署提供了更便捷、隔离的部署方式，支持快速部署和扩展。
+
+#### 系统要求
+
+- Docker Engine >= 20.10
+- Docker Compose >= 2.0
+- 至少 2GB 可用磁盘空间
+
+#### 快速部署
+
+##### 使用 Docker Compose (推荐)
+
+```bash
+# 构建并启动服务
+docker-compose up -d
+
+# 查看服务状态
+docker-compose ps
+
+# 查看日志
+docker-compose logs -f
+
+# 停止服务
+docker-compose down
+```
+
+##### 使用部署脚本
+
+```bash
+# 构建镜像并启动服务
+./deploy-docker.sh build-and-start
+
+# 查看服务状态
+./deploy-docker.sh status
+
+# 查看日志
+./deploy-docker.sh logs
+
+# 停止服务
+./deploy-docker.sh stop
+
+# 重启服务
+./deploy-docker.sh restart
+
+# 清理所有 (停止服务并删除容器和镜像)
+./deploy-docker.sh remove-all
+```
+
+#### 配置
+
+##### 端口映射
+
+- 容器端口 5000 映射到主机端口 5000
+- 如需修改，请编辑 `docker-compose.yml` 文件
+
+##### 数据卷映射
+
+- `./downloads` → `/mnt/video` : 下载内容保存目录
+- `./logs` → `/app/logs` : 日志文件目录
+- `./config` → `/app/config` : 配置文件目录
+
+##### 环境变量
+
+- `SAVE_PATH` : 下载内容保存路径 (默认: /mnt/video)
+- `LOG_PATH` : 日志保存路径 (默认: ./logs)
+
+#### 自定义配置
+
+##### 修改配置文件
+
+在宿主机的 `./config` 目录中修改配置文件，这些更改会实时同步到容器中：
+
+- `base_config.yml` : 基础配置
+- `platforms.yml` : 平台配置
+
+##### 调整下载路径
+
+修改 `docker-compose.yml` 中的卷映射：
+
+```yaml
+volumes:
+  - /custom/download/path:/mnt/video  # 自定义下载目录
+```
+
+#### 故障排除
+
+##### 查看容器日志
+
+```bash
+docker logs social-media-downloader
+```
+
+##### 进入容器调试
+
+```bash
+docker exec -it social-media-downloader /bin/bash
+```
+
+##### 检查容器状态
+
+```bash
+docker ps
+docker stats social-media-downloader
+```
+
+#### 更新服务
+
+```bash
+# 获取最新代码
+git pull origin main
+
+# 重新构建镜像
+docker-compose build --no-cache
+
+# 重启服务
+docker-compose up -d
+```
+
+服务启动后，访问 `http://localhost:5000` 即可使用 SocialMediaStreamDownloader。
 
 ### 系统要求
 
