@@ -125,6 +125,31 @@ new_platform:
 ./run-server.sh restart
 ```
 
+### 系统要求
+
+- Python 3.11 或更高版本
+- 虚拟环境 (推荐使用 venv)
+- 系统需要安装 FFmpeg (用于视频处理)
+
+### 数据库配置
+
+系统遵循以下数据类型存储原则：
+- 状态：unsigned tinyint (0~255)
+- ID: varchar(200)
+- 姓名昵称: varchar(50)
+- 时间：timestamp
+- URL: text (最大 64KB)
+- 等级: unsigned smallint (0-65535)
+- 粉丝数量：unsigned bigint (0 - 18,446,744,073,709,551,615)
+
+### 平台支持
+
+系统当前支持以下社交媒体平台：
+- **抖音 (Douyin)**：支持直播下载、视频下载等功能
+- **其他平台**：可通过配置文件轻松扩展
+
+要添加新平台支持，请编辑 `config/platforms.yml` 文件。
+
 # ⚠️ 免责声明\(Disclaimers\)
 
 ## **项目性质说明**

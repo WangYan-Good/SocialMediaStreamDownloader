@@ -77,6 +77,7 @@
 12. docs: further consolidate documentation by merging feature.md into design.md
 13. docs: remove minimal user_guide.md as content is covered in README.md
 14. docs: consolidate database design documentation into design.md and remove database.md
+15. docs: enhance README.md with additional system requirements and configuration info
 
 ## 总结
 
