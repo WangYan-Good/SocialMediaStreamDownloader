@@ -5,7 +5,7 @@ sys.path.append(os.getcwd())
 ##<< Test
 
 ## <<Base>>
-
+import re
 ## <<Third-Part>>
 from backend.src.platform.platform_dispatcher import PlatformDispatcher
 
@@ -16,26 +16,61 @@ platform_dispatcher = PlatformDispatcher()
 app = Flask(__name__, static_folder='./frontend/src/static', template_folder='./frontend/src/templates')
 
 ##
+## validate URL format
+##
+def is_valid_url(url):
+    # Basic URL validation regex
+    regex = re.compile(
+        r'^https?://'  # http:// or https://
+        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
+        r'localhost|'  # localhost...
+        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})' # ...or ip
+        r'(?::\d+)?'  # optional port
+        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+    return url is not None and regex.search(url) is not None
+
+##
 ## handle the request from the client
 ##
 @app.route('/', methods=['POST'])
 def process_request():
-  try:
-    ##
-    ## get request from the client
-    ##
-    platform_dispatcher.dispatch(request.json)
-  except Exception as e:
-    print(f"ERROR: {e}")
-    ##
-    ## response to the client
-    ##
-    return jsonify({"message": f"request 处理失败"}), 500
+    try:
+        # Validate request data
+        json_data = request.json
+        
+        if not json_data:
+            return jsonify({"message": "Invalid JSON data"}), 400
+            
+        # Validate required fields
+        if 'urls' not in json_data or not isinstance(json_data['urls'], list) or len(json_data['urls']) == 0:
+            return jsonify({"message": "Missing or invalid 'urls' field in request"}), 400
+            
+        # Validate URLs
+        for url in json_data['urls']:
+            if not isinstance(url, str):
+                return jsonify({"message": f"Invalid URL format: {url}"}), 400
+            if not is_valid_url(url):
+                return jsonify({"message": f"Invalid URL format: {url}"}), 400
+                
+        ##
+        ## get request from the client
+        ##
+        platform_dispatcher.dispatch(json_data)
+        
+    except ValueError as ve:
+        print(f"ValueError: {ve}")
+        return jsonify({"message": f"Invalid request data: {str(ve)}"}), 400
+    except Exception as e:
+        print(f"ERROR: {e}")
+        ##
+        ## response to the client
+        ##
+        return jsonify({"message": f"Request processing failed: {str(e)}"}), 500
 
   ##
   ## response to the client
   ##
-  return jsonify({"message": f"request 已开始处理"}), 200
+  return jsonify({"message": f"Request started processing"}), 200
 
 @app.route('/', methods=['GET'])
 def index():
