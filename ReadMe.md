@@ -47,7 +47,30 @@ Looking in indexes: https://pypi.tuna.tsinghua.edu.cn/simple/
 
 # 📋 项目说明\(Instructions\)
 
-TODO
+## 项目概述
+
+SocialMediaStreamDownloader 是一个用于下载社交媒体平台视频、直播等内容的工具。它支持多种社交媒体平台，通过简单的Web界面提供便捷的下载功能。
+
+## 架构设计
+
+项目采用前后端分离的架构：
+
+- **前端**：提供用户友好的Web界面，用户可以通过输入分享链接来触发下载
+- **后端**：基于Flask的API服务，处理下载请求并分发给相应的平台处理器
+- **核心引擎**：平台分发器（PlatformDispatcher）负责识别平台类型并调用相应处理器
+
+## 支持的平台
+
+- 抖音 (Douyin)
+- 其他平台可通过配置轻松扩展
+
+## 功能特性
+
+- 支持批量下载
+- 多线程下载
+- 视频和直播内容下载
+- 配置化管理
+- 结构化日志记录
 
 # ⚠️ 免责声明\(Disclaimers\)
 
