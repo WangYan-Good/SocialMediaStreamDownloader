@@ -75,6 +75,7 @@
 10. refactor: improve deployment script with better error handling
 11. docs: consolidate documentation to reduce maintenance overhead
 12. docs: further consolidate documentation by merging feature.md into design.md
+13. docs: remove minimal user_guide.md as content is covered in README.md
 
 ## 总结
 
