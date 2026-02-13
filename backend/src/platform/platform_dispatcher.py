@@ -15,8 +15,7 @@ from urllib.parse import urlparse
 ##
 from backend.src.library.baselib import set_dict_attr
 from backend.src.base.config import BaseConfig
-from backend.src.platform.douyin.douyin_handler import douyin_handler
-from backend.src.platform.other.other_handler import other_handler
+from backend.src.base.platform_config import PlatformConfig
 from backend.src.base.log import get_logger
 
 """Platform dispatcher to handle different social media platforms"""
@@ -25,12 +24,12 @@ class PlatformDispatcher:
 ##
 ## >>============================= attribute =============================>>
 ##
-  __event_list      = ['douyin', 'other']
-  __handler_dict    = {'douyin': douyin_handler, 'other':other_handler}
-  
-  def __init__(self):
+  def __init__(self, config_path=None):
     self.handlers  = dict()
     self.executors = dict()
+    self.platform_config = PlatformConfig(config_path)
+    self.__event_list = self.platform_config.get_platform_list()
+    self.__handler_dict = self.platform_config.get_handler_dict()
   
   def shutdown(self):
     """Shutdown all thread executors to free resources"""
@@ -133,7 +132,9 @@ class PlatformDispatcher:
       # Check domain and create event
       matched = False
       for event in self.__event_list:
-        if event in domain:
+        # Check if the domain matches any of the platform's domains
+        platform_domains = self.platform_config.get_domains_for_platform(event)
+        if any(domain_part in domain for domain_part in platform_domains):
           matched = True
           # Set extended data
           set_dict_attr(token, "$.url", url)
