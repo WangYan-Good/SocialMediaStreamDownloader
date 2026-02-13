@@ -74,6 +74,7 @@
 9. test: add basic unit tests for core functionality
 10. refactor: improve deployment script with better error handling
 11. docs: consolidate documentation to reduce maintenance overhead
+12. docs: further consolidate documentation by merging feature.md into design.md
 
 ## 总结
 
