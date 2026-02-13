@@ -40,6 +40,8 @@
 ### 7. 文档改进
 - 更新了README.md，添加了项目说明章节
 - 补充了架构设计、支持平台和功能特性的描述
+- 在README.md中添加了配置说明和部署指南
+- 将安全设计相关内容整合到开发笔记中
 
 ### 8. 安全性增强
 - 添加了速率限制功能，使用Flask-Limiter
@@ -71,6 +73,7 @@
 8. feat: add rate limiting to protect API endpoints
 9. test: add basic unit tests for core functionality
 10. refactor: improve deployment script with better error handling
+11. docs: consolidate documentation to reduce maintenance overhead
 
 ## 总结
 
