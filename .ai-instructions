@@ -1,0 +1,80 @@
+# AI Instructions for SocialMediaStreamDownloader Project
+
+## Project Overview
+SocialMediaStreamDownloader is a tool for downloading social media content, supporting multiple platforms like Douyin (TikTok). The project uses a microservices architecture with Flask backend, web frontend, and modular platform handlers.
+
+## Architecture
+- **Backend**: Flask-based API server with platform dispatcher
+- **Frontend**: Web interface with HTML/CSS/JS
+- **Core**: Platform dispatcher handles different social media platforms
+- **Configuration**: YAML-based configuration system
+- **Database**: MySQL integration for data persistence
+
+## Key Components
+- `server.py`: Main Flask application entry point
+- `backend/src/platform/platform_dispatcher.py`: Core platform routing logic
+- `config/`: YAML configuration files
+- `frontend/`: Web interface files
+- `api/`: API response templates
+- `docs/`: Documentation files
+
+## Coding Standards
+- Use Python 3.11+ with type hints where appropriate
+- Follow PEP 8 style guidelines
+- Use meaningful variable and function names
+- Include docstrings for public functions and classes
+- Use English for all code, comments, and documentation
+
+## Error Handling
+- Implement proper input validation
+- Use Flask-Limiter for rate limiting
+- Handle exceptions gracefully with meaningful error messages
+- Log errors appropriately using the built-in logging system
+
+## Docker Deployment
+- Use the provided Dockerfile for containerization
+- Use docker-compose.yml for multi-container deployments
+- Follow security best practices (non-root users, minimal base images)
+- Map volumes for persistent data storage
+
+## Testing
+- Write unit tests for core functionality
+- Test platform-specific handlers separately
+- Validate URL inputs and error responses
+- Test rate limiting functionality
+
+## Security Considerations
+- Validate all user inputs
+- Implement rate limiting to prevent abuse
+- Sanitize user-provided URLs
+- Use secure coding practices to prevent injection attacks
+
+## Platform Integration
+- Use the platform configuration system (`config/platforms.yml`)
+- Implement handlers following the established pattern
+- Support dynamic platform addition via configuration
+- Handle platform-specific authentication and rate limits
+
+## Logging
+- Use structured logging where possible
+- Log important events and errors
+- Respect configuration settings for log levels
+- Maintain consistent log formatting
+
+## Configuration Management
+- Use YAML files for configuration
+- Support environment variable overrides
+- Validate configuration values on startup
+- Provide sensible defaults
+
+## Common Tasks
+- Adding new platform support: Update `config/platforms.yml` and create handler
+- Modifying download behavior: Check `config/base_config.yml`
+- Updating dependencies: Modify `requirements.txt`
+- Customizing UI: Modify files in `frontend/src/`
+
+## Troubleshooting
+- Check logs in the `logs/` directory
+- Verify configuration files are properly formatted
+- Ensure all dependencies are installed
+- Validate platform-specific requirements (e.g., authentication tokens)
