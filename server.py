@@ -8,12 +8,20 @@ sys.path.append(os.getcwd())
 import re
 ## <<Third-Part>>
 from backend.src.platform.platform_dispatcher import PlatformDispatcher
-
 from flask import Flask, request, jsonify, render_template
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 
 platform_dispatcher = PlatformDispatcher()
 app = Flask(__name__, static_folder='./frontend/src/static', template_folder='./frontend/src/templates')
+
+# Initialize rate limiter
+limiter = Limiter(
+    app,
+    key_func=get_remote_address,
+    default_limits=["100 per hour"]  # Default global rate limit
+)
 
 ##
 ## validate URL format
@@ -33,6 +41,7 @@ def is_valid_url(url):
 ## handle the request from the client
 ##
 @app.route('/', methods=['POST'])
+@limiter.limit("10 per minute")  # Limit to 10 requests per minute per IP for POST endpoint
 def process_request():
     try:
         # Validate request data
