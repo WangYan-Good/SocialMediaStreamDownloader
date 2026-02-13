@@ -31,6 +31,15 @@ class PlatformDispatcher:
   def __init__(self):
     self.handlers  = dict()
     self.executors = dict()
+  
+  def shutdown(self):
+    """Shutdown all thread executors to free resources"""
+    for event, executor in self.executors.items():
+      try:
+        executor.shutdown(wait=True)  # Wait for tasks to complete
+        get_logger().info(f"Executor for event {event} has been shut down")
+      except Exception as e:
+        get_logger().error(f"Error shutting down executor for event {event}: {e}")
 
 ##
 ## >>============================= private method =============================>>

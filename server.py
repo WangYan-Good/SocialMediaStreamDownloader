@@ -76,13 +76,25 @@ def process_request():
 def index():
     return render_template('index.html')
 
+@app.teardown_appcontext
+def shutdown_dispatchers(exception=None):
+    """Clean up resources when the application shuts down"""
+    try:
+        platform_dispatcher.shutdown()
+    except Exception as e:
+        print(f"Error during shutdown: {e}")
+
 if __name__ == '__main__':
   ##
   ## register platform_dispatcher
   ##
   platform_dispatcher.register()
-  
+
   ##
   ## 启动服务
   ##
-  app.run(debug=True, host='0.0.0.0', port=5000)
+  try:
+    app.run(debug=True, host='0.0.0.0', port=5000)
+  finally:
+    # Ensure cleanup happens when the script exits
+    platform_dispatcher.shutdown()
