@@ -67,6 +67,12 @@ SocialMediaStreamDownloader is a tool for downloading social media content, supp
 - Validate configuration values on startup
 - Provide sensible defaults
 
+## Version Control Guidelines
+- When updating documentation, append new entries to the existing version in history files (e.g., docs/history-ZH.md)
+- Do not create new version numbers unless explicitly requested
+- Add new features/changes chronologically to the most recent version section
+- Update both history files and development notes consistently
+
 ## Common Tasks
 - Adding new platform support: Update `config/platforms.yml` and create handler
 - Modifying download behavior: Check `config/base_config.yml`
