@@ -85,12 +85,13 @@ class PlatformDispatcher:
     for event, handler in self.__handler_dict.items():
       self.__platform_register_handler(event, handler, 1)
 
-  def dispatch(self, jsonData=None):
+  def dispatch(self, jsonData=None, completion_callback=None):
     """
     Dispatch events based on URL domains to appropriate handlers
-    
+
     Args:
         jsonData (dict): Contains 'urls' list and optional 'score'/'favorite' values
+        completion_callback (callable, optional): Function to call when all tasks complete
     Raises:
         ValueError: If jsonData is invalid or missing required fields
     """
@@ -123,7 +124,7 @@ class PlatformDispatcher:
         if not parsed_url.netloc:
           get_logger().error(f"Invalid URL: {url}")
           continue  # Skip invalid URLs
-          
+
         domain = parsed_url.netloc
       except Exception as e:
         get_logger().error(f"Error parsing URL {url}: {e}")
@@ -144,7 +145,7 @@ class PlatformDispatcher:
           # Tail insert extended data into url_dict list
           url_dict.get(event).append(token.copy())
           break  # Only match one event per URL
-      
+
       if not matched:
         # If no specific platform matched, assign to 'other'
         set_dict_attr(token, "$.url", url)
@@ -154,6 +155,9 @@ class PlatformDispatcher:
 
       token.clear()
 
+    # Track total number of tasks submitted
+    total_tasks = sum(len(tokens) for tokens in url_dict.values())
+    
     # Dispatch event
     for event, token_list in url_dict.items():
       if self.handlers.get(event) is not None:
@@ -163,12 +167,30 @@ class PlatformDispatcher:
         # Submit handler
         for token in token_list:
           try:
-            self.executors[event].submit(self.handlers[event], token)
+            # Wrap the handler with completion callback if provided
+            if completion_callback:
+              wrapped_handler = self._wrap_with_completion(self.handlers[event], completion_callback)
+              self.executors[event].submit(wrapped_handler, token)
+            else:
+              self.executors[event].submit(self.handlers[event], token)
           except Exception as e:
             get_logger().error(f"Failed to submit task for event {event}: {e}")
             # Continue with other tokens even if one submission fails
       else:
         get_logger().warning(f"No handler registered for event: {event}")
+
+  def _wrap_with_completion(self, handler, completion_callback):
+    """Wrap a handler with a completion callback"""
+    def wrapper(*args, **kwargs):
+      try:
+        result = handler(*args, **kwargs)
+        completion_callback()
+        return result
+      except Exception as e:
+        get_logger().error(f"Error in handler: {e}")
+        completion_callback()
+        raise
+    return wrapper
 
 ##
 ## >>================================ test method ===============================>>

@@ -7,12 +7,34 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-function processSubmit() {
+async function processSubmit() {
     urls = processLink();
     score = processScoring();
     favorite = isFavorite();
 
     if (urls && urls.length > 0) {
+        // 检查当前下载状态
+        try {
+            const statusResponse = await fetch('/api/download-status');
+            const statusData = await statusResponse.json();
+            
+            // 如果有限制且没有可用槽位，提示用户
+            if (statusData.is_limited && statusData.available_slots <= 0) {
+                alert(`下载限制已达到上限！当前下载: ${statusData.current_downloads}/${statusData.max_downloads}，没有可用槽位。请等待一些下载完成后再试。`);
+                return;
+            }
+            
+            // 更新状态显示
+            document.getElementById('currentDownloads').textContent = statusData.current_downloads + 1;
+            if (statusData.is_limited) {
+                document.getElementById('availableSlots').textContent = statusData.available_slots - 1;
+            }
+            
+        } catch (error) {
+            console.error('Error checking download status:', error);
+            // 即使检查状态失败，也继续提交请求
+        }
+        
         // 发送数据到后端
         fetch('/', {
             method: 'POST',
@@ -21,15 +43,21 @@ function processSubmit() {
             },
             body: JSON.stringify({ urls: urls, score: score, favorite: favorite }),
         })
-        .then(response => {
+        .then(async response => {
             if (!response.ok) {
-                throw new Error('Network response was not ok');
+                const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+                throw new Error(errorData.message || 'Network response was not ok');
             }
             return response.json();
         })
         .then(data => {
             console.log('Success:', data);
             alert('Link submitted successfully!');
+            
+            // 更新状态显示
+            if (data.current_downloads !== undefined) {
+                document.getElementById('currentDownloads').textContent = data.current_downloads;
+            }
         })
         .catch((error) => {
             console.error('Error:', error);

@@ -122,6 +122,11 @@
                         <span class="percentage" id="percentageValue">0%</span>
                     </div>
                     <p id="status" class="status">准备就绪</p>
+                    
+                    <!-- 当前下载状态 -->
+                    <div class="download-status">
+                        <p>当前下载: <span id="currentDownloads">0</span>/<span id="maxDownloads">-</span> (可用: <span id="availableSlots">-</span>)</p>
+                    </div>
                 </div>
             </section>
             <section id="history-content" class="content-section">
@@ -154,5 +159,6 @@
     <script src="../static/js/submit.js"></script>
     <script src="../static/js/favorite_scoring.js"></script>
     <script src="../static/js/dynamic_copyright.js"></script>
+    <script src="../static/js/download_status.js"></script>
 </body>
 </html>

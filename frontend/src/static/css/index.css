@@ -25,6 +25,28 @@
   font-style: italic;       /* 斜体 */
 }
 
+.download-status {
+  margin-top: 10px;
+  padding: 8px;
+  background-color: #f0f8ff; /* 浅蓝色背景 */
+  border: 1px solid #b0d4f1; /* 边框颜色 */
+  border-radius: 4px;
+  font-size: 14px;
+  color: #333;
+}
+
+.download-status p {
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.download-status span {
+  font-weight: bold;
+  color: #007bff;
+}
+
 button {
   padding: 8px 16px;           /* 内边距 */
   margin: 5px;                 /* 外边距 */
