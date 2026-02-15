@@ -214,7 +214,76 @@
             </section>
             <section id="setting-content" class="content-section">
                 <!-- 设置内容 -->
-                <p>Settings</p>
+                <div class="settings-container">
+                    <h2>系统设置</h2>
+                    
+                    <div class="settings-section">
+                        <h3>下载设置</h3>
+                        <div class="setting-item">
+                            <label for="maxDownloadCount">最大并发下载数:</label>
+                            <input type="number" id="maxDownloadCount" min="1" max="50" value="5">
+                            <button id="setMaxDownloadCountBtn">设置</button>
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label for="downloadPath">下载路径:</label>
+                            <input type="text" id="downloadPath" value="/mnt/video">
+                            <button id="setDownloadPathBtn">设置</button>
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label for="maxThreadCount">最大线程数:</label>
+                            <input type="number" id="maxThreadCount" min="0" max="20" value="0">
+                            <button id="setMaxThreadCountBtn">设置</button>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-section">
+                        <h3>日志设置</h3>
+                        <div class="setting-item">
+                            <label for="logEnable">启用日志:</label>
+                            <input type="checkbox" id="logEnable" checked>
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label for="logPath">日志路径:</label>
+                            <input type="text" id="logPath" value="./logs">
+                            <button id="setLogPathBtn">设置</button>
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label for="structuredLogging">结构化日志:</label>
+                            <input type="checkbox" id="structuredLogging">
+                        </div>
+                    </div>
+                    
+                    <div class="settings-section">
+                        <h3>系统设置</h3>
+                        <div class="setting-item">
+                            <label for="savePath">保存路径:</label>
+                            <input type="text" id="savePath" value="/mnt/video">
+                            <button id="setSavePathBtn">设置</button>
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label for="maxRetry">最大重试次数:</label>
+                            <input type="number" id="maxRetry" min="1" max="10" value="3">
+                            <button id="setMaxRetryBtn">设置</button>
+                        </div>
+                        
+                        <div class="setting-item">
+                            <button id="saveSettingsBtn">保存设置</button>
+                            <button id="resetSettingsBtn">重置设置</button>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-section">
+                        <h3>当前配置</h3>
+                        <div id="currentConfig" class="current-config">
+                            <p>加载中...</p>
+                        </div>
+                    </div>
+                </div>
             </section>
         </div>
 
@@ -239,5 +308,6 @@
     <script src="../static/js/system_load_monitor.js"></script>
     <script src="../static/js/history_manager.js"></script>
     <script src="../static/js/history_account_search.js"></script>
+    <script src="../static/js/settings_manager.js"></script>
 </body>
 </html>

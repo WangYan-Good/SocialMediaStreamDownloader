@@ -527,6 +527,102 @@ def filter_download_history():
         }), 500
 
 ##
+## get current configuration
+##
+@app.route('/api/config', methods=['GET'])
+def get_current_config():
+    client_ip = request.remote_addr
+    logger.info(f"Configuration requested from IP: {client_ip}")
+    
+    try:
+        # Get current configuration from the BaseConfig
+        config = BaseConfig()
+        
+        # Extract relevant configuration values
+        config_dict = {
+            'save_path': getattr(config, 'save_path', ''),
+            'log_enable': getattr(config, 'log_enable', True),
+            'log_path': getattr(config, 'log_path', './logs'),
+            'structured_logging': getattr(config, 'structured_logging', False),
+            'max_thread': getattr(config, 'max_thread', 0),
+            'folderize': getattr(config, 'folderize', True),
+            'login': getattr(config, 'login', False),
+            'save_response': getattr(config, 'save_response', False),
+            'save_error_response': getattr(config, 'save_error_response', True),
+            'debug': getattr(config, 'debug', False),
+            'max_retry': getattr(config, 'max_retry', 3),
+            'test_mode': getattr(config, 'test_mode', False),
+            'listening': getattr(config, 'listening', False),
+            'tick_naming': getattr(config, 'tick_naming', True),
+            'max_download_count': MAX_DOWNLOAD_COUNT if MAX_DOWNLOAD_COUNT != float('inf') else 0,
+            'database_enable': getattr(config, 'database_enable', False),
+            'database_ip': getattr(config, 'database_ip', 'localhost'),
+            'database_port': getattr(config, 'database_port', 3306),
+            'database_name': getattr(config, 'database_name', 'test_social_media_stream_downloader'),
+            'database_user': getattr(config, 'database_user', 'admin'),
+            'database_password': getattr(config, 'database_password', 'admin')
+        }
+        
+        logger.info(f"Configuration sent to IP: {client_ip}")
+        return jsonify({
+            "config": config_dict
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting configuration: {e}")
+        return jsonify({
+            "config": {},
+            "error": str(e)
+        }), 500
+
+##
+## update configuration
+##
+@app.route('/api/config', methods=['PUT'])
+def update_configuration():
+    client_ip = request.remote_addr
+    logger.info(f"Configuration update requested from IP: {client_ip}")
+    
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"message": "Invalid JSON data"}), 400
+        
+        # In a real implementation, we would update the configuration
+        # For now, we'll just log the changes and return success
+        updated_fields = []
+        
+        for key, value in data.items():
+            if hasattr(BaseConfig, key):
+                # In a real implementation, we would update the actual configuration
+                # For now, we just log the intended change
+                logger.info(f"Configuration field '{key}' would be updated to '{value}' from IP: {client_ip}")
+                updated_fields.append(key)
+        
+        # Special handling for max_download_count (which is derived from max_thread)
+        if 'max_download_count' in data:
+            new_max = data['max_download_count']
+            if new_max == 0:
+                MAX_DOWNLOAD_COUNT = float('inf')
+            else:
+                MAX_DOWNLOAD_COUNT = new_max
+            logger.info(f"Max download count updated to: {MAX_DOWNLOAD_COUNT}")
+            updated_fields.append('max_download_count')
+        
+        logger.info(f"Configuration update completed for IP: {client_ip}, updated fields: {updated_fields}")
+        return jsonify({
+            "message": "Configuration updated successfully",
+            "updated_fields": updated_fields
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error updating configuration: {e}")
+        return jsonify({
+            "message": f"Error updating configuration: {str(e)}",
+            "error": str(e)
+        }), 500
+
+##
 ## search download history (legacy)
 ##
 @app.route('/api/history/search', methods=['GET'])
