@@ -1,114 +1,130 @@
-// History account search functionality
+// History account search functionality - Enhanced version
 class HistoryAccountSearch {
     constructor() {
-        this.searchInput = document.getElementById('historySearchInput');
-        this.searchBtn = document.getElementById('searchHistoryBtn');
-        this.searchResults = document.getElementById('historySearchResults');
+        this.sortBy = document.getElementById('sortBy');
+        this.filterPlatform = document.getElementById('filterPlatform');
+        this.filterBtn = document.getElementById('filterBtn');
+        this.filteredResults = document.getElementById('filteredResults');
         
         this.initEventListeners();
     }
     
     initEventListeners() {
-        // Search button click
-        this.searchBtn.addEventListener('click', () => {
-            this.searchHistoryAccounts();
+        // Filter button click
+        this.filterBtn.addEventListener('click', () => {
+            this.filterHistoryAccounts();
         });
         
-        // Enter key in search input
-        this.searchInput.addEventListener('keypress', (e) => {
+        // Enter key in filter controls
+        this.sortBy.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                this.searchHistoryAccounts();
+                this.filterHistoryAccounts();
             }
         });
     }
     
-    async searchHistoryAccounts() {
-        const searchTerm = this.searchInput.value.trim();
-        
-        if (!searchTerm) {
-            this.showSearchResults([]);
-            return;
-        }
+    async filterHistoryAccounts() {
+        const sortBy = this.sortBy.value;
+        const platform = this.filterPlatform.value;
         
         try {
-            this.updateSearchStatus('正在检索历史记录...');
+            this.updateFilterStatus('正在筛选历史记录...');
             
-            // Call the API to search history
-            const response = await fetch(`/api/history/search?q=${encodeURIComponent(searchTerm)}`);
+            // Build query parameters
+            const params = new URLSearchParams();
+            params.append('sort_by', sortBy);
+            if (platform) params.append('platform', platform);
+            
+            // Call the API to filter history
+            const response = await fetch(`/api/history/filter?${params.toString()}`);
             const data = await response.json();
             
             if (response.ok) {
-                this.showSearchResults(data.results || []);
-                this.updateSearchStatus(`找到 ${data.count || 0} 条匹配的记录`);
+                this.showFilteredResults(data.results || []);
+                this.updateFilterStatus(`找到 ${data.count || 0} 条匹配的记录`);
             } else {
-                this.showSearchError(`检索失败: ${data.message || '未知错误'}`);
+                this.showFilterError(`筛选失败: ${data.message || '未知错误'}`);
             }
         } catch (error) {
-            this.showSearchError(`检索时发生错误: ${error.message}`);
+            this.showFilterError(`筛选时发生错误: ${error.message}`);
         }
     }
     
-    showSearchResults(results) {
-        if (!this.searchResults) return;
+    showFilteredResults(results) {
+        if (!this.filteredResults) return;
         
         // Clear current results
-        this.searchResults.innerHTML = '';
+        this.filteredResults.innerHTML = '';
         
         if (!results || results.length === 0) {
-            this.searchResults.innerHTML = '<div class="history-empty">未找到匹配的记录</div>';
+            this.filteredResults.innerHTML = '<div class="filtered-results-empty">未找到匹配的记录</div>';
             return;
         }
         
         results.forEach(item => {
-            const searchItem = this.createSearchResultItem(item);
-            this.searchResults.appendChild(searchItem);
+            const resultItem = this.createFilterResultItem(item);
+            this.filteredResults.appendChild(resultItem);
         });
     }
     
-    createSearchResultItem(item) {
+    createFilterResultItem(item) {
         const div = document.createElement('div');
-        div.className = 'history-search-item';
+        div.className = 'filter-result-item';
         
         // Format timestamp
         const timestamp = item.timestamp ? new Date(item.timestamp).toLocaleString('zh-CN') : 'N/A';
         
-        // Create the HTML structure for the search result item
+        // Create the HTML structure for the filter result item
         div.innerHTML = `
-            <div class="history-search-item-url">${this.escapeHtml(item.url || 'N/A')}</div>
-            <div class="history-search-item-meta">
-                <span>平台: ${item.platform ? this.escapeHtml(item.platform) : 'N/A'}</span>
-                <span>状态: ${this.getStatusDisplay(item.status)}</span>
-                <span>时间: ${timestamp}</span>
+            <div class="filter-result-info">
+                <div class="filter-result-url">${this.escapeHtml(item.url || 'N/A')}</div>
+                <div class="filter-result-meta">
+                    <span>平台: ${item.platform ? this.escapeHtml(item.platform) : 'N/A'}</span>
+                    <span>状态: ${this.getStatusDisplay(item.status)}</span>
+                    <span>时间: ${timestamp}</span>
+                </div>
+            </div>
+            <div class="filter-result-actions">
+                <button class="download-btn" onclick="historyAccountSearch.downloadUrl('${this.escapeHtml(item.url)}')">下载</button>
+                <button class="view-btn" onclick="historyAccountSearch.viewDetails('${item.id || 'N/A'}')">查看详情</button>
             </div>
         `;
-        
-        // Add click event to use this URL for download
-        div.addEventListener('click', () => {
-            this.useHistoryItemForDownload(item);
-        });
         
         return div;
     }
     
-    useHistoryItemForDownload(item) {
-        // Fill the main download input with the URL from history
-        const linkInput = document.getElementById('linkInput');
-        if (linkInput) {
-            // If there's already content, append the new URL on a new line
-            if (linkInput.value.trim()) {
-                linkInput.value += '\n' + item.url;
-            } else {
-                linkInput.value = item.url;
-            }
+    async downloadUrl(url) {
+        try {
+            // Prepare data for the download request
+            const jsonData = {
+                urls: [url],
+                score: 0,
+                favorite: false
+            };
             
-            // Auto-resize the textarea if there's a function for it
-            if (typeof autoResize === 'function') {
-                autoResize(linkInput);
+            // Send the download request to the server
+            const response = await fetch('/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(jsonData)
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                alert(`下载已开始: ${data.message}`);
+            } else {
+                alert(`下载失败: ${data.message}`);
             }
+        } catch (error) {
+            alert(`下载时发生错误: ${error.message}`);
         }
-        
-        // Optionally scroll to the download section
-        document.getElementById('download').scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    viewDetails(id) {
+        alert(`查看ID为 ${id} 的记录详情`);
     }
     
     getStatusDisplay(status) {
@@ -127,15 +143,15 @@ class HistoryAccountSearch {
         return div.innerHTML;
     }
     
-    updateSearchStatus(message) {
-        if (this.searchResults) {
+    updateFilterStatus(message) {
+        if (this.filteredResults) {
             // Create a temporary status element
             const statusDiv = document.createElement('div');
             statusDiv.style.cssText = 'background: #e9ecef; padding: 5px; border-radius: 4px; margin-bottom: 10px; text-align: center; font-style: italic; font-size: 0.9em;';
             statusDiv.textContent = message;
             
-            // Insert at the top of the search results
-            this.searchResults.insertBefore(statusDiv, this.searchResults.firstChild);
+            // Insert at the top of the filtered results
+            this.filteredResults.insertBefore(statusDiv, this.filteredResults.firstChild);
             
             // Remove status after 3 seconds
             setTimeout(() => {
@@ -146,16 +162,16 @@ class HistoryAccountSearch {
         }
     }
     
-    showSearchError(message) {
-        if (this.searchResults) {
-            this.searchResults.innerHTML = `<div class="history-empty" style="color: red;">${message}</div>`;
+    showFilterError(message) {
+        if (this.filteredResults) {
+            this.filteredResults.innerHTML = `<div class="filtered-results-empty" style="color: red;">${message}</div>`;
         }
     }
 }
 
 // Initialize history account search when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    if (document.getElementById('historySearchInput')) {
+    if (document.getElementById('filterBtn')) {
         window.historyAccountSearch = new HistoryAccountSearch();
     }
 });

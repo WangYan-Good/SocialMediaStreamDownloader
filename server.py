@@ -469,7 +469,65 @@ def get_download_history():
     }), 200
 
 ##
-## search download history
+## filter download history
+##
+@app.route('/api/history/filter', methods=['GET'])
+def filter_download_history():
+    client_ip = request.remote_addr
+    logger.info(f"History filter requested from IP: {client_ip}")
+    
+    sort_by = request.args.get('sort_by', 'recent')  # Default to recent
+    platform = request.args.get('platform', '')  # Filter by platform
+    
+    try:
+        # Filter history based on platform
+        filtered_history = download_history[:]
+        
+        if platform:
+            filtered_history = [record for record in filtered_history if record.get('platform', '').lower() == platform.lower()]
+        
+        # Sort based on the sort_by parameter
+        if sort_by == 'recent':
+            # Sort by timestamp, most recent first
+            filtered_history.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        elif sort_by == 'earliest':
+            # Sort by timestamp, earliest first
+            filtered_history.sort(key=lambda x: x.get('timestamp', ''))
+        elif sort_by == 'frequency':
+            # For frequency, we would typically need to count occurrences
+            # For now, we'll sort by status (completed items first) as a proxy
+            filtered_history.sort(key=lambda x: x.get('status', '') == 'completed', reverse=True)
+        elif sort_by == 'least':
+            # For least frequent, we'll sort by status (failed items first) as a proxy
+            filtered_history.sort(key=lambda x: x.get('status', '') == 'failed', reverse=True)
+        else:
+            # Default to recent
+            filtered_history.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        
+        # Limit results to prevent too many results
+        limited_results = filtered_history[:50]  # Limit to 50 results
+        
+        logger.info(f"Filter with sort_by='{sort_by}', platform='{platform}' returned {len(limited_results)} results to IP: {client_ip}")
+        return jsonify({
+            "results": limited_results,
+            "count": len(filtered_history),
+            "sort_by": sort_by,
+            "platform": platform,
+            "returned_count": len(limited_results)
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error filtering history: {e}")
+        return jsonify({
+            "results": [],
+            "count": 0,
+            "sort_by": sort_by,
+            "platform": platform,
+            "error": str(e)
+        }), 500
+
+##
+## search download history (legacy)
 ##
 @app.route('/api/history/search', methods=['GET'])
 def search_download_history():

@@ -271,8 +271,8 @@
   padding: 20px;
 }
 
-/* 历史账号检索样式 */
-.history-search {
+/* 历史账号检索子页面样式 */
+.history-account-search {
   margin-top: 15px;
   padding: 10px;
   background-color: #f9f9f9;
@@ -280,41 +280,47 @@
   border-radius: 4px;
 }
 
-.history-search h4 {
+.history-account-search h4 {
   margin-top: 0;
   margin-bottom: 10px;
   color: #333;
 }
 
-.history-search-controls {
+.history-filter-controls {
   display: flex;
   gap: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
-.history-search-controls input {
-  flex-grow: 1;
-  padding: 8px;
+.history-filter-controls label {
+  font-weight: bold;
+}
+
+.history-filter-controls select,
+.history-filter-controls input {
+  padding: 5px;
   border: 1px solid #ccc;
   border-radius: 4px;
+  margin-right: 5px;
 }
 
-.history-search-controls button {
-  padding: 8px 12px;
-  background-color: #007bff;
+.history-filter-controls button {
+  padding: 6px 12px;
+  background-color: #28a745;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
 }
 
-.history-search-controls button:hover {
-  background-color: #0056b3;
+.history-filter-controls button:hover {
+  background-color: #218838;
 }
 
-.history-search-results {
-  max-height: 200px;
+.filtered-results {
+  max-height: 300px;
   overflow-y: auto;
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -322,31 +328,71 @@
   background-color: white;
 }
 
-.history-search-item {
-  padding: 8px;
+.filter-result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
   border-bottom: 1px solid #eee;
-  cursor: pointer;
 }
 
-.history-search-item:hover {
-  background-color: #f5f5f5;
-}
-
-.history-search-item:last-child {
+.filter-result-item:last-child {
   border-bottom: none;
 }
 
-.history-search-item-url {
-  font-weight: bold;
-  word-break: break-all;
+.filter-result-info {
+  flex-grow: 1;
 }
 
-.history-search-item-meta {
+.filter-result-url {
+  font-weight: bold;
+  word-break: break-all;
+  margin-bottom: 5px;
+}
+
+.filter-result-meta {
   font-size: 0.85em;
   color: #6c757d;
-  margin-top: 3px;
   display: flex;
-  gap: 10px;
+  gap: 15px;
+}
+
+.filter-result-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.filter-result-actions button {
+  padding: 4px 8px;
+  font-size: 0.9em;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.filter-result-actions .download-btn {
+  background-color: #007bff;
+  color: white;
+}
+
+.filter-result-actions .download-btn:hover {
+  background-color: #0056b3;
+}
+
+.filter-result-actions .view-btn {
+  background-color: #6c757d;
+  color: white;
+}
+
+.filter-result-actions .view-btn:hover {
+  background-color: #5a6268;
+}
+
+.filtered-results-empty {
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+  padding: 20px;
 }
 
 button {

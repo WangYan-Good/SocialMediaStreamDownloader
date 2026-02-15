@@ -103,7 +103,7 @@
                     </div>
                     <button id="submitButton">提交</button>
                     <button id="pasteButton" onclick="pasteFromClipboard()">从剪贴板读取</button>
-                    
+
                     <!-- 加入喜好列表 -->
                     <div class="checkbox-container">
                         <label>
@@ -122,12 +122,12 @@
                         <span class="percentage" id="percentageValue">0%</span>
                     </div>
                     <p id="status" class="status">准备就绪</p>
-                    
+
                     <!-- 当前下载状态 -->
                     <div class="download-status">
                         <p>当前下载: <span id="currentDownloads">0</span>/<span id="maxDownloads">-</span> (可用: <span id="availableSlots">-</span>)</p>
                     </div>
-                    
+
                     <!-- 系统负载状态 -->
                     <div class="system-load-status">
                         <h4>系统负载:</h4>
@@ -137,15 +137,29 @@
                         <p>网络: <span id="network-load-indicator" class="load-indicator normal">0 MB/s</span></p>
                     </div>
                     
-                    <!-- 历史账号检索 -->
-                    <div class="history-search">
+                    <!-- 历史账号检索子页面 -->
+                    <div class="history-account-search">
                         <h4>从历史记录检索账号</h4>
-                        <div class="history-search-controls">
-                            <input type="text" id="historySearchInput" placeholder="输入用户名/平台/URL关键词...">
-                            <button id="searchHistoryBtn">检索</button>
+                        <div class="history-filter-controls">
+                            <label for="sortBy">排序方式:</label>
+                            <select id="sortBy">
+                                <option value="recent">最近下载</option>
+                                <option value="earliest">最早下载</option>
+                                <option value="frequency">最频繁下载</option>
+                                <option value="least">最少下载</option>
+                            </select>
+                            
+                            <label for="filterPlatform">平台:</label>
+                            <select id="filterPlatform">
+                                <option value="">全部</option>
+                                <option value="douyin">抖音</option>
+                            </select>
+                            
+                            <button id="filterBtn">筛选</button>
                         </div>
-                        <div id="historySearchResults" class="history-search-results">
-                            <!-- 检索结果将在这里显示 -->
+                        
+                        <div id="filteredResults" class="filtered-results">
+                            <!-- 筛选结果将在这里显示 -->
                         </div>
                     </div>
                 </div>
