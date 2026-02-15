@@ -47,6 +47,87 @@
   color: #007bff;
 }
 
+/* 日志容器样式 */
+.log-container {
+  padding: 20px;
+  height: calc(100vh - 150px); /* 调整高度以适应布局 */
+  display: flex;
+  flex-direction: column;
+}
+
+.log-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.log-controls label {
+  font-weight: bold;
+}
+
+.log-controls select,
+.log-controls input {
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.log-controls button {
+  padding: 8px 12px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.log-controls button:hover {
+  background-color: #0056b3;
+}
+
+.log-output {
+  flex-grow: 1;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 10px;
+  background-color: #f8f9fa;
+  overflow-y: auto;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 70vh;
+}
+
+.log-entry {
+  margin-bottom: 5px;
+  padding: 5px;
+  border-left: 3px solid transparent;
+}
+
+.log-entry.DEBUG {
+  color: #6c757d;
+  border-left-color: #6c757d;
+}
+
+.log-entry.INFO {
+  color: #17a2b8;
+  border-left-color: #17a2b8;
+}
+
+.log-entry.WARNING {
+  color: #ffc107;
+  border-left-color: #ffc107;
+  background-color: #fff3cd;
+}
+
+.log-entry.ERROR {
+  color: #dc3545;
+  border-left-color: #dc3545;
+  background-color: #f8d7da;
+}
+
 button {
   padding: 8px 16px;           /* 内边距 */
   margin: 5px;                 /* 外边距 */

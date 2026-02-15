@@ -33,12 +33,15 @@ class PlatformDispatcher:
   
   def shutdown(self):
     """Shutdown all thread executors to free resources"""
+    get_logger().info("Starting platform dispatcher shutdown process")
     for event, executor in self.executors.items():
       try:
+        get_logger().info(f"Shutting down executor for event: {event}")
         executor.shutdown(wait=True)  # Wait for tasks to complete
-        get_logger().info(f"Executor for event {event} has been shut down")
+        get_logger().info(f"Executor for event {event} has been shut down successfully")
       except Exception as e:
         get_logger().error(f"Error shutting down executor for event {event}: {e}")
+    get_logger().info("Platform dispatcher shutdown process completed")
 
 ##
 ## >>============================= private method =============================>>
@@ -115,6 +118,8 @@ class PlatformDispatcher:
       get_logger().error("Invalid attribute of urls")
       raise ValueError("'urls' field cannot be empty")
 
+    get_logger().info(f"Starting dispatch for {len(urls)} URLs")
+
     url_dict = {event:list() for event in self.__event_list}
 
     for url in urls:
@@ -144,6 +149,7 @@ class PlatformDispatcher:
 
           # Tail insert extended data into url_dict list
           url_dict.get(event).append(token.copy())
+          get_logger().info(f"Matched URL {url} to platform: {event}")
           break  # Only match one event per URL
 
       if not matched:
@@ -152,11 +158,13 @@ class PlatformDispatcher:
         set_dict_attr(token, "$.score", jsonData.get('score'))
         set_dict_attr(token, "$.favorite", jsonData.get('favorite'))
         url_dict.get('other').append(token.copy())
+        get_logger().info(f"No specific platform matched for URL {url}, assigned to 'other'")
 
       token.clear()
 
     # Track total number of tasks submitted
     total_tasks = sum(len(tokens) for tokens in url_dict.values())
+    get_logger().info(f"Total tasks to dispatch: {total_tasks}")
     
     # Dispatch event
     for event, token_list in url_dict.items():
@@ -170,14 +178,18 @@ class PlatformDispatcher:
             # Wrap the handler with completion callback if provided
             if completion_callback:
               wrapped_handler = self._wrap_with_completion(self.handlers[event], completion_callback)
-              self.executors[event].submit(wrapped_handler, token)
+              future = self.executors[event].submit(wrapped_handler, token)
+              get_logger().info(f"Submitted task for {event} with URL: {token.get('$.url', 'unknown')}")
             else:
-              self.executors[event].submit(self.handlers[event], token)
+              future = self.executors[event].submit(self.handlers[event], token)
+              get_logger().info(f"Submitted task for {event} with URL: {token.get('$.url', 'unknown')}")
           except Exception as e:
             get_logger().error(f"Failed to submit task for event {event}: {e}")
             # Continue with other tokens even if one submission fails
       else:
         get_logger().warning(f"No handler registered for event: {event}")
+    
+    get_logger().info(f"Dispatch completed. Total tasks submitted: {total_tasks}")
 
   def _wrap_with_completion(self, handler, completion_callback):
     """Wrap a handler with a completion callback"""

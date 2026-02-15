@@ -135,7 +135,28 @@
             </section>
             <section id="log-content" class="content-section">
                 <!-- 下载日志内容 -->
-                 <p>Log</p>
+                <div class="log-container">
+                    <h2>后台日志</h2>
+                    <div class="log-controls">
+                        <label for="logLevelSelect">日志级别:</label>
+                        <select id="logLevelSelect">
+                            <option value="ALL">全部</option>
+                            <option value="DEBUG">调试</option>
+                            <option value="INFO">信息</option>
+                            <option value="WARNING">警告</option>
+                            <option value="ERROR">错误</option>
+                        </select>
+                        
+                        <label for="logLimitInput">显示条数:</label>
+                        <input type="number" id="logLimitInput" value="50" min="1" max="1000">
+                        
+                        <button id="refreshLogsBtn">刷新日志</button>
+                        <button id="clearLogsBtn">清空显示</button>
+                    </div>
+                    <div id="logOutput" class="log-output">
+                        <p>点击"刷新日志"按钮加载后台日志...</p>
+                    </div>
+                </div>
             </section>
             <section id="setting-content" class="content-section">
                 <!-- 设置内容 -->
@@ -160,5 +181,6 @@
     <script src="../static/js/favorite_scoring.js"></script>
     <script src="../static/js/dynamic_copyright.js"></script>
     <script src="../static/js/download_status.js"></script>
+    <script src="../static/js/log_viewer.js"></script>
 </body>
 </html>
