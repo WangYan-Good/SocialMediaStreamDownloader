@@ -25,6 +25,475 @@
   font-style: italic;       /* 斜体 */
 }
 
+.download-status {
+  margin-top: 10px;
+  padding: 8px;
+  background-color: #f0f8ff; /* 浅蓝色背景 */
+  border: 1px solid #b0d4f1; /* 边框颜色 */
+  border-radius: 4px;
+  font-size: 14px;
+  color: #333;
+}
+
+.download-status p {
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.download-status span {
+  font-weight: bold;
+  color: #007bff;
+}
+
+/* 日志容器样式 */
+.log-container {
+  padding: 20px;
+  height: calc(100vh - 150px); /* 调整高度以适应布局 */
+  display: flex;
+  flex-direction: column;
+}
+
+.log-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.log-controls label {
+  font-weight: bold;
+}
+
+.log-controls select,
+.log-controls input {
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.log-controls button {
+  padding: 8px 12px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.log-controls button:hover {
+  background-color: #0056b3;
+}
+
+.log-output {
+  flex-grow: 1;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 10px;
+  background-color: #f8f9fa;
+  overflow-y: auto;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 70vh;
+}
+
+.log-entry {
+  margin-bottom: 5px;
+  padding: 5px;
+  border-left: 3px solid transparent;
+}
+
+.log-entry.DEBUG {
+  color: #6c757d;
+  border-left-color: #6c757d;
+}
+
+.log-entry.INFO {
+  color: #17a2b8;
+  border-left-color: #17a2b8;
+}
+
+.log-entry.WARNING {
+  color: #ffc107;
+  border-left-color: #ffc107;
+  background-color: #fff3cd;
+}
+
+.log-entry.ERROR {
+  color: #dc3545;
+  border-left-color: #dc3545;
+  background-color: #f8d7da;
+}
+
+.system-load-status {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.system-load-status h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.load-indicator {
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.load-indicator.normal {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.load-indicator.high {
+  background-color: #f8d7da;
+  color: #721c24;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* 历史记录样式 */
+.history-container {
+  padding: 20px;
+  height: calc(100vh - 150px);
+  display: flex;
+  flex-direction: column;
+}
+
+.history-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.history-controls label {
+  font-weight: bold;
+}
+
+.history-controls select,
+.history-controls input {
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.history-controls button {
+  padding: 8px 12px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.history-controls button:hover {
+  background-color: #218838;
+}
+
+.history-controls #clearHistoryBtn {
+  background-color: #dc3545;
+}
+
+.history-controls #clearHistoryBtn:hover {
+  background-color: #c82333;
+}
+
+.history-list {
+  flex-grow: 1;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 10px;
+  background-color: #f8f9fa;
+  overflow-y: auto;
+  max-height: 70vh;
+}
+
+.history-item {
+  padding: 10px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  border-left: 3px solid #007bff;
+  background-color: white;
+}
+
+.history-item.started {
+  border-left-color: #ffc107;
+  background-color: #fff3cd;
+}
+
+.history-item.completed {
+  border-left-color: #28a745;
+  background-color: #d4edda;
+}
+
+.history-item-url {
+  font-weight: bold;
+  word-break: break-all;
+  margin-bottom: 5px;
+}
+
+.history-item-details {
+  font-size: 0.9em;
+  color: #6c757d;
+}
+
+.history-item-timestamp {
+  font-style: italic;
+}
+
+.history-item-platform {
+  display: inline-block;
+  padding: 2px 6px;
+  background-color: #e9ecef;
+  border-radius: 3px;
+  font-size: 0.8em;
+}
+
+.history-empty {
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+  padding: 20px;
+}
+
+/* 历史账号检索子页面样式 */
+.history-account-search {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.history-account-search h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.history-filter-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.history-filter-controls label {
+  font-weight: bold;
+}
+
+.history-filter-controls select,
+.history-filter-controls input {
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  margin-right: 5px;
+}
+
+.history-filter-controls button {
+  padding: 6px 12px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.history-filter-controls button:hover {
+  background-color: #218838;
+}
+
+.filtered-results {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 10px;
+  background-color: white;
+}
+
+.filter-result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.filter-result-item:last-child {
+  border-bottom: none;
+}
+
+.filter-result-info {
+  flex-grow: 1;
+}
+
+.filter-result-url {
+  font-weight: bold;
+  word-break: break-all;
+  margin-bottom: 5px;
+}
+
+.filter-result-meta {
+  font-size: 0.85em;
+  color: #6c757d;
+  display: flex;
+  gap: 15px;
+}
+
+.filter-result-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.filter-result-actions button {
+  padding: 4px 8px;
+  font-size: 0.9em;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.filter-result-actions .download-btn {
+  background-color: #007bff;
+  color: white;
+}
+
+.filter-result-actions .download-btn:hover {
+  background-color: #0056b3;
+}
+
+.filter-result-actions .view-btn {
+  background-color: #6c757d;
+  color: white;
+}
+
+.filter-result-actions .view-btn:hover {
+  background-color: #5a6268;
+}
+
+.filtered-results-empty {
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+  padding: 20px;
+}
+
+/* 设置页面样式 */
+.settings-container {
+  padding: 20px;
+  height: calc(100vh - 150px);
+  overflow-y: auto;
+}
+
+.settings-container h2 {
+  margin-top: 0;
+  color: #333;
+  border-bottom: 2px solid #007bff;
+  padding-bottom: 10px;
+}
+
+.settings-section {
+  margin-bottom: 25px;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background-color: #f9f9f9;
+}
+
+.settings-section h3 {
+  margin-top: 0;
+  color: #495057;
+  border-bottom: 1px solid #ced4da;
+  padding-bottom: 8px;
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.setting-item label {
+  font-weight: bold;
+  min-width: 120px;
+  text-align: right;
+}
+
+.setting-item input[type="text"],
+.setting-item input[type="number"] {
+  padding: 6px 10px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  flex-grow: 1;
+  min-width: 200px;
+}
+
+.setting-item input[type="checkbox"] {
+  transform: scale(1.2);
+  margin-right: 5px;
+}
+
+.setting-item button {
+  padding: 6px 12px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.setting-item button:hover {
+  background-color: #218838;
+}
+
+.setting-item #saveSettingsBtn {
+  background-color: #007bff;
+  margin-right: 10px;
+}
+
+.setting-item #saveSettingsBtn:hover {
+  background-color: #0056b3;
+}
+
+.setting-item #resetSettingsBtn {
+  background-color: #dc3545;
+}
+
+.setting-item #resetSettingsBtn:hover {
+  background-color: #c82333;
+}
+
+.current-config {
+  background-color: white;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  padding: 15px;
+  max-height: 300px;
+  overflow-y: auto;
+  font-family: monospace;
+  white-space: pre-wrap;
+}
+
 button {
   padding: 8px 16px;           /* 内边距 */
   margin: 5px;                 /* 外边距 */
