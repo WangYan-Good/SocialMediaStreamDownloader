@@ -103,7 +103,7 @@
                     </div>
                     <button id="submitButton">提交</button>
                     <button id="pasteButton" onclick="pasteFromClipboard()">从剪贴板读取</button>
-
+                    
                     <!-- 加入喜好列表 -->
                     <div class="checkbox-container">
                         <label>
@@ -122,168 +122,19 @@
                         <span class="percentage" id="percentageValue">0%</span>
                     </div>
                     <p id="status" class="status">准备就绪</p>
-
-                    <!-- 当前下载状态 -->
-                    <div class="download-status">
-                        <p>当前下载: <span id="currentDownloads">0</span>/<span id="maxDownloads">-</span> (可用: <span id="availableSlots">-</span>)</p>
-                    </div>
-
-                    <!-- 系统负载状态 -->
-                    <div class="system-load-status">
-                        <h4>系统负载:</h4>
-                        <p>CPU: <span id="cpu-load-indicator" class="load-indicator normal">0%</span></p>
-                        <p>内存: <span id="memory-load-indicator" class="load-indicator normal">0%</span></p>
-                        <p>磁盘: <span id="disk-load-indicator" class="load-indicator normal">0%</span></p>
-                        <p>网络: <span id="network-load-indicator" class="load-indicator normal">0 MB/s</span></p>
-                    </div>
-                    
-                    <!-- 历史账号检索子页面 -->
-                    <div class="history-account-search">
-                        <h4>从历史记录检索账号</h4>
-                        <div class="history-filter-controls">
-                            <label for="sortBy">排序方式:</label>
-                            <select id="sortBy">
-                                <option value="recent">最近下载</option>
-                                <option value="earliest">最早下载</option>
-                                <option value="frequency">最频繁下载</option>
-                                <option value="least">最少下载</option>
-                            </select>
-                            
-                            <label for="filterPlatform">平台:</label>
-                            <select id="filterPlatform">
-                                <option value="">全部</option>
-                                <option value="douyin">抖音</option>
-                            </select>
-                            
-                            <button id="filterBtn">筛选</button>
-                        </div>
-                        
-                        <div id="filteredResults" class="filtered-results">
-                            <!-- 筛选结果将在这里显示 -->
-                        </div>
-                    </div>
                 </div>
             </section>
             <section id="history-content" class="content-section">
                 <!-- 历史内容 -->
-                <div class="history-container">
-                    <h2>下载历史</h2>
-                    <div class="history-controls">
-                        <label for="historyFilter">筛选:</label>
-                        <select id="historyFilter">
-                            <option value="all">全部</option>
-                            <option value="started">进行中</option>
-                            <option value="completed">已完成</option>
-                        </select>
-                        
-                        <label for="historyLimit">显示条数:</label>
-                        <input type="number" id="historyLimit" value="20" min="1" max="100">
-                        
-                        <button id="refreshHistoryBtn">刷新历史</button>
-                        <button id="clearHistoryBtn">清空历史</button>
-                    </div>
-                    <div id="historyList" class="history-list">
-                        <p>点击"刷新历史"按钮加载下载历史...</p>
-                    </div>
-                </div>
+                 <p>History</p>
             </section>
             <section id="log-content" class="content-section">
                 <!-- 下载日志内容 -->
-                <div class="log-container">
-                    <h2>后台日志</h2>
-                    <div class="log-controls">
-                        <label for="logLevelSelect">日志级别:</label>
-                        <select id="logLevelSelect">
-                            <option value="ALL">全部</option>
-                            <option value="DEBUG">调试</option>
-                            <option value="INFO">信息</option>
-                            <option value="WARNING">警告</option>
-                            <option value="ERROR">错误</option>
-                        </select>
-                        
-                        <label for="logLimitInput">显示条数:</label>
-                        <input type="number" id="logLimitInput" value="50" min="1" max="1000">
-                        
-                        <button id="refreshLogsBtn">刷新日志</button>
-                        <button id="clearLogsBtn">清空显示</button>
-                    </div>
-                    <div id="logOutput" class="log-output">
-                        <p>点击"刷新日志"按钮加载后台日志...</p>
-                    </div>
-                </div>
+                 <p>Log</p>
             </section>
             <section id="setting-content" class="content-section">
                 <!-- 设置内容 -->
-                <div class="settings-container">
-                    <h2>系统设置</h2>
-                    
-                    <div class="settings-section">
-                        <h3>下载设置</h3>
-                        <div class="setting-item">
-                            <label for="maxDownloadCount">最大并发下载数:</label>
-                            <input type="number" id="maxDownloadCount" min="1" max="50" value="5">
-                            <button id="setMaxDownloadCountBtn">设置</button>
-                        </div>
-                        
-                        <div class="setting-item">
-                            <label for="downloadPath">下载路径:</label>
-                            <input type="text" id="downloadPath" value="/mnt/video">
-                            <button id="setDownloadPathBtn">设置</button>
-                        </div>
-                        
-                        <div class="setting-item">
-                            <label for="maxThreadCount">最大线程数:</label>
-                            <input type="number" id="maxThreadCount" min="0" max="20" value="0">
-                            <button id="setMaxThreadCountBtn">设置</button>
-                        </div>
-                    </div>
-                    
-                    <div class="settings-section">
-                        <h3>日志设置</h3>
-                        <div class="setting-item">
-                            <label for="logEnable">启用日志:</label>
-                            <input type="checkbox" id="logEnable" checked>
-                        </div>
-                        
-                        <div class="setting-item">
-                            <label for="logPath">日志路径:</label>
-                            <input type="text" id="logPath" value="./logs">
-                            <button id="setLogPathBtn">设置</button>
-                        </div>
-                        
-                        <div class="setting-item">
-                            <label for="structuredLogging">结构化日志:</label>
-                            <input type="checkbox" id="structuredLogging">
-                        </div>
-                    </div>
-                    
-                    <div class="settings-section">
-                        <h3>系统设置</h3>
-                        <div class="setting-item">
-                            <label for="savePath">保存路径:</label>
-                            <input type="text" id="savePath" value="/mnt/video">
-                            <button id="setSavePathBtn">设置</button>
-                        </div>
-                        
-                        <div class="setting-item">
-                            <label for="maxRetry">最大重试次数:</label>
-                            <input type="number" id="maxRetry" min="1" max="10" value="3">
-                            <button id="setMaxRetryBtn">设置</button>
-                        </div>
-                        
-                        <div class="setting-item">
-                            <button id="saveSettingsBtn">保存设置</button>
-                            <button id="resetSettingsBtn">重置设置</button>
-                        </div>
-                    </div>
-                    
-                    <div class="settings-section">
-                        <h3>当前配置</h3>
-                        <div id="currentConfig" class="current-config">
-                            <p>加载中...</p>
-                        </div>
-                    </div>
-                </div>
+                <p>Settings</p>
             </section>
         </div>
 
@@ -296,18 +147,11 @@
     
     <!-- 页面底部 -->
     <div class="footer-container">
-        <p id="copyright">© <span id="current-year">2025</span> Social Media Stream Downloader</p>
+        <p>© 2025 Social Media Stream Downloader</p>
     </div>
     <script src="../static/js/auto_resize.js"></script>
     <script src="../static/js/clipboard.js"></script>
     <script src="../static/js/submit.js"></script>
     <script src="../static/js/favorite_scoring.js"></script>
-    <script src="../static/js/dynamic_copyright.js"></script>
-    <script src="../static/js/download_status.js"></script>
-    <script src="../static/js/log_viewer.js"></script>
-    <script src="../static/js/system_load_monitor.js"></script>
-    <script src="../static/js/history_manager.js"></script>
-    <script src="../static/js/history_account_search.js"></script>
-    <script src="../static/js/settings_manager.js"></script>
 </body>
 </html>
