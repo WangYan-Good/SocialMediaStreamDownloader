@@ -19,9 +19,8 @@ app = Flask(__name__, static_folder='./frontend/src/static', template_folder='./
 # Initialize rate limiter
 limiter = Limiter(
     app,
-    default_limits=["100 per hour"],  # Default global rate limit
-    storage_uri="memory://",
-    strategy="fixed-window"
+    key_func=get_remote_address,
+    default_limits=["100 per hour"]  # Default global rate limit
 )
 
 ##
@@ -77,10 +76,10 @@ def process_request():
         ##
         return jsonify({"message": f"Request processing failed: {str(e)}"}), 500
 
-    ##
-    ## response to the client
-    ##
-    return jsonify({"message": f"Request started processing"}), 200
+  ##
+  ## response to the client
+  ##
+  return jsonify({"message": f"Request started processing"}), 200
 
 @app.route('/', methods=['GET'])
 def index():
