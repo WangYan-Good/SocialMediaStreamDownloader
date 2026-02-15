@@ -73,6 +73,13 @@ SocialMediaStreamDownloader is a tool for downloading social media content, supp
 - Add new features/changes chronologically to the most recent version section
 - Update both history files and development notes consistently
 
+## Documentation Consistency Guidelines
+- Before committing any changes, scan the documentation to ensure it matches the implemented code
+- Verify that all documentation files (history-ZH.md, develop_note.md, etc.) accurately reflect the current codebase
+- Check that version history entries correspond to actual implemented features
+- Ensure documentation is synchronized with code changes before each commit
+- When making changes, always update relevant documentation to match the current state of the code
+
 ## Common Tasks
 - Adding new platform support: Update `config/platforms.yml` and create handler
 - Modifying download behavior: Check `config/base_config.yml`

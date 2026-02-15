@@ -11,6 +11,7 @@ import psutil
 import time
 import json
 from datetime import datetime
+import html
 ## <<Third-Part>>
 from backend.src.platform.platform_dispatcher import PlatformDispatcher
 from flask import Flask, request, jsonify, render_template
@@ -477,7 +478,9 @@ def search_download_history():
     
     query = request.args.get('q', '').strip()
     
+    # Input validation
     if not query:
+        logger.warning(f"Empty search query from IP: {client_ip}")
         return jsonify({
             "results": [],
             "count": 0,
@@ -485,19 +488,32 @@ def search_download_history():
             "message": "Query parameter 'q' is required"
         }), 400
     
+    # Additional security validation - limit query length and sanitize
+    if len(query) > 100:
+        logger.warning(f"Search query too long from IP: {client_ip}")
+        return jsonify({
+            "results": [],
+            "count": 0,
+            "query": query,
+            "message": "Query parameter 'q' is too long (max 100 chars)"
+        }), 400
+    
+    # Sanitize query to prevent potential injection
+    sanitized_query = html.escape(query)
+    
     try:
         # Filter history based on the search query
         # Search in URL, platform, and other relevant fields
         filtered_history = []
         
         for record in download_history:
-            # Check if query matches any relevant field
+            # Check if query matches any relevant field (using sanitized query)
             match_found = (
-                query.lower() in (record.get('url', '') or '').lower() or
-                query.lower() in (record.get('platform', '') or '').lower() or
-                query.lower() in (record.get('details', {}).get('submitted_by', '') or '').lower() or
-                query.lower() in (record.get('details', {}).get('score', '') or str('')) or
-                query.lower() in (record.get('details', {}).get('favorite', '') or str(''))
+                sanitized_query.lower() in (record.get('url', '') or '').lower() or
+                sanitized_query.lower() in (record.get('platform', '') or '').lower() or
+                sanitized_query.lower() in (record.get('details', {}).get('submitted_by', '') or '').lower() or
+                sanitized_query.lower() in (record.get('details', {}).get('score', '') or str('')) or
+                sanitized_query.lower() in (record.get('details', {}).get('favorite', '') or str(''))
             )
             
             if match_found:
@@ -506,11 +522,11 @@ def search_download_history():
         # Limit results to prevent too many results
         limited_results = filtered_history[:50]  # Limit to 50 results
         
-        logger.info(f"Search query '{query}' returned {len(limited_results)} results to IP: {client_ip}")
+        logger.info(f"Search query '{sanitized_query}' returned {len(limited_results)} results to IP: {client_ip}")
         return jsonify({
             "results": limited_results,
             "count": len(filtered_history),
-            "query": query,
+            "query": sanitized_query,
             "returned_count": len(limited_results)
         }), 200
         
@@ -519,7 +535,7 @@ def search_download_history():
         return jsonify({
             "results": [],
             "count": 0,
-            "query": query,
+            "query": sanitized_query,
             "error": str(e)
         }), 500
 
