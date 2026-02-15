@@ -4,13 +4,10 @@ import sys
 sys.path.append(os.getcwd())
 
 ##<<Base>>
-import logging
 from logging import Logger, FileHandler, StreamHandler, Formatter
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 import re
-import json
-from datetime import datetime
 
 ##<<Existension>>
 import yaml as yml
@@ -22,36 +19,6 @@ from backend.src.base.default import DEFAULT_BASE_CONFIG_PATH
 ## >>============================= public defination =============================>>
 ##
 DEFAULT_LOGGER_FORMATTER_STR = '[%(asctime)s]-[%(name)s]-[%(levelname)s]: %(message)s'
-
-class StructuredFormatter(logging.Formatter):
-    """Custom formatter to output logs in JSON format"""
-    
-    def format(self, record):
-        log_entry = {
-            'timestamp': datetime.utcnow().isoformat(),
-            'level': record.levelname,
-            'logger': record.name,
-            'message': record.getMessage(),
-            'module': record.module,
-            'function': record.funcName,
-            'line': record.lineno
-        }
-        
-        # Add exception info if present
-        if record.exc_info:
-            log_entry['exception'] = self.formatException(record.exc_info)
-        
-        # Add extra fields if present
-        for key, value in record.__dict__.items():
-            if key not in ['name', 'msg', 'args', 'levelname', 'levelno', 'pathname', 
-                          'filename', 'module', 'lineno', 'funcName', 'created', 
-                          'msecs', 'relativeCreated', 'thread', 'threadName', 
-                          'processName', 'process', 'getMessage', 'exc_info', 
-                          'exc_text', 'stack_info']:
-                log_entry[key] = value
-                
-        return json.dumps(log_entry)
-
 class LoggerManager():
 
 ##
@@ -60,8 +27,8 @@ class LoggerManager():
   __default_logger          = None
   __default_console_handler = None
   __logger_queue            = dict()
-
-
+  
+  
   ##
   ## default logger attributes
   ##
@@ -69,7 +36,6 @@ class LoggerManager():
   __DEFAULT_LOGGER_LEVEL         = "DEBUG"
   __DEFAULT_LOG_FILE_DIR         = str()
   __DEFAULT_LOGGER_FORMATTER_STR = DEFAULT_LOGGER_FORMATTER_STR
-  __STRUCTURED_LOGGING           = False  # Flag to enable structured logging
 
 ##
 ## >>============================= private method =============================>>
@@ -102,17 +68,14 @@ class LoggerManager():
       ##
       with open(DEFAULT_BASE_CONFIG_PATH, 'r') as file:
         config = yml.safe_load(file)
-
+        
         ##
         ## get the log path from the config file
         ##
         self.__DEFAULT_LOG_FILE_DIR =  config.get("log_path", None)
         if self.__DEFAULT_LOG_FILE_DIR is None:
           raise Exception("Log path is not defined in the base config file.")
-
-        # Check if structured logging is enabled
-        self.__STRUCTURED_LOGGING = config.get("structured_logging", False)
-
+        
         ##
         ## set create the log directory if it does not exist
         ##
@@ -129,23 +92,13 @@ class LoggerManager():
     self.__default_logger = Logger(name=self.__DEFAULT_LOGGER_NAME, level=self.__DEFAULT_LOGGER_LEVEL)
 
     ##
-    ## determine the formatter to use based on configuration
-    ##
-    if self.__STRUCTURED_LOGGING:
-        console_formatter = StructuredFormatter()
-        file_formatter = StructuredFormatter()
-    else:
-        console_formatter = Formatter(self.__DEFAULT_LOGGER_FORMATTER_STR)
-        file_formatter = Formatter(self.__DEFAULT_LOGGER_FORMATTER_STR)
-
-    ##
     ## set console handler for the default logger
     ##
     self.__default_console_handler = StreamHandler()
     self.__default_console_handler.setLevel(self.__DEFAULT_LOGGER_LEVEL)
-    self.__default_console_handler.setFormatter(console_formatter)
+    self.__default_console_handler.setFormatter(Formatter(self.__DEFAULT_LOGGER_FORMATTER_STR))
     self.__default_logger.addHandler(self.__default_console_handler)
-
+    
     ##
     ## initialize the default logger with file handler
     ##
@@ -157,9 +110,9 @@ class LoggerManager():
     )
     file_handler.suffix="-%Y-%m-%d.log"
     file_handler.setLevel(self.__DEFAULT_LOGGER_LEVEL)
-    file_handler.setFormatter(file_formatter)
+    file_handler.setFormatter(Formatter(self.__DEFAULT_LOGGER_FORMATTER_STR))
     self.__default_logger.addHandler(file_handler)
-
+    
     ##
     ## add the default logger to the logger queue
     ##
@@ -199,7 +152,7 @@ class LoggerManager():
     ##
     if name is None:
       raise Exception("Logger name cannot be None.")
-
+    
     ##
     ## register a new logger
     ##
@@ -209,24 +162,11 @@ class LoggerManager():
       ##
       if level not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
         raise Exception(f"Invalid logger level: {level}. Valid levels are: DEBUG, INFO, WARNING, ERROR, CRITICAL.")
-
+      
       ##
       ## create a new logger and add it to the logger queue
       ##
-      logger = Logger(name=name, level=level)
-      
-      # Apply the same formatting as the default logger
-      if self.__STRUCTURED_LOGGING:
-          formatter = StructuredFormatter()
-      else:
-          formatter = Formatter(self.__DEFAULT_LOGGER_FORMATTER_STR)
-          
-      console_handler = StreamHandler()
-      console_handler.setLevel(level)
-      console_handler.setFormatter(formatter)
-      logger.addHandler(console_handler)
-      
-      self.__logger_queue[name] = logger
+      self.__logger_queue[name] = Logger(name=name, level=level)
 
       ##
       ## return the logger
