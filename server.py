@@ -7,6 +7,8 @@ sys.path.append(os.getcwd())
 ## <<Base>>
 import re
 import threading
+import psutil
+import time
 ## <<Third-Part>>
 from backend.src.platform.platform_dispatcher import PlatformDispatcher
 from flask import Flask, request, jsonify, render_template
@@ -21,6 +23,78 @@ app = Flask(__name__, static_folder='./frontend/src/static', template_folder='./
 
 # Initialize logger
 logger = get_logger()
+
+# System load monitoring constants
+LOAD_MONITORING_INTERVAL = 5  # seconds
+HIGH_CPU_THRESHOLD = 80.0     # percentage
+HIGH_MEMORY_THRESHOLD = 85.0  # percentage
+HIGH_DISK_THRESHOLD = 90.0    # percentage
+HIGH_NETWORK_THRESHOLD = 100.0  # MB/s (example threshold)
+
+# Global variables for load monitoring
+last_network_io = psutil.net_io_counters()
+last_network_time = time.time()
+high_load_alert_active = False
+
+def get_system_load():
+    """Get current system load metrics"""
+    global last_network_io, last_network_time
+    
+    # CPU usage percentage
+    cpu_percent = psutil.cpu_percent(interval=0.1)
+    
+    # Memory usage percentage
+    memory_percent = psutil.virtual_memory().percent
+    
+    # Disk usage percentage (for root partition)
+    disk_percent = psutil.disk_usage('/').percent
+    
+    # Network I/O (calculate speed since last check)
+    current_network_io = psutil.net_io_counters()
+    current_time = time.time()
+    
+    time_diff = current_time - last_network_time
+    if time_diff > 0:
+        bytes_sent_per_sec = (current_network_io.bytes_sent - last_network_io.bytes_sent) / time_diff
+        bytes_recv_per_sec = (current_network_io.bytes_recv - last_network_io.bytes_recv) / time_diff
+        network_speed_mb_s = (bytes_sent_per_sec + bytes_recv_per_sec) / (1024 * 1024)  # Convert to MB/s
+    else:
+        network_speed_mb_s = 0.0
+    
+    # Update for next calculation
+    last_network_io = current_network_io
+    last_network_time = current_time
+    
+    return {
+        'cpu_percent': cpu_percent,
+        'memory_percent': memory_percent,
+        'disk_percent': disk_percent,
+        'network_speed_mb_s': network_speed_mb_s
+    }
+
+def check_system_load_thresholds(load_metrics):
+    """Check if any system load metric exceeds thresholds"""
+    alerts = []
+    
+    if load_metrics['cpu_percent'] > HIGH_CPU_THRESHOLD:
+        alerts.append(f"High CPU usage: {load_metrics['cpu_percent']:.1f}% (threshold: {HIGH_CPU_THRESHOLD}%)")
+    
+    if load_metrics['memory_percent'] > HIGH_MEMORY_THRESHOLD:
+        alerts.append(f"High memory usage: {load_metrics['memory_percent']:.1f}% (threshold: {HIGH_MEMORY_THRESHOLD}%)")
+    
+    if load_metrics['disk_percent'] > HIGH_DISK_THRESHOLD:
+        alerts.append(f"High disk usage: {load_metrics['disk_percent']:.1f}% (threshold: {HIGH_DISK_THRESHOLD}%)")
+    
+    if load_metrics['network_speed_mb_s'] > HIGH_NETWORK_THRESHOLD:
+        alerts.append(f"High network activity: {load_metrics['network_speed_mb_s']:.2f} MB/s (threshold: {HIGH_NETWORK_THRESHOLD} MB/s)")
+    
+    return alerts
+
+def is_system_overloaded():
+    """Check if system is currently overloaded"""
+    load_metrics = get_system_load()
+    alerts = check_system_load_thresholds(load_metrics)
+    return len(alerts) > 0, alerts, load_metrics
 
 # Initialize rate limiter
 limiter = Limiter(
@@ -106,6 +180,16 @@ def decrement_download_count_and_log(client_ip=None):
 def process_request():
     client_ip = request.remote_addr
     logger.info(f"Received download request from IP: {client_ip}")
+    
+    # Check system load before processing request
+    is_overloaded, overload_alerts, load_metrics = is_system_overloaded()
+    if is_overloaded:
+        logger.warning(f"System overloaded, rejecting request from IP: {client_ip}. Alerts: {overload_alerts}")
+        return jsonify({
+            "message": f"System is currently overloaded. Please try again later.",
+            "alerts": overload_alerts,
+            "load_metrics": load_metrics
+        }), 503  # Service Unavailable
     
     try:
         # Validate request data
@@ -240,6 +324,31 @@ def get_recent_logs():
             "active_downloads": get_active_download_count(),
             "max_allowed": MAX_DOWNLOAD_COUNT if MAX_DOWNLOAD_COUNT != float('inf') else 'unlimited',
             "request_from": client_ip
+        }
+    }), 200
+
+##
+## get system load status
+##
+@app.route('/api/system-load', methods=['GET'])
+def get_system_load_status():
+    client_ip = request.remote_addr
+    logger.info(f"System load status requested from IP: {client_ip}")
+    
+    load_metrics = get_system_load()
+    is_overloaded, alerts, _ = is_system_overloaded()
+    
+    logger.info(f"Sending system load status to IP: {client_ip}. Overloaded: {is_overloaded}, Metrics: {load_metrics}")
+    
+    return jsonify({
+        "is_overloaded": is_overloaded,
+        "alerts": alerts,
+        "load_metrics": load_metrics,
+        "thresholds": {
+            "cpu_percent": HIGH_CPU_THRESHOLD,
+            "memory_percent": HIGH_MEMORY_THRESHOLD,
+            "disk_percent": HIGH_DISK_THRESHOLD,
+            "network_speed_mb_s": HIGH_NETWORK_THRESHOLD
         }
     }), 200
 

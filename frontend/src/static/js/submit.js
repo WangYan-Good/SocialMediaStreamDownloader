@@ -13,6 +13,21 @@ async function processSubmit() {
     favorite = isFavorite();
 
     if (urls && urls.length > 0) {
+        // 检查系统负载状态
+        try {
+            const loadResponse = await fetch('/api/system-load');
+            const loadData = await loadResponse.json();
+            
+            // 如果系统过载，阻止提交并显示警告
+            if (loadData.is_overloaded) {
+                alert(`系统当前负载过高，无法处理新的下载请求：\n${loadData.alerts.join('\n')}\n请稍后再试。`);
+                return;
+            }
+        } catch (error) {
+            console.error('Error checking system load:', error);
+            // 如果无法检查系统负载，继续提交（但记录错误）
+        }
+        
         // 检查当前下载状态
         try {
             const statusResponse = await fetch('/api/download-status');
@@ -46,6 +61,10 @@ async function processSubmit() {
         .then(async response => {
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+                if (response.status === 503) { // Service Unavailable due to high load
+                    alert(`系统负载过高，请求被拒绝：\n${errorData.alerts?.join('\n') || errorData.message}`);
+                    return Promise.reject(new Error(errorData.message));
+                }
                 throw new Error(errorData.message || 'Network response was not ok');
             }
             return response.json();

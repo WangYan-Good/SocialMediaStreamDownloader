@@ -127,6 +127,15 @@
                     <div class="download-status">
                         <p>当前下载: <span id="currentDownloads">0</span>/<span id="maxDownloads">-</span> (可用: <span id="availableSlots">-</span>)</p>
                     </div>
+                    
+                    <!-- 系统负载状态 -->
+                    <div class="system-load-status">
+                        <h4>系统负载:</h4>
+                        <p>CPU: <span id="cpu-load-indicator" class="load-indicator normal">0%</span></p>
+                        <p>内存: <span id="memory-load-indicator" class="load-indicator normal">0%</span></p>
+                        <p>磁盘: <span id="disk-load-indicator" class="load-indicator normal">0%</span></p>
+                        <p>网络: <span id="network-load-indicator" class="load-indicator normal">0 MB/s</span></p>
+                    </div>
                 </div>
             </section>
             <section id="history-content" class="content-section">
@@ -182,5 +191,6 @@
     <script src="../static/js/dynamic_copyright.js"></script>
     <script src="../static/js/download_status.js"></script>
     <script src="../static/js/log_viewer.js"></script>
+    <script src="../static/js/system_load_monitor.js"></script>
 </body>
 </html>

@@ -128,6 +128,43 @@
   background-color: #f8d7da;
 }
 
+.system-load-status {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.system-load-status h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.load-indicator {
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.load-indicator.normal {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.load-indicator.high {
+  background-color: #f8d7da;
+  color: #721c24;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.5;
+  }
+}
+
 button {
   padding: 8px 16px;           /* 内边距 */
   margin: 5px;                 /* 外边距 */
