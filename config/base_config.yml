@@ -21,13 +21,6 @@ log_enable: true
 log_path: ./logs
 
 ##
-## 结构化日志记录
-## true: 输出JSON格式的日志
-## false: 输出普通文本格式的日志
-##
-structured_logging: false
-
-##
 ## 下载线程数，当为 0 时，将不做下载数量限制，可能会出现下载失败的情况
 ## 当下载数量过大时，建议适当调整线程数
 ##

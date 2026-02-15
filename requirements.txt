@@ -6,4 +6,3 @@ ffmpeg-python
 selenium
 pymysql
 flask
-flask-limiter
