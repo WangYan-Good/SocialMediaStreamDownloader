@@ -196,11 +196,11 @@ class PlatformDispatcher:
     def wrapper(*args, **kwargs):
       try:
         result = handler(*args, **kwargs)
-        completion_callback()
+        completion_callback(args[0] if args else None)  # Pass token to callback
         return result
       except Exception as e:
         get_logger().error(f"Error in handler: {e}")
-        completion_callback()
+        completion_callback(args[0] if args else None)  # Pass token to callback even on error
         raise
     return wrapper
 

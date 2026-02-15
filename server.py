@@ -9,6 +9,8 @@ import re
 import threading
 import psutil
 import time
+import json
+from datetime import datetime
 ## <<Third-Part>>
 from backend.src.platform.platform_dispatcher import PlatformDispatcher
 from flask import Flask, request, jsonify, render_template
@@ -35,6 +37,75 @@ HIGH_NETWORK_THRESHOLD = 100.0  # MB/s (example threshold)
 last_network_io = psutil.net_io_counters()
 last_network_time = time.time()
 high_load_alert_active = False
+
+# History tracking
+download_history = []
+HISTORY_FILE = 'download_history.json'
+
+def load_history_from_file():
+    """Load download history from file"""
+    global download_history
+    try:
+        with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+            download_history = json.load(f)
+        logger.info(f"Loaded {len(download_history)} history records from {HISTORY_FILE}")
+    except FileNotFoundError:
+        logger.info(f"History file {HISTORY_FILE} not found, starting with empty history")
+        download_history = []
+    except Exception as e:
+        logger.error(f"Error loading history from file: {e}")
+        download_history = []
+
+def save_history_to_file():
+    """Save download history to file"""
+    try:
+        with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
+            json.dump(download_history, f, ensure_ascii=False, indent=2)
+        logger.info(f"Saved {len(download_history)} history records to {HISTORY_FILE}")
+    except Exception as e:
+        logger.error(f"Error saving history to file: {e}")
+
+def add_to_history(url, status="started", platform=None, timestamp=None, details=None):
+    """Add a download record to history"""
+    global download_history
+    if timestamp is None:
+        timestamp = datetime.now().isoformat()
+    
+    record = {
+        "id": len(download_history) + 1,
+        "url": url,
+        "status": status,
+        "platform": platform,
+        "timestamp": timestamp,
+        "details": details or {}
+    }
+    
+    download_history.insert(0, record)  # Insert at the beginning
+    
+    # Keep only the last 100 records
+    if len(download_history) > 100:
+        download_history = download_history[:100]
+    
+    save_history_to_file()
+    logger.info(f"Added download record to history: {url}, status: {status}")
+
+def download_completed_callback(token, client_ip):
+    """Callback when a download is completed"""
+    decrement_download_count_and_log(client_ip)
+    
+    # Update history record for this download
+    if token and '$.url' in token:
+        url = token['$.url']
+        # Find the record in history and update its status
+        for record in download_history:
+            if record['url'] == url and record['status'] == 'started':
+                record['status'] = 'completed'
+                record['details']['completed_at'] = datetime.now().isoformat()
+                record['details']['completed_by'] = client_ip
+                break
+        
+        save_history_to_file()
+        logger.info(f"Updated history record for completed download: {url}")
 
 def get_system_load():
     """Get current system load metrics"""
@@ -231,8 +302,16 @@ def process_request():
         new_count = increment_download_count()
         logger.info(f"Incremented download count. Current active downloads: {new_count}, from IP: {client_ip}")
 
-        # Pass a callback to decrement counter when download completes
-        platform_dispatcher.dispatch(json_data, lambda: decrement_download_count_and_log(client_ip))
+        # Add to history before dispatching
+        for url in json_data['urls']:
+            add_to_history(url, status="started", platform="unknown", details={
+                "submitted_by": client_ip,
+                "score": json_data.get('score'),
+                "favorite": json_data.get('favorite')
+            })
+
+        # Pass a callback to decrement counter and update history when download completes
+        platform_dispatcher.dispatch(json_data, lambda token=None: download_completed_callback(token, client_ip))
 
     except ValueError as ve:
         logger.error(f"ValueError processing request from IP {client_ip}: {ve}")
@@ -352,6 +431,61 @@ def get_system_load_status():
         }
     }), 200
 
+##
+## get download history
+##
+@app.route('/api/history', methods=['GET'])
+def get_download_history():
+    client_ip = request.remote_addr
+    logger.info(f"Download history requested from IP: {client_ip}")
+    
+    # Get query parameters for filtering
+    limit = int(request.args.get('limit', 20))  # Default to last 20 records
+    status = request.args.get('status', None)  # Filter by status
+    platform = request.args.get('platform', None)  # Filter by platform
+    
+    # Filter history based on parameters
+    filtered_history = download_history[:]
+    
+    if status:
+        filtered_history = [record for record in filtered_history if record['status'] == status]
+    
+    if platform:
+        filtered_history = [record for record in filtered_history if record.get('platform', '').lower() == platform.lower()]
+    
+    # Limit the results
+    result = filtered_history[:limit]
+    
+    logger.info(f"Returning {len(result)} history records to IP: {client_ip}")
+    return jsonify({
+        "history": result,
+        "total_records": len(download_history),
+        "filtered_by": {
+            "limit": limit,
+            "status": status,
+            "platform": platform
+        }
+    }), 200
+
+##
+## clear download history
+##
+@app.route('/api/history/clear', methods=['POST'])
+def clear_download_history():
+    client_ip = request.remote_addr
+    logger.info(f"Download history clear requested from IP: {client_ip}")
+    
+    global download_history
+    count = len(download_history)
+    download_history = []  # Clear the history
+    save_history_to_file()  # Save the cleared history to file
+    
+    logger.info(f"Cleared {count} history records from IP: {client_ip}")
+    return jsonify({
+        "message": f"Successfully cleared {count} history records",
+        "cleared_count": count
+    }), 200
+
 @app.route('/', methods=['GET'])
 def index():
     client_ip = request.remote_addr
@@ -373,6 +507,7 @@ if __name__ == '__main__':
   ## register platform_dispatcher
   ##
   logger.info("Starting server initialization")
+  load_history_from_file()  # Load history from file on startup
   platform_dispatcher.register()
   logger.info("Platform dispatcher registered successfully")
 
@@ -385,5 +520,6 @@ if __name__ == '__main__':
   finally:
     # Ensure cleanup happens when the script exits
     logger.info("Server shutting down, cleaning up resources")
+    save_history_to_file()  # Save history to file on shutdown
     platform_dispatcher.shutdown()
     logger.info("Server shutdown completed")

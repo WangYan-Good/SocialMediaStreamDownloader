@@ -140,7 +140,26 @@
             </section>
             <section id="history-content" class="content-section">
                 <!-- 历史内容 -->
-                 <p>History</p>
+                <div class="history-container">
+                    <h2>下载历史</h2>
+                    <div class="history-controls">
+                        <label for="historyFilter">筛选:</label>
+                        <select id="historyFilter">
+                            <option value="all">全部</option>
+                            <option value="started">进行中</option>
+                            <option value="completed">已完成</option>
+                        </select>
+                        
+                        <label for="historyLimit">显示条数:</label>
+                        <input type="number" id="historyLimit" value="20" min="1" max="100">
+                        
+                        <button id="refreshHistoryBtn">刷新历史</button>
+                        <button id="clearHistoryBtn">清空历史</button>
+                    </div>
+                    <div id="historyList" class="history-list">
+                        <p>点击"刷新历史"按钮加载下载历史...</p>
+                    </div>
+                </div>
             </section>
             <section id="log-content" class="content-section">
                 <!-- 下载日志内容 -->
@@ -192,5 +211,6 @@
     <script src="../static/js/download_status.js"></script>
     <script src="../static/js/log_viewer.js"></script>
     <script src="../static/js/system_load_monitor.js"></script>
+    <script src="../static/js/history_manager.js"></script>
 </body>
 </html>

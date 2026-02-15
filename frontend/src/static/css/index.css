@@ -165,6 +165,112 @@
   }
 }
 
+/* 历史记录样式 */
+.history-container {
+  padding: 20px;
+  height: calc(100vh - 150px);
+  display: flex;
+  flex-direction: column;
+}
+
+.history-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.history-controls label {
+  font-weight: bold;
+}
+
+.history-controls select,
+.history-controls input {
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.history-controls button {
+  padding: 8px 12px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.history-controls button:hover {
+  background-color: #218838;
+}
+
+.history-controls #clearHistoryBtn {
+  background-color: #dc3545;
+}
+
+.history-controls #clearHistoryBtn:hover {
+  background-color: #c82333;
+}
+
+.history-list {
+  flex-grow: 1;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 10px;
+  background-color: #f8f9fa;
+  overflow-y: auto;
+  max-height: 70vh;
+}
+
+.history-item {
+  padding: 10px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  border-left: 3px solid #007bff;
+  background-color: white;
+}
+
+.history-item.started {
+  border-left-color: #ffc107;
+  background-color: #fff3cd;
+}
+
+.history-item.completed {
+  border-left-color: #28a745;
+  background-color: #d4edda;
+}
+
+.history-item-url {
+  font-weight: bold;
+  word-break: break-all;
+  margin-bottom: 5px;
+}
+
+.history-item-details {
+  font-size: 0.9em;
+  color: #6c757d;
+}
+
+.history-item-timestamp {
+  font-style: italic;
+}
+
+.history-item-platform {
+  display: inline-block;
+  padding: 2px 6px;
+  background-color: #e9ecef;
+  border-radius: 3px;
+  font-size: 0.8em;
+}
+
+.history-empty {
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+  padding: 20px;
+}
+
 button {
   padding: 8px 16px;           /* 内边距 */
   margin: 5px;                 /* 外边距 */
