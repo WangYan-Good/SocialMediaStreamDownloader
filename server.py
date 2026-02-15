@@ -468,6 +468,62 @@ def get_download_history():
     }), 200
 
 ##
+## search download history
+##
+@app.route('/api/history/search', methods=['GET'])
+def search_download_history():
+    client_ip = request.remote_addr
+    logger.info(f"History search requested from IP: {client_ip}")
+    
+    query = request.args.get('q', '').strip()
+    
+    if not query:
+        return jsonify({
+            "results": [],
+            "count": 0,
+            "query": query,
+            "message": "Query parameter 'q' is required"
+        }), 400
+    
+    try:
+        # Filter history based on the search query
+        # Search in URL, platform, and other relevant fields
+        filtered_history = []
+        
+        for record in download_history:
+            # Check if query matches any relevant field
+            match_found = (
+                query.lower() in (record.get('url', '') or '').lower() or
+                query.lower() in (record.get('platform', '') or '').lower() or
+                query.lower() in (record.get('details', {}).get('submitted_by', '') or '').lower() or
+                query.lower() in (record.get('details', {}).get('score', '') or str('')) or
+                query.lower() in (record.get('details', {}).get('favorite', '') or str(''))
+            )
+            
+            if match_found:
+                filtered_history.append(record)
+        
+        # Limit results to prevent too many results
+        limited_results = filtered_history[:50]  # Limit to 50 results
+        
+        logger.info(f"Search query '{query}' returned {len(limited_results)} results to IP: {client_ip}")
+        return jsonify({
+            "results": limited_results,
+            "count": len(filtered_history),
+            "query": query,
+            "returned_count": len(limited_results)
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error searching history: {e}")
+        return jsonify({
+            "results": [],
+            "count": 0,
+            "query": query,
+            "error": str(e)
+        }), 500
+
+##
 ## clear download history
 ##
 @app.route('/api/history/clear', methods=['POST'])

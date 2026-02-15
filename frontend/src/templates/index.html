@@ -136,6 +136,18 @@
                         <p>磁盘: <span id="disk-load-indicator" class="load-indicator normal">0%</span></p>
                         <p>网络: <span id="network-load-indicator" class="load-indicator normal">0 MB/s</span></p>
                     </div>
+                    
+                    <!-- 历史账号检索 -->
+                    <div class="history-search">
+                        <h4>从历史记录检索账号</h4>
+                        <div class="history-search-controls">
+                            <input type="text" id="historySearchInput" placeholder="输入用户名/平台/URL关键词...">
+                            <button id="searchHistoryBtn">检索</button>
+                        </div>
+                        <div id="historySearchResults" class="history-search-results">
+                            <!-- 检索结果将在这里显示 -->
+                        </div>
+                    </div>
                 </div>
             </section>
             <section id="history-content" class="content-section">
@@ -212,5 +224,6 @@
     <script src="../static/js/log_viewer.js"></script>
     <script src="../static/js/system_load_monitor.js"></script>
     <script src="../static/js/history_manager.js"></script>
+    <script src="../static/js/history_account_search.js"></script>
 </body>
 </html>
