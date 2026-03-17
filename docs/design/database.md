@@ -53,702 +53,932 @@
 external_info:
   data:
     room:
-      AnchorABMap: {}                                                                     # 主播AB映射
-      acquaintance_status: 0                                                              # 直播间熟人状态
-      admin_user_ids:                                                                     # 直播间管理员用户ID列表
+      AnchorABMap: {}
+      acquaintance_status: 0
+      admin_user_ids:  # 管理员 ID 列表
       - 572164301142046
       - 98105276094
       - 1877579610464923
       - 2211848763215064
       - 97864774542
       - 62517518734
-      admin_user_open_ids: []                                                             # 直播间管理员OpenID列表
-      anchor_scheduled_time_text: ''                                                      # 主播预定时间文本
+      admin_user_open_ids: []
+      anchor_scheduled_time_text: ''
       anchor_share_text: "#\u5728\u6296\u97F3\uFF0C\u8BB0\u5F55\u7F8E\u597D\u751F\u6D3B\
         #\u3010Lvuuu\u3011\u6B63\u5728\u76F4\u64AD\uFF0C\u6765\u548C\u6211\u4E00\u8D77\
         \u652F\u6301Ta\u5427\u3002\u590D\u5236\u4E0B\u65B9\u94FE\u63A5\uFF0C\u6253\
-        \u5F00\u3010\u6296\u97F3\u3011\uFF0C\u76F4\u63A5\u89C2\u770B\u76F4\u64AD\uFF01"   # 主播分享文本
-      anchor_tab_type: 0                                                                  # 主播标签类型
-      app_id: 1128                                                                        # 应用ID
-      assist_label_list: []                                                               # 辅助标签列表
-      auth_city: ''                                                                       # 直播间认证城市
-      auto_cover: 0                                                                       # 自动封面
-      base_category: 0                                                                    # 基础分类
-      book_end_time: 0                                                                    # 直播间预约结束时间
-      book_time: 0                                                                        # 直播间预约开始时间
-      business_live: 0                                                                    # 商业直播
-      category: 0                                                                         # 分类
-      cell_style: 3                                                                       # 直播间单元样式
-      challenge_info: ''                                                                  # 挑战信息
-      city_top_distance: ''                                                               # 城市顶部距离
-      client_version: 290600                                                              # 客户端版本
-      comment_box:                                                                        # 评论框
-        placeholder: "\u8BF4\u70B9\u4EC0\u4E48..."                                        # 评论框占位符
-      comment_name_mode: 0                                                                # 评论名称模式
-      common_label_list: ''                                                               # 常用标签列表
-      content_tag: ''                                                                     # 内容标签
-      cover:                                                                              # 直播间封面
-        avg_color: '#F1FFEB'                                                              # 平均颜色
-        flex_setting_list: []                                                             # 弹性设置列表
-        height: 0                                                                         # 高度
-        image_type: 0                                                                     # 图片类型
-        is_animated: false                                                                # 是否为动画
-        open_web_url: ''                                                                  # 开放网页URL
-        text_setting_list: []                                                             # 文本设置列表
-        uri: webcast-cover/7310930480756017947                                            # URI
-        url_list:                                                                         # URL列表
+        \u5F00\u3010\u6296\u97F3\u3011\uFF0C\u76F4\u63A5\u89C2\u770B\u76F4\u64AD\uFF01"
+      anchor_tab_type: 0
+      app_id: 1128
+      assist_label_list: []
+      auth_city: ''
+      auto_cover: 0
+      base_category: 0
+      book_end_time: 0
+      book_time: 0
+      business_live: 0
+      category: 0
+      cell_style: 3
+      challenge_info: ''
+      city_top_distance: ''
+      client_version: 290600
+      comment_box:
+        placeholder: "\u8BF4\u70B9\u4EC0\u4E48..."
+      comment_name_mode: 0
+      common_label_list: ''
+      content_label:  # 内容标签
+        avg_color: '#405237'
+        content:
+          alternative_text: "\u5356\u8D27"
+          font_color: ''
+          level: 0
+          name: ''
+        flex_setting_list: []
+        height: 0
+        image_type: 9
+        is_animated: false
+        open_web_url: ''
+        text_setting_list: []
+        uri: webcast/aweme_cover_sellGoods_webcast_1_3.png
+        url_list:
+        - https://p3-webcast.douyinpic.com/img/webcast/aweme_cover_sellGoods_webcast_1_3.png~tplv-resize:0:0.image
+        - https://p11-webcast.douyinpic.com/img/webcast/aweme_cover_sellGoods_webcast_1_3.png~tplv-resize:0:0.image
+        width: 0
+      content_tag: ''
+      cover:  # 封面图片信息
+        avg_color: '#F1FFEB'
+        flex_setting_list: []
+        height: 0
+        image_type: 0
+        is_animated: false
+        open_web_url: ''
+        text_setting_list: []
+        uri: webcast-cover/7310930480756017947
+        url_list:
         - https://p11-webcast-sign.douyinpic.com/webcast-cover/7310930480756017947~tplv-qz53dukwul-common-resize:0:0.image?biz_tag=aweme_webcast&from=webcast.room.pack&l=2025022317061645842BB1D723AB138B06&lk3s=39e7556e&s=reflow_room_info&sc=webcast_cover&x-expires=1742893576&x-signature=9FnU1Ut%2BEPXq5xHg3gGaNPpT6Mc%3D
         - https://p3-webcast-sign.douyinpic.com/webcast-cover/7310930480756017947~tplv-qz53dukwul-common-resize:0:0.image?biz_tag=aweme_webcast&from=webcast.room.pack&l=2025022317061645842BB1D723AB138B06&lk3s=39e7556e&s=reflow_room_info&sc=webcast_cover&x-expires=1742893576&x-signature=i9%2FZLOZpfcmxY%2F5Lt%2Bw%2B35pfsKA%3D
-        width: 0                                                                          # 宽度
-      create_time: 1714227431                                                             # 直播间创建时间
-      danmaku_detail: 0                                                                   # 弹幕详情
-      deco_list: []                                                                       # 装饰列表
-      distance: ''                                                                        # 距离
-      distance_city: ''                                                                   # 距离城市
-      distance_km: ''                                                                     # 距离公里
-      dynamic_cover_dict: {}                                                              # 动态封面字典
-      dynamic_cover_uri: ''                                                               # 动态封面URI
-      enable_room_perspective: true                                                       # 是否启用直播间透视
-      extra:                                                                              # 额外信息
-        create_scene: ''                                                                  # 创建场景
-        facial_unrecognised: 0                                                            # 面部未识别
-        geo_block: 0                                                                      # 地理封锁
-        is_sandbox: false                                                                 # 是否为沙盒
-        is_virtual_anchor: false                                                          # 是否为虚拟主播
-        limit_appid: ''                                                                   # 限制应用ID
-        limit_strategy: 0                                                                 # 限制策略
-        realtime_playback_qualities: []                                                   # 实时回放质量列表
-        realtime_playback_shift: 0                                                        # 实时回放偏移
-        realtime_playback_start_shift: 0                                                  # 实时回放开始偏移
-        realtime_replay_enabled: false                                                    # 是否启用实时回放
-        vr_type: 0                                                                        # VR类型
-        vs_type: 0                                                                        # VS类型
-        xigua_uid: 0                                                                      # 西瓜用户ID
-      fans_group_admin_user_ids: []                                                       # 粉丝群管理员用户ID列表
-      fans_group_admin_user_open_ids: []                                                  # 粉丝群管理员OpenID列表
-      fansclub_msg_style: 0                                                               # 粉丝俱乐部消息样式
-      fcdn_appid: 0                                                                       # FCDN应用ID
-      feed_room_label:                                                                    # 直播间标签
-        avg_color: '#7A6D53'                                                              # 平均颜色
-        content:                                                                          # 直播间标签内容
-          alternative_text: ''                                                            # 替代文本
-          font_color: ''                                                                  # 字体颜色
-          level: 0                                                                        # 等级
-          name: ''                                                                        # 名称
-        flex_setting_list: []                                                             # 弹性设置列表
-        height: 0                                                                         # 高度
-        image_type: 0                                                                     # 图片类型
-        is_animated: false                                                                # 是否为动画
-        open_web_url: ''                                                                  # 开放网页URL
-        text_setting_list: []                                                             # 文本设置列表
-        uri: webcast/2ea90002aca1159b5c67                                                 # URI
-        url_list:                                                                         # URL列表
+        width: 0
+      create_time: 1714227431  # 创建时间戳
+      danmaku_detail: 0
+      deco_list:  # 装饰列表
+      - audit_text_color: ''
+        content: "\U0001F697"
+        h: 2556
+        id: 1187
+        image:
+          avg_color: '#EBE1CE'
+          flex_setting_list: []
+          height: 0
+          image_type: 0
+          is_animated: false
+          open_web_url: ''
+          text_setting_list: []
+          uri: webcast/decoration_13e86f8bfb4c405e3d59fb75b80851ad.png
+          url_list:
+          - https://p11-webcast.douyinpic.com/img/webcast/decoration_13e86f8bfb4c405e3d59fb75b80851ad.png~tplv-resize:0:0.image
+          - https://p3-webcast.douyinpic.com/img/webcast/decoration_13e86f8bfb4c405e3d59fb75b80851ad.png~tplv-resize:0:0.image
+          width: 0
+        input_rect:
+        - 99
+        - 43
+        - 195
+        - 34
+        kind: 0
+        max_length: 8
+        nine_patch_image:
+          avg_color: '#EBFBFF'
+          flex_setting_list: []
+          height: 0
+          image_type: 0
+          is_animated: false
+          open_web_url: ''
+          text_setting_list: []
+          uri: webcast/decoration_3e4ff163c79351791eb5c029a49bbc49.png
+          url_list:
+          - https://p3-webcast.douyinpic.com/img/webcast/decoration_3e4ff163c79351791eb5c029a49bbc49.png~tplv-obj.image
+          - https://p11-webcast.douyinpic.com/img/webcast/decoration_3e4ff163c79351791eb5c029a49bbc49.png~tplv-obj.image
+          width: 0
+        reservation:
+          anchor_id: 0
+          anchor_open_id: ''
+          appointment_id: 0
+          btn_color: ''
+          btn_rect: []
+          end_time: 0
+          is_reserved: false
+          room_id: 0
+          start_time: 0
+        status: 1
+        sub_type: 0
+        text_color: '#FFFFFF'
+        text_font_config:
+          DownloadUrl: https://p9-webcast.douyinpic.com/obj/webcast/0628_jlh_test_FZY4JW.TTF
+          FontID: 101
+          Status: 1
+          font_name: FZY4JW--GB1-0
+        text_image_adjustable_end_position: 212
+        text_image_adjustable_start_position: 132
+        text_size: 25
+        text_special_effects: []
+        type: 1
+        w: 1179
+        x: 936
+        y: 1047
+      distance: ''
+      distance_city: ''
+      distance_km: ''
+      dynamic_cover_dict: {}
+      dynamic_cover_uri: ''
+      enable_room_perspective: true
+      extra:  # 额外信息
+        admin_op_type: {}
+        create_scene: ''
+        ecom_live_shop_v2: 0
+        ecom_live_start_with_cart: false
+        facial_unrecognised: 0
+        geo_block: 0
+        is_sandbox: false
+        is_virtual_anchor: false
+        life_live_header_v2: 0
+        limit_appid: ''
+        limit_strategy: 0
+        max_audience_cnt: 0
+        realtime_playback_qualities: []
+        realtime_playback_shift: 0
+        realtime_playback_start_shift: 0
+        realtime_replay_enabled: false
+        virtual_tool: ''
+        vr_type: 0
+        vs_type: 0
+        xigua_uid: 0
+      fans_group_admin_user_ids: []
+      fans_group_admin_user_open_ids: []
+      fansclub_msg_style: 0
+      fcdn_appid: 0
+      feed_room_label:
+        avg_color: '#7A6D53'
+        content:
+          alternative_text: ''
+          font_color: ''
+          level: 0
+          name: ''
+        flex_setting_list: []
+        height: 0
+        image_type: 0
+        is_animated: false
+        open_web_url: ''
+        text_setting_list: []
+        uri: webcast/2ea90002aca1159b5c67
+        url_list:
         - https://p3-webcast.douyinpic.com/img/webcast/2ea90002aca1159b5c67~tplv-resize:0:0.image
         - https://p11-webcast.douyinpic.com/img/webcast/2ea90002aca1159b5c67~tplv-resize:0:0.image
-        width: 0                                                                          # 宽度
-      filter_words: []                                                                    # 过滤词列表
-      finish_reason: 1                                                                    # 直播结束原因
-      finish_time: 1714232860                                                             # 直播结束时间
-      finish_url: ''                                                                      # 直播结束URL
-      follow_msg_style: 0                                                                 # 关注消息样式
-      forum_extra_data: ''                                                                # 论坛额外数据
-      game_room_type: 0                                                                   # 游戏直播间类型
-      gift_msg_style: 2                                                                   # 礼物消息样式
-      group_id: 0                                                                         # 直播间组ID
-      group_source: 0                                                                     # 直播间组来源
-      guide_button:                                                                       # 引导按钮
-        avg_color: '#E6FADC'                                                              # 平均颜色
-        flex_setting_list: []                                                             # 弹性设置列表
-        height: 0                                                                         # 高度
-        image_type: 0                                                                     # 图片类型
-        is_animated: false                                                                # 是否为动画
-        open_web_url: ''                                                                  # 开放网页URL
-        text_setting_list: []                                                             # 文本设置列表
-        uri: webcast/aweme_button_call_3x.png                                             # URI
-        url_list:                                                                         # URL列表
+        width: 0
+      filter_words: []
+      finish_reason: 1  # 结束原因代码
+      finish_time: 1714232860  # 结束时间戳
+      finish_url: ''
+      follow_msg_style: 0
+      forum_extra_data: ''
+      game_room_type: 0
+      gift_msg_style: 2
+      group_id: 0
+      group_source: 0
+      guide_button:
+        avg_color: '#E6FADC'
+        flex_setting_list: []
+        height: 0
+        image_type: 0
+        is_animated: false
+        open_web_url: ''
+        text_setting_list: []
+        uri: webcast/aweme_button_call_3x.png
+        url_list:
         - https://p3-webcast.douyinpic.com/img/webcast/aweme_button_call_3x.png~tplv-resize:0:0.image
         - https://p11-webcast.douyinpic.com/img/webcast/aweme_button_call_3x.png~tplv-resize:0:0.image
-        width: 0                                                                          # 宽度
-      has_commerce_goods: true                                                            # 是否有商品
-      has_promotion_games: 0                                                              # 是否有推广游戏
-      highlight: false                                                                    # 是否高亮
-      hot_sentence_info: ''                                                               # 热门语句信息
-      id: 7362550606306773794                                                             # 直播间ID
-      id_str: '7362550606306773794'                                                       # 直播间ID字符串
-      introduction: ''                                                                    # 直播间介绍
-      is_need_check_list: false                                                           # 是否需要检查列表
-      is_official_channel_room: false                                                     # 是否为官方频道直播间
-      is_replay: false                                                                    # 是否为回放
-      is_show_inquiry_ball: false                                                         # 是否显示询问球
-      is_show_user_card_switch: true                                                      # 是否显示用户卡片开关
-      item_explicit_info: ''                                                              # 物品显式信息
-      last_ping_time: 0                                                                   # 最后ping时间
-      layout: 0                                                                           # 直播间布局
-      like_count: 14873                                                                   # 点赞数量
-      linker_map: {}                                                                      # 连接器映射
-      linkmic_display_type: 0                                                             # 连接器显示类型
-      linkmic_layout: 1                                                                   # 连接器布局
-      live_distribution: []                                                               # 直播分发列表
-      live_id: 1                                                                          # 直播ID
-      live_platform_source: ''                                                            # 直播平台来源
-      live_room_mode: 0                                                                   # 直播间模式
-      live_type_audio: false                                                              # 是否为音频直播
-      live_type_linkmic: false                                                            # 是否为连麦直播
-      live_type_normal: true                                                              # 是否为普通直播
-      live_type_official: false                                                           # 是否为官方直播
-      live_type_sandbox: false                                                            # 是否为沙盒直播
-      live_type_screenshot: false                                                         # 是否为截图直播
-      live_type_third_party: false                                                        # 是否为第三方直播
-      live_type_vs_live: false                                                            # 是否为VS直播
-      live_type_vs_premiere: false                                                        # 是否为VS首播
-      living_room_attrs:                                                                  # 直播间属性
-        admin_flag: 0                                                                     # 直播间管理员标志
-        rank: 0                                                                           # 直播间等级
-        room_id: 7362550606306773794                                                      # 直播间ID
-        room_id_str: '7362550606306773794'                                                # 直播间ID字符串
-        silence_flag: 0                                                                   # 直播间静音状态
-      location: ''                                                                        # 直播间位置
-      lottery_finish_time: 0                                                              # 抽奖结束时间
-      luckymoney_num: 0                                                                   # 幸运红包数量
-      mosaic_status: 0                                                                    # 马赛克状态
-      mosaic_tip: ''                                                                      # 马赛克提示
-      official_channel_open_id: ''                                                        # 官方频道OpenID
-      official_channel_uid: 0                                                             # 官方频道用户ID
-      orientation: 0                                                                      # 直播间方向
-      os_type: 1                                                                          # 操作系统类型
-      owner:                                                                              # 主播信息
-        adversary_authorization_info: 3                                                   # 对手授权信息
-        adversary_user_status: 0                                                          # 对手用户状态
-        age_range: 0                                                                      # 年龄范围
-        allow_be_located: false                                                           # 是否允许被定位
-        allow_find_by_contacts: false                                                     # 是否允许通过联系人查找
-        allow_others_download_video: false                                                # 是否允许其他人下载视频
-        allow_others_download_when_sharing_video: false                                   # 是否允许其他人下载分享的视频
-        allow_share_show_profile: false                                                   # 是否允许分享展示个人资料
-        allow_show_in_gossip: false                                                       # 是否允许在八卦中展示
-        allow_show_my_action: false                                                       # 是否允许展示我的动作
-        allow_strange_comment: false                                                      # 是否允许陌生人评论
-        allow_unfollower_comment: false                                                   # 是否允许非关注者评论
-        allow_use_linkmic: false                                                          # 是否允许使用连麦
-        authorization_info: 3                                                             # 授权信息
-        avatar_large:                                                                     # 大头像
-          avg_color: ''                                                                   # 平均颜色
-          flex_setting_list: []                                                           # 弹性设置列表
-          height: 0                                                                       # 高度
-          image_type: 0                                                                   # 图片类型
-          is_animated: false                                                              # 是否为动画
-          open_web_url: ''                                                                # 开放网页URL
-          text_setting_list: []                                                           # 文本设置列表
-          uri: 1080x1080/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f    # URI
-          url_list:                                                                       # URL列表
+        width: 0
+      has_commerce_goods: true  # 是否有商品
+      has_promotion_games: 0
+      highlight: false
+      hot_sentence_info: ''
+      id: 7362550606306773794  # 直播间 ID
+      id_str: '7362550606306773794'  # 直播间 ID (字符串格式)
+      introduction: ''
+      is_need_check_list: false
+      is_official_channel_room: false
+      is_replay: false  # 是否回放
+      is_show_inquiry_ball: false
+      is_show_user_card_switch: true
+      item_explicit_info: ''
+      last_ping_time: 0
+      layout: 0
+      like_count: 14873  # 点赞数
+      link_mic:
+        battle_scores:
+        - open_id: ''
+          score: 0
+          user_id: 4457900325472211
+        - open_id: ''
+          score: 198
+          user_id: 4396312411520464
+        battle_settings:  # 对战设置
+          activity_mode: 0
+          battle_id: 7503723992483451931
+          channel_id: 7503723278331204635
+          duration: 300
+          finished: 0
+          match_type: 0
+          play_mode: 0
+          start_time: 1747096891
+          start_time_ms: 1747096891791
+          team_mode: 0
+          theme: ''
+        channel_id: 7503723278331204635  # 连麦频道 ID
+        channel_info:
+          dimension: 1
+          layout: 4
+          vendor: 4
+        linkmic_anchor_count: 0
+        rival_anchor_id: 4457900325472211  # 对手主播 ID
+        rival_anchor_open_id: ''
+      linker_map:
+        '1': 7503723278331204635
+      linkmic_display_type: 0
+      linkmic_layout: 1  # 连麦布局
+      live_distribution: []
+      live_id: 1
+      live_platform_source: ''
+      live_room_mode: 0
+      live_type_audio: false
+      live_type_linkmic: false
+      live_type_normal: true  # 是否普通直播
+      live_type_official: false
+      live_type_sandbox: false
+      live_type_screenshot: false
+      live_type_third_party: false
+      live_type_vs_live: false  # 是否 PK 直播
+      live_type_vs_premiere: false
+      living_room_attrs:  # 直播间实时属性
+        admin_flag: 0
+        rank: 0
+        room_id: 7362550606306773794
+        room_id_str: '7362550606306773794'
+        silence_flag: 0
+      location: ''
+      lottery_finish_time: 0
+      luckymoney_num: 0
+      mosaic_status: 0
+      mosaic_tip: ''
+      official_channel_open_id: ''
+      official_channel_uid: 0
+      orientation: 0  # 屏幕方向 (0:竖屏，1:横屏)
+      os_type: 1
+      owner:  # 主播信息对象
+        adversary_authorization_info: 3
+        adversary_user_status: 0
+        age_range: 0
+        allow_be_located: false
+        allow_find_by_contacts: false
+        allow_others_download_video: false
+        allow_others_download_when_sharing_video: false
+        allow_share_show_profile: false
+        allow_show_in_gossip: false
+        allow_show_my_action: false
+        allow_strange_comment: false
+        allow_unfollower_comment: false
+        allow_use_linkmic: false
+        authentication_info:
+          account_cert_info: "{\"label_style\":5,\"label_text\":\"\u5E97\u94FA\u8D26\
+            \u53F7\",\"is_biz_account\":1,\"cert_label_list\":[{\"label_style\":5,\"\
+            label_text\":\"\u5E97\u94FA\u8D26\u53F7\",\"is_biz_account\":1,\"badge\"\
+            :{\"uri\":\"webcast/linear_blue_authentication_icon_3x.png\",\"url_list\"\
+            :[\"https://p3-webcast.douyinpic.com/img/webcast/linear_blue_authentication_icon_3x.png~tplv-obj.image\"\
+            ,\"https://p11-webcast.douyinpic.com/img/webcast/linear_blue_authentication_icon_3x.png~tplv-obj.image\"\
+            ],\"image_type\":66}},{\"label_style\":2,\"label_text\":\"\u5E97\u94FA\
+            \u8D26\u53F7\",\"is_biz_account\":1,\"badge\":{\"uri\":\"webcast/authentication_icon_02.png\"\
+            ,\"url_list\":[\"https://p11-webcast.douyinpic.com/img/webcast/authentication_icon_02.png~tplv-obj.image\"\
+            ,\"https://p3-webcast.douyinpic.com/img/webcast/authentication_icon_02.png~tplv-obj.image\"\
+            ],\"image_type\":46}}]}"
+          account_type_info:
+            account_type_map: {}
+          authentication_badge:
+            avg_color: ''
+            flex_setting_list: []
+            height: 0
+            image_type: 46
+            is_animated: false
+            open_web_url: sslocal://webcast_lynxview?type=popup&gravity=bottom&height=484&fixed_height=1&add_safe_area_height=0&url=https%3A%2F%2Flf-webcast-sourcecdn-tos.bytegecko.com%2Fobj%2Fbyte-gurd-source%2Fwebcast%2Fmono%2Flynx%2Fwebcast_native_lynx_community_douyin%2Fpages%2Fverifypage%2Ftemplate.js%3Fh5Url%3Daweme%253A%252F%252Fwebview%252F%253Furl%253Dhttps%25253A%25252F%25252Frenzheng.douyin.com%25252Fm%25252Fverified_account%25252Flanding%25253Fsource%25253Dc4k64t65kvkbf97sj3bg
+            text_setting_list: []
+            uri: webcast/authentication_icon_02.png
+            url_list:
+            - https://p11-webcast.douyinpic.com/img/webcast/authentication_icon_02.png~tplv-obj.image
+            - https://p3-webcast.douyinpic.com/img/webcast/authentication_icon_02.png~tplv-obj.image
+            width: 0
+          authentication_badge_v2:
+            avg_color: ''
+            flex_setting_list: []
+            height: 0
+            image_type: 66
+            is_animated: false
+            open_web_url: ''
+            text_setting_list: []
+            uri: webcast/linear_blue_authentication_icon_3x.png
+            url_list:
+            - https://p3-webcast.douyinpic.com/img/webcast/linear_blue_authentication_icon_3x.png~tplv-obj.image
+            - https://p11-webcast.douyinpic.com/img/webcast/linear_blue_authentication_icon_3x.png~tplv-obj.image
+            width: 0
+          custom_verify: ''
+          enterprise_verify_reason: "\u5E97\u94FA\u8D26\u53F7"
+          level_list:
+          - 1
+          - 10002
+        authorization_info: 3
+        avatar_large:  # 头像大图
+          avg_color: ''
+          flex_setting_list: []
+          height: 0
+          image_type: 0
+          is_animated: false
+          open_web_url: ''
+          text_setting_list: []
+          uri: 1080x1080/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f
+          url_list:
           - https://p3.douyinpic.com/aweme/1080x1080/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f.jpeg?from=3067671334
           - https://p11.douyinpic.com/aweme/1080x1080/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f.jpeg?from=3067671334
           - https://p26.douyinpic.com/aweme/1080x1080/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f.jpeg?from=3067671334
-          width: 0                                                                        # 宽度
-        avatar_medium:                                                                    # 中头像
-          avg_color: ''                                                                   # 平均颜色
-          flex_setting_list: []                                                           # 弹性设置列表
-          height: 0                                                                       # 高度
-          image_type: 0                                                                   # 图片类型
-          is_animated: false                                                              # 是否为动画
-          open_web_url: ''                                                                # 开放网页URL
-          text_setting_list: []                                                           # 文本设置列表
-          uri: 720x720/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f      # URI
-          url_list:                                                                       # URL列表
+          width: 0
+        avatar_medium:  # 头像中等图
+          avg_color: ''
+          flex_setting_list: []
+          height: 0
+          image_type: 0
+          is_animated: false
+          open_web_url: ''
+          text_setting_list: []
+          uri: 720x720/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f
+          url_list:
           - https://p3.douyinpic.com/aweme/720x720/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f.jpeg?from=3067671334
           - https://p26.douyinpic.com/aweme/720x720/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f.jpeg?from=3067671334
           - https://p11.douyinpic.com/aweme/720x720/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f.jpeg?from=3067671334
-          width: 0                                                                        # 宽度
-        avatar_thumb:                                                                     # 小头像
-          avg_color: ''                                                                   # 平均颜色
-          flex_setting_list: []                                                           # 弹性设置列表
-          height: 0                                                                       # 高度
-          image_type: 0                                                                   # 图片类型
-          is_animated: false                                                              # 是否为动画
-          open_web_url: ''                                                                # 开放网页URL
-          text_setting_list: []                                                           # 文本设置列表
-          uri: 100x100/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f      # URI
-          url_list:                                                                       # URL列表
+          width: 0
+        avatar_thumb:  # 头像缩略图
+          avg_color: ''
+          flex_setting_list: []
+          height: 0
+          image_type: 0
+          is_animated: false
+          open_web_url: ''
+          text_setting_list: []
+          uri: 100x100/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f
+          url_list:
           - https://p11.douyinpic.com/aweme/100x100/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f.jpeg?from=3067671334
           - https://p3.douyinpic.com/aweme/100x100/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f.jpeg?from=3067671334
           - https://p26.douyinpic.com/aweme/100x100/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f.jpeg?from=3067671334
-          width: 0                                                                        # 宽度
-        badge_image_list:                                                                 # 勋章图片列表
-        - avg_color: ''                                                                   # 平均颜色
-          content:                                                                        # 直播间勋章内容
-            alternative_text: "\u8363\u8A89\u7B49\u7EA72\u7EA7\u52CB\u7AE0"               # 替代文本
-            font_color: ''                                                                # 字体颜色
-            level: 2                                                                      # 等级
-            name: ''                                                                      # 名称
-          flex_setting_list: []                                                           # 弹性设置列表
-          height: 16                                                                      # 高度
-          image_type: 1                                                                   # 图片类型
-          is_animated: false                                                              # 是否为动画
-          open_web_url: ''                                                                # 开放网页URL
-          text_setting_list: []                                                           # 文本设置列表
-          uri: webcast/new_user_grade_level_v1_2.png                                      # URI
-          url_list:                                                                       # URL列表
+          width: 0
+        badge_image_list:
+        - avg_color: ''
+          content:
+            alternative_text: "\u8363\u8A89\u7B49\u7EA72\u7EA7\u52CB\u7AE0"
+            font_color: ''
+            level: 2
+            name: ''
+          flex_setting_list: []
+          height: 16
+          image_type: 1
+          is_animated: false
+          open_web_url: ''
+          text_setting_list: []
+          uri: webcast/new_user_grade_level_v1_2.png
+          url_list:
           - https://p3-webcast.douyinpic.com/img/webcast/new_user_grade_level_v1_2.png~tplv-obj.image
           - https://p11-webcast.douyinpic.com/img/webcast/new_user_grade_level_v1_2.png~tplv-obj.image
-          width: 32                                                                       # 宽度
-        badge_image_list_v2:                                                              # 勋章图片列表V2
-        - avg_color: ''                                                                   # 平均颜色
-          content:                                                                        # 直播间勋章内容
-            alternative_text: "\u8363\u8A89\u7B49\u7EA72\u7EA7\u52CB\u7AE0"               # 替代文本
-            font_color: ''                                                                # 字体颜色
-            level: 2                                                                      # 等级
-            name: ''                                                                      # 名称
-          flex_setting_list: []                                                           # 弹性设置列表
-          height: 16                                                                      # 高度
-          image_type: 1                                                                   # 图片类型
-          is_animated: false                                                              # 是否为动画
-          open_web_url: ''                                                                # 开放网页URL
-          text_setting_list: []                                                           # 文本设置列表
-          uri: webcast/new_user_grade_level_v1_2.png                                      # URI
-          url_list:                                                                       # URL列表
+          width: 32
+        badge_image_list_v2:
+        - avg_color: ''
+          content:
+            alternative_text: "\u52CB\u7AE0"
+            font_color: ''
+            level: 0
+            name: ''
+          flex_setting_list: []
+          height: 16
+          image_type: 64
+          is_animated: false
+          open_web_url: ''
+          text_setting_list: []
+          uri: webcast/webcast_anchor_badge.png
+          url_list:
+          - https://p11-webcast.douyinpic.com/img/webcast/webcast_anchor_badge.png~tplv-obj.image
+          - https://p3-webcast.douyinpic.com/img/webcast/webcast_anchor_badge.png~tplv-obj.image
+          width: 28
+        - avg_color: ''
+          content:
+            alternative_text: "\u8363\u8A89\u7B49\u7EA714\u7EA7\u52CB\u7AE0"
+            font_color: ''
+            level: 2
+            name: ''
+          flex_setting_list: []
+          height: 16
+          image_type: 1
+          is_animated: false
+          open_web_url: ''
+          text_setting_list: []
+          uri: webcast/new_user_grade_level_v1_2.png
+          url_list:
           - https://p3-webcast.douyinpic.com/img/webcast/new_user_grade_level_v1_2.png~tplv-obj.image
           - https://p11-webcast.douyinpic.com/img/webcast/new_user_grade_level_v1_2.png~tplv-obj.image
-          width: 32                                                                       # 宽度
-        bg_img_url: ''                                                                    # 背景图片URL
-        birthday: 0                                                                       # 生日
-        birthday_description: ''                                                          # 生日描述
-        birthday_valid: false                                                             # 生日有效
-        block_status: 0                                                                   # 屏蔽状态
-        city: ''                                                                          # 城市
-        comment_restrict: 0                                                               # 评论限制
-        commerce_webcast_config_ids: []                                                   # 商业直播配置ID列表
-        constellation: ''                                                                 # 星座
-        consume_diamond_level: 0                                                          # 消费钻石等级
-        create_time: 0                                                                    # 创建时间
-        desensitized_nickname: ''                                                         # 脱敏昵称
-        disable_ichat: 0                                                                  # 禁用iChat
-        display_id: '30266029732'                                                         # 显示ID
-        enable_ichat_img: 0                                                               # 是否启用iChat图片
-        exp: 0                                                                            # 经验值
-        experience: 0                                                                     # 经验
-        fan_ticket_count: 0                                                               # 粉丝票数量
-        fans_club:                                                                        # 粉丝俱乐部
-          data:                                                                           # 粉丝俱乐部数据
-            anchor_id: 0                                                                  # 主播ID
-            anchor_open_id: ''                                                            # 主播OpenID
-            available_gift_ids: []                                                        # 可用礼物ID列表
-            badge:                                                                        # 勋章信息
-              icons:                                                                      # 勋章图标列表
-                '0':                                                                      # 勋章图标0
-                  avg_color: ''                                                           # 平均颜色
-                  flex_setting_list: []                                                   # 弹性设置列表
-                  height: 0                                                               # 高度
-                  image_type: 0                                                           # 图片类型
-                  is_animated: false                                                      # 是否为动画
-                  open_web_url: ''                                                        # 开放网页URL
-                  text_setting_list: []                                                   # 文本设置列表
-                  uri: ''                                                                 # 勋章图标URI
-                  url_list: []                                                            # 勋章图标URL列表
-                  width: 0                                                                # 宽度
-              title: ''                                                                   # 勋章标题
-            badge_type: 0                                                                 # 勋章类型
-            club_name: ''                                                                 # 俱乐部名称
-            guard_expired_time: 0                                                         # 俱乐部守护过期时间
-            level: 0                                                                      # 俱乐部等级
-            user_fans_club_status: 0                                                      # 用户粉丝俱乐部状态
-            user_guard_status: 0                                                          # 用户守护状态
-          prefer_data: {}                                                                 # 偏好数据
-        fans_group_info:                                                                  # 粉丝群信息
-          list_fans_group_url: sslocal://webcast_lynxview?height=754&radius=8&gravity=bottom&type=popup&animation_type=present&url=https%3A%2F%2Flf-webcast-sourcecdn-tos.bytegecko.com%2Fobj%2Fbyte-gurd-source%2Fwebcast%2Fmono%2Flynx%2Fdouyin_lynx_fansclub%2Ftemplate%2Fpages%2Ffansclub%2Ffans_group%2Fuser%2Ftemplate.js&load_taro=0&fallback_url=sslocal%3A%2F%2Fwebcast_webview%3Furl%3Dhttps%253A%252F%252Flf-webcast-sourcecdn-tos.bytegecko.com%252Fobj%252Fbyte-gurd-source%252Fwebcast%252Fmono%252Flynx%252Fdouyin_lynx_fansclub%252Ftemplate%252Fpages%252Ffansclub%252Ffans_group%252Fuser%252Findex.html%26type%3Dpopup%26gravity%3Dbottom%26height%3D754%26radius%3D8%26load_taro%3D0 # 粉丝群列表URL
-        fold_stranger_chat: false                                                         # 折叠陌生人聊天
-        follow_info:                                                                      # 关注信息
-          follow_status: 0                                                                # 关注状态
-          follower_count: 333091                                                          # 粉丝数量
-          follower_count_str: "33.3\u4E07"                                                # 粉丝数量字符串
-          following_count: 95                                                             # 关注数量
-          following_count_str: '95'                                                       # 关注数量字符串
-          invalid_follow_status: false                                                    # 是否为无效关注状态
-          push_status: 0                                                                  # 关注推送状态
-          remark_name: ''                                                                 # 备注名称
-        follow_status: 0                                                                  # 关注状态
-        gender: 2                                                                         # 性别（0-未知，1-男，2-女）
-        hotsoon_verified: false                                                           # 是否为Hotsoon认证
-        hotsoon_verified_reason: ''                                                       # Hotsoon认证原因
-        ichat_restrict_type: 0                                                            # iChat限制类型
-        id: 2700838411446480                                                              # 主播用户ID
-        id_str: '2700838411446480'                                                        # 主播用户ID字符串
-        income_share_percent: 0                                                           # 收入分成百分比
-        is_anonymous: false                                                               # 是否匿名
-        is_follower: false                                                                # 是否是粉丝
-        is_following: false                                                               # 是否关注
-        j_accredit_info:                                                                  # 主播认证信息
-          JAccreditAdvance: 0                                                             # 主播认证高级
-          JAccreditBasic: 0                                                               # 主播认证基础
-          JAccreditContent: 0                                                             # 主播认证内容
-          JAccreditLive: 0                                                                # 主播认证直播
-        level: 0                                                                          # 用户等级
-        link_mic_stats: 1                                                                 # 连麦状态
-        location_city: ''                                                                 # 定位城市
-        media_badge_image_list: []                                                        # 媒体勋章图片列表
-        modify_time: 1740042739                                                           # 修改时间戳
-        mystery_man: 1                                                                    # 是否神秘人
-        need_profile_guide: false                                                         # 是否需要个人资料引导
-        new_real_time_icons: []                                                           # 新实时图标列表
-        nickname: Lvuuu                                                                   # 昵称
-        pay_grade:                                                                        # 付费等级
-          grade_banner: ''                                                                # 付费等级横幅
-          grade_describe: ''                                                              # 付费等级描述
-          grade_describe_shining: false                                                   # 付费等级描述闪烁
-          grade_icon_list: []                                                             # 付费等级图标列表
-          level: 2                                                                        # 付费等级
-          name: ''                                                                        # 付费等级名称
-          new_im_icon_with_level:                                                         # 新带等级的IM图标
-            avg_color: ''                                                                 # 平均颜色
-            flex_setting_list: []                                                         # 弹性设置列表
-            height: 16                                                                    # 高度
-            image_type: 1                                                                 # 图片类型
-            is_animated: false                                                            # 是否为动画
-            open_web_url: ''                                                              # 开放网页URL
-            text_setting_list: []                                                         # 文本设置列表
-            uri: webcast/new_user_grade_level_v1_2.png                                    # URI
-            url_list:                                                                     # URL列表
+          width: 32
+        bg_img_url: ''
+        birthday: 0
+        birthday_description: ''
+        birthday_valid: false
+        biz_relation:
+          shop_fans_club_reverse: true
+        block_status: 0
+	      can_view_webcast_private: 0
+        border:
+          dress_id: '7390557818492818458'
+          icon:
+            avg_color: ''
+            flex_setting_list: []
+            height: 282
+            image_type: 0
+            is_animated: false
+            open_web_url: ''
+            text_setting_list: []
+            uri: webcast/42a7f5750a0f767361543edb61cb8535.png
+            url_list:
+            - https://p11-webcast.douyinpic.com/img/webcast/42a7f5750a0f767361543edb61cb8535.png~tplv-obj.image
+            - https://p3-webcast.douyinpic.com/img/webcast/42a7f5750a0f767361543edb61cb8535.png~tplv-obj.image
+            width: 282
+          level: 0
+          thumb_icon:
+            avg_color: ''
+            flex_setting_list: []
+            height: 282
+            image_type: 0
+            is_animated: false
+            open_web_url: ''
+            text_setting_list: []
+            uri: webcast/42a7f5750a0f767361543edb61cb8535.png
+            url_list:
+            - https://p11-webcast.douyinpic.com/img/webcast/42a7f5750a0f767361543edb61cb8535.png~tplv-obj.image
+            - https://p3-webcast.douyinpic.com/img/webcast/42a7f5750a0f767361543edb61cb8535.png~tplv-obj.image
+            width: 282
+        city: "\u5E38\u5FB7"  # 城市
+        comment_restrict: 0
+        commerce_webcast_config_ids: []
+        constellation: ''
+        consume_diamond_level: 0
+        create_time: 0
+        desensitized_nickname: ''
+        disable_ichat: 0
+        display_id: '30266029732'
+        enable_ichat_img: 0
+        exp: 0
+        experience: 0
+        fan_ticket_count: 0
+        fans_club:
+          data:
+            anchor_id: 0
+            anchor_open_id: ''
+            available_gift_ids: []
+            badge:
+              icons:
+                '0':
+                  avg_color: ''
+                  flex_setting_list: []
+                  height: 0
+                  image_type: 0
+                  is_animated: false
+                  open_web_url: ''
+                  text_setting_list: []
+                  uri: ''
+                  url_list: []
+                  width: 0
+              title: ''
+            badge_type: 0
+            club_name: ''
+            guard_expired_time: 0
+            level: 0
+            user_fans_club_status: 0
+            user_guard_status: 0
+          prefer_data: {}
+        fans_group_info:
+          list_fans_group_url: sslocal://webcast_lynxview?height=754&radius=8&gravity=bottom&type=popup&animation_type=present&url=https%3A%2F%2Flf-webcast-sourcecdn-tos.bytegecko.com%2Fobj%2Fbyte-gurd-source%2Fwebcast%2Fmono%2Flynx%2Fdouyin_lynx_fansclub%2Ftemplate%2Fpages%2Ffansclub%2Ffans_group%2Fuser%2Ftemplate.js&load_taro=0&fallback_url=sslocal%3A%2F%2Fwebcast_webview%3Furl%3Dhttps%253A%252F%252Flf-webcast-sourcecdn-tos.bytegecko.com%252Fobj%252Fbyte-gurd-source%252Fwebcast%252Fmono%252Flynx%252Fdouyin_lynx_fansclub%252Ftemplate%252Fpages%252Ffansclub%252Ffans_group%252Fuser%252Findex.html%26type%3Dpopup%26gravity%3Dbottom%26height%3D754%26radius%3D8%26load_taro%3D0
+        fold_stranger_chat: false
+        follow_info:
+          follow_status: 0
+          follower_count: 333091  # 粉丝数
+          follower_count_str: "33.3\u4E07"
+          following_count: 95  # 关注数
+          following_count_str: '95'
+          follwer_count_display: ''
+          invalid_follow_status: false
+          push_status: 0
+          remark_name: ''
+        follow_status: 0
+        foreign_user: 0
+        gender: 2  # 性别 (0:未知，1:男，2:女)
+        hotsoon_verified: false
+        hotsoon_verified_reason: ''
+        ichat_restrict_type: 0
+        id: 2700838411446480  # 用户 ID
+        id_str: '2700838411446480'  # 用户加密 ID
+        income_share_percent: 0
+        is_anonymous: false
+        is_follower: false
+        is_following: false
+        j_accredit_info:
+          JAccreditAdvance: 0
+          JAccreditBasic: 0
+          JAccreditContent: 0
+          JAccreditLive: 0
+        level: 0
+        link_mic_stats: 1
+        location_city: ''
+        media_badge_image_list: []
+        modify_time: 1740042739
+        mystery_man: 1
+        need_profile_guide: false
+        new_real_time_icons: []
+        nickname: Lvuuu  # 昵称
+        own_room:
+          room_ids:
+          - 7509539722306521892
+          room_ids_display: []
+          room_ids_str:
+          - '7509539722306521892'
+        pay_grade:
+          grade_banner: ''
+          grade_describe: ''
+          grade_describe_shining: false
+          grade_icon_list: []
+          in_rebirth: false
+          level: 2
+          name: ''
+          new_im_icon_with_level:
+            avg_color: ''
+            flex_setting_list: []
+            height: 16
+            image_type: 1
+            is_animated: false
+            open_web_url: ''
+            text_setting_list: []
+            uri: webcast/new_user_grade_level_v1_2.png
+            url_list:
             - https://p3-webcast.douyinpic.com/img/webcast/new_user_grade_level_v1_2.png~tplv-obj.image
             - https://p11-webcast.douyinpic.com/img/webcast/new_user_grade_level_v1_2.png~tplv-obj.image
-            width: 32                                                                     # 宽度
-          new_live_icon:                                                                  # 新直播图标
-            avg_color: ''                                                                 # 平均颜色
-            flex_setting_list: []                                                         # 弹性设置列表
-            height: 12                                                                    # 高度
-            image_type: 1                                                                 # 图片类型
-            is_animated: false                                                            # 是否为动画
-            open_web_url: ''                                                              # 开放网页URL
-            text_setting_list: []                                                         # 文本设置列表
-            uri: webcast/aweme_pay_grade_2x_1_4.png                                       # URI
-            url_list:                                                                     # URL列表
+            width: 32
+          new_live_icon:
+            avg_color: ''
+            flex_setting_list: []
+            height: 12
+            image_type: 1
+            is_animated: false
+            open_web_url: ''
+            text_setting_list: []
+            uri: webcast/aweme_pay_grade_2x_1_4.png
+            url_list:
             - https://p3-webcast.douyinpic.com/img/webcast/aweme_pay_grade_2x_1_4.png~tplv-obj.image
             - https://p11-webcast.douyinpic.com/img/webcast/aweme_pay_grade_2x_1_4.png~tplv-obj.image
-            width: 12                                                                     # 宽度
-          next_diamond: 0                                                                 # 下一级所需钻石
-          next_name: ''                                                                   # 下一级名称
-          next_privileges: ''                                                             # 下一级特权
-          now_diamond: 0                                                                  # 当前钻石
-          pay_diamond_bak: 0                                                              # 付费钻石备份
-          score: 0                                                                        # 分数
-          screen_chat_type: 0                                                             # 屏幕聊天类型
-          this_grade_max_diamond: 16                                                      # 当前等级最大钻石
-          this_grade_min_diamond: 7                                                       # 当前等级最小钻石
-          total_diamond_count: 0                                                          # 总钻石数量
-          upgrade_need_consume: 0                                                         # 升级所需消费
-        pay_score: 0                                                                      # 付费分数
-        pay_scores: 0                                                                     # 付费分数
-        public_area_oper_freq: 0                                                          # 公共区域操作频率
-        push_comment_status: false                                                        # 推送评论状态
-        push_digg: false                                                                  # 推送点赞状态
-        push_follow: false                                                                # 推送关注状态
-        push_friend_action: false                                                         # 推送好友动作状态
-        push_ichat: false                                                                 # 推送iChat状态
-        push_status: false                                                                # 推送状态
-        push_video_post: false                                                            # 推送视频发布状态
-        push_video_recommend: false                                                       # 推送视频推荐状态
-        real_time_icons: []                                                               # TBD 实时图标列表
-        remark_name: ''                                                                   # 备注名称
-        sec_uid: MS4wLjABAAAA3REn4Oekpt-zrnovTqTVWrTPkevbUHRJZRX2td0l_EdDr8Zgzk1HlnNgKHEyguTr # 主播安全UID
-        secret: 0                                                                         # 是否为私密用户
-        share_qrcode_uri: 31c1300073f889131745b                                           # 分享二维码URI
-        short_id: 30266029732                                                             # 短ID
+            width: 12
+          next_diamond: 0
+          next_name: ''
+          next_privileges: ''
+          now_diamond: 0
+          pay_diamond_bak: 0
+          score: 0
+          screen_chat_type: 0
+          this_grade_max_diamond: 16
+          this_grade_min_diamond: 7
+          total_diamond_count: 0
+          upgrade_need_consume: 0
+        pay_score: 0
+        pay_scores: 0
+        public_area_oper_freq: 0
+        push_comment_status: false
+        push_digg: false
+        push_follow: false
+        push_friend_action: false
+        push_ichat: false
+        push_status: false
+        push_video_post: false
+        push_video_recommend: false
+        real_time_icons: []
+        remark_name: ''
+        sec_uid: MS4wLjABAAAA3REn4Oekpt-zrnovTqTVWrTPkevbUHRJZRX2td0l_EdDr8Zgzk1HlnNgKHEyguTr  # 用户加密 ID
+        secret: 0
+        share_qrcode_uri: 31c1300073f889131745b
+        short_id: 30266029732
         signature: "\u2764\u966A\u804A\U0001F50D\u516C\u4F17\u53F7\uFF1A\u5BF9\u4F60\
           \u6709\u610F\uFF08\U0001F448\u89E3\u9501\u5FC3\u52A8\u5973\u53CB\n\u7537\
           \u5B69\u5B50\u7684\u5FEB\u4E50@\u54E5\u54E5\u522B\u73A9\u5440\U0001F3AE\
-          ... \u597D\u73A9\uFF01\n\U0001F234\uFE0F\U0001F454\U0001F457\u79C1"             # 主播签名
-        special_id: ''                                                                    # 特殊ID
-        status: 1                                                                         # 状态（0-注销，1-正常）
-        subscribe:                                                                        # 订阅状态
-          buy_type: 0                                                                     # 购买类型
-          identity_type: 0                                                                # 身份类型
-          is_member: false                                                                # 是否为会员
-          level: 0                                                                        # 订阅等级
-          open: 0                                                                         # 是否开启订阅
-        telephone: ''                                                                              # 电话号码
-        ticket_count: 0                                                                            # 票数
-        top_fans: []                                                                               # TBD 顶级粉丝列表
-        top_vip_no: 0                                                                              # 顶级VIP编号
-        total_recharge_diamond_count: 0                                                            # 总充值钻石数量
-        user_attr:                                                                                 # 用户属性
-          admin_privileges: []                                                                     # 管理员权限列表
-          is_admin: false                                                                          # 是否为管理员
-          is_muted: false                                                                          # 是否被禁言
-          is_super_admin: false                                                                    # 是否为超级管理员
-        user_canceled: false                                                                       # 用户是否已取消
-        user_dress_info:                                                                           # 用户着装信息
-          dress_own_ids: []                                                                        # 用户拥有的着装ID列表
-          dress_wear_ids: []                                                                       # 用户穿戴的着装ID列表
-        user_open_id: ''                                                                           # 用户OpenID
-        user_role: 0                                                                               # 用户角色
-        verified: true                                                                             # 是否认证
-        verified_content: ''                                                                       # 认证内容
-        verified_mobile: false                                                                     # 是否为认证手机号
-        verified_reason: ''                                                                        # 认证原因
-        watch_duration_month: 0                                                                    # 观看时长（月）
-        web_rid: '827868393976'                                                                    # Web RID
-        webcast_uid: MS4wLjMljH3nsEUH1oduoEHICOyLO_mi_GCJdTJEys1TI9mE8kaaf7-cX-5cj3yS5qMPbqI       # 主播Webcast UID
-        with_car_management_permission: false                                                      # 是否具有车辆管理权限
-        with_commerce_permission: true                                                             # 是否具有商业权限
-        with_fusion_shop_entry: true                                                               # 是否具有融合店铺入口
-      owner_device_id: 0                                                                           # 主播设备ID
-      owner_open_id: ''                                                                            # 主播OpenID
-      owner_user_id: 2700838411446480                                                              # 主播用户ID
-      pack_meta:                                                                                   # 包元数据
-        cluster: default                                                                           # 集群
-        dc: lf                                                                                     # 数据中心
-        env: prod                                                                                  # 环境
-        extras: {}                                                                                 # 附加信息
-        scene: reflow_room_info(prod_single_dc/rpc/topo)                                           # 场景
-        trace_id: ''                                                                               # 跟踪ID
-      paid_live_data:                                                                              # 付费直播数据
-        anchor_right: 0                                                                            # 主播权限
-        delivery: 0                                                                                # 交付状态
-        duration: 0                                                                                # 直播时长
-        max_preview_duration: 0                                                                    # 最大预览时长
-        need_delivery_notice: false                                                                # 是否需要交付通知
-        paid_type: 0                                                                               # 付费类型
-        pay_ab_type: 0                                                                             # 付费AB类型
-        privilege_info: {}                                                                         # 特权信息
-        privilege_info_map: {}                                                                     # 特权信息映射
-        view_right: 0                                                                              # 观看权限
-      popularity: 0                                                                                # 人气
-      popularity_str: ''                                                                           # 人气字符串
-      pre_enter_time: 0                                                                            # 预进入时间
+          ... \u597D\u73A9\uFF01\n\U0001F234\uFE0F\U0001F454\U0001F457\u79C1"  # 签名
+        special_id: ''
+        status: 1  # 用户状态
+        subscribe:
+          buy_type: 0
+          identity_type: 0
+          is_member: false
+          level: 0
+          open: 0
+        telephone: ''
+        ticket_count: 0
+        top_fans: []
+        top_vip_no: 0
+        total_recharge_diamond_count: 0
+        user_attr:
+          admin_privileges: []
+          is_admin: false
+          is_chat_self_see: false
+          is_muted: false
+          is_super_admin: false
+        user_canceled: false
+        user_dress_info:
+          dress_own_ids: []
+          dress_wear_ids: []
+        user_open_id: ''
+        user_role: 0
+        verified: true  # 是否认证
+        verified_content: ''
+        verified_mobile: false
+        verified_reason: ''  # 认证原因
+        watch_duration_month: 0
+        web_rid: '827868393976'
+        webcast_nick: ''
+        webcast_private: 0
+        webcast_uid: MS4wLjMljH3nsEUH1oduoEHICOyLO_mi_GCJdTJEys1TI9mE8kaaf7-cX-5cj3yS5qMPbqI
+        with_car_management_permission: false
+        with_commerce_permission: true
+        with_fusion_shop_entry: true
+      owner_device_id: 0
+      owner_open_id: ''
+      owner_user_id: 2700838411446480  # 主播用户 ID
+      pack_meta:
+        cluster: default
+        dc: lf
+        env: prod
+        extras: {}
+        scene: reflow_room_info(prod_single_dc/rpc/topo)
+        trace_id: ''
+      paid_live_data:  # 付费直播数据
+        anchor_right: 0
+        delivery: 0
+        duration: 0
+        max_preview_duration: 0
+        need_delivery_notice: false
+        paid_type: 0
+        pay_ab_type: 0
+        privilege_info: {}
+        privilege_info_map: {}
+        view_right: 0
+      popularity: 0  # 人气值
+      popularity_str: ''
+      pre_enter_time: 0
       preview_copy: "\u4E16\u754C\u5F88\u5927\uFF0C\u4F46\u6211\u4EEC\u5F88\u6709\u7F18\
-        ~"                                                                                         # 预览复制文本
-      preview_flow_tag: 0                                                                          # 预览流量标签
-      private_info: ''                                                                             # 私有信息
-      ranklist_audience_type: 0                                                                    # 排行榜观众类型
-      real_distance: ''                                                                            # 实际距离
-      redpacket_audience_auth: 0                                                                   # 红包观众认证
-      relation_tag: ''                                                                             # 关系标签
-      replay: false                                                                                # 是否为回放
-      replay_location: 0                                                                           # 回放位置
-      room_audit_status: 0                                                                         # 直播间审核状态
-      room_auth:                                                                                   # 直播间认证
-        AIClone: 0                                                                                 # AI克隆
-        AdminCommentWall: 0                                                                        # 管理员评论墙
-        AnchorAudioChat: 0                                                                         # 主播音频聊天
-        AnchorColdMessageTiled: 0                                                                  # 主播冷消息平铺
-        AnchorHotMessageAggregated: 0                                                              # 主播热消息聚合
-        AnchorMission: 0                                                                           # 主播任务
-        AudioChat: 0                                                                               # 音频聊天
-        AudioChatTotext: 0                                                                         # 音频聊天转文本
-        Banner: 1                                                                                  # 横幅
-        BulletStyle: 0                                                                             # 弹幕样式
-        CanSellTicket: 0                                                                           # 是否可以售票
-        CastScreen: 0                                                                              # 屏幕投射
-        CastScreenExplicit: 0                                                                      # 屏幕投射显式
-        Chat: true                                                                                 # 聊天
-        ChatDispatch: 0                                                                            # 聊天分发
-        ChatDynamicSlideSpeed: 0                                                                   # 聊天动态滑动速度
-        ChatDynamicSlideSpeedAnchor: 0                                                             # 主播聊天动态滑动速度
-        ChatGuideEmoji: 0                                                                          # 聊天引导表情
-        ChatGuideImage: 0                                                                          # 聊天引导图片
-        ChatIdentity: 0                                                                            # 聊天身份
-        ChatMention: 0                                                                             # 聊天提及
-        ChatMentionV2: 0                                                                           # 聊天提及V2
-        ChatOperate: 0                                                                             # 聊天操作
-        ChatReply: 0                                                                               # 聊天回复
-        ClearEntranceOption: 0                                                                     # 清除入口选项
-        Collect: 0                                                                                 # 收藏
-        CommentWall: 0                                                                             # 评论墙 
-        CommerceCard: 1                                                                            # 商业卡片
-        CommerceComponent: 0                                                                       # 商业组件
-        CommonCard: 0                                                                              # 通用卡片
-        CountType: 0                                                                               # 计数类型
-        Danmaku: false                                                                             # 弹幕
-        DanmakuDefault: 0                                                                          # 弹幕默认
-        Denounce: 0                                                                                # 举报
-        Digg: true                                                                                 # 点赞
-        Dislike: 0                                                                                 # 不喜欢
-        DonationSticker: 0                                                                         # 捐赠贴纸
-        DouPlus: 0                                                                                 # DouPlus
-        DouPlusPopularityGem: 0                                                                    # DouPlus人气宝石
-        DownloadVideo: 0                                                                           # 下载视频
-        EcomFansClub: 0                                                                            # 电商粉丝俱乐部
-        EmojiOutside: 0                                                                            # 外部表情
-        EnhancedTouch: 0                                                                           # 增强触摸
-        EnterEffects: 0                                                                            # 进入效果
-        ExpandScreen: 0                                                                            # 扩展屏幕
-        FansClub: 0                                                                                # 粉丝俱乐部
-        FansClubBlessing: 0                                                                        # 粉丝俱乐部祝福
-        FansClubDeclaration: 0                                                                     # 粉丝俱乐部宣言
-        FansClubLetter: 0                                                                          # 粉丝俱乐部信件
-        FansClubNotice: 0                                                                          # 粉丝俱乐部通知
-        FansGroup: 0                                                                               # 粉丝群
-        FeaturedPublicScreen: 0                                                                    # 精选公共屏幕
-        FirstFeedHistChat: 0                                                                       # 首次Feed历史聊天
-        FixedChat: 0                                                                               # 固定聊天
-        FrequentlyChat: 0                                                                          # 常用聊天
-        FusionEmoji: 0                                                                             # 融合表情
-        GamePointsPlaying: 0                                                                       # 游戏积分玩法
-        Gift: true                                                                                 # 礼物
-        GiftAnchorMt: 0                                                                            # 主播礼物MT
-        GiftVote: 0                                                                                # 礼物投票
-        Highlights: 0                                                                              # 精彩片段
-        HostTeam: 0                                                                                # 主播团队
-        HostTeamChannel: 0                                                                         # 主播团队频道
-        HotChatTray: 0                                                                             # 热聊天托盘
-        HourRank: 0                                                                                # 小时排行榜
-        ImHeatValue: 0                                                                             # IM热值
-        IndustryService: 0                                                                         # 行业服务
-        InteractionGift: 0                                                                         # 互动礼物
-        InteractiveComponent: 0                                                                    # 互动组件
-        ItemShare: 0                                                                               # 物品分享
-        KtvOrderSong: 0                                                                            # KTV点歌
-        Landscape: 1                                                                               # 横屏
-        LandscapeChat: 1                                                                           # 横屏聊天
-        LandscapeChatDynamicSlideSpeed: 0                                                          # 横屏聊天动态滑动速度
-        LandscapeGift: 0                                                                           # 横屏礼物
-        LandscapeScreenCapture: 0                                                                  # 横屏屏幕截图
-        LandscapeScreenRecording: 0                                                                # 横屏屏幕录制
-        LandscapeScreenShare: 0                                                                    # 横屏屏幕分享
-        Like: 0                                                                                    # 点赞
-        LinkmicGuestLike: 0                                                                        # 连麦嘉宾点赞
-        LongPressOption: 0                                                                         # 长按选项
-        LongTouch: 0                                                                               # 长按触摸
-        LuckMoney: true                                                                            # 红包
-        MarkUser: 0                                                                                # 标记用户
-        MediaHistoryMessage: 0                                                                     # 媒体历史消息
-        MediaLinkmic: 0                                                                            # 媒体连麦
-        MessageDispatch: 0                                                                         # 消息分发
-        MessageGift: 0                                                                             # 消息礼物
-        MissionCenter: 0                                                                           # 任务中心
-        MoreAnchor: 1                                                                              # 更多主播
-        MoreHistChat: 0                                                                            # 更多历史聊天
-        MultiplierPlayback: 0                                                                      # 倍速播放
-        MyLiveEntrance: 0                                                                          # 我的直播入口
-        OnlyTa: 0                                                                                  # 仅限TA
-        PCPlay: 0                                                                                  # PC播放
-        POI: true                                                                                  # POI
-        PadPlay: 0                                                                                 # 平板播放
-        PanelECService: 0                                                                          # 面板EC服务
-        PlayerRankList: 0                                                                          # 播放器排行榜列表
-        Poster: 0                                                                                  # 海报
-        PosterCache: 0                                                                             # 海报缓存
-        PreviewChatExpose: 0                                                                       # 预览聊天曝光
-        PreviewHotCommentSwitch: 0                                                                 # 预览热评论开关
-        ProjectionBtn: 0                                                                           # 投影按钮
-        Props: true                                                                                # 道具
-        PublicScreen: 1                                                                            # 公共屏幕
-        QuizGamePointsPlaying: 0                                                                   # 测验游戏积分玩法
-        RecordScreen: 2                                                                            # 录制屏幕
-        RoomChannel: 0                                                                             # 直播间频道
-        RoomChatLikeDisplay: 0                                                                     # 直播间聊天点赞显示
-        RoomChatOperatePanel: 0                                                                    # 直播间聊天操作面板
-        RoomContributor: false                                                                     # 直播间贡献者
-        RoomWidget: 0                                                                              # 直播间小部件
-        ScreenBottomInfo: 0                                                                        # 屏幕底部信息
-        ScreenProjectionBarrage: 0                                                                 # 屏幕投影弹幕
-        Seek: 0                                                                                    # 寻找
-        Selection: 0                                                                               # 选择
-        SelectionAlbum: 0                                                                          # 选择相册
-        Share: 1                                                                                   # 分享
-        ShortTouch: 0                                                                              # 短触摸
-        ShortTouchTempState: 0                                                                     # 短触摸临时状态
-        ShowGamePlugin: 0                                                                          # 显示游戏插件
-        ShowQualification: 0                                                                       # 显示资格
-        SmallWindowDisplay: 0                                                                      # 小窗口显示
-        SmallWindowPlayer: 0                                                                       # 小窗口播放器
-        StickyMessage: 0                                                                           # 固定消息
-        StreamAdaptation: 0                                                                        # 流适应
-        StrokeUpDownGuide: 0                                                                       # 上下滑动引导
-        SubscribeCardPackage: 0                                                                    # 订阅卡包
-        Teleprompter: 0                                                                            # 提词器
-        TextGift: 0                                                                                # 文本礼物
-        TimedShutdown: 0                                                                           # 定时关机
-        ToolbarBubble: 0                                                                           # 工具栏气泡
-        Topic: 0                                                                                   # 话题
-        TypingCommentState: 0                                                                      # 输入评论状态
-        UgcVSReplayDelete: 0                                                                       # Ugc VS回放删除
-        UgcVsReplayVisibility: 0                                                                   # Ugc VS回放可见性
-        UpRightStatsFloatingLayer: 0                                                               # 右上角统计浮动层
-        UseHostInfo: 0                                                                             # 使用主机信息
-        UserCard: true                                                                             # 用户卡片
-        UserCorner: 0                                                                              # 用户角落
-        VSGift: 0                                                                                  # VS礼物
-        VSRank: 0                                                                                  # VS排行榜
-        VSTopic: 0                                                                                 # VS话题
-        VerticalRank: 0                                                                            # 垂直排行榜
-        VerticalScreenShare: 0                                                                     # 垂直屏幕分享
-        VideoAmplificationType: 0                                                                  # 视频放大类型
-        VideoShare: 0                                                                              # 视频分享
-        VsCommentBar: 0                                                                            # VS评论栏
-        VsDouPlus: 0                                                                               # VS DouPlus
-        VsExtensionEnableFollow: 0                                                                 # VS扩展启用关注
-        VsFansClub: 0                                                                              # VS粉丝俱乐部
-        VsWelcomeDanmaku: 0                                                                        # VS欢迎弹幕
-        WordAssociation: 0                                                                         # 词关联
-      room_create_ab_param: ''                                                                     # 直播间创建AB参数
-      room_layout: 0                                                                               # 直播间布局
-      room_tabs: []                                                                                # 直播间标签列表
-      room_tag: 0                                                                                  # 直播间标签
-      room_view_stats:                                                                             # 直播间观看统计
-        display_long: "2.3\u4E07\u4EBA\u770B\u8FC7"                                                # 直播间观看人数
-        display_long_anchor: "2.3\u4E07\u4EBA\u770B\u8FC7"                                         # 主播观看人数
-        display_middle: "2.3\u4E07\u4EBA\u770B\u8FC7"                                              # 直播间观看人数（中）
-        display_middle_anchor: "2.3\u4E07\u4EBA\u770B\u8FC7"                                       # 主播观看人数（中）
-        display_short: "2.3\u4E07"                                                                 # 直播间观看人数（短）
-        display_short_anchor: "2.3\u4E07"                                                          # 主播观看人数（短）
-        display_type: 3                                                                            # 直播间观看人数显示类型
-        display_value: 22537                                                                       # 直播间观看人数值
-        display_version: 1663849727                                                                # 直播间观看人数显示版本
-        incremental: true                                                                          # 是否增量更新
-        is_hidden: false                                                                           # 是否隐藏
-      screen_capture_sharing_title: ''                                                             # 屏幕截图分享标题
-      scroll_config: ''                                                                            # 滚动配置
-      search_id: 7362550607120452879                                                               # 直播间搜索ID
-      sell_goods: false                                                                            # 是否售卖商品
-      share_msg_style: 0                                                                           # 分享消息样式
-      share_url: https://webcast.amemv.com/douyin/webcast/reflow/7362550606306773794?did=MS4wLjABAAAANwkJuWIRFOzg5uCpDRpMj4OX-QryoDgn-yYlXQnRwQQ&iid=MS4wLjABAAAANwkJuWIRFOzg5uCpDRpMj4OX-QryoDgn-yYlXQnRwQQ&with_sec_did=1&sec_user_id=MS4wLjABAAAA3REn4Oekpt-zrnovTqTVWrTPkevbUHRJZRX2td0l_EdDr8Zgzk1HlnNgKHEyguTr # 直播间分享链接
+        ~"
+      preview_flow_tag: 0
+      private_info: ''
+      ranklist_audience_type: 0
+      real_distance: ''
+      redpacket_audience_auth: 0
+      relation_tag: ''
+      replay: false
+      replay_location: 0
+      room_audit_status: 0
+      room_auth:  # 房间权限配置
+        AIClone: 0
+        AdminCommentWall: 0
+        AnchorAudioChat: 0
+        AnchorColdMessageTiled: 0
+        AnchorHotMessageAggregated: 0
+        AnchorMission: 0
+        AudioChat: 0
+        AudioChatTotext: 0
+        Banner: 1
+        BulletStyle: 0
+        CanSellTicket: 0
+        CastScreen: 0
+        CastScreenExplicit: 0
+        Chat: true  # 聊天权限
+        ChatDispatch: 0
+        ChatDynamicSlideSpeed: 0
+        ChatDynamicSlideSpeedAnchor: 0
+        ChatGuideEmoji: 0
+        ChatGuideImage: 0
+        ChatIdentity: 0
+        ChatMention: 0
+        ChatMentionV2: 0
+        ChatOperate: 0
+        ChatReply: 0
+        ClearEntranceOption: 0
+        Collect: 0
+        CommentWall: 0
+        CommerceCard: 1
+        CommerceComponent: 0
+        CommonCard: 0
+        CountType: 0
+        Danmaku: false  # 弹幕权限
+        DanmakuDefault: 0
+        Denounce: 0
+        Digg: true  # 点赞权限
+        Dislike: 0
+        DonationSticker: 0
+        DouPlus: 0
+        DouPlusPopularityGem: 0
+        DownloadVideo: 0  # 下载视频权限
+        EcomFansClub: 0
+        EmojiOutside: 0
+        EnhancedTouch: 0
+        EnterEffects: 0
+        ExpandScreen: 0
+        FansClub: 0
+        FansClubBlessing: 0
+        FansClubDeclaration: 0
+        FansClubLetter: 0
+        FansClubNotice: 0
+        FansGroup: 0
+        FeaturedPublicScreen: 0
+        FirstFeedHistChat: 0
+        FixedChat: 0
+        FrequentlyChat: 0
+        FusionEmoji: 0
+        GamePointsPlaying: 0
+        Gift: true  # 送礼权限
+        GiftAnchorMt: 0
+        GiftVote: 0
+        HighlightAreaContainer: 0
+        Highlights: 0
+        HostTeam: 0
+        HostTeamChannel: 0
+        HotChatTray: 0
+        HourRank: 0
+        ImHeatValue: 0
+        IndustryService: 0
+        InteractionGift: 0
+        InteractiveComponent: 0
+        ItemShare: 0
+        KtvOrderSong: 0
+        Landscape: 1  # 横屏权限
+        LandscapeChat: 1
+        LandscapeChatDynamicSlideSpeed: 0
+        LandscapeGift: 0
+        LandscapeScreenCapture: 0
+        LandscapeScreenRecording: 0
+        LandscapeScreenShare: 0
+        Like: 0
+        LinkmicGuestLike: 0
+        LongPressOption: 0
+        LongTouch: 0
+        LowPcuGuideChatData: 0
+        LuckMoney: true  # 红包权限
+        MarkUser: 0
+        MediaHistoryMessage: 0
+        MediaLinkmic: 0
+        MessageDispatch: 0
+        MessageGift: 0
+        MissionCenter: 0
+        MoreAnchor: 1
+        MoreHistChat: 0
+        MultiplierPlayback: 0
+        MyLiveEntrance: 0
+        OnlyTa: 0
+        PCPlay: 0
+        POI: true  # POI 权限（兴趣点）
+        PadPlay: 0
+        PanelECService: 0
+        PlayerRankList: 0
+        Poster: 0
+        PosterCache: 0
+        PreviewChatExpose: 0
+        PreviewDanMaKu: 0
+        PreviewHotCommentSwitch: 0
+        ProjectionBtn: 0
+        Props: true
+        PublicScreen: 1
+        QuizGamePointsPlaying: 0
+        RecordScreen: 2  # 录屏权限 (0:禁止，1:允许，2:限制)
+        RoomAnchorFansChannel: 0
+        RoomChannel: 0
+        RoomChatLikeDisplay: 0
+        RoomChatOperatePanel: 0
+        RoomContributor: false
+        RoomPinHighlight: 0
+        RoomSecretChat: 0
+        RoomWidget: 0
+        ScreenBottomInfo: 0
+        ScreenProjectionBarrage: 0
+        Seek: 0
+        Selection: 0
+        SelectionAlbum: 0
+        Share: 1  # 分享权限
+        ShortTouch: 0
+        ShortTouchTempState: 0
+        ShowGamePlugin: 0
+        ShowQualification: 0
+        SmallWindowDisplay: 0
+        SmallWindowPlayer: 0
+        StickyMessage: 0
+        StreamAdaptation: 0
+        StrokeUpDownGuide: 0
+        SubscribeCardPackage: 0
+        Teleprompter: 0
+        TextGift: 0
+        TimedShutdown: 0
+        ToolbarBubble: 0
+        Topic: 0
+        TypingCommentState: 0
+        UgcVSReplayDelete: 0
+        UgcVsReplayVisibility: 0
+        UpRightStatsFloatingLayer: 0
+        UseHostInfo: 0
+        UserCard: true  # 用户卡片权限
+        UserCorner: 0
+        VSGift: 0
+        VSRank: 0
+        VSTopic: 0
+        VerticalRank: 0
+        VerticalScreenShare: 0
+        VideoAmplificationType: 0
+        VideoShare: 0
+        VsCommentBar: 0
+        VsDouPlus: 0
+        VsExtensionEnableFollow: 0
+        VsFansClub: 0
+        VsWelcomeDanmaku: 0
+        WordAssociation: 0
+        WorldSquare: 0
+      room_create_ab_param: ''
+      room_layout: 0
+      room_tabs: []
+      room_tag: 0
+      room_view_stats:
+        display_long: "2.3\u4E07\u4EBA\u770B\u8FC7"
+        display_long_anchor: "2.3\u4E07\u4EBA\u770B\u8FC7"
+        display_middle: "2.3\u4E07\u4EBA\u770B\u8FC7"
+        display_middle_anchor: "2.3\u4E07\u4EBA\u770B\u8FC7"
+        display_short: "2.3\u4E07"
+        display_short_anchor: "2.3\u4E07"
+        display_type: 3
+        display_value: 22537
+        display_version: 1663849727
+        incremental: true
+        is_hidden: false
+      screen_capture_sharing_title: ''
+      scroll_config: ''
+      search_id: 7362550607120452879
+      sell_goods: false
+      share_msg_style: 0
+      share_url: https://webcast.amemv.com/douyin/webcast/reflow/7362550606306773794?did=MS4wLjABAAAANwkJuWIRFOzg5uCpDRpMj4OX-QryoDgn-yYlXQnRwQQ&iid=MS4wLjABAAAANwkJuWIRFOzg5uCpDRpMj4OX-QryoDgn-yYlXQnRwQQ&with_sec_did=1&sec_user_id=MS4wLjABAAAA3REn4Oekpt-zrnovTqTVWrTPkevbUHRJZRX2td0l_EdDr8Zgzk1HlnNgKHEyguTr
       sharing_music_id_list: []
-      short_title: ''                                                                              # 直播间短标题
+      short_title: ''
       short_touch_area_config:
-        elements:                                                                                  # 短触摸区域配置元素
-          '1':                                                                                     # 元素1
-            priority: 1                                                                            # 优先级
-            type: 1                                                                                # 类型
-          '10':                                                                                    # 元素10
-            priority: 3                                                                            # 优先级
-            type: 10                                                                               # 类型
-          '12':                                                                                    # 元素12
-            priority: 3                                                                            # 优先级
-            type: 12                                                                               # 类型
-          '2':                                                                                     # 元素2
-            priority: 1                                                                            # 优先级
-            type: 2                                                                                # 类型
-          '22':                                                                                    # 元素22
-            priority: 1                                                                            # 优先级
-            type: 22                                                                               # 类型
-          '27':                                                                                    # 元素27
-            priority: 3                                                                            # 优先级
-            type: 27                                                                               # 类型
-          '3':                                                                                     # 元素3
-            priority: 1                                                                            # 优先级
-            type: 3                                                                                # 类型
-          '30':                                                                                    # 元素30
-            priority: 2                                                                            # 优先级
-            type: 30                                                                               # 类型
-          '4':                                                                                     # 元素4
-            priority: 3                                                                            # 优先级
-            type: 4                                                                                # 类型
-          '5':                                                                                     # 元素5
-            priority: 4                                                                            # 优先级
-            type: 5                                                                                # 类型
-          '6':                                                                                     # 元素6
-            priority: 3                                                                            # 优先级
-            type: 6                                                                                # 类型
-          '7':                                                                                     # 元素7
-            priority: 3                                                                            # 优先级
-            type: 7                                                                                # 类型
-          '8':                                                                                     # 元素8
-            priority: 3                                                                            # 优先级
-            type: 8                                                                                # 类型
-          '9':                                                                                     # 元素9
-            priority: 3                                                                            # 优先级
-            type: 9                                                                                # 类型
-        forbidden_types_map: {}                                                                    # 禁止类型映射
-        strategy_feat_whitelist:                                                                   # 策略特性白名单
+        big_card_display_strategy: {}
+        elements:
+          '1':
+            priority: 1
+            type: 1
+          '10':
+            priority: 3
+            type: 10
+          '12':
+            priority: 3
+            type: 12
+          '2':
+            priority: 1
+            type: 2
+          '22':
+            priority: 1
+            type: 22
+          '27':
+            priority: 3
+            type: 27
+          '3':
+            priority: 1
+            type: 3
+          '30':
+            priority: 2
+            type: 30
+          '4':
+            priority: 3
+            type: 4
+          '5':
+            priority: 4
+            type: 5
+          '6':
+            priority: 3
+            type: 6
+          '7':
+            priority: 3
+            type: 7
+          '8':
+            priority: 3
+            type: 8
+          '9':
+            priority: 3
+            type: 9
+        forbidden_types_map: {}
+        strategy_feat_whitelist:
         - feat_coin_lottery_amount
         - feat_redpack_amount
         - live_short_touch_ecom_redpack_type
@@ -758,46 +988,46 @@ external_info:
         - live_ecom_cart_click_twice
         - live_ecom_cart_stop_buy
         - live_watch_6_min
-        temp_state_condition_map:                                                                  # 临时状态条件映射
-          '1':                                                                                     # 条件1
-            minimum_gap: 900                                                                       # 最小间隔
-            type:                                                                                  # 类型
-              priority: 30                                                                         # 优先级
-              strategy_type: 1                                                                     # 策略类型
-          '2':                                                                                     # 条件2
-            minimum_gap: 900                                                                       # 最小间隔
-            type:                                                                                  # 类型
-              priority: 20                                                                         # 优先级
-              strategy_type: 2                                                                     # 策略类型
-          '3':                                                                                     # 条件3
-            minimum_gap: 900                                                                       # 最小间隔
-            type:                                                                                  # 类型
-              priority: 10                                                                         # 优先级
-              strategy_type: 3                                                                     # 策略类型
-          '4':                                                                                     # 条件4
-            minimum_gap: 0                                                                         # 最小间隔
-            type:                                                                                  # 类型
-              priority: 1                                                                          # 优先级
-              strategy_type: 4                                                                     # 策略类型
-          '5':                                                                                     # 条件5
-            minimum_gap: 0                                                                         # 最小间隔
-            type:                                                                                  # 类型
-              priority: 5                                                                          # 优先级
-              strategy_type: 5                                                                     # 策略类型
-          '6':                                                                                     # 条件6
-            minimum_gap: 0                                                                         # 最小间隔
-            type:                                                                                  # 类型
-              priority: 7                                                                          # 优先级
-              strategy_type: 6                                                                     # 策略类型
-          '7':                                                                                     # 条件7
-            minimum_gap: 0                                                                         # 最小间隔
-            type:                                                                                  # 类型
-              priority: 6                                                                          # 优先级
-              strategy_type: 7                                                                     # 策略类型
-        temp_state_global_condition:                                                               # 临时状态全局条件
-          allow_count: 1                                                                           # 允许总数
-          duration_gap: 300                                                                        # 持续间隔
-          ignore_strategy_types:                                                                   # 忽略策略类型
+        temp_state_condition_map:
+          '1':
+            minimum_gap: 900
+            type:
+              priority: 30
+              strategy_type: 1
+          '2':
+            minimum_gap: 900
+            type:
+              priority: 20
+              strategy_type: 2
+          '3':
+            minimum_gap: 900
+            type:
+              priority: 10
+              strategy_type: 3
+          '4':
+            minimum_gap: 0
+            type:
+              priority: 1
+              strategy_type: 4
+          '5':
+            minimum_gap: 0
+            type:
+              priority: 5
+              strategy_type: 5
+          '6':
+            minimum_gap: 0
+            type:
+              priority: 7
+              strategy_type: 6
+          '7':
+            minimum_gap: 0
+            type:
+              priority: 6
+              strategy_type: 7
+        temp_state_global_condition:
+          allow_count: 1
+          duration_gap: 300
+          ignore_strategy_types:
           - 4
         temp_state_strategy:
           '136':
@@ -917,6 +1147,33 @@ external_info:
               '1':
                 duration: 30
                 strategy_method: ''
+                type:
+                  priority: 30
+                  strategy_type: 1
+          '211':
+            short_touch_type: 211
+            strategy_map:
+              '4':
+                duration: 10
+                strategy_method: ''
+                type:
+                  priority: 1
+                  strategy_type: 4
+          '217':
+            short_touch_type: 217
+            strategy_map:
+              '3':
+                duration: 15
+                strategy_method: ''
+                type:
+                  priority: 10
+                  strategy_type: 3
+          '222':
+            short_touch_type: 222
+            strategy_map:
+              '1':
+                duration: 5
+                strategy_method: "\u7ED3\u675F\u6001"
                 type:
                   priority: 30
                   strategy_type: 1
@@ -1100,1654 +1357,303 @@ external_info:
                 type:
                   priority: 6
                   strategy_type: 7
-      sofa_layout: 0                                                                               # 沙发布局
-      stamps: ''                                                                                   # 印章
-      start_time: 1714227435                                                                       # 直播开始时间戳
-      stats:                                                                                       # 直播间统计信息
-        comment_count: 0                                                                           # 评论数量
-        digg_count: 0                                                                              # 点赞数量
-        dou_plus_promotion: ''                                                                     # DouPlus推广
-        enter_count: 0                                                                             # 进入数量
-        fan_ticket: 0                                                                              # 粉丝票数量
-        follow_count: 22                                                                           # 关注数量
-        gift_uv_count: 0                                                                           # 礼物UV数量
-        id: 7362550606306773794                                                                    # 直播间ID
-        id_str: '7362550606306773794'                                                              # 直播间ID字符串
-        like_count: 0                                                                              # 喜欢数量
-        money: 0                                                                                   # 金额
-        total_user: 15726                                                                          # 总用户数量
-        total_user_desp: ''                                                                        # 总用户描述
-        total_user_str: "1\u4E07+"                                                                 # 总用户字符串
-        up_right_stats_str: ''                                                                     # 右上角统计字符串
-        up_right_stats_str_complete: ''                                                            # 完整的右上角统计字符串
-        user_count_composition:                                                                    # 用户数量组成
-          city: 0                                                                                  # 城市用户数量
-          my_follow: 0                                                                             # 我的关注用户数量
-          other: 1                                                                                 # 其他
-          video_detail: 0                                                                          # 视频详情
-        user_count_str: '0'                                                                        # 用户数量字符串
-        watermelon: 0                                                                              # 西瓜
-        welfare_donation_amount: 0                                                                 # 福利捐赠金额
-      status: 4                                                                                    # 直播状态：2-正在直播 4-直播已结束
-      stream_close_time: 0                                                                         # 直播间流关闭时间戳
-      stream_id: 691500607505433258                                                                # 直播间流ID
-      stream_id_str: '691500607505433258'                                                          # 直播间流ID字符串
-      stream_provider: 0                                                                           # 直播间流提供者
-      stream_url:                                                                                  # 直播间流地址
-        candidate_resolution: []                                                                   # 候选分辨率
-        complete_push_urls: []                                                                     # 完整推流地址
-        default_resolution: FULL_HD1                                                               # 默认分辨率
-        extra:                                                                                     # 额外信息
-          anchor_interact_profile: 0                                                               # 主播互动配置文件
-          audience_interact_profile: 0                                                             # 观众互动配置文件
-          bframe_enable: false                                                                     # B帧启用
-          bitrate_adapt_strategy: 0                                                                # 比特率自适应策略
-          bytevc1_enable: false                                                                    # ByteVC1启用
-          default_bitrate: 0                                                                       # 默认比特率
-          fps: 0                                                                                   # 帧率
-          gop_sec: 0                                                                               # GOP秒数
-          h265_enable: false                                                                       # H.265启用
-          hardware_encode: false                                                                   # 硬件编码
-          height: 1280                                                                             # 高度
-          max_bitrate: 0                                                                           # 最大比特率
-          min_bitrate: 0                                                                           # 最小比特率
-          roi: false                                                                               # 是否启用ROI（Region of Interest）
-          sw_roi: false                                                                            # 是否启用软件ROI
-          video_profile: 0                                                                         # 视频配置文件
-          width: 720                                                                               # 宽度
-        flv_pull_url:                                                                              # 直播间FLV拉流地址
-          FULL_HD1: http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_or4.flv?expire=1740906376&sign=37520dbe730f79b7af0d732f9b142ce7&unique_id=stream-691500607505433258_682_flv_or4&volcSecret=37520dbe730f79b7af0d732f9b142ce7&volcTime=1740906376
-        flv_pull_url_params: {}                                                                    # FLV拉流地址参数
-        hls_pull_url: http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_or4/index.m3u8?expire=1740906376&sign=1e96dffde05a71cf1e062a3677741155&volcSecret=1e96dffde05a71cf1e062a3677741155&volcTime=1740906376 # 直播间HLS拉流地址
-        hls_pull_url_map:                                                                          # 直播间HLS拉流地址映射
-          FULL_HD1: http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_or4/index.m3u8?expire=1740906376&sign=1e96dffde05a71cf1e062a3677741155&volcSecret=1e96dffde05a71cf1e062a3677741155&volcTime=1740906376
-        hls_pull_url_params: '{"P2PFastOpenDuration":-1500,"BufferDataMs":1000,"FastOpenDuration":-500,"NetworkAdapt":{"HurryStopType":1,"SlowMillisecond":90,"HurryMillisecond":3500,"HurryType":0,"HurryStartMs":4000,"SlowSpeed":1,"HurrySpeed":1.1,"HurryTime":3500,"Enabled":0,"SlowTime":90},"VCodec":"h264","PlayingIntervalMs":20000}' # HLS拉流地址参数
-        id: 691500607505433258                                                                     # 直播间流ID
-        id_str: '691500607505433258'                                                               # 直播间流ID字符串
-        live_core_sdk_data:                                                                        # 直播核心SDK数据
-          pull_data:                                                                               # 拉流数据
-            Flv: []                                                                                # FLV数据
-            Hls: []                                                                                # HLS数据
-            codec: ''                                                                              # 编解码器
-            compensatory_data: ''                                                                  # 补偿数据
-            hls_data_unencrypted: {}                                                               # HLS未加密数据
-            kind: 0                                                                                # 类型
-            options:                                                                               # 选项
-              default_quality:                                                                     # 默认质量
-                additional_content: ''                                                             # 附加内容
-                disable: 0                                                                         # 禁用标志
-                fps: 0                                                                             # 帧率
-                level: 0                                                                           # 级别
-                name: "\u6807\u6E05"                                                               # 名称
-                resolution: ''                                                                     # 分辨率
-                sdk_key: origin                                                                    # SDK密钥
-                v_bit_rate: 0                                                                      # 视频比特率
-                v_codec: ''                                                                        # 视频编解码器
-              qualities:                                                                           # 质量列表
-              - additional_content: ''                                                             # 附加内容
-                disable: 0                                                                         # 禁用标志
-                fps: 0                                                                             # 帧率
-                level: 1                                                                           # 级别
-                name: "\u6807\u6E05"                                                               # 名称
-                resolution: ''                                                                     # 分辨率
-                sdk_key: origin                                                                    # SDK密钥
-                v_bit_rate: 0                                                                      # 视频比特率
-                v_codec: '264'                                                                     # 视频编解码器
-              vpass_default: false                                                                 # 视频默认通过
-            stream_data: '{"common":{"ts":"1740301576","session_id":"037-2025022317061645842BB1D723AB138B06","stream":"691500607505433258","rule_ids":"{\"ab_version_trace\":null,\"sched\":\"{\\\"result\\\":{\\\"hit\\\":\\\"determined\\\",\\\"cdn\\\":847}}\"}","common_trace":"{\"StrategyTrace\":{\"Neptune\":{\"PlayStream\":{\"ids\":null}}},\"BusinessType\":\"\",\"BigeventAnchorLevel\":\"\"}","app_id":"100100","major_anchor_level":"","mode":"Normal","lines":{"main":"line_847"},"p2p_params":null,"stream_data_content_encoding":"default","common_sdk_params":{"main":"{}"},"stream_name":"stream-691500607505433258","main_push_id":682,"backup_push_id":0},"data":{"md":{"main":{"flv":"https://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_md.flv?expire=1740906376&sign=5ae0c29aedb9ad114656303bfe824fc0&unique_id=stream-691500607505433258_682_flv_md&volcSecret=5ae0c29aedb9ad114656303bfe824fc0&volcTime=1740906376","hls":"http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_md/index.m3u8?expire=1740906376&sign=dac6a3f29ece599fd3deb672528ff8c2&volcSecret=dac6a3f29ece599fd3deb672528ff8c2&volcTime=1740906376","cmaf":"","dash":"","lls":"http://pull-lls-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_md.sdp?expire=1740906376&sign=795a6d09d502aeee7f09bc5b20ac4d28&unique_id=stream-691500607505433258_682_lls_md&volcSecret=795a6d09d502aeee7f09bc5b20ac4d28&volcTime=1740906376","tsl":"","tile":"","http_ts":"","ll_hls":"","sdk_params":"{\"FastOpenDuration\":-500,\"NetworkAdapt\":{\"SlowTime\":90,\"HurryStartMs\":4000,\"HurrySpeed\":1.1,\"Enabled\":0,\"HurryMillisecond\":3500,\"SlowSpeed\":1,\"HurryType\":0,\"HurryStopType\":1,\"HurryTime\":3500,\"SlowMillisecond\":90},\"PlayingIntervalMs\":20000,\"P2PFastOpenDuration\":-1500,\"BufferDataMs\":1000,\"VCodec\":\"h264\",\"vbitrate\":250000,\"resolution\":\"240P\",\"gop\":4,\"drType\":\"sdr\",\"fps\":15}","enableEncryption":false}},"ao":{"main":{"flv":"http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258.flv?expire=1740906376&only_audio=1&sign=48ee468a79787bab67bb7b3db8070734&unique_id=stream-691500607505433258_682_flv&volcSecret=48ee468a79787bab67bb7b3db8070734&volcTime=1740906376","hls":"","cmaf":"","dash":"","lls":"","tsl":"","tile":"","http_ts":"","ll_hls":"","sdk_params":"{\"FastOpenDuration\":-500,\"NetworkAdapt\":{\"HurryMillisecond\":3500,\"HurryType\":0,\"SlowTime\":90,\"SlowSpeed\":1,\"Enabled\":0,\"HurrySpeed\":1.1,\"HurryStopType\":1,\"HurryTime\":3500,\"SlowMillisecond\":90,\"HurryStartMs\":4000},\"PlayingIntervalMs\":20000,\"P2PFastOpenDuration\":-1500,\"BufferDataMs\":1000,\"VCodec\":\"h264\",\"vbitrate\":0,\"resolution\":\"\",\"gop\":4,\"drType\":\"sdr\"}","enableEncryption":false}},"origin":{"main":{"flv":"http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_or4.flv?expire=1740906376&sign=37520dbe730f79b7af0d732f9b142ce7&unique_id=stream-691500607505433258_682_flv_or4&volcSecret=37520dbe730f79b7af0d732f9b142ce7&volcTime=1740906376","hls":"http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_or4/index.m3u8?expire=1740906376&sign=1e96dffde05a71cf1e062a3677741155&volcSecret=1e96dffde05a71cf1e062a3677741155&volcTime=1740906376","cmaf":"","dash":"","lls":"http://pull-lls-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_or4.sdp?expire=1740906376&sign=6babbebc719e3c4df5bdddfc6e2a629a&unique_id=stream-691500607505433258_682_lls_or4&volcSecret=6babbebc719e3c4df5bdddfc6e2a629a&volcTime=1740906376","tsl":"","tile":"","http_ts":"","ll_hls":"","sdk_params":"{\"P2PFastOpenDuration\":-1500,\"BufferDataMs\":1000,\"FastOpenDuration\":-500,\"NetworkAdapt\":{\"HurryStopType\":1,\"SlowMillisecond\":90,\"HurryMillisecond\":3500,\"HurryType\":0,\"HurryStartMs\":4000,\"SlowSpeed\":1,\"HurrySpeed\":1.1,\"HurryTime\":3500,\"Enabled\":0,\"SlowTime\":90},\"VCodec\":\"h264\",\"PlayingIntervalMs\":20000,\"vbitrate\":0,\"resolution\":\"\",\"gop\":4,\"drType\":\"sdr\"}","enableEncryption":false}}}}'  # 流数据内容
-            version: 0                                                                             # 版本
-          size: ''                                                                                 # 流大小
-        provider: 0                                                                                # 直播间推流服务商
-        pull_datas: {}                                                                             # 拉流数据
-        push_datas: {}                                                                             # 推流数据
-        push_stream_type: 0                                                                        # 推流类型
-        push_urls: []                                                                              # 推流地址
-        resolution_name:                                                                           # 分辨率名称
-          FULL_HD1: "\u84DD\u5149"                                                                 # 蓝光
-          HD1: "\u8D85\u6E05"                                                                      # 超清
-          ORIGION: "\u539F\u753B"                                                                  # 原画
-          SD1: "\u6807\u6E05"                                                                      # 标清
-          SD2: "\u9AD8\u6E05"                                                                      # 高清
-        rtmp_pull_url: http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_or4.flv?expire=1740906376&sign=37520dbe730f79b7af0d732f9b142ce7&unique_id=stream-691500607505433258_682_flv_or4&volcSecret=37520dbe730f79b7af0d732f9b142ce7&volcTime=1740906376 # 直播间RTMP拉流地址
-        rtmp_pull_url_params: '{"P2PFastOpenDuration":-1500,"BufferDataMs":1000,"FastOpenDuration":-500,"NetworkAdapt":{"HurryStopType":1,"SlowMillisecond":90,"HurryMillisecond":3500,"HurryType":0,"HurryStartMs":4000,"SlowSpeed":1,"HurrySpeed":1.1,"HurryTime":3500,"Enabled":0,"SlowTime":90},"VCodec":"h264","PlayingIntervalMs":20000}' # RTMP拉流地址参数
-        rtmp_push_url: ''                                                                          # 直播间RTMP推流地址
-        rtmp_push_url_params: ''                                                                   # RTMP推流地址参数
-        stream_control_type: 0                                                                     # 直播间流控制类型
-        stream_orientation: 1                                                                      # 直播间流方向：1-竖屏 2-横屏
-        vr_type: 0                                                                                 # VR类型
-      sun_daily_icon_content: ''                                                                   # 日常图标内容
-      tags: []                                                                                     # 标签列表
-      title: "\u76F4\u64AD\u4E94\u5206\u949F"                                                      # 直播间标题
-      title_recommend: false                                                                       # 是否推荐标题
-      top_fans: []                                                                                 # 顶级粉丝列表
-      toutiao_cover_recommend_level: 0                                                             # 头条封面推荐等级
-      toutiao_title_recommend_level: 0                                                             # 头条标题推荐等级
-      upper_right_widget_data_list: []                                                             # 右上角小组件数据列表
-      use_filter: false                                                                            # 是否使用滤镜
-      user_count: 0                                                                                # 用户数量
+      sofa_layout: 0
+      stamps: ''
+      start_time: 1714227435
+      stats:
+        comment_count: 0
+        digg_count: 0
+        dou_plus_promotion: ''
+        enter_count: 0
+        fan_ticket: 0
+        follow_count: 22
+        gift_uv_count: 0
+        id: 7362550606306773794
+        id_str: '7362550606306773794'
+        like_count: 0
+        money: 0
+        total_user: 15726
+        total_user_desp: ''
+        total_user_str: "1\u4E07+"
+        total_user_uv_preview_str: ''
+        up_right_stats_str: ''
+        up_right_stats_str_complete: ''
+        user_count_composition:
+          city: 0
+          my_follow: 0
+          other: 1
+          video_detail: 0
+        user_count_str: '0'
+        watermelon: 0
+        welfare_donation_amount: 0
+      status: 4  # 直播状态
+      stream_close_time: 0
+      stream_id: 691500607505433258
+      stream_id_str: '691500607505433258'
+      stream_provider: 0
+      stream_url:
+        candidate_resolution:
+        - SD1
+        - SD2
+        - HD1
+        - FULL_HD1
+        complete_push_urls: []
+        default_resolution: FULL_HD1
+        extra:
+          anchor_interact_profile: 0
+          audience_interact_profile: 0
+          bframe_enable: false
+          bitrate_adapt_strategy: 0
+          business_name: ''
+          bytevc1_enable: false
+          default_bitrate: 0
+          fps: 0
+          gop_sec: 0
+          h265_enable: false
+          hardware_encode: false
+          height: 1280
+          max_bitrate: 0
+          min_bitrate: 0
+          roi: false
+          sw_roi: false
+          video_profile: 0
+          width: 720
+        flv_pull_url:
+          FULL_HD1: http://pull-flv-t96.douyincdn.com/stage/stream-117230828749849399_or4.flv?arch_hrchy=h1&exp_hrchy=h1&expire=1748997387&major_anchor_level=common&sign=5301881fc2d7d8eff880d28f4929121f&t_id=037-2025052808362748CB03B5458DE1396F7B-eTgY37&unique_id=stream-117230828749849399_823_flv_or4
+          HD1: http://pull-flv-t96.douyincdn.com/stage/stream-117230828749849399_hd.flv?arch_hrchy=h1&exp_hrchy=h1&expire=1748997387&major_anchor_level=common&sign=7dbbb5094ecf7d33b51339dba8287522&t_id=037-2025052808362748CB03B5458DE1396F7B-eTgY37&unique_id=stream-117230828749849399_823_flv_hd
+          SD1: http://pull-flv-t96.douyincdn.com/stage/stream-117230828749849399_ld.flv?arch_hrchy=h1&exp_hrchy=h1&expire=1748997387&major_anchor_level=common&sign=5011ba14e8c9bbda9c48940d146d71c7&t_id=037-2025052808362748CB03B5458DE1396F7B-eTgY37&unique_id=stream-117230828749849399_823_flv_ld
+          SD2: http://pull-flv-t96.douyincdn.com/stage/stream-117230828749849399_sd.flv?arch_hrchy=h1&exp_hrchy=h1&expire=1748997387&major_anchor_level=common&sign=e42dc5d4873202931c855d5961c44cdd&t_id=037-2025052808362748CB03B5458DE1396F7B-eTgY37&unique_id=stream-117230828749849399_823_flv_sd
+        flv_pull_url_params:
+          FULL_HD1: '{"PlayingIntervalMs":20000,"LiveIOConfig":{"LiveIOExperimentParam":{"enable_aggr_p2p_stream_id":1,"p2p_setting_use_https_domain":1}},"P2PFastOpenDuration":-1500,"EnableLowLatencyFLV":1,"VCodec":"h264","BufferDataMs":1000,"NetworkAdapt":{"HurryType":0,"HurryStartMs":4000,"SlowSpeed":0.9,"Enabled":0,"HurryTime":3500,"SlowMillisecond":1500,"HurryMillisecond":3500,"SlowTime":1500,"HurrySpeed":1.1,"HurryStopType":1},"FastOpenDuration":-1800}'
+          HD1: '{"LiveIOConfig":{"LiveIOExperimentParam":{"enable_aggr_p2p_stream_id":1,"p2p_setting_use_https_domain":1}},"BufferDataMs":1000,"FastOpenDuration":-500,"NetworkAdapt":{"HurryTime":3500,"HurryStartMs":4000,"HurryType":0,"SlowSpeed":1,"SlowTime":90,"HurryMillisecond":3500,"HurrySpeed":1.1,"HurryStopType":1,"SlowMillisecond":90,"Enabled":0},"PlayingIntervalMs":20000,"P2PFastOpenDuration":-1500,"VCodec":"h264"}'
+          SD1: '{"LiveIOConfig":{"LiveIOExperimentParam":{"p2p_setting_use_https_domain":1,"enable_aggr_p2p_stream_id":1}},"BufferDataMs":1000,"FastOpenDuration":-500,"NetworkAdapt":{"SlowMillisecond":90,"SlowSpeed":1,"HurryMillisecond":3500,"HurrySpeed":1.1,"HurryStopType":1,"HurryTime":3500,"SlowTime":90,"Enabled":0,"HurryStartMs":4000,"HurryType":0},"PlayingIntervalMs":20000,"P2PFastOpenDuration":-1500,"VCodec":"h264"}'
+          SD2: '{"PlayingIntervalMs":20000,"P2PFastOpenDuration":-1500,"LiveIOConfig":{"LiveIOExperimentParam":{"enable_aggr_p2p_stream_id":1,"p2p_setting_use_https_domain":1}},"BufferDataMs":1000,"VCodec":"h264","FastOpenDuration":-500,"NetworkAdapt":{"Enabled":0,"HurryTime":3500,"HurrySpeed":1.1,"HurryStartMs":4000,"HurryType":0,"SlowMillisecond":90,"SlowSpeed":1,"SlowTime":90,"HurryMillisecond":3500,"HurryStopType":1}}'
+        hls_pull_url: http://pull-hls-t96.douyincdn.com/stage/stream-117230828749849399_or4.m3u8?arch_hrchy=h1&exp_hrchy=h1&expire=1748997387&major_anchor_level=common&sign=34e547ceb3d9b9b045353b472a19ab8e&t_id=037-2025052808362748CB03B5458DE1396F7B-eTgY37
+        hls_pull_url_map:
+          FULL_HD1: http://pull-hls-t96.douyincdn.com/stage/stream-117230828749849399_or4.m3u8?arch_hrchy=h1&exp_hrchy=h1&expire=1748997387&major_anchor_level=common&sign=34e547ceb3d9b9b045353b472a19ab8e&t_id=037-2025052808362748CB03B5458DE1396F7B-eTgY37
+          HD1: http://pull-hls-t96.douyincdn.com/stage/stream-117230828749849399_hd.m3u8?arch_hrchy=h1&exp_hrchy=h1&expire=1748997387&major_anchor_level=common&sign=b7b0da2c5e2d52cdaf4d3465836e4bd1&t_id=037-2025052808362748CB03B5458DE1396F7B-eTgY37
+          SD1: http://pull-hls-t96.douyincdn.com/stage/stream-117230828749849399_ld.m3u8?arch_hrchy=h1&exp_hrchy=h1&expire=1748997387&major_anchor_level=common&sign=efc40a1d529e90971ebcb40631b9deb4&t_id=037-2025052808362748CB03B5458DE1396F7B-eTgY37
+          SD2: http://pull-hls-t96.douyincdn.com/stage/stream-117230828749849399_sd.m3u8?arch_hrchy=h1&exp_hrchy=h1&expire=1748997387&major_anchor_level=common&sign=d43bb667e4779bfd36896eda2faf35d4&t_id=037-2025052808362748CB03B5458DE1396F7B-eTgY37
+        hls_pull_url_params: '{"LiveIOConfig":{"LiveIOExperimentParam":{"enable_aggr_p2p_stream_id":1,"p2p_setting_use_https_domain":1}},"VCodec":"h264","BufferDataMs":1000,"FastOpenDuration":-500,"NetworkAdapt":{"Enabled":0,"HurryMillisecond":3500,"SlowMillisecond":90,"SlowSpeed":1,"SlowTime":90,"HurryType":0,"HurryStartMs":4000,"HurryTime":3500,"HurrySpeed":1.1,"HurryStopType":1},"PlayingIntervalMs":20000,"P2PFastOpenDuration":-1500}'
+        id: 117230828749849399
+        id_str: '117230828749849399'
+        live_core_sdk_data:
+          pull_data:
+            Flv: []
+            Hls: []
+            codec: ''
+            compensatory_data: ''
+            hls_data_unencrypted: {}
+            kind: 0
+            options:
+              default_quality:
+                additional_content: ''
+                disable: 0
+                fps: 0
+                level: 0
+                name: "\u6807\u6E05"
+                resolution: ''
+                sdk_key: origin
+                v_bit_rate: 0
+                v_codec: ''
+              qualities:
+              - additional_content: ''
+                disable: 0
+                fps: 0
+                level: 1
+                name: "\u6807\u6E05"
+                resolution: 480x847
+                sdk_key: ld
+                v_bit_rate: 1000000
+                v_codec: '264'
+              - additional_content: ''
+                disable: 0
+                fps: 30
+                level: 2
+                name: "\u9AD8\u6E05"
+                resolution: 540x952
+                sdk_key: sd
+                v_bit_rate: 1600000
+                v_codec: '264'
+              - additional_content: ''
+                disable: 0
+                fps: 30
+                level: 3
+                name: "\u8D85\u6E05"
+                resolution: 720x1270
+                sdk_key: hd
+                v_bit_rate: 2000000
+                v_codec: '264'
+              - additional_content: ''
+                disable: 0
+                fps: 0
+                level: 4
+                name: "\u84DD\u5149"
+                resolution: 1088x1920
+                sdk_key: origin
+                v_bit_rate: 0
+                v_codec: '264'
+              quality_strategy: ''
+              vpass_default: false
+            stream_data: '{"common":{"ts":"1740301576","session_id":"037-2025022317061645842BB1D723AB138B06","stream":"691500607505433258","rule_ids":"{\"ab_version_trace\":null,\"sched\":\"{\\\"result\\\":{\\\"hit\\\":\\\"determined\\\",\\\"cdn\\\":847}}\"}","common_trace":"{\"StrategyTrace\":{\"Neptune\":{\"PlayStream\":{\"ids\":null}}},\"BusinessType\":\"\",\"BigeventAnchorLevel\":\"\"}","app_id":"100100","major_anchor_level":"","mode":"Normal","lines":{"main":"line_847"},"p2p_params":null,"stream_data_content_encoding":"default","common_sdk_params":{"main":"{}"},"stream_name":"stream-691500607505433258","main_push_id":682,"backup_push_id":0},"data":{"md":{"main":{"flv":"https://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_md.flv?expire=1740906376&sign=5ae0c29aedb9ad114656303bfe824fc0&unique_id=stream-691500607505433258_682_flv_md&volcSecret=5ae0c29aedb9ad114656303bfe824fc0&volcTime=1740906376","hls":"http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_md/index.m3u8?expire=1740906376&sign=dac6a3f29ece599fd3deb672528ff8c2&volcSecret=dac6a3f29ece599fd3deb672528ff8c2&volcTime=1740906376","cmaf":"","dash":"","lls":"http://pull-lls-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_md.sdp?expire=1740906376&sign=795a6d09d502aeee7f09bc5b20ac4d28&unique_id=stream-691500607505433258_682_lls_md&volcSecret=795a6d09d502aeee7f09bc5b20ac4d28&volcTime=1740906376","tsl":"","tile":"","http_ts":"","ll_hls":"","sdk_params":"{\"FastOpenDuration\":-500,\"NetworkAdapt\":{\"SlowTime\":90,\"HurryStartMs\":4000,\"HurrySpeed\":1.1,\"Enabled\":0,\"HurryMillisecond\":3500,\"SlowSpeed\":1,\"HurryType\":0,\"HurryStopType\":1,\"HurryTime\":3500,\"SlowMillisecond\":90},\"PlayingIntervalMs\":20000,\"P2PFastOpenDuration\":-1500,\"BufferDataMs\":1000,\"VCodec\":\"h264\",\"vbitrate\":250000,\"resolution\":\"240P\",\"gop\":4,\"drType\":\"sdr\",\"fps\":15}","enableEncryption":false}},"ao":{"main":{"flv":"http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258.flv?expire=1740906376&only_audio=1&sign=48ee468a79787bab67bb7b3db8070734&unique_id=stream-691500607505433258_682_flv&volcSecret=48ee468a79787bab67bb7b3db8070734&volcTime=1740906376","hls":"","cmaf":"","dash":"","lls":"","tsl":"","tile":"","http_ts":"","ll_hls":"","sdk_params":"{\"FastOpenDuration\":-500,\"NetworkAdapt\":{\"HurryMillisecond\":3500,\"HurryType\":0,\"SlowTime\":90,\"SlowSpeed\":1,\"Enabled\":0,\"HurrySpeed\":1.1,\"HurryStopType\":1,\"HurryTime\":3500,\"SlowMillisecond\":90,\"HurryStartMs\":4000},\"PlayingIntervalMs\":20000,\"P2PFastOpenDuration\":-1500,\"BufferDataMs\":1000,\"VCodec\":\"h264\",\"vbitrate\":0,\"resolution\":\"\",\"gop\":4,\"drType\":\"sdr\"}","enableEncryption":false}},"origin":{"main":{"flv":"http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_or4.flv?expire=1740906376&sign=37520dbe730f79b7af0d732f9b142ce7&unique_id=stream-691500607505433258_682_flv_or4&volcSecret=37520dbe730f79b7af0d732f9b142ce7&volcTime=1740906376","hls":"http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_or4/index.m3u8?expire=1740906376&sign=1e96dffde05a71cf1e062a3677741155&volcSecret=1e96dffde05a71cf1e062a3677741155&volcTime=1740906376","cmaf":"","dash":"","lls":"http://pull-lls-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_or4.sdp?expire=1740906376&sign=6babbebc719e3c4df5bdddfc6e2a629a&unique_id=stream-691500607505433258_682_lls_or4&volcSecret=6babbebc719e3c4df5bdddfc6e2a629a&volcTime=1740906376","tsl":"","tile":"","http_ts":"","ll_hls":"","sdk_params":"{\"P2PFastOpenDuration\":-1500,\"BufferDataMs\":1000,\"FastOpenDuration\":-500,\"NetworkAdapt\":{\"HurryStopType\":1,\"SlowMillisecond\":90,\"HurryMillisecond\":3500,\"HurryType\":0,\"HurryStartMs\":4000,\"SlowSpeed\":1,\"HurrySpeed\":1.1,\"HurryTime\":3500,\"Enabled\":0,\"SlowTime\":90},\"VCodec\":\"h264\",\"PlayingIntervalMs\":20000,\"vbitrate\":0,\"resolution\":\"\",\"gop\":4,\"drType\":\"sdr\"}","enableEncryption":false}}}}'
+            version: 0
+          size: ''
+        multi_stream_scene: 0
+        provider: 0
+        pull_datas: {}
+        push_datas: {}
+        push_stream_type: 0
+        push_urls: []
+        resolution_name:
+          FULL_HD1: "\u84DD\u5149"
+          HD1: "\u8D85\u6E05"
+          ORIGION: "\u539F\u753B"
+          SD1: "\u6807\u6E05"
+          SD2: "\u9AD8\u6E05"
+        resolution_select_panel_resident: 0
+        rtmp_pull_url: http://pull-hs-f5.flive.douyincdn.com/stage/stream-691500607505433258_or4.flv?expire=1740906376&sign=37520dbe730f79b7af0d732f9b142ce7&unique_id=stream-691500607505433258_682_flv_or4&volcSecret=37520dbe730f79b7af0d732f9b142ce7&volcTime=1740906376
+        rtmp_pull_url_params: '{"P2PFastOpenDuration":-1500,"BufferDataMs":1000,"FastOpenDuration":-500,"NetworkAdapt":{"HurryStopType":1,"SlowMillisecond":90,"HurryMillisecond":3500,"HurryType":0,"HurryStartMs":4000,"SlowSpeed":1,"HurrySpeed":1.1,"HurryTime":3500,"Enabled":0,"SlowTime":90},"VCodec":"h264","PlayingIntervalMs":20000}'
+        rtmp_push_url: ''
+        rtmp_push_url_params: ''
+        stream_control_type: 0
+        stream_orientation: 1
+        vr_type: 0
+      sun_daily_icon_content: ''
+      tags: []
+      title: "\u76F4\u64AD\u4E94\u5206\u949F"  # 直播间标题
+      title_recommend: false
+      top_fans: []
+      toutiao_cover_recommend_level: 0
+      toutiao_title_recommend_level: 0
+      upper_right_widget_data_list: []
+      use_filter: false
+      user_count: 0
       user_share_text: "#\u5728\u6296\u97F3\uFF0C\u8BB0\u5F55\u7F8E\u597D\u751F\u6D3B\
         #\u3010Lvuuu\u3011\u6B63\u5728\u76F4\u64AD\uFF0C\u6765\u548C\u6211\u4E00\u8D77\
         \u652F\u6301Ta\u5427\u3002\u590D\u5236\u4E0B\u65B9\u94FE\u63A5\uFF0C\u6253\
-        \u5F00\u3010\u6296\u97F3\u3011\uFF0C\u76F4\u63A5\u89C2\u770B\u76F4\u64AD\uFF01"            # 用户分享文本
-      vertical_cover_uri: ''                                                                       # 竖屏封面URI
-      vid: ''                                                                                      # 视频ID
-      video_feed_tag: "\u76F4\u64AD\u4E2D"                                                         # 视频Feed标签
-      visibility_range: 0                                                                          # 可见范围：X-公开 X-私密 X-好友可见
-      vs_main_replay_id: 0                                                                         # VS主回放ID
-      vs_roles: []                                                                                 # VS角色列表
+        \u5F00\u3010\u6296\u97F3\u3011\uFF0C\u76F4\u63A5\u89C2\u770B\u76F4\u64AD\uFF01"
+      vertical_cover_uri: ''
+      vid: ''
+      video_feed_tag: "\u76F4\u64AD\u4E2D"
+      visibility_range: 0
+      vs_main_replay_id: 0
+      vs_roles: []
       wait_copy: "\u4E0D\u8981\u6025\uFF0C\u6162\u6162\u6765\u3002\u591A\u4E00\u70B9\
-        \u8010\u5FC3"                                                                              # 等待复制
-      web_count: 0                                                                                 # 网页观看人数
-      webcast_comment_tcs: 0                                                                       # 直播间评论TCs
-      webcast_sdk_version: 0                                                                       # 直播间SDK版本
-      with_aggregate_column: false                                                                 # 是否有聚合栏目
-      with_draw_something: false                                                                   # 是否有抽奖
-      with_ktv: false                                                                              # 是否有KTV
-      with_linkmic: false                                                                          # 是否有连麦
-    user:                                                                                          # 用户信息
-      adversary_authorization_info: 0                                                              # 对手授权信息
-      adversary_user_status: 0                                                                     # 对手用户状态
-      age_range: 0                                                                                 # 年龄范围
-      allow_be_located: false                                                                      # 是否允许被定位
-      allow_find_by_contacts: false                                                                # 是否允许通过联系人查找
-      allow_others_download_video: false                                                           # 是否允许其他人下载视频
-      allow_others_download_when_sharing_video: false                                              # 是否允许其他人下载分享的视频
-      allow_share_show_profile: false                                                              # 是否允许分享展示个人资料
-      allow_show_in_gossip: false                                                                  # 是否允许在八卦中展示
-      allow_show_my_action: false                                                                  # 是否允许展示我的动态
-      allow_strange_comment: false                                                                 # 是否允许陌生人评论
-      allow_unfollower_comment: false                                                              # 是否允许非关注者评论
-      allow_use_linkmic: false                                                                     # 是否允许使用连麦
-      authorization_info: 0                                                                        # 授权信息
+        \u8010\u5FC3"
+      web_count: 0
+      webcast_comment_tcs: 0
+      webcast_sdk_version: 0
+      with_aggregate_column: false
+      with_draw_something: false
+      with_ktv: false
+      with_linkmic: false
+    user:
+      adversary_authorization_info: 0
+      adversary_user_status: 0
+      age_range: 0
+      allow_be_located: false
+      allow_find_by_contacts: false
+      allow_others_download_video: false
+      allow_others_download_when_sharing_video: false
+      allow_share_show_profile: false
+      allow_show_in_gossip: false
+      allow_show_my_action: false
+      allow_strange_comment: false
+      allow_unfollower_comment: false
+      allow_use_linkmic: false
+      authorization_info: 0
       badge_image_list: []
       badge_image_list_v2: []
-      bg_img_url: ''                                                                               # 背景图片URL
-      birthday: 0                                                                                  # 生日时间戳
-      birthday_description: ''                                                                     # 生日描述
-      birthday_valid: false                                                                        # 生日是否有效
-      block_status: 0                                                                              # 屏蔽状态：0-未屏蔽 1-已屏蔽
-      city: ''                                                                                     # 城市
-      comment_restrict: 0                                                                          # 评论限制
+      bg_img_url: ''
+      birthday: 0
+      birthday_description: ''
+      birthday_valid: false
+      block_status: 0
+      can_view_webcast_private: 0
+      city: ''
+      comment_restrict: 0
       commerce_webcast_config_ids: []
-      constellation: ''                                                                            # 星座
-      consume_diamond_level: 0                                                                     # 消费钻石等级
-      create_time: 0                                                                               # 创建时间戳
-      desensitized_nickname: ''                                                                    # 脱敏昵称
-      disable_ichat: 0                                                                             # 是否禁用iChat
-      display_id: ''                                                                               # 显示ID
-      enable_ichat_img: 0                                                                          # 是否启用iChat图片
-      exp: 0                                                                                       # 经验值
-      experience: 0                                                                                # 经验值
-      fan_ticket_count: 0                                                                          # 粉丝票数量
-      fold_stranger_chat: false                                                                    # 是否折叠陌生人聊天
-      follow_status: 0                                                                             # 关注状态：0-未关注 1-已关注
-      gender: 0                                                                                    # 性别：0-未知 1-男 2-女
-      hotsoon_verified: false                                                                      # 是否Hotsoon认证
-      hotsoon_verified_reason: ''                                                                  # Hotsoon认证原因
-      ichat_restrict_type: 0                                                                       # iChat限制类型
-      id: 0                                                                                        # 用户ID
-      id_str: ''                                                                                   # 用户ID字符串
-      income_share_percent: 0                                                                      # 收入分成百分比
-      is_anonymous: false                                                                          # 是否匿名
-      is_follower: false                                                                           # 是否是粉丝
-      is_following: false                                                                          # 是否正在关注
-      level: 0                                                                                     # 用户等级
-      link_mic_stats: 0                                                                            # 连麦状态
-      location_city: ''                                                                            # 定位城市
+      constellation: ''
+      consume_diamond_level: 0
+      create_time: 0
+      desensitized_nickname: ''
+      disable_ichat: 0
+      display_id: ''
+      enable_ichat_img: 0
+      exp: 0
+      experience: 0
+      fan_ticket_count: 0
+      fold_stranger_chat: false
+      follow_status: 0
+      foreign_user: 0
+      gender: 0
+      hotsoon_verified: false
+      hotsoon_verified_reason: ''
+      ichat_restrict_type: 0
+      id: 0
+      id_str: ''
+      income_share_percent: 0
+      is_anonymous: false
+      is_follower: false
+      is_following: false
+      level: 0
+      link_mic_stats: 0
+      location_city: ''
       media_badge_image_list: []
-      modify_time: 0                                                                               # 修改时间戳
-      mystery_man: 0                                                                               # 是否神秘人
-      need_profile_guide: false                                                                    # 是否需要个人资料引导
+      modify_time: 0
+      mystery_man: 0
+      need_profile_guide: false
       new_real_time_icons: []
-      nickname: ''                                                                                 # 昵称
-      pay_score: 0                                                                                 # 支付分
-      pay_scores: 0                                                                                # 支付分
-      public_area_oper_freq: 0                                                                     # 公共区域操作频率
-      push_comment_status: false                                                                   # 是否推送评论状态
-      push_digg: false                                                                             # 是否推送点赞
-      push_follow: false                                                                           # 是否推送关注
-      push_friend_action: false                                                                    # 是否推送好友操作
-      push_ichat: false                                                                            # 是否推送iChat
-      push_status: false                                                                           # 是否推送状态
-      push_video_post: false                                                                       # 是否推送视频发布
-      push_video_recommend: false                                                                  # 是否推送视频推荐
+      nickname: ''
+      pay_score: 0
+      pay_scores: 0
+      public_area_oper_freq: 0
+      push_comment_status: false
+      push_digg: false
+      push_follow: false
+      push_friend_action: false
+      push_ichat: false
+      push_status: false
+      push_video_post: false
+      push_video_recommend: false
       real_time_icons: []
-      remark_name: ''                                                                              # 备注名
-      sec_uid: ''                                                                                  # 安全用户ID
-      secret: 0                                                                                    # 是否私密
-      share_qrcode_uri: ''                                                                         # 分享二维码URI
-      short_id: 0                                                                                  # 短ID
-      signature: ''                                                                                # 个性签名
-      special_id: ''                                                                               # 特殊ID
-      status: 0                                                                                    # 用户状态：0-注销 1-正常
-      telephone: ''                                                                                # 电话号码
-      ticket_count: 0                                                                              # 票数
+      remark_name: ''
+      sec_uid: ''
+      secret: 0
+      share_qrcode_uri: ''
+      short_id: 0
+      signature: ''
+      special_id: ''
+      status: 0
+      telephone: ''
+      ticket_count: 0
       top_fans: []
-      top_vip_no: 0                                                                                # 顶级VIP编号
-      total_recharge_diamond_count: 0                                                              # 总充值钻石数量
-      user_canceled: false                                                                         # 用户是否取消
-      user_open_id: ''                                                                             # 用户开放ID
-      user_role: 0                                                                                 # 用户角色
-      verified: false                                                                              # 是否认证
-      verified_content: ''                                                                         # 认证内容
-      verified_mobile: false                                                                       # 是否认证手机
-      verified_reason: ''                                                                          # 认证原因
-      watch_duration_month: 0                                                                      # 观看时长（月）
-      web_rid: ''                                                                                  # Web用户ID
-      webcast_uid: ''                                                                              # Webcast用户ID
-      with_car_management_permission: false                                                        # 是否具有汽车管理权限
-      with_commerce_permission: false                                                              # 是否具有商业权限
-      with_fusion_shop_entry: false                                                                # 是否具有融合店铺入口
-  extra:                                                                                           # 额外信息
-    now: 1740301577026                                                                             # 当前时间戳
-  status_code: 0  
+      top_vip_no: 0
+      total_recharge_diamond_count: 0
+      user_canceled: false
+      user_open_id: ''
+      user_role: 0
+      verified: false
+      verified_content: ''
+      verified_mobile: false
+      verified_reason: ''
+      watch_duration_month: 0
+      web_rid: ''
+      webcast_nick: ''
+      webcast_private: 0
+      webcast_uid: ''
+      with_car_management_permission: false
+      with_commerce_permission: false
+      with_fusion_shop_entry: false
+  extra:
+    now: 1740301577026
+  status_code: 0
 ```
 
 ---
 
-### 原始数据
 
-#### 直播信息
-```shell
-##
-## overview ====================================== Level 1 ============================================================
-##
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                               | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| data                           | table - data                       |      |     |         |       |                 |
-| extra                          | table - extra                      |      |     |         |       |                 |
-| status_code                    | tinyint                            |      |     |         |       |                 |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-```
-
----
-
-#### 数据 - data
-```shell
-##
-## data ========================================== Level 2-1 ==========================================================
-##
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                               | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| room                           | table - room                       |      |     |         |       |                 |
-| user                           | table - user                       |      |     |         |       |                 |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-```
-
-#### 额外数据表 - extra
-```shell
-##
-## extra ========================================== Level 2-2 ======================================================
-##
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type              | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| now                                      | timestamp         |      |     |         |       |                    |
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-```
-
----
-
-#### 直播间 room
-```shell
-##
-## data.room ========================================== Level 3-1 ======================================================
-##
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                               | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| AnchorABMap                    | json                               | YES  |     | NULL    |       |                 |
-| acquaintance_status            | unsigned tinyint                   |      |     | 0       |       | 熟人状态         |
-| admin_user_ids                 | table - live_room_user_id          |      |     |         |       | 管理员ID列表     |
-| admin_user_open_ids            | table - live_room_user_id          |      |     |         |       | 管理员公开ID列表 |
-| anchor_scheduled_time_text     | tinytext                           |      |     |         |       | 锚定时间文本     |
-| anchor_share_text              | tinytext                           |      |     |         |       | 锚定分享文本     |
-| anchor_tab_type                | unsigned tinyint                   |      |     |         |       | 锚定标签类型     |
-| app_id                         | varchar(200)                       |      |     |         |       |                 |
-| assist_label_list              | varchar(200)                       |      |     |         |       |                 |
-| auth_city                      | varchar(100)                       |      |     |         |       | 认证城市         |
-| auto_cover                     | unsigned tinyint                   |      |     |         |       | 自动封面         |
-| base_category                  | unsigned tinyint                   |      |     |         |       | 基本类别         |
-| book_end_time                  | timestamp                          |      |     |         |       | 预定结束时间     |
-| book_time                      | timestamp                          |      |     |         |       |                 |
-| business_live                  | unsigned tinyint                   |      |     |         |       | 商业直播         |
-| category                       | unsigned tinyint                   |      |     |         |       | 类别            |
-| cell_style                     | unsigned tinyint                   |      |     |         |       |                 |
-| challenge_info                 | tinytext                           |      |     |         |       |                 |
-| city_top_distance              | tinytext                           |      |     |         |       |                 |
-| client_version                 | varchar(20)                        |      |     |         |       | 客户端版本号     |
-| comment_box                    | table - room_comment_box           |      |     |         |       |                 |
-| comment_name_mode              | unsigned tinyint                   |      |     |         |       |                 |
-| common_label_list              | tinytext                           |      |     |         |       |                 |
-| content_tag                    | tinytext                           |      |     |         |       |                 |
-| cover                          | table - live_room_pic              |      |     |         |       | 封面-图片信息表  |
-| create_time                    | timestamp                          |      |     |         |       | 创建时间         |
-| danmaku_detail                 | unsigned int                       |      |     |         |       | 弹幕详情         |
-| deco_list                      | table - deco_list                  |      |     |         |       | 装饰清单         |
-| distance                       | varchar(100)                       |      |     |         |       | 距离            |
-| distance_city                  | varchar(100)                       |      |     |         |       | 城市距离        |
-| distance_km                    | varchar(100)                       |      |     |         |       | 公里距离        |
-| dynamic_cover_dict             | json                               |      |     |         |       |                 |
-| dynamic_cover_uri              | text                               |      |     |         |       |                 |
-| enable_room_perspective        | bool                               |      |     |         |       |                 |
-| extra                          | table - live_room_extra            |      |     |         |       | 额外直播信息表   |
-| fans_group_admin_user_ids      | table - live_room_user_id          |      |     |         |       | 直播间用户ID表   |
-| fans_group_admin_user_open_ids | table - live_room_user_id          |      |     |         |       | 直播间用户ID表   |
-| fansclub_msg_style             | unsigned tinyint                   |      |     |         |       |                 |
-| fcdn_appid                     | varchar(200)                       |      |     |         |       |                 |
-| feed_room_label                | table - live_room_pic              |      |     |         |       | -> 图片信息表    |
-| filter_words                   | table - live_room_filter_word      |      |     |         |       |                 |
-| finish_reason                  | unsigned tinyint                   |      |     |         |       |                 |
-| finish_time                    | timestamp                          |      |     |         |       |                 |
-| finish_url                     | text                               |      |     |         |       |                 |
-| follow_msg_style               | unsigned tinyint                   |      |     |         |       |                 |
-| forum_extra_data               | tinytext                           |      |     |         |       |                 |
-| game_room_type                 | unsigned tinyint                   |      |     |         |       | 游戏房间类型     |
-| gift_msg_style                 | unsigned tinyint                   |      |     |         |       | 礼物消息风格     |
-| group_id                       | varchar(200)                       |      |     |         |       |                 |
-| group_source                   | unsigned tinyint                   |      |     |         |       |                 |
-| guide_button                   | table - live_room_pic              |      |     |         |       | -> 图片信息表    |
-| has_commerce_goods             | bool                               |      |     |         |       |                 |
-| has_promotion_games            | unsigned tinyint                   |      |     |         |       |                 |
-| highlight                      | bool                               |      |     |         |       |                 |
-| hot_sentence_info              | text                               |      |     |         |       |                 |
-| id                             | varchar(200)                       |      |     |         |       |                 |
-| id_str                         | varchar(200)                       |      |     |         |       |                 |
-| introduction                   | text                               |      |     |         |       |                 |
-| is_need_check_list             | bool                               |      |     |         |       |                 |
-| is_official_channel_room       | bool                               |      |     |         |       |                 |
-| is_replay                      | bool                               |      |     |         |       |                 |
-| is_show_inquiry_ball           | bool                               |      |     |         |       |                 |
-| is_show_user_card_switch       | bool                               |      |     |         |       |                 |
-| item_explicit_info             | text                               |      |     |         |       |                 |
-| last_ping_time                 | timestamp                          |      |     |         |       |                 |
-| layout                         | unsigned tinyint                   |      |     |         |       |                 |
-| like_count                     | unsigned int                       |      |     |         |       |                 |
-| linker_map                     | json                               |      |     |         |       |                 |
-| linkmic_display_type           | unsigned tinyint                   |      |     |         |       |                 |
-| linkmic_layout                 | unsigned tinyint                   |      |     |         |       |                 |
-| live_distribution              |                                    |      |     |         |       |                 |
-| live_id                        | varchar(200)                       |      |     |         |       |                 |
-| live_platform_source           | tinytext                           |      |     |         |       |                 |
-| live_room_mode                 | unsigned tinyint                   |      |     |         |       |                 |
-| live_type_audio                | bool                               |      |     |         |       |                 |
-| live_type_linkmic              | bool                               |      |     |         |       |                 |
-| live_type_normal               | bool                               |      |     |         |       |                 |
-| live_type_official             | bool                               |      |     |         |       |                 |
-| live_type_sandbox              | bool                               |      |     |         |       |                 |
-| live_type_screenshot           | bool                               |      |     |         |       |                 |
-| live_type_third_party          | bool                               |      |     |         |       |                 |
-| live_type_vs_live              | bool                               |      |     |         |       |                 |
-| live_type_vs_premiere          | bool                               |      |     |         |       |                 |
-| living_room_attrs              | table - live_room_attribute        |      |     |         |       | 直播间属性表     |
-| location                       | varchar(100)                       |      |     |         |       |                 |
-| lottery_finish_time            | timestamp                          |      |     |         |       |                 |
-| luckymoney_num                 | unsigned int                       |      |     |         |       |                 |
-| mosaic_status                  | unsigned tinyint                   |      |     |         |       |                 |
-| mosaic_tip                     | tinytext                           |      |     |         |       |                 |
-| official_channel_open_id       | varchar(200)                       |      |     |         |       |                 |
-| official_channel_uid           | varchar(200)                       |      |     |         |       |                 |
-| orientation                    | unsigned tinyint                   |      |     |         |       |                 |
-| os_type                        | unsigned tinyint                   |      |     |         |       |                 |
-| owner                          | table - live_owner                 |      |     |         |       | 主播信息表       |
-| owner_device_id                | unsigned tinyint                   |      |     |         |       |                 |
-| owner_open_id                  | varchar(200)                       |      |     |         |       |                 |
-| owner_user_id                  | varchar(200)                       |      |     |         |       |                 |
-| pack_meta                      | json                               |      |     |         |       |                 |
-| paid_live_data                 | json                               |      |     |         |       |                 |
-| popularity                     | unsigned int                       |      |     |         |       | 人气            |
-| popularity_str                 | varchar(200)                       |      |     |         |       |                 |
-| pre_enter_time                 | timestamp                          |      |     |         |       | 预入时间         |
-| preview_copy                   | tinytext                           |      |     |         |       |                 |
-| preview_flow_tag               | unsigned tinyint                   |      |     |         |       |                 |
-| private_info                   | text                               |      |     |         |       |                 |
-| ranklist_audience_type         | unsigned tinyint                   |      |     |         |       | 排名列表受众类型  |
-| real_distance                  | varchar(100)                       |      |     |         |       | 实时距离         |
-| redpacket_audience_auth        | unsigned tinyint                   |      |     |         |       |                 |
-| relation_tag                   | tinytext                           |      |     |         |       |                 |
-| replay                         | bool                               |      |     |         |       | 重播            |
-| replay_location                | unsigned tinyint                   |      |     |         |       | 重播位置         |
-| room_audit_status              | unsigned tinyint                   |      |     |         |       | 房间审核状态     |
-| room_auth                      | json                               |      |     |         |       |                 |
-| room_create_ab_param           | text                               |      |     |         |       |                 |
-| room_layout                    | unsigned tinyint                   |      |     |         |       |                 |
-| room_tabs                      | text                               |      |     |         |       |                 |
-| room_tag                       | unsigned tinyint                   |      |     |         |       |                 |
-| room_view_stats                | json                               |      |     |         |       |                 |
-| screen_capture_sharing_title   | tinytext                           |      |     |         |       | 屏幕截图共享标题  |
-| scroll_config                  | text                               |      |     |         |       |                 |
-| search_id                      | varchar(200)                       |      |     |         |       |                 |
-| sell_goods                     | bool                               |      |     |         |       | 卖货            |
-| share_msg_style                | unsigned tinyint                   |      |     |         |       |                 |
-| share_url                      | text                               |      |     |         |       |                 |
-| sharing_music_id_list          | table - live_room_sharing_music_id |      |     |         |       |                 |
-| short_title                    | tinytext                           |      |     |         |       |                 |
-| short_touch_area_config        | table - short_touch_area_config    |      |     |         |       |                 |
-| sofa_layout                    | unsigned tinyint                   |      |     |         |       |                 |
-| stamps                         | tinytext                           |      |     |         |       |                 |
-| start_time                     | timestamp                          |      |     |         |       |                 |
-| stats                          | table - live_room_stats            |      |     |         |       |                 |
-| status                         | unsigned tinyint                   |      |     |         |       |                 |
-| stream_close_time              | timestamp                          |      |     |         |       |                 |
-| stream_id                      | varchar(200)                       |      |     |         |       |                 |
-| stream_id_str                  | varchar(200)                       |      |     |         |       |                 |
-| stream_provider                | unsigned tinyint                   |      |     |         |       |                 |
-| stream_url                     | table - stream_url                 |      |     |         |       |                 |
-| sun_daily_icon_content         | tinytext                           |      |     |         |       |                 |
-| tags                           | table - live_room_tag              |      |     |         |       |                 |
-| title                          | tinytext                           |      |     |         |       |                 |
-| title_recommend                | bool                               |      |     |         |       |                 |
-| top_fans                       |                                    |      |     |         |       |                 |
-| toutiao_cover_recommend_level  | unsigned smallint                  |      |     |         |       |                 |
-| toutiao_title_recommend_level  | unsigned smallint                  |      |     |         |       |                 |
-| upper_right_widget_data_list   |                                    |      |     |         |       | 右上角小部件数据列表 |
-| use_filter                     | bool                               |      |     |         |       |                 |
-| user_count                     | unsigned int                       |      |     |         |       | 观众数量         |
-| user_share_text                | text                               |      |     |         |       |                 |
-| vertical_cover_uri             | text                               |      |     |         |       |                 |
-| vid                            | varchar(200)                       |      |     |         |       |                 |
-| video_feed_tag                 | tinytext                           |      |     |         |       |                 |
-| visibility_range               | unsigned smallint                  |      |     |         |       |                 |
-| vs_main_replay_id              | varchar(200)                       |      |     |         |       |                 |
-| vs_roles                       |                                    |      |     |         |       |                 |
-| wait_copy                      | tinytext                           |      |     |         |       |                 |
-| web_count                      | unsigned smallint                  |      |     |         |       |                 |
-| webcast_comment_tcs            | unsigned int                       |      |     |         |       |                 |
-| webcast_sdk_version            | varchar(20)                        |      |     |         |       |                 |
-| with_aggregate_column          | bool                               |      |     |         |       |                 |
-| with_draw_something            | bool                               |      |     |         |       |                 |
-| with_ktv                       | bool                               |      |     |         |       |                 |
-| with_linkmic                   | bool                               |      |     |         |       |                 |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-```
-
-#### 用户表 user
-```shell
-##
-## data.user
-##
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type              | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| adversary_authorization_info             | unsigned tinyint  |      |     |         |       |                    |
-| adversary_user_status                    | unsigned tinyint  |      |     |         |       |                    |
-| age_range                                | unsigned tinyint  |      |     |         |       | 年纪范围            |
-| allow_be_located                         | bool              |      |     |         |       | 允许被定位          |
-| allow_find_by_contacts                   | bool              |      |     |         |       | 允许通过通讯录被发现 |
-| allow_others_download_video              | bool              |      |     |         |       | 允许其它人下载作品   |
-| allow_others_download_when_sharing_video | bool              |      |     |         |       | 允许被分享人下载作品 |
-| allow_share_show_profile                 | bool              |      |     |         |       | 允许分享显示个人资料 |
-| allow_show_in_gossip                     | bool              |      |     |         |       | 允许在八卦中显示     |
-| allow_show_my_action                     | bool              |      |     |         |       | 允许显示我的行为     |
-| allow_strange_comment                    | bool              |      |     |         |       |                    |
-| allow_unfollower_comment                 | bool              |      |     |         |       |                    |
-| allow_use_linkmic                        | bool              |      |     |         |       |                    |
-| authorization_info                       | unsigned tinyint  |      |     |         |       |                    |
-| badge_image_list                         |                   |      |     |         |       | 头像，查看图片信息表 |
-| badge_image_list_v2                      |                   |      |     |         |       | 头像，查看图片信息表 |
-| bg_img_url                               | text              |      |     |         |       |                    |
-| birthday                                 | timestamp         |      |     |         |       |                    |
-| birthday_description                     | text              |      |     |         |       |                    |
-| birthday_valid                           | bool              |      |     |         |       |                    |
-| block_status                             | unsigned tinyint  |      |     |         |       |                    |
-| city                                     | varchar(100)      |      |     |         |       | 城市               |
-| comment_restrict                         | unsigned tinyint  |      |     |         |       | 限制评论            |
-| commerce_webcast_config_ids              |                   |      |     |         |       |                    |
-| constellation                            | varchar(20)       |      |     |         |       | 星座               |
-| consume_diamond_level                    | unsigned smallint |      |     |         |       | 消费钻石等级        |
-| create_time                              | timestamp         |      |     |         |       | 创建时间            |
-| desensitized_nickname                    | varchar(50)       |      |     |         |       | 去敏感化的昵称      |
-| disable_ichat                            | unsigned tinyint  |      |     |         |       | 禁止聊天            |
-| display_id                               | varchar(200)      |      |     |         |       | 显示ID             |
-| enable_ichat_img                         | unsigned tinyint  |      |     |         |       |                    |
-| exp                                      | unsigned int      |      |     |         |       |                    |
-| experience                               | unsigned int      |      |     |         |       |                    |
-| fan_ticket_count                         | unsigned int      |      |     |         |       | 粉丝票数量          |
-| fold_stranger_chat                       | bool              |      |     |         |       | 折叠陌生人聊天      |
-| follow_status                            | unsigned tinyint  |      |     |         |       | 关注状态           |
-| gender                                   | unsigned tinyint  |      |     |         |       | 性别               |
-| hotsoon_verified                         | bool              |      |     |         |       |                    |
-| hotsoon_verified_reason                  | text              |      |     |         |       |                    |
-| ichat_restrict_type                      | unsigned tinyint  |      |     |         |       |                    |
-| id                                       | varchar(200)      |      |     |         |       |                    |
-| id_str                                   | varchar(200)      |      |     |         |       |                    |
-| income_share_percent                     | unsigned tinyint  |      |     |         |       |                    |
-| is_anonymous                             | bool              |      |     |         |       |                    |
-| is_follower                              | bool              |      |     |         |       |                    |
-| is_following                             | bool              |      |     |         |       |                    |
-| level                                    | unsigned smallint |      |     |         |       | 等级               |
-| link_mic_stats                           | unsigned smallint |      |     |         |       | 连麦统计           |
-| location_city                            | varchar(100)      |      |     |         |       | 定位城市           |
-| media_badge_image_list                   |                   |      |     |         |       |                   |
-| modify_time                              | timestamp         |      |     |         |       |                   |
-| mystery_man                              | unsigned tinyint  |      |     |         |       | 神秘人             |
-| need_profile_guide                       | bool              |      |     |         |       |                   |
-| new_real_time_icons                      | list              |      |     |         |       |                   |
-| nickname                                 | varchar(50)       |      |     |         |       | 昵称              |
-| pay_score                                | unsigned int      |      |     |         |       |                   |
-| pay_scores                               | unsigned int      |      |     |         |       |                   |
-| public_area_oper_freq                    | unsigned smallint |      |     |         |       |                   |
-| push_comment_status                      | bool              |      |     |         |       |                   |
-| push_digg                                | bool              |      |     |         |       |                   |
-| push_follow                              | bool              |      |     |         |       |                   |
-| push_friend_action                       | bool              |      |     |         |       |                   |
-| push_ichat                               | bool              |      |     |         |       |                   |
-| push_status                              | bool              |      |     |         |       |                   |
-| push_video_post                          | bool              |      |     |         |       |                   |
-| push_video_recommend                     | bool              |      |     |         |       |                   |
-| real_time_icons                          |                   |      |     |         |       |                   |
-| remark_name                              | varchar(50)       |      |     |         |       |                   |
-| sec_uid                                  | varchar(200)      |      |     |         |       |                   |
-| secret                                   | unsigned tinyint  |      |     |         |       |                   |
-| share_qrcode_uri                         | text              |      |     |         |       |                   |
-| short_id                                 | varchar(200)      |      |     |         |       |                   |
-| signature                                | text              |      |     |         |       |                   |
-| special_id                               | varchar(200)      |      |     |         |       |                   |
-| status                                   | unsigned tinyint  |      |     |         |       | 主播状态         |
-| telephone                                | varchar(20)       |      |     |         |       | 手机号码         |
-| ticket_count                             | unsigned int      |      |     |         |       |                 |
-| top_fans                                 |                   |      |     |         |       |                 |
-| top_vip_no                               | unsigned int      |      |     |         |       |                 |
-| total_recharge_diamond_count             | unsigned int      |      |     |         |       | 钻石充值总数     |
-| user_canceled                            | bool              |      |     |         |       | 用户已取消       |
-| user_open_id                             | varchar(200)      |      |     |         |       |                 |
-| user_role                                | unsigned tinyint  |      |     |         |       |                 |
-| verified                                 | bool              |      |     |         |       |                 |
-| verified_content                         | tinytext          |      |     |         |       |                 |
-| verified_mobile                          | bool              |      |     |         |       |                 |
-| verified_reason                          | tinytext          |      |     |         |       |                 |
-| watch_duration_month                     | unsigned smallint |      |     |         |       |                 |
-| web_rid                                  | varchar(200)      |      |     |         |       |                 |
-| webcast_uid                              | varchar(200)      |      |     |         |       |                 |
-| with_car_management_permission           | bool              |      |     |         |       |                 |
-| with_commerce_permission                 | bool              |      |     |         |       |                 |
-| with_fusion_shop_entry                   | bool              |      |     |         |       |                 |
-+------------------------------------------+-------------------+------+-----+---------+-------+-----------------+
-```
-
-直播间评论区 - room_comment_box
-```shell
-##
-## data.room.comment_box
-##
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type              | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| placeholder                              | tinytext          |      |     |         |       |                    |
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-```
-
-图片信息表 live_room_pic
-```shell
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                 | Null | Key | Default | Extra | Comment         |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| avg_color                      | varchar(7)           |      |     |         |       | 平均颜色         | 
-| content                        | json                 |      |     |         |       |                 |
-| flex_setting_list              |                      |      |     |         |       | 灵活设置列表     |
-| height                         | unsigned int         |      |     |         |       | 高度             |
-| image_type                     | unsigned tinyint     |      |     |         |       | 图片类型         |
-| is_animated                    | bool                 |      |     |         |       |                 |
-| open_web_url                   | text                 |      |     |         |       |                 |
-| text_setting_list              |                      |      |     |         |       | 文本设置列表     |
-| uri                            | text                 |      |     |         |       |                 |
-| url_list                       | table - live_pic_url |      |     |         |       | 直播图片资源表    |
-| width                          | unsigned int         |      |     |         |       | 宽度             |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-```
-
-直播间封面 - cover
-```shell
-参考 - live_room_pic
-```
-
-装饰清单 - deco_list
-```shell
-+--------------------------------+--------------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                     | Null | Key | Default | Extra | Comment         |
-+--------------------------------+--------------------------+------+-----+---------+-------+-----------------+
-|                                | table - audit_text_color |      |     |         |       |                 |
-+--------------------------------+--------------------------+------+-----+---------+-------+-----------------+
-```
-
-额外直播信息表 - room_extra
-```shell
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                 | Null | Key | Default | Extra | Comment         |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| create_scene                   | tinytext             |      |     |         |       | 创建场景         |
-| facial_unrecognised            | unsigned tinyint     |      |     |         |       | 面部无法识别     |
-| geo_block                      | unsigned tinyint     |      |     |         |       | 地理封锁         |
-| is_sandbox                     | bool                 |      |     |         |       |                 |
-| is_virtual_anchor              | bool                 |      |     |         |       |                 |
-| limit_appid                    | varchar(200)         |      |     |         |       |                 |
-| limit_strategy                 | unsigned tinyint     |      |     |         |       |                 |
-| realtime_playback_qualities    | table - live_quality |      |     |         |       | 直播质量表       |
-| realtime_playback_shift        | unsigned tinyint     |      |     |         |       |                 |
-| realtime_playback_start_shift  | unsigned tinyint     |      |     |         |       |                 |
-| realtime_replay_enabled        | bool                 |      |     |         |       |                 |
-| vr_type                        | unsigned tinyint     |      |     |         |       |                 |
-| vs_type                        | unsigned tinyint     |      |     |         |       |                 |
-| xigua_uid                      | varchar(200)         |      |     |         |       |                 |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-```
-
-打赏直播间标签 - feed_room_label
-```shell
-参考 - live_room_pic
-```
-
-指引按钮 - guide_button
-```shell
-参考 - live_room_pic
-```
-
-直播间属性表 live_room_attrs
-```shell
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                 | Null | Key | Default | Extra | Comment         |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| admin_flag                     | unsigned tinyint     |      |     |         |       | 管理员标识       |
-| rank                           | unsigned smallint    |      |     |         |       | 排名            |
-| room_id                        | varchar(200)         | PRI  |     |         |       |                 |
-| room_id_str                    | varchar(200)         |      |     |         |       |                 |
-| silence_flag                   | unsigned tinyint     |      |     |         |       | 沉默标识         |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-```
-
-直播主播表 room_owner
-```shell
-+------------------------------------------+-------------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type                    | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+-------------------------+------+-----+---------+-------+--------------------+
-| adversary_authorization_info             | unsigned tinyint        |      |     |         |       |                    |
-| adversary_user_status                    | unsigned tinyint        |      |     |         |       |                    |
-| age_range                                | unsigned tinyint        |      |     |         |       | 年纪范围            |
-| allow_be_located                         | bool                    |      |     |         |       | 允许被定位          |
-| allow_find_by_contacts                   | bool                    |      |     |         |       | 允许通过通讯录被发现 |
-| allow_others_download_video              | bool                    |      |     |         |       | 允许其它人下载作品   |
-| allow_others_download_when_sharing_video | bool                    |      |     |         |       | 允许被分享人下载作品 |
-| allow_share_show_profile                 | bool                    |      |     |         |       | 允许分享显示个人资料 |
-| allow_show_in_gossip                     | bool                    |      |     |         |       | 允许在八卦中显示    |
-| allow_show_my_action                     | bool                    |      |     |         |       | 允许显示我的行为    |
-| allow_strange_comment                    | bool                    |      |     |         |       |                    |
-| allow_unfollower_comment                 | bool                    |      |     |         |       |                    |
-| allow_use_linkmic                        | bool                    |      |     |         |       |                    |
-| authorization_info                       | unsigned tinyint        |      |     |         |       |                    |
-| avatar_large                             |                         |      |     |         |       | 头像，查看图片信息表 |
-| avatar_medium                            |                         |      |     |         |       | 头像，查看图片信息表 |
-| avatar_thumb                             |                         |      |     |         |       | 头像，查看图片信息表 |
-| badge_image_list                         |                         |      |     |         |       | 头像，查看图片信息表 |
-| badge_image_list_v2                      |                         |      |     |         |       | 头像，查看图片信息表 |
-| bg_img_url                               | text                    |      |     |         |       |                    |
-| birthday                                 | timestamp               |      |     |         |       |                    |
-| birthday_description                     | text                    |      |     |         |       |                    |
-| birthday_valid                           | bool                    |      |     |         |       |                    |
-| block_status                             | unsigned tinyint        |      |     |         |       |                    |
-| city                                     | varchar(100)            |      |     |         |       | 城市               |
-| comment_restrict                         | unsigned tinyint        |      |     |         |       | 限制评论           |
-| commerce_webcast_config_ids              |                         |      |     |         |       |                    |
-| constellation                            | varchar(20)             |      |     |         |       | 星座               |
-| consume_diamond_level                    | unsigned smallint       |      |     |         |       | 消费钻石等级        |
-| create_time                              | timestamp               |      |     |         |       | 创建时间            |
-| desensitized_nickname                    | varchar(50)             |      |     |         |       | 去敏感化的昵称      |
-| disable_ichat                            | unsigned tinyint        |      |     |         |       | 禁止聊天            |
-| display_id                               | varchar(200)            |      |     |         |       | 显示ID             |
-| enable_ichat_img                         | unsigned tinyint        |      |     |         |       |                    |
-| exp                                      | unsigned int            |      |     |         |       |                    |
-| experience                               | unsigned int            |      |     |         |       |                    |
-| fan_ticket_count                         | unsigned int            |      |     |         |       | 粉丝票数量          |
-| fans_club                                |                         |      |     |         |       | 粉丝俱乐部          |
-| fans_group_info                          | json                    |      |     |         |       | 粉丝群信息          |
-| fold_stranger_chat                       | bool                    |      |     |         |       | 折叠陌生人聊天      |
-| follow_info                              |                         |      |     |         |       | 关注信息            |
-| follow_status                            | unsigned tinyint        |      |     |         |       | 关注状态            |
-| gender                                   | unsigned tinyint        |      |     |         |       | 性别               |
-| hotsoon_verified                         | bool                    |      |     |         |       |                 |
-| hotsoon_verified_reason                  | text                    |      |     |         |       |                 |
-| ichat_restrict_type                      | unsigned tinyint        |      |     |         |       |                 |
-| id                                       | varchar(200)            |      |     |         |       |                 |
-| id_str                                   | varchar(200)            |      |     |         |       |                 |
-| income_share_percent                     | unsigned tinyint        |      |     |         |       |                 |
-| is_anonymous                             | bool                    |      |     |         |       |                 |
-| is_follower                              | bool                    |      |     |         |       |                 |
-| is_following                             | bool                    |      |     |         |       |                 |
-| j_accredit_info                          | json                    |      |     |         |       | 认证信息         |
-| level                                    | unsigned smallint       |      |     |         |       | 等级            |
-| link_mic_stats                           | unsigned smallint       |      |     |         |       | 连麦统计         |
-| location_city                            | varchar(100)            |      |     |         |       | 定位城市         |
-| media_badge_image_list                   |                         |      |     |         |       |                 |
-| modify_time                              | timestamp               |      |     |         |       |                 |
-| mystery_man                              | unsigned tinyint        |      |     |         |       | 神秘人           |
-| need_profile_guide                       | bool                    |      |     |         |       |                 |
-| new_real_time_icons                      | list                    |      |     |         |       |                 |
-| nickname                                 | varchar(50)             |      |     |         |       | 昵称            |
-| own_room                                 |                         |      |     |         |       |                 |
-| pay_grade                                |                         |      |     |         |       |                 |
-| pay_score                                | unsigned int            |      |     |         |       |                 |
-| pay_scores                               | unsigned int            |      |     |         |       |                 |
-| public_area_oper_freq                    | unsigned smallint       |      |     |         |       |                 |
-| push_comment_status                      | bool                    |      |     |         |       |                 |
-| push_digg                                | bool                    |      |     |         |       |                 |
-| push_follow                              | bool                    |      |     |         |       |                 |
-| push_friend_action                       | bool                    |      |     |         |       |                 |
-| push_ichat                               | bool                    |      |     |         |       |                 |
-| push_status                              | bool                    |      |     |         |       |                 |
-| push_video_post                          | bool                    |      |     |         |       |                 |
-| push_video_recommend                     | bool                    |      |     |         |       |                 |
-| real_time_icons                          |                         |      |     |         |       |                 |
-| remark_name                              | varchar(50)             |      |     |         |       |                 |
-| sec_uid                                  | varchar(200)            |      |     |         |       |                 |
-| secret                                   | unsigned tinyint        |      |     |         |       |                 |
-| share_qrcode_uri                         | text                    |      |     |         |       |                 |
-| short_id                                 | varchar(200)            |      |     |         |       |                 |
-| signature                                | text                    |      |     |         |       |                 |
-| special_id                               | varchar(200)            |      |     |         |       |                 |
-| status                                   | unsigned tinyint        |      |     |         |       | 主播状态         |
-| subscribe                                |                         |      |     |         |       | 订阅            |
-| telephone                                | varchar(20)             |      |     |         |       | 手机号码         |
-| ticket_count                             | unsigned int            |      |     |         |       |                 |
-| top_fans                                 |                         |      |     |         |       |                 |
-| top_vip_no                               | unsigned int            |      |     |         |       |                 |
-| total_recharge_diamond_count             | unsigned int            |      |     |         |       | 钻石充值总数     |
-| user_attr                                | table - user_attr       |      |     |         |       |                 |
-| user_canceled                            | bool                    |      |     |         |       | 用户已取消       |
-| user_dress_info                          | table - user_dress_info |      |     |         |       |                 |
-| user_open_id                             | varchar(200)            |      |     |         |       |                 |
-| user_role                                | unsigned tinyint        |      |     |         |       |                 |
-| verified                                 | bool                    |      |     |         |       |                 |
-| verified_content                         | tinytext                |      |     |         |       |                 |
-| verified_mobile                          | bool                    |      |     |         |       |                 |
-| verified_reason                          | tinytext                |      |     |         |       |                 |
-| watch_duration_month                     | unsigned smallint       |      |     |         |       |                 |
-| web_rid                                  | varchar(200)            |      |     |         |       |                 |
-| webcast_uid                              | varchar(200)            |      |     |         |       |                 |
-| with_car_management_permission           | bool                    |      |     |         |       |                 |
-| with_commerce_permission                 | bool                    |      |     |         |       |                 |
-| with_fusion_shop_entry                   | bool                    |      |     |         |       |                 |
-+------------------------------------------+-------------------------+------+-----+---------+-------+-----------------+
-```
-
-打包元数据 - pack_meta
-```shell
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                 | Null | Key | Default | Extra | Comment         |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| cluster                        | varchar(20)          |      |     |         |       |                 |
-| dc                             | varchar(20)          |      |     |         |       |                 |
-| env                            | varchar(20)          |      |     |         |       |                 |
-| extras                         | json                 |      |     |         |       |                 |
-| scene                          | tinytedt             |      |     |         |       |                 |
-| trace_id                       | varchar(200)         |      |     |         |       |                 |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-```
-
-支付直播数据 - paid_live_data
-```shell
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                 | Null | Key | Default | Extra | Comment         |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| anchor_right                   | unsigned tinyint     |      |     |         |       | 锚定右侧         |
-| delivery                       | unsigned tinyint     |      |     |         |       | 快递             |
-| duration                       | timestamp            |      |     |         |       | 持续时间         |
-| max_preview_duration           | timestamp            |      |     |         |       | 最大预览持续时间  |
-| need_delivery_notice           | bool                 |      |     |         |       | 需要送货通知     |
-| paid_type                      | unsigned tinyint     |      |     |         |       | 付费类型         |
-| pay_ab_type                    | unsigned tinyint     |      |     |         |       |                 |
-| privilege_info                 | json                 |      |     |         |       | 特权信息         |
-| privilege_info_map             | json                 |      |     |         |       | 特权信息图       |
-| view_right                     | unsigned tinyint     |      |     |         |       | 向右查看         |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-```
-
-room_auth
-```shell
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                 | Null | Key | Default | Extra | Comment         |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| AIClone                        |                      |      |     |         |       |                 |
-| AdminCommentWall               |                      |      |     |         |       |                 |
-| AnchorAudioChat                |                      |      |     |         |       |                 |
-| AnchorColdMessageTiled         |                      |      |     |         |       |                 |
-| AnchorHotMessageAggregated     |                      |      |     |         |       |                 |
-| AnchorMission                  |                      |      |     |         |       |                 |
-| AudioChat                      |                      |      |     |         |       |                 |
-| AudioChatTotext                |                      |      |     |         |       |                 |
-| Banner                         |                      |      |     |         |       |                 |
-| BulletStyle                    |                      |      |     |         |       |                 |
-| CanSellTicket                  |                      |      |     |         |       |                 |
-| CastScreen                     |                      |      |     |         |       |                 |
-| CastScreenExplicit             |                      |      |     |         |       |                 |
-| Chat                           |                      |      |     |         |       |                 |
-| ChatDispatch                   |                      |      |     |         |       |                 |
-| ChatDynamicSlideSpeed          |                      |      |     |         |       |                 |
-| ChatDynamicSlideSpeedAnchor    |                      |      |     |         |       |                 |
-| ChatGuideEmoji                 |                      |      |     |         |       |                 |
-| ChatGuideImage                 |                      |      |     |         |       |                 |
-| ChatIdentity                   |                      |      |     |         |       |                 |
-| ChatMention                    |                      |      |     |         |       |                 |
-| ChatMentionV2                  |                      |      |     |         |       |                 |
-| ChatOperate                    |                      |      |     |         |       |                 |
-| ChatReply                      |                      |      |     |         |       |                 |
-| ClearEntranceOption            |                      |      |     |         |       |                 |
-| Collect                        |                      |      |     |         |       |                 |
-| CommentWall                    |                      |      |     |         |       |                 |
-| CommerceCard                   |                      |      |     |         |       |                 |
-| CommerceComponent              |                      |      |     |         |       |                 |
-| CommonCard                     |                      |      |     |         |       |                 |
-| CountType                      |                      |      |     |         |       |                 |
-| Danmaku                        |                      |      |     |         |       |                 |
-| DanmakuDefault                 |                      |      |     |         |       |                 |
-| Denounce                       |                      |      |     |         |       |                 |
-| Digg                           |                      |      |     |         |       |                 |
-| Dislike                        |                      |      |     |         |       |                 |
-| DonationSticker                |                      |      |     |         |       |                 |
-| DouPlus                        |                      |      |     |         |       |                 |
-| DouPlusPopularityGem           |                      |      |     |         |       |                 |
-| DownloadVideo                  |                      |      |     |         |       |                 |
-| EcomFansClub                   |                      |      |     |         |       |                 |
-| EmojiOutside                   |                      |      |     |         |       |                 |
-| EnhancedTouch                  |                      |      |     |         |       |                 |
-| EnterEffects                   |                      |      |     |         |       |                 |
-| ExpandScreen                   |                      |      |     |         |       |                 |
-| FansClub                       |                      |      |     |         |       |                 |
-| FansClubBlessing               |                      |      |     |         |       |                 |
-| FansClubDeclaration            |                      |      |     |         |       |                 |
-| FansClubLetter                 |                      |      |     |         |       |                 |
-| FansClubNotice                 |                      |      |     |         |       |                 |
-| FansGroup                      |                      |      |     |         |       |                 |
-| FeaturedPublicScreen           |                      |      |     |         |       |                 |
-| FirstFeedHistChat              |                      |      |     |         |       |                 |
-| FixedChat                      |                      |      |     |         |       |                 |
-| FrequentlyChat                 |                      |      |     |         |       |                 |
-| FusionEmoji                    |                      |      |     |         |       |                 |
-| GamePointsPlaying              |                      |      |     |         |       |                 |
-| Gift                           |                      |      |     |         |       |                 |
-| GiftAnchorMt                   |                      |      |     |         |       |                 |
-| GiftVote                       |                      |      |     |         |       |                 |
-| Highlights                     |                      |      |     |         |       |                 |
-| HostTeam                       |                      |      |     |         |       |                 |
-| HostTeamChannel                |                      |      |     |         |       |                 |
-| HotChatTray                    |                      |      |     |         |       |                 |
-| HourRank                       |                      |      |     |         |       |                 |
-| ImHeatValue                    |                      |      |     |         |       |                 |
-| IndustryService                |                      |      |     |         |       |                 |
-| InteractionGift                |                      |      |     |         |       |                 |
-| InteractiveComponent           |                      |      |     |         |       |                 |
-| ItemShare                      |                      |      |     |         |       |                 |
-| KtvOrderSong                   |                      |      |     |         |       |                 |
-| Landscape                      |                      |      |     |         |       |                 |
-| LandscapeChat                  |                      |      |     |         |       |                 |
-| LandscapeChatDynamicSlideSpeed |                      |      |     |         |       |                 |
-| LandscapeGift                  |                      |      |     |         |       |                 |
-| LandscapeScreenCapture         |                      |      |     |         |       |                 |
-| LandscapeScreenRecording       |                      |      |     |         |       |                 |
-| LandscapeScreenShare           |                      |      |     |         |       |                 |
-| Like                           |                      |      |     |         |       |                 |
-| LinkmicGuestLike               |                      |      |     |         |       |                 |
-| LongPressOption                |                      |      |     |         |       |                 |
-| LongTouch                      |                      |      |     |         |       |                 |
-| LuckMoney                      |                      |      |     |         |       |                 |
-| MarkUser                       |                      |      |     |         |       |                 |
-| MediaHistoryMessage            |                      |      |     |         |       |                 |
-| MediaLinkmic                   |                      |      |     |         |       |                 |
-| MessageDispatch                |                      |      |     |         |       |                 |
-| MessageGift                    |                      |      |     |         |       |                 |
-| MissionCenter                  |                      |      |     |         |       |                 |
-| MoreAnchor                     |                      |      |     |         |       |                 |
-| MoreHistChat                   |                      |      |     |         |       |                 |
-| MultiplierPlayback             |                      |      |     |         |       |                 |
-| MyLiveEntrance                 |                      |      |     |         |       |                 |
-| OnlyTa                         |                      |      |     |         |       |                 |
-| PCPlay                         |                      |      |     |         |       |                 |
-| POI                            |                      |      |     |         |       |                 |
-| PadPlay                        |                      |      |     |         |       |                 |
-| PanelECService                 |                      |      |     |         |       |                 |
-| PlayerRankList                 |                      |      |     |         |       |                 |
-| Poster                         |                      |      |     |         |       |                 |
-| PosterCache                    |                      |      |     |         |       |                 |
-| PreviewChatExpose              |                      |      |     |         |       |                 |
-| PreviewHotCommentSwitch        |                      |      |     |         |       |                 |
-| ProjectionBtn                  |                      |      |     |         |       |                 |
-| Props                          |                      |      |     |         |       |                 |
-| PublicScreen                   |                      |      |     |         |       |                 |
-| QuizGamePointsPlaying          |                      |      |     |         |       |                 |
-| RecordScreen                   |                      |      |     |         |       |                 |
-| RoomChannel                    |                      |      |     |         |       |                 |
-| RoomChatLikeDisplay            |                      |      |     |         |       |                 |
-| RoomChatOperatePanel           |                      |      |     |         |       |                 |
-| RoomContributor                |                      |      |     |         |       |                 |
-| RoomWidget                     |                      |      |     |         |       |                 |
-| ScreenBottomInfo               |                      |      |     |         |       |                 |
-| ScreenProjectionBarrage        |                      |      |     |         |       |                 |
-| Seek                           |                      |      |     |         |       |                 |
-| Selection                      |                      |      |     |         |       |                 |
-| SelectionAlbum                 |                      |      |     |         |       |                 |
-| Share                          |                      |      |     |         |       |                 |
-| ShortTouch                     |                      |      |     |         |       |                 |
-| ShortTouchTempState            |                      |      |     |         |       |                 |
-| ShowGamePlugin                 |                      |      |     |         |       |                 |
-| ShowQualification              |                      |      |     |         |       |                 |
-| SmallWindowDisplay             |                      |      |     |         |       |                 |
-| SmallWindowPlayer              |                      |      |     |         |       |                 |
-| StickyMessage                  |                      |      |     |         |       |                 |
-| StreamAdaptation               |                      |      |     |         |       |                 |
-| StrokeUpDownGuide              |                      |      |     |         |       |                 |
-| SubscribeCardPackage           |                      |      |     |         |       |                 |
-| Teleprompter                   |                      |      |     |         |       |                 |
-| TextGift                       |                      |      |     |         |       |                 |
-| TimedShutdown                  |                      |      |     |         |       |                 |
-| ToolbarBubble                  |                      |      |     |         |       |                 |
-| Topic                          |                      |      |     |         |       |                 |
-| TypingCommentState             |                      |      |     |         |       |                 |
-| UgcVSReplayDelete              |                      |      |     |         |       |                 |
-| UgcVsReplayVisibility          |                      |      |     |         |       |                 |
-| UpRightStatsFloatingLayer      |                      |      |     |         |       |                 |
-| UseHostInfo                    |                      |      |     |         |       |                 |
-| UserCard                       |                      |      |     |         |       |                 |
-| UserCorner                     |                      |      |     |         |       |                 |
-| VSGift                         |                      |      |     |         |       |                 |
-| VSRank                         |                      |      |     |         |       |                 |
-| VSTopic                        |                      |      |     |         |       |                 |
-| VerticalRank                   |                      |      |     |         |       |                 |
-| VerticalScreenShare            |                      |      |     |         |       |                 |
-| VideoAmplificationType         |                      |      |     |         |       |                 |
-| VideoShare                     |                      |      |     |         |       |                 |
-| VsCommentBar                   |                      |      |     |         |       |                 |
-| VsDouPlus                      |                      |      |     |         |       |                 |
-| VsExtensionEnableFollow        |                      |      |     |         |       |                 |
-| VsFansClub                     |                      |      |     |         |       |                 |
-| VsWelcomeDanmaku               |                      |      |     |         |       |                 |
-| WordAssociation                |                      |      |     |         |       |                 |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-```
-
-room_view_stats
-```shell
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                 | Null | Key | Default | Extra | Comment         |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| display_long                   | tinytext             |      |     |         |       | 直播间观看人数   |
-| display_long_anchor            | tinytext             |      |     |         |       | 主播观看人数     |
-| display_middle                 | tinytext             |      |     |         |       |                 |
-| display_middle_anchor          | tinytext             |      |     |         |       |                 |
-| display_short                  | tinytext             |      |     |         |       |                 |
-| display_short_anchor           | tinytext             |      |     |         |       |                 |
-| display_type                   | unsigned tinyint     |      |     |         |       |                 |
-| display_value                  | unsigned int         |      |     |         |       |                 |
-| display_version                | varchar(20)          |      |     |         |       |                 |
-| incremental                    | bool                 |      |     |         |       |                 |
-| is_hidden                      | bool                 |      |     |         |       |                 |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-```
-
-short_touch_area_config
-```shell
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                 | Null | Key | Default | Extra | Comment         |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| elements                       |                      |      |     |         |       |                 |
-| forbidden_types_map            |                      |      |     |         |       |                 |
-| strategy_feat_whitelist        |                      |      |     |         |       |                 |
-| temp_state_condition_map       |                      |      |     |         |       |                 |
-| temp_state_global_condition    |                      |      |     |         |       |                 |
-| temp_state_strategy            |                      |      |     |         |       |                 |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-```
-
-直播间状态 - room_stats
-```shell
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                               | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| comment_count                  | unsigned bigint                    |      |     |         |       | 评论数量         |
-| digg_count                     |                                    |      |     |         |       |                 |
-| dou_plus_promotion             |                                    |      |     |         |       | 抖+促销          |
-| enter_count                    | unsigned int                       |      |     |         |       | 进入数量         |
-| fan_ticket                     | unsigned bigint                    |      |     |         |       | 粉丝票           |
-| follow_count                   | unsigned bigint                    |      |     |         |       | 关注数量         |
-| gift_uv_count                  | unsigned int                       |      |     |         |       | 礼物UV数量       |
-| id                             | varchar(200)                       |      |     |         |       | 直播间ID         |
-| id_str                         | varchar(200)                       |      |     |         |       | 直播间ID         |
-| like_count                     | unsigned int                       |      |     |         |       | 点赞数量         |
-| money                          | unsigned int                       |      |     |         |       | 金钱             |
-| total_user                     | unsigned int                       |      |     |         |       | 用户数量         |
-| total_user_desp                |
-| total_user_str                 | varchar(100)                       |      |     |         |       | 用户数量         |
-| up_right_stats_str             | varchar(100)                       |      |     |         |       | 右上角状态条     |
-| up_right_stats_str_complete    |                                                                   | 右上角状态条完成  |
-| user_count_composition         |                                                                   | 用户数量组成     |
-| user_count_str                 | varchar(100)                       |      |     |         |       | 用户数量         |
-| watermelon                     | 
-| welfare_donation_amount        | unsigned int                       |      |     |         |       | 福利捐赠金额     |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-```
-
-直播流信息表 - stream_url
-```shell
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type              | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| candidate_resolution                     | varchar(20)       |      |     |         |       | 候选分辨率          |
-| complete_push_urls                       |                   |      |     |         |       |                    |
-| default_resolution                       | varchar(20)       |      |     |         |       | 默认分辨率          |
-| extra                                    | json              |      |     |         |       |                    |
-| flv_pull_url                             |                   |      |     |         |       |                    |
-| flv_pull_url_params                      |                   |      |     |         |       |                    |
-| hls_pull_url                             | text              |      |     |         |       |                    |
-| hls_pull_url_map                         |                   |      |     |         |       |                    |
-| hls_pull_url_params                      | text              |      |     |         |       |                    |
-| id                                       | varchar(200)      |      |     |         |       |                    |
-| id_str                                   | varchar(200)      |      |     |         |       |                    |
-| live_core_sdk_data                       |                   |      |     |         |       |                    |
-| provider                                 | unsigned tinyint  |      |     |         |       |                    |
-| pull_datas                               | json              |      |     |         |       |                    |
-| push_datas                               | json              |      |     |         |       |                    |
-| push_stream_type                         | unsigned tinyint  |      |     |         |       | 推流类型            |
-| push_urls                                |                   |      |     |         |       |                    |
-| resolution_name                          |                   |      |     |         |       | 分辨率名称          |
-| rtmp_pull_url                            | text              |      |     |         |       |                    |
-| rtmp_pull_url_params                     | text              |      |     |         |       |                    |
-| rtmp_push_url                            | text              |      |     |         |       |                    |
-| rtmp_push_url_params                     | text              |      |     |         |       |                    |
-| stream_control_type                      | unsigned tinyint  |      |     |         |       |                    |
-| stream_orientation                       | unsigned tinyint  |      |     |         |       |                    |
-| vr_type                                  | unsigned tinyint  |      |     |         |       |                    |
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-```
-===
-审核文本颜色 - audit_text_color
-```shell
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type              | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| content
-| h
-| id
-| image
-| input_rect
-| kind
-| max_length
-| nine_patch_image
-| reservation
-| status
-| sub_type
-| text_color
-| text_image_adjustable_end_position
-| text_image_adjustable_start_position
-| text_size
-| text_special_effects
-| type
-| w
-| x
-| y
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-```
-
-直播间打赏标签内容 - content
-```shell
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type              | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| alternative_text
-| font_color
-| level
-| name
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-```
-
-badge_image_list
-```shell
-+------------------------------------------+-----------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type                  | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+-----------------------+------+-----+---------+-------+--------------------+
-|                                          | table - live_room_pic |      |     |         |       |                    |
-+------------------------------------------+-----------------------+------+-----+---------+-------+--------------------+
-+-----
-```
-
-badge_image_list_v2
-```shell
-+------------------------------------------+-----------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type                  | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+-----------------------+------+-----+---------+-------+--------------------+
-|                                          | table - live_room_pic |      |     |         |       |                    |
-+------------------------------------------+-----------------------+------+-----+---------+-------+--------------------+
-```
-
-粉丝俱乐部 - fans_club
-```shell
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type                   | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-| data                                     | table - fans_club_data |      |     |         |       |                    |
-| prefer_data                              | json                   |      |     |         |       |                    |
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-```
-
-粉丝群信息 - fans_group_info
-```shell
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type                   | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-| list_fans_group_url                      | text                   |      |     |         |       |                    |
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-```
-
-关注信息 - follow_info
-```shell
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type                   | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-| follow_status                            | tinyint                |      |     |         |       |                    |
-| follower_count
-| follower_count_str
-| following_count
-| following_count_str
-| invalid_follow_status
-| push_status
-| remark_name
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-```
-
-j_accredit_info
-```shell
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type                   | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-| JAccreditAdvance
-| JAccreditBasic
-| JAccreditContent
-| JAccreditLive
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-```
-own_room
-```shell
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type                   | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-| room_ids
-| room_ids_display
-| room_ids_str
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-```
-
-支付等级 - pay_grade
-```shell
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type                   | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-| grade_banner
-| grade_describe
-| grade_describe_shining
-| grade_icon_list
-| level
-| name
-| new_im_icon_with_level
-| new_live_icon
-| next_diamond
-| next_name
-| next_privileges
-| now_diamond
-| pay_diamond_bak
-| score
-| screen_chat_type
-| this_grade_max_diamond
-| this_grade_min_diamond
-| total_diamond_count
-| upgrade_need_consume
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-```
-
-订阅 - subscribe
-```shell
-##
-## data.room.owner.subscribe
-##
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type                   | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-| buy_type                                 | unsigned tinyint       |      |     |         |       | 购买类型            |
-| identity_type                            | unsigned tinyint       |      |     |         |       | 身份类型            |
-| is_member                                | bool                   |      |     |         |       | 是否为会员          |
-| level                                    | unsigned smallint      |      |     |         |       | 订阅等级            |
-| open                                     | unsigned tinyint       |      |     |         |       | 是否开放            |
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-```
-
-user_attr
-```shell
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type                   | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-| admin_privileges
-| is_admin
-| is_muted
-| is_super_admin
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-```
-
-user_dress_info
-```shell
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type                   | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-| dress_own_ids
-| dress_wear_ids
-+------------------------------------------+------------------------+------+-----+---------+-------+--------------------+
-```
-
-elements
-```shell
-+------------------------------------------+------------------------------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type                                     | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+------------------------------------------+------+-----+---------+-------+--------------------+
-| '1'                                      | table - short_touch_area_config_elements |      |     |         |       |                    |
-| ...                                      | table - short_touch_area_config_elements |      |     |         |       |                    |
-+------------------------------------------+------------------------------------------+------+-----+---------+-------+--------------------+
-```
-
-临时状态条件图 - temp_state_condition_map
-```shell
-+------------------------------------------+------------------------------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type                                     | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+------------------------------------------+------+-----+---------+-------+--------------------+
-| '1'                                      | table - temp_state_condition             |      |     |         |       |                    |
-| ...                                      | table - temp_state_condition             |      |     |         |       |                    |
-+------------------------------------------+------------------------------------------+------+-----+---------+-------+--------------------+
-```
-
-temp_state_global_condition
-```shell
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                               | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| allow_count
-| duration_gap
-| ignore_strategy_types
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-```
-
-临时状态策略 - temp_state_strategy
-```shell
-+------------------------------------------+------------------------------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type                                     | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+------------------------------------------+------+-----+---------+-------+--------------------+
-| '1'                                      | table - temp_state_condition             |      |     |         |       |                    |
-| ...                                      | table - temp_state_condition             |      |     |         |       |                    |
-+------------------------------------------+------------------------------------------+------+-----+---------+-------+--------------------+
-```
-
-user_count_composition
-```shell
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                               | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| city                           | unsigned tinyint                   |      |     |         |       |                 |
-| my_follow                      | unsigned tinyint                   |      |     |         |       |                 |
-| other                          | unsigned tinyint                   |      |     |         |       |                 |
-| video_detail                   | unsigned tinyint                   |      |     |         |       |                 |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-```
-
-直播流额外信息表 - stream_url_extra
-```shell
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type              | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| anchor_interact_profile                  |                   |      |     |         |       |                    |
-| audience_interact_profile                |                   |      |     |         |       |                    |
-| bframe_enable                            |                   |      |     |         |       |                    |
-| bitrate_adapt_strategy                   |                   |      |     |         |       |                    |
-| bytevc1_enable                           |                   |      |     |         |       |                    |
-| default_bitrate                          |                   |      |     |         |       |                    |
-| fps                                      |                   |      |     |         |       |                    |
-| gop_sec                                  |                   |      |     |         |       |                    |
-| h265_enable                              | bool              |      |     |         |       |                    |
-| hardware_encode                          | bool              |      |     |         |       |                    |
-| height                                   | unsigned smallint |      |     |         |       |                    |
-| max_bitrate                              |                   |      |     |         |       |                    |
-| min_bitrate                              |                   |      |     |         |       |                    |
-| roi                                      | bool              |      |     |         |       |                    |
-| sw_roi                                   | bool              |      |     |         |       |                    |
-| video_profile                            |                   |      |     |         |       |                    |
-| width                                    | unsigned smallint |      |     |         |       |                    |
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-```
-
-flv_pull_url
-```shell
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type              | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| FULL_HD1
-| HD1
-| SD1
-| SD2
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-```
-
-flv_pull_url_params
-```shell
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type              | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| HD1
-| SD1
-| SD2
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-```
-
-hls_pull_url_map
-```shell
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type              | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| FULL_HD1
-| HD1
-| SD1
-| SD2
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-```
-
-live_core_sdk_data
-```shell
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type              | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| pull_data
-| size
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-```
-
-resolution_name
-```shell
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| Field                                    | Type              | Null | Key | Default | Extra | Comment            |
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-| FULL_HD1
-| HD1
-| ORIGIN
-| SD1
-| SD2
-+------------------------------------------+-------------------+------+-----+---------+-------+--------------------+
-```
-===
-
-预定 - reservation
-```shell
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type             | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| anchor_id
-| anchor_open_id
-| appointment_id
-| btn_color
-| btn_rect
-| end_time
-| is_reserved
-| room_id
-| start_time
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-```
-
-粉丝俱乐部数据 - fans_club_data
-
-```shell
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type             | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| anchor_id
-| anchor_open_id
-| available_gift_ids
-| badge
-| badge_type
-| club_name
-| guard_expired_time
-| level
-| user_fans_club_status
-| user_guard_status
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-```
-
-短接触区域配置元素 - short_touch_area_config_elements
-```shell
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                               | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| priority                       | unsigned tinyint                   |      |     |         |       |                 |
-| type                           | unsigned tinyint                   |      |     |         |       |                 |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-```
-
-temp_state_condition
-```shell
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                               | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| minimum_gap                    |                                    |      |     |         |       |                 |
-| type                           | table                              |      |     |         |       |                 |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-```
-
-temp_state_strategy_item
-```shell
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                               | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| short_touch_type               | unsigned tinyint                   |      |     |         |       |                 |
-| strategy_map                   |                                    |      |     |         |       |                 |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-```
-
-pull_data
-```shell
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type             | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| Flv
-| Hls
-| codec
-| compensatory_data
-| hls_data_unencrypted
-| kind
-| options
-| stream_data
-| version
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-```
-
-live_core_sdk_pull_data_options
-```shell
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type             | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| default_quality
-| qualities
-| vpass_default
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-```
-===
-fans_club_badge
-```shell
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type             | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| icons                          |                  |      |     |         |       |                 |
-| title                          |                  |      |     |         |       |                 |
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-```
-
-temp_state_condition_map_type
-```shell
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type             | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| priority                       |                  |      |     |         |       |                 |
-| strategy_type                  |                  |      |     |         |       |                 |
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-```
-
-strategy_map
-```shell
-+--------------------------------+---------------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                      | Null | Key | Default | Extra | Comment         |
-+--------------------------------+---------------------------+------+-----+---------+-------+-----------------+
-| '1'                            | table - strategy_map_item |      |     |         |       |                 |
-| ...                            | table - strategy_map_item |      |     |         |       |                 |
-+--------------------------------+---------------------------+------+-----+---------+-------+-----------------+
-```
-
-strategy_map_item
-```shell
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type             | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| duration                       |                  |      |     |         |       |                 |
-| strategy_method                |
-| strategy_map                   |
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-```
-
-default_quality
-```shell
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type             | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| additional_content             |                  |      |     |         |       |                 |
-| disable                        |
-| fps                            |
-| level
-| name
-| resolution
-| sdk_key
-| v_bit_rate
-| v_codec
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-```
-
-additional_content
-```shell
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type             | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| disable                        |
-| fps                            |
-| level
-| name
-| resolution
-| sdk_key
-| v_bit_rate
-| v_codec
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-```
-
-短接触区域配置 - short_touch_area_config
-```shell
-+--------------------------------+------------------------------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                                     | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------------------------------+------+-----+---------+-------+-----------------+
-| elements                       | table - short_touch_area_config_elements | NULL |     |         |       |                 |
-| forbidden_types_map            | json                                     | NULL |     |         |       |                 |
-| strategy_feat_whitelist        | table - strategy_feat_whitelist          | NULL |     |         |       |                 |
-| temp_state_condition_map       | table - temp_state_condition_map         | NULL |     |         |       |                 |
-| temp_state_global_condition    | table - temp_state_global_condition      | NULL |     |         |       |                 |
-| temp_state_strategy            | table - temp_state_strategy              | NULL |     |         |       |                 |
-+--------------------------------+------------------------------------------+------+-----+---------+-------+-----------------+
-```
-
-直播间用户 ID 记录表 - live_room_user_id
-```shell
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type             | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| room_id                        | varchar(200)     |      |     |         |       |                 |
-| start_time                     | timestamp        |      |     |         |       |                 |
-| owner                          | bool             |      |     |         |       |                 |
-| room_admin                     | bool             |      |     |         |       |                 |
-| fans_group_admin               | bool             |      |     |         |       |                 |
-| user_id                        | varchar(200)     |      |     |         |       |                 |
-| user_open_id                   | varchar(200)     |      |     |         |       |                 |
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-```
-
-直播流质量表 live_stream
-```shell
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type             | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-| quality                        | varchar(10)      |      |     |         |       |                 |
-| url                            | text             |      |     |         |       |                 |
-+--------------------------------+------------------+------+-----+---------+-------+-----------------+
-```
-
-直播间过滤词 - live_room_filter_word
-```shell
-##
-## data.room.fliter_words
-##
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                 | Null | Key | Default | Extra | Comment         |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| filter_word                    | varchar(20)          |      |     |         |       |                 |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-```
-
-分享音乐ID - live_room_sharing_music_id
-```shell
-##
-## data.room.sharing_music_id_list
-##
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                 | Null | Key | Default | Extra | Comment         |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-| sharing_music_id               | varchar(200)         |      |     |         |       | 分享音乐ID       |
-+--------------------------------+----------------------+------+-----+---------+-------+-----------------+
-```
-
-直播间标签 - live_room_tag
-```shell
-##
-## 
-##
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                               | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| tag                            | tinytext                           |      |     |         |       |                 |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-```
-
-策略壮举白名单 - strategy_feat_whitelist
-
-```shell
-##
-## data.room.short_touch_area_config.strategy_feat_whitelist
-##
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                               | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| strategy_feat_whiteitem        | tinytext                           |      |     |         |       |                 |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-```
-
-
-临时状态全局条件 - temp_state_global_condition
-```shell
-##
-## data.room.short_touch_area_config.temp_state_global_condition
-##
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| Field                          | Type                               | Null | Key | Default | Extra | Comment         |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-| allow_count                    | unsigned tinyint                   |      |     |         |       |                 |
-| duration_gap                   | unsigned tinyint                   |      |     |         |       |                 |
-| ignore_strategy_types          | unsigned tinyint                   |      |     |         |       |                 |
-+--------------------------------+------------------------------------+------+-----+---------+-------+-----------------+
-```
-
-### tree 图
+### tree图
 ```shell
 data
 ├── 1. share_url
@@ -2831,47 +1737,47 @@ data
 
 1. 分享链接表 - share_url
 ```shell
-+----------------+--------------+------+-----+---------+-------+------------------------------+-----------------+
-| Field          | Type         | Null | Key | Default | Extra | Topology                     | Comment         |
-+----------------+--------------+------+-----+---------+-------+------------------------------+-----------------+
-| owner_user_id  | varchar(200) | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"  | 账号作者ID       |
-| sec_user_id    | varchar(200) | YES  |     | NULL    |       |                              | 安全用户ID       |
-| nickname       | varchar(50)  | YES  |     | NULL    |       | "$.data.room.owner.nickname" | 昵称             |
-| post_share_url | varchar(100) | YES  |     | NULL    |       |             -                | 主页分享链接     |
-| live_share_url | varchar(100) | YES  |     | NULL    |       |             -                | 直播分享链接     |
-| directory_name | varchar(100) | YES  |     | NULL    |       |             -                | 文件夹名称       |
-| user_status    | varchar(100) | YES  |     | NULL    |       |             -                | 用户状态         |
-| actived_count  | unsinged int | NO   |     | 0       |       |             -                | 访问次数         |
-+----------------+--------------+------+-----+---------+-------+------------------------------+-----------------+
++----------------+--------------+------+-----+---------+-------+------------------------------+--------------+
+| Field          | Type         | Null | Key | Default | Extra | Topology                     | Comment      |
++----------------+--------------+------+-----+---------+-------+------------------------------+--------------+
+| owner_user_id  | varchar(200) | NO   | PRI | NULL    |       | "$.data.room.owner_user_id"  | 账号作者ID    |
+| sec_user_id    | varchar(200) | YES  |     | NULL    |       |                              | 安全用户ID    |
+| nickname       | varchar(50)  | YES  |     | NULL    |       | "$.data.room.owner.nickname" | 昵称          |
+| post_share_url | varchar(100) | YES  |     | NULL    |       |             -                | 主页分享链接  |
+| live_share_url | varchar(100) | YES  |     | NULL    |       |             -                | 直播分享链接  |
+| directory_name | varchar(100) | YES  |     | NULL    |       |             -                | 文件夹名称    |
+| user_status    | varchar(100) | YES  |     | NULL    |       |             -                | 用户状态      |
+| actived_count  | unsinged int | NO   |     | 0       |       |             -                | 访问次数      |
++----------------+--------------+------+-----+---------+-------+------------------------------+--------------+
 ```
 
 2. 喜爱的作者表 - favorite_owner
 ```shell
-+---------------+------------------+------+-----+---------+-------+-----------------------------+-----------------+
-| Field         | Type             | Null | Key | Default | Extra | Topology                    | Comment         |
-+---------------+------------------+------+-----+---------+-------+-----------------------------+-----------------+
-| owner_user_id | varchar(200)     | NO   | PRI | NULL    |       | "$.data.room.owner_user_id" | 账号作者ID       |
-| platform      | varchar(20)      | NO   |     | NULL    |       |             -               | 平台             |
-| score         | unsigned tinyint | NO   |     | 0       |       |             -               |     0-100       |
-+---------------+------------------+------+-----+---------+-------+-----------------------------+-----------------+
++---------------+------------------+------+-----+---------+-------+-----------------------------+------------+
+| Field         | Type             | Null | Key | Default | Extra | Topology                    | Comment    |
++---------------+------------------+------+-----+---------+-------+-----------------------------+------------+
+| owner_user_id | varchar(200)     | NO   | PRI | NULL    |       | "$.data.room.owner_user_id" | 账号作者ID  |
+| platform      | varchar(20)      | NO   |     | NULL    |       |             -               | 平台        |
+| score         | unsigned tinyint | NO   |     | 0       |       |             -               |     0-100  |
++---------------+------------------+------+-----+---------+-------+-----------------------------+------------+
 ```
 
 3. 直播记录表 - live_record
 ```shell
-+-------------+-------------------+------+-----+---------+-------+---------------------------+----------------------+
-| Field       | Type              | Null | Key | Default | Extra | Topology                  | Comment              | 
-+-------------+-------------------+------+-----+---------+-------+---------------------------+----------------------+
-| now         | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"             | 当前时间戳            |
-| platform    | varchar(20)       |      |     | NULL    |       |           -               | 平台                  | 
-| room_id     | varchar(200)      |      |     | NULL    |       | "$.data.room.id"          | 直播间ID              | 
-| user_id     | varchar(200)      |      |     | NULL    |       | "$.data.user.id"          | 当前观众ID            | 
-| start_time  | timestamp         |      |     | NULL    |       | "$.data.room.start_time"  | 开始时间              | 
-| finish_time | timestamp         |      |     | NULL    |       | "$.data.room.finish_time" | 结束时间              | 
-| status_code | unsigned tinyint  |      |     | NULL    |       | "$.status_code"           | 网络请求状态          | 
-+-------------+-------------------+------+-----+---------+-------+---------------------------+----------------------+
++-------------+-------------------+------+-----+---------+-------+---------------------------+--------------+
+| Field       | Type              | Null | Key | Default | Extra | Topology                  | Comment      | 
++-------------+-------------------+------+-----+---------+-------+---------------------------+--------------+
+| now         | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"             | 当前时间戳    |
+| platform    | varchar(20)       |      |     | NULL    |       |           -               | 平台          | 
+| room_id     | varchar(200)      |      |     | NULL    |       | "$.data.room.id"          | 直播间ID      | 
+| user_id     | varchar(200)      |      |     | NULL    |       | "$.data.user.id"          | 当前观众ID    | 
+| start_time  | timestamp         |      |     | NULL    |       | "$.data.room.start_time"  | 开始时间      | 
+| finish_time | timestamp         |      |     | NULL    |       | "$.data.room.finish_time" | 结束时间      | 
+| status_code | unsigned tinyint  |      |     | NULL    |       | "$.status_code"           | 网络请求状态  | 
++-------------+-------------------+------+-----+---------+-------+---------------------------+--------------+
 ```
 
-4. 直播间表(静态信息) - room_attribute
+4. 直播间表 - room
 ```shell
 ##
 ## room
@@ -2879,12 +1785,15 @@ data
 +-------------------------------+-------------------+------+-----+---------+-------+---------------------------------------------------+---------------------------------+
 | Field                         | Type              | Null | Key | Default | Extra |Topology                                           | Comment                         |
 +-------------------------------+-------------------+------+-----+---------+-------+---------------------------------------------------+---------------------------------+
-| AnchorABMap                   | json              |      |     |         |       | "$.data.room.living_room_attrs.rank"              | 主播AB映射                       | 
+| AnchorABMap                   | json              |      |     |         |       | "$.data.room.AnchorABMap"                         | 主播AB映射                       | 
 | acquaintance_status           | unsigned tinyint  |      |     |         |       | "$.data.room.acquaintance_status"                 | 直播间熟人状态                    |
+| admin_user_ids                | table             |      |     |         |       | "$.data.room.admin_user_id"                       | 直播间管理员用户ID表              |
+| admin_user_open_ids           | table             |      |     |         |       | "$.data.room.admin_user_open_id"                  | 直播间管理员用户开放ID表          |
 | anchor_scheduled_time_text    | text              |      |     |         |       | "$.data.room.anchor_scheduled_time_text"          | 直播间布局                       |
 | anchor_share_text             | text              |      |     |         |       | "$.data.room.anchor_share_text"                   | 主播分享文本                     |
 | anchor_tab_type               | unsigned tinyint  |      |     |         |       | "$.data.room.anchor_tab_type"                     | 主播标签类型                     |
 | app_id                        | varchar(200)      |      |     |         |       | "$.data.room.app_id"                              | 应用ID                          |
+| assist_label_list             | table             |      |     |         |       | "$.data.room.assist_label_list"                   | 助手列表                        |
 | auth_city                     | varchar(100)      |      |     |         |       | "$.data.room.auth_city"                           | 直播间认证城市                   |
 | auto_cover                    | unsigned tinyint  |      |     |         |       | "$.data.room.auto_cover"                          | 自动封面                         |
 | base_category                 | unsigned tinyint  |      |     |         |       | "$.data.room.base_category"                       | 基础分类                         |
@@ -2893,19 +1802,29 @@ data
 | business_live                 | unsigned tinyint  |      |     |         |       | "$.data.room.business_live"                       | 商业直播                         |
 | category                      | unsigned tinyint  |      |     |         |       | "$.data.room.category"                            | 分类                            |
 | cell_style                    | unsigned tinyint  |      |     |         |       | "$.data.room.cell_style"                          | 直播间单元样式                   |
+| challenge_info                | tinytext          |      |     |         |       | "$.data.room.challenge_info"                      |                                 |
 | city_top_distance             | tinytext          |      |     |         |       | "$.data.room.city_top_distance"                   | 城市顶部距离                     |
 | client_version                | varchar(20)       |      |     |         |       | "$.data.room.client_version"                      | 客户端版本                       |
-| placeholder                   | tinytext          |      |     |         |       | "$.data.room.comment_box.placeholder"             | 评论框占位符                     |
+| comment_box
+#| placeholder                   | tinytext          |      |     |         |       | "$.data.room.comment_box.placeholder"             | 评论框占位符                     |
 | comment_name_mode             | unsigned tinyint  |      |     |         |       | "$.data.room.comment_name_mode"                   | 评论名称模式                     |
 | common_label_list             | tinytext          |      |     |         |       | "$.data.room.common_label_list"                   | 常用标签列表                     |
+| content_label
 | content_tag                   | tinytext          |      |     |         |       | "$.data.room.content_tag"                         | 内容标签                         |
+| cover
 | create_time                   | timestamp         |      |     |         |       | "$.data.room.create_time"                         | 直播间创建时间                    | 
+| danmaku_detail
+| deco_list
 | distance                      | varchar(100)      |      |     |         |       | "$.data.room.distance"                            | 距离                             |
 | distance_city                 | varchar(100)      |      |     |         |       | "$.data.room.distance_city"                       | 城市距离                         |
 | distance_km                   | varchar(100)      |      |     |         |       | "$.data.room.distance_km"                         | 公里距离                         |
 | dynamic_cover_dict            | json              |      |     |         |       | "$.data.room.dynamic_cover_dict"                  | 动态封面字典                     |
 | dynamic_cover_uri             | text              |      |     |         |       | "$.data.room.dynamic_cover_uri"                   | 动态封面URI                      |
 | enable_room_perspective       | bool              |      |     |         |       | "$.data.room.enable_room_perspective"             | 是否启用直播间透视                |
+| extra
+| fans_group_admin_user_ids
+| fans_group_admin_user_open_ids
+| fansclub_msg_style
 | create_scene                  | tinytext          |      |     |         |       | "$.data.room.extra.create_scene"                  | 创建场景                         |
 | facial_unrecognised           | unsigned tinyint  |      |     |         |       | "$.data.room.extra.facial_unrecognised"           | 面部未识别                       |
 | geo_block                     | unsigned tinyint  |      |     |         |       | "$.data.room.extra.geo_block"                     | 地理封锁                         |
@@ -2994,14 +1913,14 @@ data
 ##
 ## data.room.short_touch_area_config
 ##
-+---------------------+--------------+------+-----+---------+-------+------------------+-----------------------+
-| Field               | Type         | Null | Key | Default | Extra | Topology         | Comment               |
-+---------------------+--------------+------+-----+---------+-------+------------------+-----------------------+
-| now                 | timestamp    | YES  |     |         |       | "$.extra.now"    | 当前时间戳             |
-| platform            | varchar(20)  |      |     | NULL    |       |           -      | 平台                  | 
-| room_id             | varchar(200) |      |     |         |       | "$.data.room.id" | 直播间ID              | 
-| forbidden_types_map | json         | NULL |     |         |       |                  | 禁止类型映射表         |
-+---------------------+--------------+------+-----+---------+-------+------------------+-----------------------+
++---------------------+--------------+------+-----+---------+-------+------------------+---------------+
+| Field               | Type         | Null | Key | Default | Extra | Topology         | Comment       |
++---------------------+--------------+------+-----+---------+-------+------------------+---------------+
+| now                 | timestamp    | YES  |     |         |       | "$.extra.now"    | 当前时间戳     |
+| platform            | varchar(20)  |      |     | NULL    |       |           -      | 平台          | 
+| room_id             | varchar(200) |      |     |         |       | "$.data.room.id" | 直播间ID      | 
+| forbidden_types_map | json         | NULL |     |         |       |                  | 禁止类型映射表 |
++---------------------+--------------+------+-----+---------+-------+------------------+---------------+
 ```
 
 4-16-1. 直播间短接触区域配置元素 - room_short_touch_area_config_element
@@ -3131,7 +2050,7 @@ data
 | now                                 | timestamp         | YES  |     |         |       | "$.extra.now"                                          | 当前时间戳           | 
 | platform                            | varchar(20)       |      |     | NULL    |       |           -                                            | 平台                 | 
 | id                                  | varchar(200)      |      |     |         |       | "$.data.room.id"                                       | 直播间ID             | 
-| rank                                | unsigned smallint |      |     |         |       | "$.data.room.AnchorABMap"                              | 排名/等级            |
+| rank                                | unsigned smallint |      |     |         |       | "$.data.room.living_room_attrs.rank"                   | 排名/等级            |
 | silence_flag                        | unsigned tinyint  |      |     |         |       | "$.data.room.living_room_attrs.silence_flag"           | 直播间静音状态       | 
 | view_stats_display_long             | tinytext          |      |     |         |       | "$.data.room.room_view_stats.display_long"             | 直播间观看人数       | 
 | view_stats_display_long_anchor      | tinytext          |      |     |         |       | "$.data.room.room_view_stats.display_long_anchor"      | 主播观看人数         | 
