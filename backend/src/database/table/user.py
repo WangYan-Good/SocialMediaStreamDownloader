@@ -305,7 +305,10 @@ class RoomOwnerTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -420,7 +423,10 @@ class OwnRoomFlagTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -520,7 +526,10 @@ class OwnRoomIdTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -622,7 +631,10 @@ class OwnRoomIdDisplayTable():
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -747,7 +759,10 @@ class FansClubTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -856,7 +871,10 @@ class FansClubAvailableGiftIdTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -966,7 +984,10 @@ class FansClubBadgeIconTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1075,7 +1096,10 @@ class RoomOwnerUserAttrTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1182,7 +1206,10 @@ class RoomAdminPrivilegeTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1344,7 +1371,10 @@ class RoomOwnerAuthInfoTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1449,7 +1479,10 @@ class RoomOwnerAuthLevelTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1694,7 +1727,10 @@ class UserTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1809,7 +1845,10 @@ class RoomOwnerAuthorStatsTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>

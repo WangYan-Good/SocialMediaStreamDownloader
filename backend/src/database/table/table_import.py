@@ -95,6 +95,8 @@ from backend.src.database.table.user                                  import   R
                                                                                RoomOwnerAuthLevelTable,                             \
                                                                                UserTable,                                           \
                                                                                RoomOwnerAuthorStatsTable
+from backend.src.database.table.room_base                             import   RoomBaseTable
+from backend.src.database.table.room_owner                            import   RoomOwnerV2Table
 
 ##
 ## import a living data to relative tables of social media stream downloader.
@@ -6298,4 +6300,856 @@ def import_douyin_live_info_to_database(db:SocialMediaStreamDataBase, data:dict)
       user_table.insert_record(user_table_tuple, on_duplicate='ignore')
   except Exception as e:
     get_logger().error("insert {} failed: {}".format(user_table.get_name(), e))
+    raise e
+
+  ##
+  ## RoomBaseTable
+  ##
+  room_base_table = RoomBaseTable(db)
+  try:
+    ##
+    ## create the table if not exist
+    ##
+    if db.is_table_exist(room_base_table.get_name()) is False:
+      room_base_table.create()
+    ##
+    ## +----------------------------------+
+    ## | Field                            |
+    ## +----------------------------------+
+    ## | id                               |
+    ## | id_str                           |
+    ## | title                            |
+    ## | introduction                     |
+    ## | share_url                        |
+    ## | user_share_text                  |
+    ## | anchor_share_text                |
+    ## | create_time                      |
+    ## | start_time                      |
+    ## | finish_time                      |
+    ## | stream_close_time                |
+    ## | status                           |
+    ## | finish_reason                    |
+    ## | acquaintance_status              |
+    ## | owner_user_id                    |
+    ## | app_id                           |
+    ## | base_category                    |
+    ## | category                         |
+    ## | client_version                   |
+    ## | orientation                      |
+    ## | layout                           |
+    ## | room_layout                      |
+    ## | room_tag                         |
+    ## | live_room_mode                   |
+    ## | live_platform_source             |
+    ## | cell_style                       |
+    ## | os_type                          |
+    ## | visibility_range                 |
+    ## | webcast_sdk_version              |
+    ## | stream_id                        |
+    ## | stream_id_str                    |
+    ## | live_id                          |
+    ## | stream_provider                  |
+    ## | danmaku_detail                   |
+    ## | web_count                        |
+    ## | webcast_comment_tcs              |
+    ## | gift_msg_style                   |
+    ## | share_msg_style                  |
+    ## | follow_msg_style                 |
+    ## | fansclub_msg_style               |
+    ## | sell_goods                       |
+    ## | has_commerce_goods               |
+    ## | is_replay                        |
+    ## | highlight                        |
+    ## | use_filter                       |
+    ## | title_recommend                  |
+    ## | enable_room_perspective          |
+    ## | with_aggregate_column            |
+    ## | with_draw_something              |
+    ## | with_ktv                         |
+    ## | with_linkmic                     |
+    ## | live_type_normal                 |
+    ## | live_type_audio                  |
+    ## | live_type_linkmic                |
+    ## | live_type_official               |
+    ## | live_type_sandbox                |
+    ## | live_type_screenshot             |
+    ## | live_type_third_party            |
+    ## | live_type_vs_live                |
+    ## | live_type_vs_premiere            |
+    ## | linkmic_layout                   |
+    ## | rival_anchor_id                  |
+    ## | auth_city                        |
+    ## | location                         |
+    ## | distance                         |
+    ## | distance_city                    |
+    ## | distance_km                      |
+    ## | real_distance                    |
+    ## | dynamic_cover_uri                |
+    ## | vertical_cover_uri               |
+    ## | finish_url                       |
+    ## | forum_extra_data                 |
+    ## | item_explicit_info               |
+    ## | hot_sentence_info                |
+    ## | relation_tag                     |
+    ## | stamps                           |
+    ## | room_create_ab_param             |
+    ## | scroll_config                    |
+    ## | mosaic_tip                       |
+    ## | popularity_str                   |
+    ## | preview_copy                     |
+    ## | wait_copy                        |
+    ## | short_title                      |
+    ## | video_feed_tag                   |
+    ## | screen_capture_sharing_title     |
+    ## | common_label_list                |
+    ## | content_tag                      |
+    ## | challenge_info                   |
+    ## | anchor_scheduled_time_text       |
+    ## | anchor_tab_type                  |
+    ## | comment_name_mode                |
+    ## | fcdn_appid                       |
+    ## | game_room_type                   |
+    ## | official_channel_open_id         |
+    ## | official_channel_uid             |
+    ## | search_id                        |
+    ## | group_id                         |
+    ## | group_source                     |
+    ## | sofa_layout                      |
+    ## | ranklist_audience_type           |
+    ## | redpacket_audience_auth          |
+    ## | toutiao_cover_recommend_level    |
+    ## | toutiao_title_recommend_level    |
+    ## | preview_flow_tag                 |
+    ## | replay_location                  |
+    ## | room_audit_status                |
+    ## | mosaic_status                    |
+    ## | lottery_finish_time              |
+    ## | luckymoney_num                   |
+    ## | has_promotion_games              |
+    ## | is_need_check_list               |
+    ## | is_official_channel_room         |
+    ## | is_show_inquiry_ball             |
+    ## | is_show_user_card_switch         |
+    ## | auto_cover                       |
+    ## | business_live                    |
+    ## | book_time                        |
+    ## | book_end_time                    |
+    ## | linkmic_display_type             |
+    ## | vid                              |
+    ## | vs_main_replay_id                |
+    ## | last_ping_time                   |
+    ## | pre_enter_time                   |
+    ## | city_top_distance                |
+    ## | cover_data                       |
+    ## | content_label_data               |
+    ## | feed_room_label_data             |
+    ## | guide_button_data                |
+    ## | comment_box_data                 |
+    ## | link_mic_data                    |
+    ## | living_room_attrs_data           |
+    ## | pack_meta_data                   |
+    ## | paid_live_data                   |
+    ## | view_stats_data                  |
+    ## | extra_data                       |
+    ## | room_auth_data                   |
+    ## | short_touch_config_data          |
+    ## | stream_url_data                  |
+    ## | stream_extra_data                |
+    ## | stats_data                       |
+    ## | admin_user_ids                   |
+    ## | admin_user_open_ids              |
+    ## | fans_group_admin_user_ids        |
+    ## | fans_group_admin_user_open_ids   |
+    ## | filter_words                     |
+    ## | live_distribution                |
+    ## | sharing_music_ids                |
+    ## | tags                             |
+    ## | top_fans                         |
+    ## | ticket_count                     |
+    ## | top_vip_no                       |
+    ## | upper_right_widget_data_list     |
+    ## | vs_roles                         |
+    ## | room_tabs                        |
+    ## | assist_labels                    |
+    ## | anchor_ab_map                    |
+    ## | linker_map                       |
+    ## | dynamic_cover_dict               |
+    ## | created_at                       |
+    ## | updated_at                       |
+    ## +----------------------------------+
+    ##
+    room_base_table_tuple = {key:None for key in room_base_table.get_tuple()}
+
+    id                               = get_dict_attr(data, "$.data.room.id")
+    id_str                           = get_dict_attr(data, "$.data.room.id_str")
+    title                            = get_dict_attr(data, "$.data.room.title")
+    introduction                     = get_dict_attr(data, "$.data.room.introduction")
+    share_url                        = get_dict_attr(data, "$.data.room.share_url")
+    user_share_text                  = get_dict_attr(data, "$.data.room.user_share_text")
+    anchor_share_text                = get_dict_attr(data, "$.data.room.anchor_share_text")
+    create_time                      = get_dict_attr(data, "$.data.room.create_time")
+    start_time_rb                    = get_dict_attr(data, "$.data.room.start_time")
+    finish_time_rb                   = get_dict_attr(data, "$.data.room.finish_time")
+    stream_close_time                = get_dict_attr(data, "$.data.room.stream_close_time")
+    status                           = get_dict_attr(data, "$.data.room.status")
+    finish_reason                    = get_dict_attr(data, "$.data.room.finish_reason")
+    acquaintance_status              = get_dict_attr(data, "$.data.room.acquaintance_status")
+    owner_user_id_rb                 = get_dict_attr(data, "$.data.room.owner_user_id")
+    app_id_rb                        = get_dict_attr(data, "$.data.room.app_id")
+    base_category                    = get_dict_attr(data, "$.data.room.base_category")
+    category_rb                      = get_dict_attr(data, "$.data.room.category")
+    client_version_rb                = get_dict_attr(data, "$.data.room.client_version")
+    orientation                      = get_dict_attr(data, "$.data.room.orientation")
+    layout                           = get_dict_attr(data, "$.data.room.layout")
+    room_layout                      = get_dict_attr(data, "$.data.room.room_layout")
+    room_tag                         = get_dict_attr(data, "$.data.room.room_tag")
+    live_room_mode                   = get_dict_attr(data, "$.data.room.live_room_mode")
+    live_platform_source             = get_dict_attr(data, "$.data.room.live_platform_source")
+    cell_style                       = get_dict_attr(data, "$.data.room.cell_style")
+    os_type                          = get_dict_attr(data, "$.data.room.os_type")
+    visibility_range                 = get_dict_attr(data, "$.data.room.visibility_range")
+    webcast_sdk_version              = get_dict_attr(data, "$.data.room.webcast_sdk_version")
+    stream_id                        = get_dict_attr(data, "$.data.room.stream_id")
+    stream_id_str                    = get_dict_attr(data, "$.data.room.stream_id_str")
+    live_id_rb                       = get_dict_attr(data, "$.data.room.live_id")
+    stream_provider                  = get_dict_attr(data, "$.data.room.stream_provider")
+    danmaku_detail                   = get_dict_attr(data, "$.data.room.danmaku_detail")
+    web_count                        = get_dict_attr(data, "$.data.room.web_count")
+    webcast_comment_tcs              = get_dict_attr(data, "$.data.room.webcast_comment_tcs")
+    gift_msg_style_rb                = get_dict_attr(data, "$.data.room.gift_msg_style")
+    share_msg_style_rb               = get_dict_attr(data, "$.data.room.share_msg_style")
+    follow_msg_style_rb              = get_dict_attr(data, "$.data.room.follow_msg_style")
+    fansclub_msg_style_rb            = get_dict_attr(data, "$.data.room.fansclub_msg_style")
+    sell_goods_rb                    = get_dict_attr(data, "$.data.room.sell_goods")
+    has_commerce_goods_rb            = get_dict_attr(data, "$.data.room.has_commerce_goods")
+    is_replay_rb                     = get_dict_attr(data, "$.data.room.is_replay")
+    highlight_rb                     = get_dict_attr(data, "$.data.room.highlight")
+    use_filter_rb                    = get_dict_attr(data, "$.data.room.use_filter")
+    title_recommend                  = get_dict_attr(data, "$.data.room.title_recommend")
+    enable_room_perspective_rb       = get_dict_attr(data, "$.data.room.enable_room_perspective")
+    with_aggregate_column            = get_dict_attr(data, "$.data.room.with_aggregate_column")
+    with_draw_something              = get_dict_attr(data, "$.data.room.with_draw_something")
+    with_ktv                         = get_dict_attr(data, "$.data.room.with_ktv")
+    with_linkmic                     = get_dict_attr(data, "$.data.room.with_linkmic")
+    live_type_normal_rb              = get_dict_attr(data, "$.data.room.live_type_normal")
+    live_type_audio_rb               = get_dict_attr(data, "$.data.room.live_type_audio")
+    live_type_linkmic_rb             = get_dict_attr(data, "$.data.room.live_type_linkmic")
+    live_type_official_rb            = get_dict_attr(data, "$.data.room.live_type_official")
+    live_type_sandbox_rb             = get_dict_attr(data, "$.data.room.live_type_sandbox")
+    live_type_screenshot_rb          = get_dict_attr(data, "$.data.room.live_type_screenshot")
+    live_type_third_party_rb         = get_dict_attr(data, "$.data.room.live_type_third_party")
+    live_type_vs_live_rb             = get_dict_attr(data, "$.data.room.live_type_vs_live")
+    live_type_vs_premiere_rb         = get_dict_attr(data, "$.data.room.live_type_vs_premiere")
+    linkmic_layout_rb                = get_dict_attr(data, "$.data.room.linkmic_layout")
+    rival_anchor_id                  = get_dict_attr(data, "$.data.room.rival_anchor_id")
+    auth_city_rb                     = get_dict_attr(data, "$.data.room.auth_city")
+    location_rb                      = get_dict_attr(data, "$.data.room.location")
+    distance_rb                      = get_dict_attr(data, "$.data.room.distance")
+    distance_city_rb                 = get_dict_attr(data, "$.data.room.distance_city")
+    distance_km_rb                   = get_dict_attr(data, "$.data.room.distance_km")
+    real_distance                    = get_dict_attr(data, "$.data.room.real_distance")
+    dynamic_cover_uri_rb             = get_dict_attr(data, "$.data.room.dynamic_cover_uri")
+    vertical_cover_uri_rb            = get_dict_attr(data, "$.data.room.vertical_cover_uri")
+    finish_url_rb                    = get_dict_attr(data, "$.data.room.finish_url")
+    forum_extra_data_rb              = get_dict_attr(data, "$.data.room.forum_extra_data")
+    item_explicit_info_rb            = get_dict_attr(data, "$.data.room.item_explicit_info")
+    hot_sentence_info                = get_dict_attr(data, "$.data.room.hot_sentence_info")
+    relation_tag                     = get_dict_attr(data, "$.data.room.relation_tag")
+    stamps                           = get_dict_attr(data, "$.data.room.stamps")
+    room_create_ab_param             = get_dict_attr(data, "$.data.room.room_create_ab_param")
+    scroll_config_rb                 = get_dict_attr(data, "$.data.room.scroll_config")
+    mosaic_tip                       = get_dict_attr(data, "$.data.room.mosaic_tip")
+    popularity_str                   = get_dict_attr(data, "$.data.room.popularity_str")
+    preview_copy                     = get_dict_attr(data, "$.data.room.preview_copy")
+    wait_copy_rb                     = get_dict_attr(data, "$.data.room.wait_copy")
+    short_title                      = get_dict_attr(data, "$.data.room.short_title")
+    video_feed_tag_rb                = get_dict_attr(data, "$.data.room.video_feed_tag")
+    screen_capture_sharing_title     = get_dict_attr(data, "$.data.room.screen_capture_sharing_title")
+    common_label_list_rb             = get_dict_attr(data, "$.data.room.common_label_list")
+    content_tag_rb                   = get_dict_attr(data, "$.data.room.content_tag")
+    challenge_info                   = get_dict_attr(data, "$.data.room.challenge_info")
+    anchor_scheduled_time_text_rb    = get_dict_attr(data, "$.data.room.anchor_scheduled_time_text")
+    anchor_tab_type_rb               = get_dict_attr(data, "$.data.room.anchor_tab_type")
+    comment_name_mode_rb             = get_dict_attr(data, "$.data.room.comment_name_mode")
+    fcdn_appid_rb                    = get_dict_attr(data, "$.data.room.fcdn_appid")
+    game_room_type_rb                = get_dict_attr(data, "$.data.room.game_room_type")
+    official_channel_open_id_rb      = get_dict_attr(data, "$.data.room.official_channel_open_id")
+    official_channel_uid_rb          = get_dict_attr(data, "$.data.room.official_channel_uid")
+    search_id_rb                     = get_dict_attr(data, "$.data.room.search_id")
+    group_id_rb                      = get_dict_attr(data, "$.data.room.group_id")
+    group_source_rb                  = get_dict_attr(data, "$.data.room.group_source")
+    sofa_layout                      = get_dict_attr(data, "$.data.room.sofa_layout")
+    ranklist_audience_type           = get_dict_attr(data, "$.data.room.ranklist_audience_type")
+    redpacket_audience_auth          = get_dict_attr(data, "$.data.room.redpacket_audience_auth")
+    toutiao_cover_recommend_level_rb = get_dict_attr(data, "$.data.room.toutiao_cover_recommend_level")
+    toutiao_title_recommend_level_rb = get_dict_attr(data, "$.data.room.toutiao_title_recommend_level")
+    preview_flow_tag                 = get_dict_attr(data, "$.data.room.preview_flow_tag")
+    replay_location                  = get_dict_attr(data, "$.data.room.replay_location")
+    room_audit_status                = get_dict_attr(data, "$.data.room.room_audit_status")
+    mosaic_status                    = get_dict_attr(data, "$.data.room.mosaic_status")
+    lottery_finish_time              = get_dict_attr(data, "$.data.room.lottery_finish_time")
+    luckymoney_num                   = get_dict_attr(data, "$.data.room.luckymoney_num")
+    has_promotion_games_rb           = get_dict_attr(data, "$.data.room.has_promotion_games")
+    is_need_check_list_rb            = get_dict_attr(data, "$.data.room.is_need_check_list")
+    is_official_channel_room_rb      = get_dict_attr(data, "$.data.room.is_official_channel_room")
+    is_show_inquiry_ball             = get_dict_attr(data, "$.data.room.is_show_inquiry_ball")
+    is_show_user_card_switch         = get_dict_attr(data, "$.data.room.is_show_user_card_switch")
+    auto_cover_rb                    = get_dict_attr(data, "$.data.room.auto_cover")
+    business_live_rb                 = get_dict_attr(data, "$.data.room.business_live")
+    book_time_rb                     = get_dict_attr(data, "$.data.room.book_time")
+    book_end_time_rb                 = get_dict_attr(data, "$.data.room.book_end_time")
+    linkmic_display_type_rb          = get_dict_attr(data, "$.data.room.linkmic_display_type")
+    vid_rb                           = get_dict_attr(data, "$.data.room.vid")
+    vs_main_replay_id_rb             = get_dict_attr(data, "$.data.room.vs_main_replay_id")
+    last_ping_time                   = get_dict_attr(data, "$.data.room.last_ping_time")
+    pre_enter_time                   = get_dict_attr(data, "$.data.room.pre_enter_time")
+    city_top_distance_rb             = get_dict_attr(data, "$.data.room.city_top_distance")
+
+    ## JSON 扩展字段
+    cover_data                       = get_dict_attr(data, "$.data.room.cover_data")
+    content_label_data               = get_dict_attr(data, "$.data.room.content_label_data")
+    feed_room_label_data             = get_dict_attr(data, "$.data.room.feed_room_label_data")
+    guide_button_data                = get_dict_attr(data, "$.data.room.guide_button_data")
+    comment_box_data                 = get_dict_attr(data, "$.data.room.comment_box_data")
+    link_mic_data                    = get_dict_attr(data, "$.data.room.link_mic_data")
+    living_room_attrs_data           = get_dict_attr(data, "$.data.room.living_room_attrs_data")
+    pack_meta_data                   = get_dict_attr(data, "$.data.room.pack_meta_data")
+    paid_live_data                   = get_dict_attr(data, "$.data.room.paid_live_data")
+    view_stats_data                  = get_dict_attr(data, "$.data.room.view_stats_data")
+    extra_data                       = get_dict_attr(data, "$.data.room.extra_data")
+    room_auth_data                   = get_dict_attr(data, "$.data.room.room_auth_data")
+    short_touch_config_data          = get_dict_attr(data, "$.data.room.short_touch_config_data")
+    stream_url_data                  = get_dict_attr(data, "$.data.room.stream_url_data")
+    stream_extra_data                = get_dict_attr(data, "$.data.room.stream_extra_data")
+    stats_data                       = get_dict_attr(data, "$.data.room.stats_data")
+
+    ## JSON 数组字段
+    admin_user_ids_rb                = get_dict_attr(data, "$.data.room.admin_user_ids")
+    admin_user_open_ids              = get_dict_attr(data, "$.data.room.admin_user_open_ids")
+    fans_group_admin_user_ids        = get_dict_attr(data, "$.data.room.fans_group_admin_user_ids")
+    fans_group_admin_user_open_ids   = get_dict_attr(data, "$.data.room.fans_group_admin_user_open_ids")
+    filter_words_rb                  = get_dict_attr(data, "$.data.room.filter_words")
+    live_distribution_rb             = get_dict_attr(data, "$.data.room.live_distribution")
+    sharing_music_ids                = get_dict_attr(data, "$.data.room.sharing_music_ids")
+    tags_rb                          = get_dict_attr(data, "$.data.room.tags")
+    top_fans_rb                      = get_dict_attr(data, "$.data.room.top_fans")
+    ticket_count                     = get_dict_attr(data, "$.data.room.ticket_count")
+    top_vip_no                       = get_dict_attr(data, "$.data.room.top_vip_no")
+    upper_right_widget_data_list     = get_dict_attr(data, "$.data.room.upper_right_widget_data_list")
+    vs_roles_rb                      = get_dict_attr(data, "$.data.room.vs_roles")
+    room_tabs                        = get_dict_attr(data, "$.data.room.room_tabs")
+    assist_labels                    = get_dict_attr(data, "$.data.room.assist_labels")
+    anchor_ab_map_rb                 = get_dict_attr(data, "$.data.room.anchor_ab_map")
+    linker_map                       = get_dict_attr(data, "$.data.room.linker_map")
+    dynamic_cover_dict_rb            = get_dict_attr(data, "$.data.room.dynamic_cover_dict")
+
+    set_dict_attr(room_base_table_tuple, "$.id",                            str(id) if id is not None else None)
+    set_dict_attr(room_base_table_tuple, "$.id_str",                        str(id_str) if id_str is not None else None)
+    set_dict_attr(room_base_table_tuple, "$.title",                         title)
+    set_dict_attr(room_base_table_tuple, "$.introduction",                  introduction)
+    set_dict_attr(room_base_table_tuple, "$.share_url",                     share_url)
+    set_dict_attr(room_base_table_tuple, "$.user_share_text",               user_share_text)
+    set_dict_attr(room_base_table_tuple, "$.anchor_share_text",             anchor_share_text)
+    set_dict_attr(room_base_table_tuple, "$.create_time",                   create_time if create_time != 0 else None)
+    set_dict_attr(room_base_table_tuple, "$.start_time",                    start_time_rb if start_time_rb != 0 else None)
+    set_dict_attr(room_base_table_tuple, "$.finish_time",                   finish_time_rb if finish_time_rb != 0 else None)
+    set_dict_attr(room_base_table_tuple, "$.stream_close_time",             stream_close_time if stream_close_time != 0 else None)
+    set_dict_attr(room_base_table_tuple, "$.status",                        status)
+    set_dict_attr(room_base_table_tuple, "$.finish_reason",                 finish_reason)
+    set_dict_attr(room_base_table_tuple, "$.acquaintance_status",           acquaintance_status)
+    set_dict_attr(room_base_table_tuple, "$.owner_user_id",                 str(owner_user_id_rb) if owner_user_id_rb is not None else None)
+    set_dict_attr(room_base_table_tuple, "$.app_id",                        str(app_id_rb) if app_id_rb is not None else None)
+    set_dict_attr(room_base_table_tuple, "$.base_category",                 base_category)
+    set_dict_attr(room_base_table_tuple, "$.category",                      category_rb)
+    set_dict_attr(room_base_table_tuple, "$.client_version",                str(client_version_rb) if client_version_rb is not None else None)
+    set_dict_attr(room_base_table_tuple, "$.orientation",                   orientation)
+    set_dict_attr(room_base_table_tuple, "$.layout",                        layout)
+    set_dict_attr(room_base_table_tuple, "$.room_layout",                   room_layout)
+    set_dict_attr(room_base_table_tuple, "$.room_tag",                      room_tag)
+    set_dict_attr(room_base_table_tuple, "$.live_room_mode",                live_room_mode)
+    set_dict_attr(room_base_table_tuple, "$.live_platform_source",          live_platform_source)
+    set_dict_attr(room_base_table_tuple, "$.cell_style",                    cell_style)
+    set_dict_attr(room_base_table_tuple, "$.os_type",                       os_type)
+    set_dict_attr(room_base_table_tuple, "$.visibility_range",              visibility_range)
+    set_dict_attr(room_base_table_tuple, "$.webcast_sdk_version",           str(webcast_sdk_version) if webcast_sdk_version is not None else None)
+    set_dict_attr(room_base_table_tuple, "$.stream_id",                     str(stream_id) if stream_id is not None else None)
+    set_dict_attr(room_base_table_tuple, "$.stream_id_str",                 str(stream_id_str) if stream_id_str is not None else None)
+    set_dict_attr(room_base_table_tuple, "$.live_id",                       str(live_id_rb) if live_id_rb is not None else None)
+    set_dict_attr(room_base_table_tuple, "$.stream_provider",               stream_provider)
+    set_dict_attr(room_base_table_tuple, "$.danmaku_detail",                danmaku_detail)
+    set_dict_attr(room_base_table_tuple, "$.web_count",                     web_count)
+    set_dict_attr(room_base_table_tuple, "$.webcast_comment_tcs",           webcast_comment_tcs)
+    set_dict_attr(room_base_table_tuple, "$.gift_msg_style",                gift_msg_style_rb)
+    set_dict_attr(room_base_table_tuple, "$.share_msg_style",               share_msg_style_rb)
+    set_dict_attr(room_base_table_tuple, "$.follow_msg_style",              follow_msg_style_rb)
+    set_dict_attr(room_base_table_tuple, "$.fansclub_msg_style",            fansclub_msg_style_rb)
+    set_dict_attr(room_base_table_tuple, "$.sell_goods",                    sell_goods_rb)
+    set_dict_attr(room_base_table_tuple, "$.has_commerce_goods",            has_commerce_goods_rb)
+    set_dict_attr(room_base_table_tuple, "$.is_replay",                     is_replay_rb)
+    set_dict_attr(room_base_table_tuple, "$.highlight",                     highlight_rb)
+    set_dict_attr(room_base_table_tuple, "$.use_filter",                    use_filter_rb)
+    set_dict_attr(room_base_table_tuple, "$.title_recommend",               title_recommend)
+    set_dict_attr(room_base_table_tuple, "$.enable_room_perspective",       enable_room_perspective_rb)
+    set_dict_attr(room_base_table_tuple, "$.with_aggregate_column",         with_aggregate_column)
+    set_dict_attr(room_base_table_tuple, "$.with_draw_something",           with_draw_something)
+    set_dict_attr(room_base_table_tuple, "$.with_ktv",                      with_ktv)
+    set_dict_attr(room_base_table_tuple, "$.with_linkmic",                  with_linkmic)
+    set_dict_attr(room_base_table_tuple, "$.live_type_normal",              live_type_normal_rb)
+    set_dict_attr(room_base_table_tuple, "$.live_type_audio",               live_type_audio_rb)
+    set_dict_attr(room_base_table_tuple, "$.live_type_linkmic",             live_type_linkmic_rb)
+    set_dict_attr(room_base_table_tuple, "$.live_type_official",            live_type_official_rb)
+    set_dict_attr(room_base_table_tuple, "$.live_type_sandbox",             live_type_sandbox_rb)
+    set_dict_attr(room_base_table_tuple, "$.live_type_screenshot",          live_type_screenshot_rb)
+    set_dict_attr(room_base_table_tuple, "$.live_type_third_party",         live_type_third_party_rb)
+    set_dict_attr(room_base_table_tuple, "$.live_type_vs_live",             live_type_vs_live_rb)
+    set_dict_attr(room_base_table_tuple, "$.live_type_vs_premiere",         live_type_vs_premiere_rb)
+    set_dict_attr(room_base_table_tuple, "$.linkmic_layout",                linkmic_layout_rb)
+    set_dict_attr(room_base_table_tuple, "$.rival_anchor_id",               str(rival_anchor_id) if rival_anchor_id is not None else None)
+    set_dict_attr(room_base_table_tuple, "$.auth_city",                     auth_city_rb)
+    set_dict_attr(room_base_table_tuple, "$.location",                      location_rb)
+    set_dict_attr(room_base_table_tuple, "$.distance",                      distance_rb)
+    set_dict_attr(room_base_table_tuple, "$.distance_city",                 distance_city_rb)
+    set_dict_attr(room_base_table_tuple, "$.distance_km",                   distance_km_rb)
+    set_dict_attr(room_base_table_tuple, "$.real_distance",                 real_distance)
+    set_dict_attr(room_base_table_tuple, "$.dynamic_cover_uri",             dynamic_cover_uri_rb)
+    set_dict_attr(room_base_table_tuple, "$.vertical_cover_uri",            vertical_cover_uri_rb)
+    set_dict_attr(room_base_table_tuple, "$.finish_url",                    finish_url_rb)
+    set_dict_attr(room_base_table_tuple, "$.forum_extra_data",              forum_extra_data_rb)
+    set_dict_attr(room_base_table_tuple, "$.item_explicit_info",            item_explicit_info_rb)
+    set_dict_attr(room_base_table_tuple, "$.hot_sentence_info",             hot_sentence_info)
+    set_dict_attr(room_base_table_tuple, "$.relation_tag",                  relation_tag)
+    set_dict_attr(room_base_table_tuple, "$.stamps",                        stamps)
+    set_dict_attr(room_base_table_tuple, "$.room_create_ab_param",          room_create_ab_param)
+    set_dict_attr(room_base_table_tuple, "$.scroll_config",                 scroll_config_rb)
+    set_dict_attr(room_base_table_tuple, "$.mosaic_tip",                    mosaic_tip)
+    set_dict_attr(room_base_table_tuple, "$.popularity_str",                popularity_str)
+    set_dict_attr(room_base_table_tuple, "$.preview_copy",                  preview_copy)
+    set_dict_attr(room_base_table_tuple, "$.wait_copy",                     wait_copy_rb)
+    set_dict_attr(room_base_table_tuple, "$.short_title",                   short_title)
+    set_dict_attr(room_base_table_tuple, "$.video_feed_tag",                video_feed_tag_rb)
+    set_dict_attr(room_base_table_tuple, "$.screen_capture_sharing_title",  screen_capture_sharing_title)
+    set_dict_attr(room_base_table_tuple, "$.common_label_list",             common_label_list_rb)
+    set_dict_attr(room_base_table_tuple, "$.content_tag",                   content_tag_rb)
+    set_dict_attr(room_base_table_tuple, "$.challenge_info",                challenge_info)
+    set_dict_attr(room_base_table_tuple, "$.anchor_scheduled_time_text",    anchor_scheduled_time_text_rb)
+    set_dict_attr(room_base_table_tuple, "$.anchor_tab_type",               anchor_tab_type_rb)
+    set_dict_attr(room_base_table_tuple, "$.comment_name_mode",             comment_name_mode_rb)
+    set_dict_attr(room_base_table_tuple, "$.fcdn_appid",                    str(fcdn_appid_rb) if fcdn_appid_rb is not None else None)
+    set_dict_attr(room_base_table_tuple, "$.game_room_type",                game_room_type_rb)
+    set_dict_attr(room_base_table_tuple, "$.official_channel_open_id",      official_channel_open_id_rb)
+    set_dict_attr(room_base_table_tuple, "$.official_channel_uid",          str(official_channel_uid_rb) if official_channel_uid_rb is not None else None)
+    set_dict_attr(room_base_table_tuple, "$.search_id",                     str(search_id_rb) if search_id_rb is not None else None)
+    set_dict_attr(room_base_table_tuple, "$.group_id",                      str(group_id_rb) if group_id_rb is not None else None)
+    set_dict_attr(room_base_table_tuple, "$.group_source",                  group_source_rb)
+    set_dict_attr(room_base_table_tuple, "$.sofa_layout",                   sofa_layout)
+    set_dict_attr(room_base_table_tuple, "$.ranklist_audience_type",        ranklist_audience_type)
+    set_dict_attr(room_base_table_tuple, "$.redpacket_audience_auth",       redpacket_audience_auth)
+    set_dict_attr(room_base_table_tuple, "$.toutiao_cover_recommend_level", toutiao_cover_recommend_level_rb)
+    set_dict_attr(room_base_table_tuple, "$.toutiao_title_recommend_level", toutiao_title_recommend_level_rb)
+    set_dict_attr(room_base_table_tuple, "$.preview_flow_tag",              preview_flow_tag)
+    set_dict_attr(room_base_table_tuple, "$.replay_location",               replay_location)
+    set_dict_attr(room_base_table_tuple, "$.room_audit_status",             room_audit_status)
+    set_dict_attr(room_base_table_tuple, "$.mosaic_status",                 mosaic_status)
+    set_dict_attr(room_base_table_tuple, "$.lottery_finish_time",           lottery_finish_time)
+    set_dict_attr(room_base_table_tuple, "$.luckymoney_num",                luckymoney_num)
+    set_dict_attr(room_base_table_tuple, "$.has_promotion_games",           has_promotion_games_rb)
+    set_dict_attr(room_base_table_tuple, "$.is_need_check_list",            is_need_check_list_rb)
+    set_dict_attr(room_base_table_tuple, "$.is_official_channel_room",      is_official_channel_room_rb)
+    set_dict_attr(room_base_table_tuple, "$.is_show_inquiry_ball",          is_show_inquiry_ball)
+    set_dict_attr(room_base_table_tuple, "$.is_show_user_card_switch",      is_show_user_card_switch)
+    set_dict_attr(room_base_table_tuple, "$.auto_cover",                    auto_cover_rb)
+    set_dict_attr(room_base_table_tuple, "$.business_live",                 business_live_rb)
+    set_dict_attr(room_base_table_tuple, "$.book_time",                     book_time_rb if book_time_rb != 0 else None)
+    set_dict_attr(room_base_table_tuple, "$.book_end_time",                 book_end_time_rb if book_end_time_rb != 0 else None)
+    set_dict_attr(room_base_table_tuple, "$.linkmic_display_type",          linkmic_display_type_rb)
+    set_dict_attr(room_base_table_tuple, "$.vid",                           vid_rb)
+    set_dict_attr(room_base_table_tuple, "$.vs_main_replay_id",             str(vs_main_replay_id_rb) if vs_main_replay_id_rb is not None else None)
+    set_dict_attr(room_base_table_tuple, "$.last_ping_time",                last_ping_time)
+    set_dict_attr(room_base_table_tuple, "$.pre_enter_time",                pre_enter_time)
+    set_dict_attr(room_base_table_tuple, "$.city_top_distance",             city_top_distance_rb)
+
+    ## JSON 扩展字段
+    set_dict_attr(room_base_table_tuple, "$.cover_data",                    json.dumps(cover_data) if cover_data else None)
+    set_dict_attr(room_base_table_tuple, "$.content_label_data",            json.dumps(content_label_data) if content_label_data else None)
+    set_dict_attr(room_base_table_tuple, "$.feed_room_label_data",          json.dumps(feed_room_label_data) if feed_room_label_data else None)
+    set_dict_attr(room_base_table_tuple, "$.guide_button_data",             json.dumps(guide_button_data) if guide_button_data else None)
+    set_dict_attr(room_base_table_tuple, "$.comment_box_data",              json.dumps(comment_box_data) if comment_box_data else None)
+    set_dict_attr(room_base_table_tuple, "$.link_mic_data",                 json.dumps(link_mic_data) if link_mic_data else None)
+    set_dict_attr(room_base_table_tuple, "$.living_room_attrs_data",        json.dumps(living_room_attrs_data) if living_room_attrs_data else None)
+    set_dict_attr(room_base_table_tuple, "$.pack_meta_data",                json.dumps(pack_meta_data) if pack_meta_data else None)
+    set_dict_attr(room_base_table_tuple, "$.paid_live_data",                json.dumps(paid_live_data) if paid_live_data else None)
+    set_dict_attr(room_base_table_tuple, "$.view_stats_data",               json.dumps(view_stats_data) if view_stats_data else None)
+    set_dict_attr(room_base_table_tuple, "$.extra_data",                    json.dumps(extra_data) if extra_data else None)
+    set_dict_attr(room_base_table_tuple, "$.room_auth_data",                json.dumps(room_auth_data) if room_auth_data else None)
+    set_dict_attr(room_base_table_tuple, "$.short_touch_config_data",       json.dumps(short_touch_config_data) if short_touch_config_data else None)
+    set_dict_attr(room_base_table_tuple, "$.stream_url_data",               json.dumps(stream_url_data) if stream_url_data else None)
+    set_dict_attr(room_base_table_tuple, "$.stream_extra_data",             json.dumps(stream_extra_data) if stream_extra_data else None)
+    set_dict_attr(room_base_table_tuple, "$.stats_data",                    json.dumps(stats_data) if stats_data else None)
+
+    ## JSON 数组字段
+    set_dict_attr(room_base_table_tuple, "$.admin_user_ids",                json.dumps(admin_user_ids_rb) if admin_user_ids_rb else None)
+    set_dict_attr(room_base_table_tuple, "$.admin_user_open_ids",           json.dumps(admin_user_open_ids) if admin_user_open_ids else None)
+    set_dict_attr(room_base_table_tuple, "$.fans_group_admin_user_ids",     json.dumps(fans_group_admin_user_ids) if fans_group_admin_user_ids else None)
+    set_dict_attr(room_base_table_tuple, "$.fans_group_admin_user_open_ids",json.dumps(fans_group_admin_user_open_ids) if fans_group_admin_user_open_ids else None)
+    set_dict_attr(room_base_table_tuple, "$.filter_words",                  json.dumps(filter_words_rb) if filter_words_rb else None)
+    set_dict_attr(room_base_table_tuple, "$.live_distribution",             json.dumps(live_distribution_rb) if live_distribution_rb else None)
+    set_dict_attr(room_base_table_tuple, "$.sharing_music_ids",             json.dumps(sharing_music_ids) if sharing_music_ids else None)
+    set_dict_attr(room_base_table_tuple, "$.tags",                          json.dumps(tags_rb) if tags_rb else None)
+    set_dict_attr(room_base_table_tuple, "$.top_fans",                      json.dumps(top_fans_rb) if top_fans_rb else None)
+    set_dict_attr(room_base_table_tuple, "$.ticket_count",                  ticket_count)
+    set_dict_attr(room_base_table_tuple, "$.top_vip_no",                    top_vip_no)
+    set_dict_attr(room_base_table_tuple, "$.upper_right_widget_data_list",  json.dumps(upper_right_widget_data_list) if upper_right_widget_data_list else None)
+    set_dict_attr(room_base_table_tuple, "$.vs_roles",                      json.dumps(vs_roles_rb) if vs_roles_rb else None)
+    set_dict_attr(room_base_table_tuple, "$.room_tabs",                     json.dumps(room_tabs) if room_tabs else None)
+    set_dict_attr(room_base_table_tuple, "$.assist_labels",                 json.dumps(assist_labels) if assist_labels else None)
+    set_dict_attr(room_base_table_tuple, "$.anchor_ab_map",                 json.dumps(anchor_ab_map_rb) if anchor_ab_map_rb else None)
+    set_dict_attr(room_base_table_tuple, "$.linker_map",                    json.dumps(linker_map) if linker_map else None)
+    set_dict_attr(room_base_table_tuple, "$.dynamic_cover_dict",            json.dumps(dynamic_cover_dict_rb) if dynamic_cover_dict_rb else None)
+
+    room_base_table.insert_record(room_base_table_tuple, on_duplicate='ignore')
+  except Exception as e:
+    get_logger().error("insert {} failed: {}".format(room_base_table.get_name(), e))
+    raise e
+
+  ##
+  ## RoomOwnerV2Table
+  ##
+  room_owner_v2_table = RoomOwnerV2Table(db)
+  try:
+    ##
+    ## create the table if not exist
+    ##
+    if db.is_table_exist(room_owner_v2_table.get_name()) is False:
+      room_owner_v2_table.create()
+    ##
+    ## +----------------------------------+
+    ## | Field                            |
+    ## +----------------------------------+
+    ## | room_id                          |
+    ## | user_id                          |
+    ## | owner_open_id                    |
+    ## | owner_device_id                  |
+    ## | sec_uid                          |
+    ## | user_open_id                     |
+    ## | short_id                         |
+    ## | display_id                       |
+    ## | nickname                         |
+    ## | signature                        |
+    ## | share_qrcode_uri                 |
+    ## | special_id                       |
+    ## | status                           |
+    ## | bg_img_url                       |
+    ## | gender                           |
+    ## | city                             |
+    ## | constellation                    |
+    ## | age_range                        |
+    ## | birthday                         |
+    ## | birthday_description             |
+    ## | birthday_valid                   |
+    ## | location_city                    |
+    ## | foreign_user                     |
+    ## | mystery_man                      |
+    ## | level                            |
+    ## | exp                              |
+    ## | experience                       |
+    ## | fan_ticket_count                 |
+    ## | consume_diamond_level            |
+    ## | income_share_percent             |
+    ## | link_mic_stats                   |
+    ## | media_badge_image_list           |
+    ## | modify_time                      |
+    ## | pay_score                        |
+    ## | pay_scores                       |
+    ## | need_profile_guide               |
+    ## | new_real_time_icons              |
+    ## | real_time_icons                  |
+    ## | follow_status                    |
+    ## | is_follower                      |
+    ## | is_following                     |
+    ## | follow_info                      |
+    ## | is_anonymous                     |
+    ## | hotsoon_verified                 |
+    ## | hotsoon_verified_reason          |
+    ## | ichat_restrict_type              |
+    ## | disable_ichat                    |
+    ## | enable_ichat_img                 |
+    ## | fold_stranger_chat               |
+    ## | desensitized_nickname            |
+    ## | verified                         |
+    ## | verified_reason                  |
+    ## | verified_content                 |
+    ## | verified_mobile                  |
+    ## | enterprise_verify_reason         |
+    ## | custom_verify                    |
+    ## | block_status                     |
+    ## | comment_restrict                 |
+    ## | public_area_oper_freq            |
+    ## | secret                           |
+    ## | user_role                        |
+    ## | webcast_private                  |
+    ## | can_view_webcast_private         |
+    ## | user_canceled                    |
+    ## | telephone                        |
+    ## | with_commerce_permission         |
+    ## | with_fusion_shop_entry           |
+    ## | with_car_management_permission   |
+    ## | adversary_authorization_info     |
+    ## | adversary_user_status            |
+    ## | authorization_info               |
+    ## | allow_be_located                 |
+    ## | allow_find_by_contacts           |
+    ## | allow_others_download_video      |
+    ## | allow_others_download_when_sharing_video |
+    ## | allow_share_show_profile         |
+    ## | allow_show_in_gossip             |
+    ## | allow_show_my_action             |
+    ## | allow_strange_comment            |
+    ## | allow_unfollower_comment         |
+    ## | allow_use_linkmic                |
+    ## | remark_name                      |
+    ## | avatar_large                     |
+    ## | avatar_medium                    |
+    ## | avatar_thumb                     |
+    ## | badge_image_list                 |
+    ## | badge_image_list_v2              |
+    ## | commerce_webcast_config_ids      |
+    ## | authentication_info              |
+    ## | border_data                      |
+    ## | pay_grade_data                   |
+    ## | fans_club_data                   |
+    ## | fans_group_info                  |
+    ## | subscribe_data                   |
+    ## | user_attr_data                   |
+    ## | user_dress_info_data             |
+    ## | biz_relation_data                |
+    ## | j_accredit_info_data             |
+    ## | own_room_data                    |
+    ## | total_recharge_diamond_count     |
+    ## | watch_duration_month             |
+    ## | web_rid                          |
+    ## | webcast_nick                     |
+    ## | webcast_uid                      |
+    ## | created_at                       |
+    ## | updated_at                       |
+    ## +----------------------------------+
+    ##
+    room_owner_v2_table_tuple = {key:None for key in room_owner_v2_table.get_tuple()}
+
+    room_id_ro                       = get_dict_attr(data, "$.data.room.id")
+    user_id_ro                       = get_dict_attr(data, "$.data.room.owner_user_id")
+    owner_open_id_ro                 = get_dict_attr(data, "$.data.room.owner_open_id")
+    owner_device_id_ro               = get_dict_attr(data, "$.data.room.owner_device_id")
+    sec_uid                          = get_dict_attr(data, "$.data.room.sec_uid")
+    user_open_id_ro                  = get_dict_attr(data, "$.data.room.user_open_id")
+    short_id                         = get_dict_attr(data, "$.data.room.short_id")
+    display_id                       = get_dict_attr(data, "$.data.room.display_id")
+    nickname                         = get_dict_attr(data, "$.data.room.nickname")
+    signature                        = get_dict_attr(data, "$.data.room.signature")
+    share_qrcode_uri                 = get_dict_attr(data, "$.data.room.share_qrcode_uri")
+    special_id                       = get_dict_attr(data, "$.data.room.special_id")
+    status_ro                        = get_dict_attr(data, "$.data.room.status")
+    bg_img_url                       = get_dict_attr(data, "$.data.room.bg_img_url")
+    gender_ro                        = get_dict_attr(data, "$.data.room.gender")
+    city_ro                          = get_dict_attr(data, "$.data.room.city")
+    constellation                    = get_dict_attr(data, "$.data.room.constellation")
+    age_range                        = get_dict_attr(data, "$.data.room.age_range")
+    birthday                         = get_dict_attr(data, "$.data.room.birthday")
+    birthday_description             = get_dict_attr(data, "$.data.room.birthday_description")
+    birthday_valid                   = get_dict_attr(data, "$.data.room.birthday_valid")
+    location_city                    = get_dict_attr(data, "$.data.room.location_city")
+    foreign_user                     = get_dict_attr(data, "$.data.room.foreign_user")
+    mystery_man                      = get_dict_attr(data, "$.data.room.mystery_man")
+    level_ro                         = get_dict_attr(data, "$.data.room.level")
+    exp                              = get_dict_attr(data, "$.data.room.exp")
+    experience                       = get_dict_attr(data, "$.data.room.experience")
+    fan_ticket_count                 = get_dict_attr(data, "$.data.room.fan_ticket_count")
+    consume_diamond_level            = get_dict_attr(data, "$.data.room.consume_diamond_level")
+    income_share_percent             = get_dict_attr(data, "$.data.room.income_share_percent")
+    link_mic_stats                   = get_dict_attr(data, "$.data.room.link_mic_stats")
+    media_badge_image_list_ro        = get_dict_attr(data, "$.data.room.media_badge_image_list")
+    modify_time                      = get_dict_attr(data, "$.data.room.modify_time")
+    pay_score                        = get_dict_attr(data, "$.data.room.pay_score")
+    pay_scores                       = get_dict_attr(data, "$.data.room.pay_scores")
+    need_profile_guide               = get_dict_attr(data, "$.data.room.need_profile_guide")
+    new_real_time_icons_ro           = get_dict_attr(data, "$.data.room.new_real_time_icons")
+    real_time_icons_ro               = get_dict_attr(data, "$.data.room.real_time_icons")
+    follow_status                    = get_dict_attr(data, "$.data.room.follow_status")
+    is_follower                      = get_dict_attr(data, "$.data.room.is_follower")
+    is_following                     = get_dict_attr(data, "$.data.room.is_following")
+    follow_info                      = get_dict_attr(data, "$.data.room.follow_info")
+    is_anonymous                     = get_dict_attr(data, "$.data.room.is_anonymous")
+    hotsoon_verified                 = get_dict_attr(data, "$.data.room.hotsoon_verified")
+    hotsoon_verified_reason          = get_dict_attr(data, "$.data.room.hotsoon_verified_reason")
+    ichat_restrict_type              = get_dict_attr(data, "$.data.room.ichat_restrict_type")
+    disable_ichat                    = get_dict_attr(data, "$.data.room.disable_ichat")
+    enable_ichat_img                 = get_dict_attr(data, "$.data.room.enable_ichat_img")
+    fold_stranger_chat               = get_dict_attr(data, "$.data.room.fold_stranger_chat")
+    desensitized_nickname            = get_dict_attr(data, "$.data.room.desensitized_nickname")
+    verified_ro                      = get_dict_attr(data, "$.data.room.verified")
+    verified_reason                  = get_dict_attr(data, "$.data.room.verified_reason")
+    verified_content                 = get_dict_attr(data, "$.data.room.verified_content")
+    verified_mobile                  = get_dict_attr(data, "$.data.room.verified_mobile")
+    enterprise_verify_reason         = get_dict_attr(data, "$.data.room.enterprise_verify_reason")
+    custom_verify                    = get_dict_attr(data, "$.data.room.custom_verify")
+    block_status                     = get_dict_attr(data, "$.data.room.block_status")
+    comment_restrict                 = get_dict_attr(data, "$.data.room.comment_restrict")
+    public_area_oper_freq            = get_dict_attr(data, "$.data.room.public_area_oper_freq")
+    secret                           = get_dict_attr(data, "$.data.room.secret")
+    user_role                        = get_dict_attr(data, "$.data.room.user_role")
+    webcast_private                  = get_dict_attr(data, "$.data.room.webcast_private")
+    can_view_webcast_private         = get_dict_attr(data, "$.data.room.can_view_webcast_private")
+    user_canceled                    = get_dict_attr(data, "$.data.room.user_canceled")
+    telephone                        = get_dict_attr(data, "$.data.room.telephone")
+    with_commerce_permission         = get_dict_attr(data, "$.data.room.with_commerce_permission")
+    with_fusion_shop_entry           = get_dict_attr(data, "$.data.room.with_fusion_shop_entry")
+    with_car_management_permission   = get_dict_attr(data, "$.data.room.with_car_management_permission")
+    adversary_authorization_info     = get_dict_attr(data, "$.data.room.adversary_authorization_info")
+    adversary_user_status            = get_dict_attr(data, "$.data.room.adversary_user_status")
+    authorization_info               = get_dict_attr(data, "$.data.room.authorization_info")
+    allow_be_located                 = get_dict_attr(data, "$.data.room.allow_be_located")
+    allow_find_by_contacts           = get_dict_attr(data, "$.data.room.allow_find_by_contacts")
+    allow_others_download_video      = get_dict_attr(data, "$.data.room.allow_others_download_video")
+    allow_others_download_when_sharing_video = get_dict_attr(data, "$.data.room.allow_others_download_when_sharing_video")
+    allow_share_show_profile         = get_dict_attr(data, "$.data.room.allow_share_show_profile")
+    allow_show_in_gossip             = get_dict_attr(data, "$.data.room.allow_show_in_gossip")
+    allow_show_my_action             = get_dict_attr(data, "$.data.room.allow_show_my_action")
+    allow_strange_comment            = get_dict_attr(data, "$.data.room.allow_strange_comment")
+    allow_unfollower_comment         = get_dict_attr(data, "$.data.room.allow_unfollower_comment")
+    allow_use_linkmic                = get_dict_attr(data, "$.data.room.allow_use_linkmic")
+    remark_name                      = get_dict_attr(data, "$.data.room.remark_name")
+
+    ## JSON 扩展字段
+    avatar_large                     = get_dict_attr(data, "$.data.room.avatar_large")
+    avatar_medium                    = get_dict_attr(data, "$.data.room.avatar_medium")
+    avatar_thumb                     = get_dict_attr(data, "$.data.room.avatar_thumb")
+    badge_image_list                 = get_dict_attr(data, "$.data.room.badge_image_list")
+    badge_image_list_v2              = get_dict_attr(data, "$.data.room.badge_image_list_v2")
+    commerce_webcast_config_ids      = get_dict_attr(data, "$.data.room.commerce_webcast_config_ids")
+    authentication_info              = get_dict_attr(data, "$.data.room.authentication_info")
+    border_data                      = get_dict_attr(data, "$.data.room.border_data")
+    pay_grade_data                   = get_dict_attr(data, "$.data.room.pay_grade_data")
+    fans_club_data                   = get_dict_attr(data, "$.data.room.fans_club_data")
+    fans_group_info                  = get_dict_attr(data, "$.data.room.fans_group_info")
+    subscribe_data                   = get_dict_attr(data, "$.data.room.subscribe_data")
+    user_attr_data                   = get_dict_attr(data, "$.data.room.user_attr_data")
+    user_dress_info_data             = get_dict_attr(data, "$.data.room.user_dress_info_data")
+    biz_relation_data                = get_dict_attr(data, "$.data.room.biz_relation_data")
+    j_accredit_info_data             = get_dict_attr(data, "$.data.room.j_accredit_info_data")
+    own_room_data                    = get_dict_attr(data, "$.data.room.own_room_data")
+    total_recharge_diamond_count     = get_dict_attr(data, "$.data.room.total_recharge_diamond_count")
+    watch_duration_month             = get_dict_attr(data, "$.data.room.watch_duration_month")
+    web_rid                          = get_dict_attr(data, "$.data.room.web_rid")
+    webcast_nick                     = get_dict_attr(data, "$.data.room.webcast_nick")
+    webcast_uid                      = get_dict_attr(data, "$.data.room.webcast_uid")
+
+    set_dict_attr(room_owner_v2_table_tuple, "$.room_id",                    str(room_id_ro))
+    set_dict_attr(room_owner_v2_table_tuple, "$.user_id",                    str(user_id_ro))
+    set_dict_attr(room_owner_v2_table_tuple, "$.owner_open_id",              owner_open_id_ro)
+    set_dict_attr(room_owner_v2_table_tuple, "$.owner_device_id",            str(owner_device_id_ro))
+    set_dict_attr(room_owner_v2_table_tuple, "$.sec_uid",                    sec_uid)
+    set_dict_attr(room_owner_v2_table_tuple, "$.user_open_id",               user_open_id_ro)
+    set_dict_attr(room_owner_v2_table_tuple, "$.short_id",                   short_id)
+    set_dict_attr(room_owner_v2_table_tuple, "$.display_id",                 display_id)
+    set_dict_attr(room_owner_v2_table_tuple, "$.nickname",                   nickname)
+    set_dict_attr(room_owner_v2_table_tuple, "$.signature",                  signature)
+    set_dict_attr(room_owner_v2_table_tuple, "$.share_qrcode_uri",           share_qrcode_uri)
+    set_dict_attr(room_owner_v2_table_tuple, "$.special_id",                 special_id)
+    set_dict_attr(room_owner_v2_table_tuple, "$.status",                     status_ro)
+    set_dict_attr(room_owner_v2_table_tuple, "$.bg_img_url",                 bg_img_url)
+    set_dict_attr(room_owner_v2_table_tuple, "$.gender",                     gender_ro)
+    set_dict_attr(room_owner_v2_table_tuple, "$.city",                       city_ro)
+    set_dict_attr(room_owner_v2_table_tuple, "$.constellation",              constellation)
+    set_dict_attr(room_owner_v2_table_tuple, "$.age_range",                  age_range)
+    set_dict_attr(room_owner_v2_table_tuple, "$.birthday",                   birthday)
+    set_dict_attr(room_owner_v2_table_tuple, "$.birthday_description",       birthday_description)
+    set_dict_attr(room_owner_v2_table_tuple, "$.birthday_valid",             birthday_valid)
+    set_dict_attr(room_owner_v2_table_tuple, "$.location_city",              location_city)
+    set_dict_attr(room_owner_v2_table_tuple, "$.foreign_user",               foreign_user)
+    set_dict_attr(room_owner_v2_table_tuple, "$.mystery_man",                mystery_man)
+    set_dict_attr(room_owner_v2_table_tuple, "$.level",                      level_ro)
+    set_dict_attr(room_owner_v2_table_tuple, "$.exp",                        exp)
+    set_dict_attr(room_owner_v2_table_tuple, "$.experience",                 experience)
+    set_dict_attr(room_owner_v2_table_tuple, "$.fan_ticket_count",           fan_ticket_count)
+    set_dict_attr(room_owner_v2_table_tuple, "$.consume_diamond_level",      consume_diamond_level)
+    set_dict_attr(room_owner_v2_table_tuple, "$.income_share_percent",       income_share_percent)
+    set_dict_attr(room_owner_v2_table_tuple, "$.link_mic_stats",             link_mic_stats)
+    set_dict_attr(room_owner_v2_table_tuple, "$.media_badge_image_list",     json.dumps(media_badge_image_list_ro) if media_badge_image_list_ro else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.modify_time",                modify_time)
+    set_dict_attr(room_owner_v2_table_tuple, "$.pay_score",                  pay_score)
+    set_dict_attr(room_owner_v2_table_tuple, "$.pay_scores",                 pay_scores)
+    set_dict_attr(room_owner_v2_table_tuple, "$.need_profile_guide",         need_profile_guide)
+    set_dict_attr(room_owner_v2_table_tuple, "$.new_real_time_icons",        json.dumps(new_real_time_icons_ro) if new_real_time_icons_ro else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.real_time_icons",            json.dumps(real_time_icons_ro) if real_time_icons_ro else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.follow_status",              follow_status)
+    set_dict_attr(room_owner_v2_table_tuple, "$.is_follower",                is_follower)
+    set_dict_attr(room_owner_v2_table_tuple, "$.is_following",               is_following)
+    set_dict_attr(room_owner_v2_table_tuple, "$.follow_info",                json.dumps(follow_info) if follow_info else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.is_anonymous",               is_anonymous)
+    set_dict_attr(room_owner_v2_table_tuple, "$.hotsoon_verified",           hotsoon_verified)
+    set_dict_attr(room_owner_v2_table_tuple, "$.hotsoon_verified_reason",    hotsoon_verified_reason)
+    set_dict_attr(room_owner_v2_table_tuple, "$.ichat_restrict_type",        ichat_restrict_type)
+    set_dict_attr(room_owner_v2_table_tuple, "$.disable_ichat",              disable_ichat)
+    set_dict_attr(room_owner_v2_table_tuple, "$.enable_ichat_img",           enable_ichat_img)
+    set_dict_attr(room_owner_v2_table_tuple, "$.fold_stranger_chat",         fold_stranger_chat)
+    set_dict_attr(room_owner_v2_table_tuple, "$.desensitized_nickname",      desensitized_nickname)
+    set_dict_attr(room_owner_v2_table_tuple, "$.verified",                   verified_ro)
+    set_dict_attr(room_owner_v2_table_tuple, "$.verified_reason",            verified_reason)
+    set_dict_attr(room_owner_v2_table_tuple, "$.verified_content",           verified_content)
+    set_dict_attr(room_owner_v2_table_tuple, "$.verified_mobile",            verified_mobile)
+    set_dict_attr(room_owner_v2_table_tuple, "$.enterprise_verify_reason",   enterprise_verify_reason)
+    set_dict_attr(room_owner_v2_table_tuple, "$.custom_verify",              custom_verify)
+    set_dict_attr(room_owner_v2_table_tuple, "$.block_status",               block_status)
+    set_dict_attr(room_owner_v2_table_tuple, "$.comment_restrict",           comment_restrict)
+    set_dict_attr(room_owner_v2_table_tuple, "$.public_area_oper_freq",      public_area_oper_freq)
+    set_dict_attr(room_owner_v2_table_tuple, "$.secret",                     secret)
+    set_dict_attr(room_owner_v2_table_tuple, "$.user_role",                  user_role)
+    set_dict_attr(room_owner_v2_table_tuple, "$.webcast_private",            webcast_private)
+    set_dict_attr(room_owner_v2_table_tuple, "$.can_view_webcast_private",   can_view_webcast_private)
+    set_dict_attr(room_owner_v2_table_tuple, "$.user_canceled",              user_canceled)
+    set_dict_attr(room_owner_v2_table_tuple, "$.telephone",                  telephone)
+    set_dict_attr(room_owner_v2_table_tuple, "$.with_commerce_permission",   with_commerce_permission)
+    set_dict_attr(room_owner_v2_table_tuple, "$.with_fusion_shop_entry",     with_fusion_shop_entry)
+    set_dict_attr(room_owner_v2_table_tuple, "$.with_car_management_permission", with_car_management_permission)
+    set_dict_attr(room_owner_v2_table_tuple, "$.adversary_authorization_info", adversary_authorization_info)
+    set_dict_attr(room_owner_v2_table_tuple, "$.adversary_user_status",      adversary_user_status)
+    set_dict_attr(room_owner_v2_table_tuple, "$.authorization_info",         authorization_info)
+    set_dict_attr(room_owner_v2_table_tuple, "$.allow_be_located",           allow_be_located)
+    set_dict_attr(room_owner_v2_table_tuple, "$.allow_find_by_contacts",     allow_find_by_contacts)
+    set_dict_attr(room_owner_v2_table_tuple, "$.allow_others_download_video", allow_others_download_video)
+    set_dict_attr(room_owner_v2_table_tuple, "$.allow_others_download_when_sharing_video", allow_others_download_when_sharing_video)
+    set_dict_attr(room_owner_v2_table_tuple, "$.allow_share_show_profile",   allow_share_show_profile)
+    set_dict_attr(room_owner_v2_table_tuple, "$.allow_show_in_gossip",       allow_show_in_gossip)
+    set_dict_attr(room_owner_v2_table_tuple, "$.allow_show_my_action",       allow_show_my_action)
+    set_dict_attr(room_owner_v2_table_tuple, "$.allow_strange_comment",      allow_strange_comment)
+    set_dict_attr(room_owner_v2_table_tuple, "$.allow_unfollower_comment",   allow_unfollower_comment)
+    set_dict_attr(room_owner_v2_table_tuple, "$.allow_use_linkmic",          allow_use_linkmic)
+    set_dict_attr(room_owner_v2_table_tuple, "$.remark_name",                remark_name)
+
+    ## JSON 扩展字段
+    set_dict_attr(room_owner_v2_table_tuple, "$.avatar_large",              json.dumps(avatar_large) if avatar_large else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.avatar_medium",             json.dumps(avatar_medium) if avatar_medium else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.avatar_thumb",              json.dumps(avatar_thumb) if avatar_thumb else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.badge_image_list",          json.dumps(badge_image_list) if badge_image_list else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.badge_image_list_v2",       json.dumps(badge_image_list_v2) if badge_image_list_v2 else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.commerce_webcast_config_ids", json.dumps(commerce_webcast_config_ids) if commerce_webcast_config_ids else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.authentication_info",       json.dumps(authentication_info) if authentication_info else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.border_data",               json.dumps(border_data) if border_data else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.pay_grade_data",            json.dumps(pay_grade_data) if pay_grade_data else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.fans_club_data",            json.dumps(fans_club_data) if fans_club_data else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.fans_group_info",           json.dumps(fans_group_info) if fans_group_info else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.subscribe_data",            json.dumps(subscribe_data) if subscribe_data else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.user_attr_data",            json.dumps(user_attr_data) if user_attr_data else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.user_dress_info_data",      json.dumps(user_dress_info_data) if user_dress_info_data else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.biz_relation_data",         json.dumps(biz_relation_data) if biz_relation_data else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.j_accredit_info_data",      json.dumps(j_accredit_info_data) if j_accredit_info_data else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.own_room_data",             json.dumps(own_room_data) if own_room_data else None)
+    set_dict_attr(room_owner_v2_table_tuple, "$.total_recharge_diamond_count", total_recharge_diamond_count)
+    set_dict_attr(room_owner_v2_table_tuple, "$.watch_duration_month",      watch_duration_month)
+    set_dict_attr(room_owner_v2_table_tuple, "$.web_rid",                   web_rid)
+    set_dict_attr(room_owner_v2_table_tuple, "$.webcast_nick",              webcast_nick)
+    set_dict_attr(room_owner_v2_table_tuple, "$.webcast_uid",               webcast_uid)
+
+    room_owner_v2_table.insert_record(room_owner_v2_table_tuple, on_duplicate='ignore')
+  except Exception as e:
+    get_logger().error("insert {} failed: {}".format(room_owner_v2_table.get_name(), e))
     raise e

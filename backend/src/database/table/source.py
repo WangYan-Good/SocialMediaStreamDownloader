@@ -58,7 +58,10 @@ class BadgeImageTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -273,7 +276,10 @@ class RoomOwnerUserDressOwnIdTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -377,7 +383,10 @@ class RoomOwnerDressWearIdTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -479,7 +488,10 @@ class RoomSharingMusicIdTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -594,7 +606,10 @@ class PictureTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -699,7 +714,10 @@ class PictureFlexSettingTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -804,7 +822,10 @@ class PictureTextSettingTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -911,7 +932,10 @@ class PictureUrlTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1022,7 +1046,10 @@ class PictureContentTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1140,7 +1167,10 @@ class RoomDecoTextFootConfigTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
