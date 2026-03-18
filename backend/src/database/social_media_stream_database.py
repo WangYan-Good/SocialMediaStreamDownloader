@@ -81,8 +81,6 @@ class SocialMediaStreamDataBase():
     if self.__db_tables_instance is None or len(self.__db_tables_instance) == 0:
       set_dict_attr(self.__db_tables_instance, "$." + table_name, table_instance)
       get_logger().info("database table {} instance is added!".format(table_name))
-    else:
-      get_logger().warning("database table {} instance is already exists!".format(table_name))
     return
   
   ##

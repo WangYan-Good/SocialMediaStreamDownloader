@@ -50,17 +50,23 @@ class SocialMediaStreamDataTable(ABC):
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
     ##
+    ## prevent re-initialization for singleton pattern
+    ##
+    if hasattr(self, '_initialized') and self._initialized:
+      return
+
+    ##
     ## check if db_instance is provided
     ##
     if db_instance is None:
       get_logger().error("db_instance is None, please provide a valid database instance")
       raise ValueError
-    
+
     ##
     ## initialize the database instance
     ##
     self.__database = db_instance
-    
+
     ##
     ## register the table when room_attribute table is exist but not registered
     ##
@@ -73,6 +79,11 @@ class SocialMediaStreamDataTable(ABC):
         raise e
     else:
       get_logger().info("{} table is already registered or does not exist".format(self.get_name()))
+
+    ##
+    ## mark as initialized
+    ##
+    self._initialized = True
     return
   
   def __init_subclass__(cls, **kwargs):
@@ -143,7 +154,7 @@ class SocialMediaStreamDataTable(ABC):
   ##
   @abstractmethod
   def verify_table_schema(self) -> bool:
-    return False
+    return True
 
 ##
 ## >>============================= sub class method =============================>>
@@ -371,7 +382,6 @@ class SocialMediaStreamDataTable(ABC):
       ## prepare parameters
       ##
       params = tuple(filtered_values)
-      
       get_logger().debug("executing SQL: {}".format(sql))
       get_logger().debug("with parameters: {}".format(params))
       with self.__database.get_db_connector() as connector:
@@ -395,9 +405,7 @@ class SocialMediaStreamDataTable(ABC):
               get_logger().info("inserted record successfully with ID: {}".format(inserted_id))
             else:
               get_logger().info("inserted record successfully")
-            
             return inserted_id or 0
-              
     except Exception as e:
       get_logger().error("failed to insert record into {}: {}".format(self.get_name(), e))
       get_logger().error("record data: {}".format(record))

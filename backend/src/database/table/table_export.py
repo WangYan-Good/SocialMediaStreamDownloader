@@ -1856,7 +1856,6 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
       deco_nine_patch_image_width_list.insert(deco_index, 0)
       nine_patch_image_exist_list[deco_index] = None
 
-    print(f"nine_patch_image_exist_list: {nine_patch_image_exist_list}")
     for deco_index in range(0, len(room_deco_list)):
       if len(nine_patch_image_exist_list) != 0 and nine_patch_image_exist_list[deco_index] is True:
         ##
@@ -1865,8 +1864,6 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
         deco_nine_patch_image_pic_flex_setting = PictureFlexSettingTable(db)
         deco_nine_patch_image_pic_flex_setting_tuple = {key: None for key in deco_nine_patch_image_pic_flex_setting.get_tuple()}
 
-        print(f"len(room_deco_list): {len(room_deco_list)}")
-        print(f"len(deco_nine_patch_image_uri_list): {len(deco_nine_patch_image_uri_list)}")
         set_dict_attr(deco_nine_patch_image_pic_flex_setting_tuple, "$.uri",        deco_nine_patch_image_uri_list[deco_index])
         set_dict_attr(deco_nine_patch_image_pic_flex_setting_tuple, "$.platform",   'douyin')
         set_dict_attr(deco_nine_patch_image_pic_flex_setting_tuple, "$.start_time", start_time)

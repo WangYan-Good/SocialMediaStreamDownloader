@@ -281,7 +281,10 @@ class RoomAttributeTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -385,7 +388,10 @@ class RoomAdminUserIdTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -490,7 +496,10 @@ class RoomAdminUserOpenIdTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -600,7 +609,10 @@ class RoomAssistLabelTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -814,7 +826,10 @@ class RoomDecoTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -920,7 +935,10 @@ class RoomDecoInputRectTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1039,7 +1057,10 @@ class RoomDecoReservationTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1146,7 +1167,10 @@ class RoomDecoReservationBtnRectTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1255,7 +1279,10 @@ class RoomDecoTextSpecialEffectsTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1379,7 +1406,10 @@ class FansGroupAdminUserIdTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1483,7 +1513,10 @@ class FansGroupAdminUserOpenIdTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1629,7 +1662,10 @@ class RoomSubscribeTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
   
 ##
 ## >>============================= abstract method =============================>>
@@ -1747,7 +1783,10 @@ class RoomPackMetaTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1867,7 +1906,10 @@ class RoomPaidLiveDataTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -2303,7 +2345,10 @@ class RoomAuthTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -2408,7 +2453,10 @@ class RoomTabTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -2507,7 +2555,10 @@ class RoomShortTouchAreaConfigTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -2610,7 +2661,10 @@ class RoomShortTouchAreaConfigElementTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -2711,7 +2765,10 @@ class RoomShortTouchAreaConfigStrategyFeatWhitelistTable(SocialMediaStreamDataTa
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -2817,7 +2874,10 @@ class RoomTempStateConditionMapTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -2919,7 +2979,10 @@ class RoomTempStateGlobalConditionIgnoreStrategyTypeTable(SocialMediaStreamDataT
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -3020,7 +3083,10 @@ class RoomTempStateGlobalConditionTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -3121,7 +3187,10 @@ class RoomTempStateStrategyTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -3228,7 +3297,10 @@ class RoomTempStateStrategyMapTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -3488,7 +3560,10 @@ class RoomRecordTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -3589,7 +3664,10 @@ class RoomTagTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -3694,7 +3772,10 @@ class RoomTopFansTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -3799,7 +3880,10 @@ class RoomUpperRightWidgetDataTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -3904,7 +3988,10 @@ class RoomVsRoleTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>

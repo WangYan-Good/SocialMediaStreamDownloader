@@ -33,7 +33,7 @@ class LoggerManager():
   ## default logger attributes
   ##
   __DEFAULT_LOGGER_NAME          = "default"
-  __DEFAULT_LOGGER_LEVEL         = "DEBUG"
+  __DEFAULT_LOGGER_LEVEL         = "WARNING"
   __DEFAULT_LOG_FILE_DIR         = str()
   __DEFAULT_LOGGER_FORMATTER_STR = DEFAULT_LOGGER_FORMATTER_STR
 
@@ -41,10 +41,23 @@ class LoggerManager():
 ## >>============================= private method =============================>>
 ##
   ##
+  ## singleton pattern
+  ##
+  def __new__(cls, *args, **kwargs):
+    if not hasattr(cls, 'instance'):
+      cls.instance = super().__new__(cls)
+    return cls.instance
+
+  ##
   ## init the logger manager
   ##
   def __init__(self) -> None:
-    
+    ##
+    ## prevent re-initialization for singleton pattern
+    ##
+    if hasattr(self, '_initialized') and self._initialized:
+      return
+
     try:
       ##
       ## initialize the log file directory
@@ -55,8 +68,14 @@ class LoggerManager():
       ## initialize the default logger
       ##
       self.__init_default_logger()
+
+      ##
+      ## mark as initialized
+      ##
+      self._initialized = True
     except Exception as e:
       raise e
+    return
 
   ##
   ## initialize the log directory
@@ -212,33 +231,28 @@ class LoggerManager():
 ##
 
 ##
-## singleton pattern for LoggerManager
-##
-logger_manager_instance = LoggerManager()
-
-##
 ## register a logger for module-level logging
 ##
 def register_logger(name:str, level:str) -> Logger:
-  return logger_manager_instance.register_logger(name, level)
+  return LoggerManager().register_logger(name, level)
 
 ##
 ## get logger by name
 ##
 def get_logger(name:str="default") -> Logger:
-  return logger_manager_instance.get_logger(name)
+  return LoggerManager().get_logger(name)
   
 ##
 ## set logger with file handler
 ##
 def set_logger_file_handler(name:str, file_path:str, format:str=None, level:str="DEBUG") -> None:
-  logger_manager_instance.set_logger_file_handler(name, file_path, format, level)
+  LoggerManager().set_logger_file_handler(name, file_path, format, level)
 
 ##
 ## set logger with console handler
 ##
 def set_logger_console_handler(name:str, format:str=None, level:str="DEBUG") -> None:
-  logger_manager_instance.set_logger_console_handler(name, format, level)
+  LoggerManager().set_logger_console_handler(name, format, level)
 
 ##
 ## >>================================ test method ===============================>>

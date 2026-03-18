@@ -44,7 +44,10 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
 ## >>============================= private method =============================>>
 ##
   def __init__(self, host:str, user:str, passwd:str, database:str):
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(host, user, passwd, database)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -617,18 +620,3 @@ def test_increment_actived_count():
     db.increment_live_actived_count(owner_user_id)      
   except Exception as e:
     pass
-
-##
-## >>================================ main method ===============================>>
-##
-if __name__ == "__main__":
-  ##
-  ## test for connect to database
-  ##
-  # test_create_db_table()
-  # test_drop_db_table()
-  # test_insert_record()
-  # test_search_record_from_table()
-  # test_increment_actived_count()
-  # test_create_favorite_owner_table()
-  pass
