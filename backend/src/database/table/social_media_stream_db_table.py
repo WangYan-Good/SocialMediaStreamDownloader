@@ -50,17 +50,23 @@ class SocialMediaStreamDataTable(ABC):
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
     ##
+    ## prevent re-initialization for singleton pattern
+    ##
+    if hasattr(self, '_initialized') and self._initialized:
+      return
+
+    ##
     ## check if db_instance is provided
     ##
     if db_instance is None:
       get_logger().error("db_instance is None, please provide a valid database instance")
       raise ValueError
-    
+
     ##
     ## initialize the database instance
     ##
     self.__database = db_instance
-    
+
     ##
     ## register the table when room_attribute table is exist but not registered
     ##
@@ -73,6 +79,11 @@ class SocialMediaStreamDataTable(ABC):
         raise e
     else:
       get_logger().info("{} table is already registered or does not exist".format(self.get_name()))
+
+    ##
+    ## mark as initialized
+    ##
+    self._initialized = True
     return
   
   def __init_subclass__(cls, **kwargs):

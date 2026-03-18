@@ -65,7 +65,10 @@ class LiveRecordTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(db_instance)
+    self._initialized = True
   
 ##
 ## >>============================= abstract method =============================>>

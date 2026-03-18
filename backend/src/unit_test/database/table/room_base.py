@@ -6,6 +6,7 @@ sys.path.append(os.getcwd())
 
 ## <<Base>>
 from datetime                                                         import datetime as dat
+import json
 
 ## <<Third-Part>>
 from backend.src.database.social_media_stream_database                import SocialMediaStreamDataBase
@@ -111,9 +112,7 @@ def test_insert_room_base_record(db:SocialMediaStreamDataBase = None):
     'os_type': 1,
     'layout': 0,
     'stream_id': 691500607505433258,
-    'like_count': 14873,
-    'user_count': 0,
-    'popularity': 0,
+    'popularity_str': '0',
     'sell_goods': False,
     'has_commerce_goods': True,
     'is_replay': False,
@@ -130,7 +129,7 @@ def test_insert_room_base_record(db:SocialMediaStreamDataBase = None):
     'web_count': 0,
     'danmaku_detail': 0,
     'webcast_comment_tcs': 0,
-    'cover_data': {
+    'cover_data': json.dumps({
       'avg_color': '#F1FFEB',
       'uri': 'webcast-cover/7310930480756017947',
       'url_list': [
@@ -141,8 +140,8 @@ def test_insert_room_base_record(db:SocialMediaStreamDataBase = None):
       'height': 0,
       'image_type': 0,
       'is_animated': False
-    },
-    'extra_data': {
+    }),
+    'extra_data': json.dumps({
       'create_scene': '',
       'ecom_live_shop_v2': 0,
       'ecom_live_start_with_cart': False,
@@ -153,10 +152,10 @@ def test_insert_room_base_record(db:SocialMediaStreamDataBase = None):
       'realtime_replay_enabled': False,
       'vr_type': 0,
       'vs_type': 0
-    },
-    'admin_user_ids': [572164301142046, 98105276094, 1877579610464923],
-    'filter_words': [],
-    'tags': [],
+    }),
+    'admin_user_ids': json.dumps([572164301142046, 98105276094, 1877579610464923]),
+    'filter_words': json.dumps([]),
+    'tags': json.dumps([]),
     'created_at': dat.fromtimestamp(1714227431),
     'updated_at': dat.fromtimestamp(1714232860)
   }
@@ -223,14 +222,13 @@ def test_update_room_base_record(db:SocialMediaStreamDataBase = None):
   ## update a sample room record
   ##
   update_data = {
+    'id': '7362550606306773794',
     'status': 2,
-    'like_count': 15000,
-    'user_count': 100,
     'updated_at': dat.now()
   }
 
   try:
-    room_base.update_record(update_data, {'id': '7362550606306773794'})
+    room_base.update_record(update_data)
     get_logger().info("room_base record updated successfully")
   except Exception as e:
     get_logger().error("failed to update room_base record: {}".format(e))

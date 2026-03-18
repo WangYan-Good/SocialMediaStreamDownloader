@@ -87,27 +87,26 @@ class RoomBaseTable(SocialMediaStreamDataTable):
   __ROOM_BASE_TABLE_TUPLE   = {item:None for item in __ROOM_BASE_TABLE_HEADER}
   __SQL_CREATE_ROOM_BASE_TABLE = '''
                                       CREATE TABLE IF NOT EXISTS {} (
-                                        -- 主键
                                         id                               varchar(200)   NOT NULL,
                                         id_str                           varchar(200)   DEFAULT NULL,
-                                        -- 基础信息
+
                                         title                            tinytext       DEFAULT NULL,
                                         introduction                     text           DEFAULT NULL,
                                         share_url                        text           DEFAULT NULL,
                                         user_share_text                  text           DEFAULT NULL,
                                         anchor_share_text                text           DEFAULT NULL,
-                                        -- 时间字段 (毫秒时间戳)
+
                                         create_time                      bigint         DEFAULT NULL,
                                         start_time                       bigint         DEFAULT NULL,
                                         finish_time                      bigint         DEFAULT NULL,
                                         stream_close_time                bigint         DEFAULT NULL,
-                                        -- 状态字段
+
                                         status                           tinyint        DEFAULT 0,
                                         finish_reason                    tinyint        DEFAULT NULL,
                                         acquaintance_status              tinyint        DEFAULT 0,
-                                        -- 主播相关
+
                                         owner_user_id                    bigint         DEFAULT NULL,
-                                        -- 房间配置
+
                                         app_id                           bigint         DEFAULT NULL,
                                         base_category                    tinyint        DEFAULT 0,
                                         category                         tinyint        DEFAULT 0,
@@ -122,12 +121,12 @@ class RoomBaseTable(SocialMediaStreamDataTable):
                                         os_type                          tinyint        DEFAULT 0,
                                         visibility_range                 tinyint        DEFAULT 0,
                                         webcast_sdk_version              varchar(20)    DEFAULT NULL,
-                                        -- 流相关
+
                                         stream_id                        bigint         DEFAULT NULL,
                                         stream_id_str                    varchar(200)   DEFAULT NULL,
                                         live_id                          bigint         DEFAULT NULL,
                                         stream_provider                  tinyint        DEFAULT 0,
-                                        -- 统计数值
+
                                         danmaku_detail                   int            DEFAULT 0,
                                         web_count                        bigint         DEFAULT 0,
                                         webcast_comment_tcs              int            DEFAULT 0,
@@ -135,7 +134,7 @@ class RoomBaseTable(SocialMediaStreamDataTable):
                                         share_msg_style                  tinyint        DEFAULT 0,
                                         follow_msg_style                 tinyint        DEFAULT 0,
                                         fansclub_msg_style               tinyint        DEFAULT 0,
-                                        -- 布尔标志
+
                                         sell_goods                       bool           DEFAULT FALSE,
                                         has_commerce_goods               bool           DEFAULT FALSE,
                                         is_replay                        bool           DEFAULT FALSE,
@@ -147,7 +146,7 @@ class RoomBaseTable(SocialMediaStreamDataTable):
                                         with_draw_something              bool           DEFAULT FALSE,
                                         with_ktv                         bool           DEFAULT FALSE,
                                         with_linkmic                     bool           DEFAULT FALSE,
-                                        -- 直播类型
+
                                         live_type_normal                 bool           DEFAULT FALSE,
                                         live_type_audio                  bool           DEFAULT FALSE,
                                         live_type_linkmic                bool           DEFAULT FALSE,
@@ -157,10 +156,10 @@ class RoomBaseTable(SocialMediaStreamDataTable):
                                         live_type_third_party            bool           DEFAULT FALSE,
                                         live_type_vs_live                bool           DEFAULT FALSE,
                                         live_type_vs_premiere            bool           DEFAULT FALSE,
-                                        -- 连麦信息
+
                                         linkmic_layout                   tinyint        DEFAULT 0,
                                         rival_anchor_id                  bigint         DEFAULT NULL,
-                                        -- 文本和其他配置字段
+
                                         auth_city                        varchar(100)   DEFAULT NULL,
                                         location                         varchar(100)   DEFAULT NULL,
                                         distance                         varchar(100)   DEFAULT NULL,
@@ -223,7 +222,7 @@ class RoomBaseTable(SocialMediaStreamDataTable):
                                         last_ping_time                   bigint         DEFAULT NULL,
                                         pre_enter_time                   bigint         DEFAULT NULL,
                                         city_top_distance                tinytext       DEFAULT NULL,
-                                        -- JSON 扩展字段
+
                                         cover_data                       JSON           DEFAULT NULL,
                                         content_label_data               JSON           DEFAULT NULL,
                                         feed_room_label_data             JSON           DEFAULT NULL,
@@ -240,7 +239,7 @@ class RoomBaseTable(SocialMediaStreamDataTable):
                                         stream_url_data                  JSON           DEFAULT NULL,
                                         stream_extra_data                JSON           DEFAULT NULL,
                                         stats_data                       JSON           DEFAULT NULL,
-                                        -- JSON 数组字段
+
                                         admin_user_ids                   JSON           DEFAULT NULL,
                                         admin_user_open_ids              JSON           DEFAULT NULL,
                                         fans_group_admin_user_ids        JSON           DEFAULT NULL,
@@ -259,7 +258,7 @@ class RoomBaseTable(SocialMediaStreamDataTable):
                                         anchor_ab_map                    JSON           DEFAULT NULL,
                                         linker_map                       JSON           DEFAULT NULL,
                                         dynamic_cover_dict               JSON           DEFAULT NULL,
-                                        -- 时间戳
+
                                         created_at                       timestamp      DEFAULT CURRENT_TIMESTAMP,
                                         updated_at                       timestamp      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                                         PRIMARY KEY (id),
@@ -269,12 +268,48 @@ class RoomBaseTable(SocialMediaStreamDataTable):
                                         INDEX idx_create_time (create_time),
                                         INDEX idx_owner_status (owner_user_id, status)
                                       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-                                      '''
+                                      '''.format(__ROOM_BASE_TABLE_NAME)
 ##
 ## <<=============================== attribute ==============================<<
 ##
+  ##
+  ## singleton mode
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
 
-  def __init__(self, db:SocalMediaStreamDataBase):
-    super().__init__(db, self.__ROOM_BASE_TABLE_NAME, self.__ROOM_BASE_TABLE_HEADER, self.__ROOM_BASE_TABLE_PRI_KEY, self.__TABLE_AUTO_INCREMENT)
-    self.table_tuple = self.__ROOM_BASE_TABLE_TUPLE
-    self.sql_create_table = self.__SQL_CREATE_ROOM_BASE_TABLE
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
+    super().__init__(db_instance)
+    self._initialized = True
+
+##
+## >>============================= abstract method =============================>>
+##
+  def get_name(self) -> str:
+    return self.__ROOM_BASE_TABLE_NAME
+
+  def get_header(self) -> list:
+    return self.__ROOM_BASE_TABLE_HEADER
+
+  def get_tuple(self) -> dict:
+    return self.__ROOM_BASE_TABLE_TUPLE
+
+  def get_pri_key(self) -> list:
+    return self.__ROOM_BASE_TABLE_PRI_KEY
+
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_BASE_TABLE
+
+  def get_drop_sql_cmd(self) -> str:
+    return 'DROP TABLE IF EXISTS {};'.format(self.__ROOM_BASE_TABLE_NAME)
+
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()

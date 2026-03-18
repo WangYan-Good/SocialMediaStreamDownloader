@@ -9,17 +9,17 @@ from backend.src.database.social_media_stream_database                import Soc
 from backend.src.database.table.social_media_stream_db_table          import SocialMediaStreamDataTable
 
 ##
-## room_owner table - 主播信息表
+## room_owner_v2 table - 主播信息表
 ##
 ## 优化后的核心表，包含主播详细信息和 JSON 扩展字段
 ## 字段数：80 独立字段 + 18 JSON 字段 = 98 字段
 ##
-class RoomOwnerTable(SocialMediaStreamDataTable):
+class RoomOwnerV2Table(SocialMediaStreamDataTable):
 ##
-## >>=============================== room_owner ===============================>>
+## >>=============================== room_owner_v2 ===============================>>
 ##
-  __ROOM_OWNER_TABLE_NAME   = 'room_owner'
-  __ROOM_OWNER_TABLE_HEADER = [
+  __ROOM_OWNER_V2_TABLE_NAME   = 'room_owner_v2'
+  __ROOM_OWNER_V2_TABLE_HEADER = [
     # 主键
     'room_id',
     # 基本信息
@@ -62,14 +62,14 @@ class RoomOwnerTable(SocialMediaStreamDataTable):
     # 时间戳
     'created_at',               'updated_at'
   ]
-  __ROOM_OWNER_TABLE_PRI_KEY = ['room_id']
+  __ROOM_OWNER_V2_TABLE_PRI_KEY = ['room_id']
   __TABLE_AUTO_INCREMENT         = []
-  __ROOM_OWNER_TABLE_TUPLE   = {item:None for item in __ROOM_OWNER_TABLE_HEADER}
-  __SQL_CREATE_ROOM_OWNER_TABLE = '''
+  __ROOM_OWNER_V2_TABLE_TUPLE   = {item:None for item in __ROOM_OWNER_V2_TABLE_HEADER}
+  __SQL_CREATE_ROOM_OWNER_V2_TABLE = '''
                                       CREATE TABLE IF NOT EXISTS {} (
-                                        -- 主键
+
                                         room_id                          varchar(200)   NOT NULL,
-                                        -- 基本信息
+
                                         user_id                          bigint         DEFAULT NULL,
                                         owner_open_id                    varchar(200)   DEFAULT NULL,
                                         owner_device_id                  bigint         DEFAULT NULL,
@@ -83,7 +83,7 @@ class RoomOwnerTable(SocialMediaStreamDataTable):
                                         special_id                       varchar(100)   DEFAULT NULL,
                                         status                           tinyint        DEFAULT 0,
                                         bg_img_url                       text           DEFAULT NULL,
-                                        -- 个人信息
+
                                         gender                           tinyint        DEFAULT 0,
                                         city                             varchar(100)   DEFAULT NULL,
                                         constellation                    varchar(20)    DEFAULT NULL,
@@ -94,7 +94,7 @@ class RoomOwnerTable(SocialMediaStreamDataTable):
                                         location_city                    varchar(100)   DEFAULT NULL,
                                         foreign_user                     tinyint        DEFAULT 0,
                                         mystery_man                      tinyint        DEFAULT 0,
-                                        -- 等级
+
                                         level                            smallint       DEFAULT 0,
                                         exp                              bigint         DEFAULT 0,
                                         experience                       bigint         DEFAULT 0,
@@ -109,12 +109,12 @@ class RoomOwnerTable(SocialMediaStreamDataTable):
                                         need_profile_guide               bool           DEFAULT FALSE,
                                         new_real_time_icons              JSON           DEFAULT NULL,
                                         real_time_icons                  JSON           DEFAULT NULL,
-                                        -- 关注
+
                                         follow_status                    tinyint        DEFAULT 0,
                                         is_follower                      bool           DEFAULT FALSE,
                                         is_following                     bool           DEFAULT FALSE,
                                         follow_info                      JSON           DEFAULT NULL,
-                                        -- 匿名和认证
+
                                         is_anonymous                     bool           DEFAULT FALSE,
                                         hotsoon_verified                 bool           DEFAULT FALSE,
                                         hotsoon_verified_reason          varchar(255)   DEFAULT NULL,
@@ -123,7 +123,7 @@ class RoomOwnerTable(SocialMediaStreamDataTable):
                                         enable_ichat_img                 tinyint        DEFAULT 0,
                                         fold_stranger_chat               bool           DEFAULT FALSE,
                                         desensitized_nickname            varchar(50)    DEFAULT NULL,
-                                        -- 认证
+
                                         verified                         bool           DEFAULT FALSE,
                                         verified_reason                  varchar(255)   DEFAULT NULL,
                                         verified_content                 text           DEFAULT NULL,
@@ -139,7 +139,7 @@ class RoomOwnerTable(SocialMediaStreamDataTable):
                                         can_view_webcast_private         tinyint        DEFAULT 0,
                                         user_canceled                    bool           DEFAULT FALSE,
                                         telephone                        varchar(20)    DEFAULT NULL,
-                                        -- 权限
+
                                         with_commerce_permission         bool           DEFAULT FALSE,
                                         with_fusion_shop_entry           bool           DEFAULT FALSE,
                                         with_car_management_permission   bool           DEFAULT FALSE,
@@ -157,7 +157,7 @@ class RoomOwnerTable(SocialMediaStreamDataTable):
                                         allow_unfollower_comment         bool           DEFAULT FALSE,
                                         allow_use_linkmic                bool           DEFAULT FALSE,
                                         remark_name                      varchar(50)    DEFAULT NULL,
-                                        -- JSON 扩展字段
+
                                         avatar_large                     JSON           DEFAULT NULL,
                                         avatar_medium                    JSON           DEFAULT NULL,
                                         avatar_thumb                     JSON           DEFAULT NULL,
@@ -180,19 +180,55 @@ class RoomOwnerTable(SocialMediaStreamDataTable):
                                         web_rid                          varchar(100)   DEFAULT NULL,
                                         webcast_nick                     varchar(50)    DEFAULT NULL,
                                         webcast_uid                      text           DEFAULT NULL,
-                                        -- 时间戳
+
                                         created_at                       timestamp      DEFAULT CURRENT_TIMESTAMP,
                                         updated_at                       timestamp      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                                         PRIMARY KEY (room_id),
                                         INDEX idx_user_id (user_id),
                                         INDEX idx_nickname (nickname)
                                       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-                                      '''
+                                      '''.format(__ROOM_OWNER_V2_TABLE_NAME)
 ##
-## <<=============================== room_owner ==============================<<
+## <<=============================== room_owner_v2 ==============================<<
 ##
+  ##
+  ## singleton mode
+  ##
+  def __new__(cls, *args, **kwargs):
+    return super().__new__(cls, *args, **kwargs)
 
-  def __init__(self, db:SocialMediaStreamDataBase):
-    super().__init__(db, self.__ROOM_OWNER_TABLE_NAME, self.__ROOM_OWNER_TABLE_HEADER, self.__ROOM_OWNER_TABLE_PRI_KEY, self.__TABLE_AUTO_INCREMENT)
-    self.table_tuple = self.__ROOM_OWNER_TABLE_TUPLE
-    self.sql_create_table = self.__SQL_CREATE_ROOM_OWNER_TABLE
+  ##
+  ## init method
+  ##
+  def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
+    if hasattr(self, '_initialized') and self._initialized:
+        return
+    super().__init__(db_instance)
+    self._initialized = True
+
+##
+## >>============================= abstract method =============================>>
+##
+  def get_name(self) -> str:
+    return self.__ROOM_OWNER_V2_TABLE_NAME
+
+  def get_header(self) -> list:
+    return self.__ROOM_OWNER_V2_TABLE_HEADER
+
+  def get_tuple(self) -> dict:
+    return self.__ROOM_OWNER_V2_TABLE_TUPLE
+
+  def get_pri_key(self) -> list:
+    return self.__ROOM_OWNER_V2_TABLE_PRI_KEY
+
+  def get_auto_increment_field(self) -> list:
+    return self.__TABLE_AUTO_INCREMENT
+
+  def get_create_sql_cmd(self) -> str:
+    return self.__SQL_CREATE_ROOM_OWNER_V2_TABLE
+
+  def get_drop_sql_cmd(self) -> str:
+    return 'DROP TABLE IF EXISTS {};'.format(self.__ROOM_OWNER_V2_TABLE_NAME)
+
+  def verify_table_schema(self) -> bool:
+    return super().verify_table_schema()

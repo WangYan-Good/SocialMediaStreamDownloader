@@ -31,7 +31,10 @@ class FavoriteOwnerTable(SocialMediaStreamDataBase):
 ## >>============================= private method =============================>>
 ##
   def __init__(self, host:str, user:str, passwd:str, database:str):
+    if hasattr(self, '_initialized') and self._initialized:
+        return
     super().__init__(host, user, passwd, database)
+    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>

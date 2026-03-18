@@ -6,10 +6,11 @@ sys.path.append(os.getcwd())
 
 ## <<Base>>
 from datetime                                                         import datetime as dat
+import json
 
 ## <<Third-Part>>
 from backend.src.database.social_media_stream_database                import SocialMediaStreamDataBase
-from backend.src.database.table.room_owner                            import RoomOwnerTable
+from backend.src.database.table.room_owner                            import RoomOwnerV2Table
 from backend.src.base.log                                             import get_logger
 
 ##
@@ -30,7 +31,7 @@ def test_create_room_owner_table(db:SocialMediaStreamDataBase = None):
   ##
   ## create room_owner table
   ##
-  room_owner = RoomOwnerTable(db_instance=db)
+  room_owner = RoomOwnerV2Table(db_instance=db)
   room_owner.create()
   return
 
@@ -48,7 +49,7 @@ def test_drop_room_owner_table(db:SocialMediaStreamDataBase = None):
   ##
   ## drop room_owner table
   ##
-  room_owner = RoomOwnerTable(db_instance=db)
+  room_owner = RoomOwnerV2Table(db_instance=db)
   room_owner.drop(confirm=True)
   return
 
@@ -63,7 +64,7 @@ def test_check_room_owner_table_exists(db:SocialMediaStreamDataBase = None):
     get_logger().error("database instance is None, please provide a valid SocialMediaStreamDataBase instance")
     raise ValueError
 
-  room_owner = RoomOwnerTable(db)
+  room_owner = RoomOwnerV2Table(db)
 
   ##
   ## check if room_owner table exists
@@ -91,7 +92,7 @@ def test_insert_room_owner_record(db:SocialMediaStreamDataBase = None):
   ##
   ## create room_owner table if not exists
   ##
-  room_owner = RoomOwnerTable(db_instance=db)
+  room_owner = RoomOwnerV2Table(db_instance=db)
 
   ##
   ## insert a sample owner record
@@ -174,7 +175,7 @@ def test_insert_room_owner_record(db:SocialMediaStreamDataBase = None):
     'allow_unfollower_comment': False,
     'allow_use_linkmic': False,
     'remark_name': '',
-    'avatar_large': {
+    'avatar_large': json.dumps({
       'avg_color': '',
       'uri': '1080x1080/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f',
       'url_list': [
@@ -185,8 +186,8 @@ def test_insert_room_owner_record(db:SocialMediaStreamDataBase = None):
       'height': 0,
       'image_type': 0,
       'is_animated': False
-    },
-    'avatar_medium': {
+    }),
+    'avatar_medium': json.dumps({
       'avg_color': '',
       'uri': '720x720/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f',
       'url_list': [
@@ -196,8 +197,8 @@ def test_insert_room_owner_record(db:SocialMediaStreamDataBase = None):
       'height': 0,
       'image_type': 0,
       'is_animated': False
-    },
-    'avatar_thumb': {
+    }),
+    'avatar_thumb': json.dumps({
       'avg_color': '',
       'uri': '100x100/aweme-avatar/tos-cn-avt-0015_073398e34f18e2e545861a83f392ad9f',
       'url_list': [
@@ -207,17 +208,17 @@ def test_insert_room_owner_record(db:SocialMediaStreamDataBase = None):
       'height': 0,
       'image_type': 0,
       'is_animated': False
-    },
-    'badge_image_list': [],
-    'badge_image_list_v2': [],
-    'commerce_webcast_config_ids': [],
-    'authentication_info': {
+    }),
+    'badge_image_list': json.dumps([]),
+    'badge_image_list_v2': json.dumps([]),
+    'commerce_webcast_config_ids': json.dumps([]),
+    'authentication_info': json.dumps({
       'account_cert_info': '{"label_style":5,"label_text":"店铺账号","is_biz_account":1}',
       'enterprise_verify_reason': '店铺账号',
       'custom_verify': '',
       'level_list': [1, 10002]
-    },
-    'border_data': {
+    }),
+    'border_data': json.dumps({
       'dress_id': '7390557818492818458',
       'level': 0,
       'icon': {
@@ -229,8 +230,8 @@ def test_insert_room_owner_record(db:SocialMediaStreamDataBase = None):
         'height': 282,
         'image_type': 0
       }
-    },
-    'pay_grade_data': {
+    }),
+    'pay_grade_data': json.dumps({
       'level': 2,
       'name': '',
       'grade_banner': '',
@@ -241,8 +242,8 @@ def test_insert_room_owner_record(db:SocialMediaStreamDataBase = None):
       'this_grade_max_diamond': 16,
       'this_grade_min_diamond': 7,
       'total_diamond_count': 0
-    },
-    'fans_club_data': {
+    }),
+    'fans_club_data': json.dumps({
       'data': {
         'anchor_id': 0,
         'anchor_open_id': '',
@@ -259,42 +260,42 @@ def test_insert_room_owner_record(db:SocialMediaStreamDataBase = None):
         'user_guard_status': 0
       },
       'prefer_data': {}
-    },
-    'fans_group_info': {
+    }),
+    'fans_group_info': json.dumps({
       'list_fans_group_url': 'sslocal://webcast_lynxview?height=754&radius=8&gravity=bottom&type=popup'
-    },
-    'subscribe_data': {
+    }),
+    'subscribe_data': json.dumps({
       'buy_type': 0,
       'identity_type': 0,
       'is_member': False,
       'level': 0,
       'open': 0
-    },
-    'user_attr_data': {
+    }),
+    'user_attr_data': json.dumps({
       'admin_privileges': [],
       'is_admin': False,
       'is_chat_self_see': False,
       'is_muted': False,
       'is_super_admin': False
-    },
-    'user_dress_info_data': {
+    }),
+    'user_dress_info_data': json.dumps({
       'dress_own_ids': [],
       'dress_wear_ids': []
-    },
-    'biz_relation_data': {
+    }),
+    'biz_relation_data': json.dumps({
       'shop_fans_club_reverse': True
-    },
-    'j_accredit_info_data': {
+    }),
+    'j_accredit_info_data': json.dumps({
       'JAccreditAdvance': 0,
       'JAccreditBasic': 0,
       'JAccreditContent': 0,
       'JAccreditLive': 0
-    },
-    'own_room_data': {
+    }),
+    'own_room_data': json.dumps({
       'room_ids': [7509539722306521892],
       'room_ids_display': [],
       'room_ids_str': ['7509539722306521892']
-    },
+    }),
     'total_recharge_diamond_count': 0,
     'watch_duration_month': 0,
     'web_rid': '827868393976',
@@ -328,7 +329,7 @@ def test_get_room_owner_record(db:SocialMediaStreamDataBase = None):
   ##
   ## create room_owner table if not exists
   ##
-  room_owner = RoomOwnerTable(db_instance=db)
+  room_owner = RoomOwnerV2Table(db_instance=db)
 
   ##
   ## get record by room_id
@@ -360,19 +361,20 @@ def test_update_room_owner_record(db:SocialMediaStreamDataBase = None):
   ##
   ## create room_owner table if not exists
   ##
-  room_owner = RoomOwnerTable(db_instance=db)
+  room_owner = RoomOwnerV2Table(db_instance=db)
 
   ##
   ## update a sample owner record
   ##
   update_data = {
+    'room_id': '7362550606306773794',
     'fan_ticket_count': 1000,
     'pay_score': 500,
     'updated_at': dat.now()
   }
 
   try:
-    room_owner.update_record(update_data, {'room_id': '7362550606306773794'})
+    room_owner.update_record(update_data)
     get_logger().info("room_owner record updated successfully")
   except Exception as e:
     get_logger().error("failed to update room_owner record: {}".format(e))
@@ -395,7 +397,7 @@ def test_delete_room_owner_record(db:SocialMediaStreamDataBase = None):
   ##
   ## create room_owner table if not exists
   ##
-  room_owner = RoomOwnerTable(db_instance=db)
+  room_owner = RoomOwnerV2Table(db_instance=db)
 
   ##
   ## delete record by room_id

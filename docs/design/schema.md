@@ -62,7 +62,7 @@ external_info.data.room
 │                    核心表 (2 张)                             │
 ├─────────────────────────────────────────────────────────────┤
 │ 1. room_base          - 直播间基础信息 (70 字段 + 35 JSON)   │
-│ 2. room_owner         - 主播信息 (80 字段 + 18 JSON)         │
+│ 2. room_owner_v2      - 主播信息 (80 字段 + 18 JSON)         │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
@@ -92,7 +92,7 @@ external_info.data.room
 
 **表分类统计：**
 - 基础表：3 张 (share_url, favorite_owner, live_record)
-- 核心表：2 张 (room_base, room_owner)
+- 核心表：2 张 (room_base, room_owner_v2)
 - 扩展表：17 张
 ```
 
@@ -102,14 +102,14 @@ external_info.data.room
 |-------------|--------------|------|
 | 标量 (数字/字符串/布尔) | 独立列 | id, status, title |
 | 嵌套对象 (不常查询) | JSON 列 | cover_data, extra_data |
-| 嵌套对象 (常查询) | 独立表 + 外键 | room_owner |
+| 嵌套对象 (常查询) | 独立表 + 外键 | room_owner_v2 |
 | 数组 (需关联查询) | 独立表 | admin_user_ids, deco_list |
 | 数组 (仅展示) | JSON 数组 | filter_words, tags |
 | 布尔标志 (多个) | 位图 | room_auth_bitmap (100+ 权限) |
 
 **JSON 字段统计：**
 - `room_base`: 20 JSON 对象字段 + 15 JSON 数组字段 = **35 JSON 字段**
-- `room_owner`: **18 JSON 字段**
+- `room_owner_v2`: **18 JSON 字段**
 
 ---
 
@@ -782,10 +782,10 @@ CREATE TABLE IF NOT EXISTS `room_stream` (
 +-------------------------------------+-------------------+------+-----+---------+-------+----------------------------------------+---------------------+
 ```
 
-#### 5-3. 主播信息表 - room_owner
+#### 5-3. 主播信息表 - room_owner_v2
 
 ```sql
-CREATE TABLE IF NOT EXISTS `room_owner` (
+CREATE TABLE IF NOT EXISTS `room_owner_v2` (
     `room_id`             VARCHAR(200)      NOT NULL COMMENT '直播间 ID',
     
     -- 基本信息
@@ -1285,7 +1285,7 @@ UPDATE room_auth_bitmap SET auth_bitmap = auth_bitmap & ~1 WHERE room_id = 'xxx'
 
 **第一阶段：核心表迁移 (1-2 周)**
 1. 创建 room_base 表
-2. 创建 room_owner 表
+2. 创建 room_owner_v2 表
 3. 迁移直播间基础数据
 4. 验证数据完整性
 
@@ -1338,7 +1338,7 @@ LEFT JOIN room_extra re ON r.id = re.room_id;
 def get_room_full_info(room_id):
     room = db.query("SELECT * FROM room WHERE id = ?", room_id)
     cover = db.query("SELECT * FROM room_cover WHERE room_id = ?", room_id)
-    owner = db.query("SELECT * FROM room_owner WHERE room_id = ?", room_id)
+    owner = db.query("SELECT * FROM room_owner_v2 WHERE room_id = ?", room_id)
     stats = db.query("SELECT * FROM room_stats WHERE room_id = ?", room_id)
     # ... 还需要查询 10+ 张表
     return {...}

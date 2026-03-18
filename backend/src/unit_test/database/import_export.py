@@ -88,3 +88,4 @@ if __name__ == "__main__":
     get_logger().info(f"{input_path} import succeed")
     export_live_info_to_yml(db, identifier, f"./config/export/{file_name}")
     get_logger().info(f"{file_name}  export succeed")
+    break

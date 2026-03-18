@@ -5,6 +5,7 @@ backend/src/database/__pycache__/
 backend/src/database/table/__pycache__
 backend/src/platform/__pycache__/
 backend/src/platform/other/__pycache__
+backend/src/unit_test/database/table/__pycache__/
 venv/
 logs/
 config/build/
