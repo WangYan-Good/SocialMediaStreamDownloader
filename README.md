@@ -8,7 +8,66 @@
 
 # 📽 运行演示\(Example\)
 
-## 直接下载演示
+## 方式一：Docker Compose 部署（推荐）
+
+### 1. 准备工作
+
+下载本项目后，进入项目根目录：
+
+```shell
+cd /path/to/SocialMediaStreamDownloader
+```
+
+### 2. 配置环境变量
+
+复制 Docker 环境配置模板并编辑：
+
+```shell
+cp .env.docker.example .env
+vim .env
+```
+
+填写实际的配置值，参考 [🔐 安全配置](#-安全配置security-configuration)
+
+### 3. 启动服务
+
+使用 Docker Compose 一键启动应用和数据库：
+
+```shell
+docker compose up -d
+```
+
+查看服务状态：
+
+```shell
+docker compose ps
+```
+
+查看应用日志：
+
+```shell
+docker compose logs -f app
+```
+
+### 4. 访问服务
+
+打开浏览器，访问 `localhost:5000`，在输入框添加分享链接即可下载。
+
+### 5. 停止服务
+
+```shell
+docker compose down
+```
+
+如需同时删除数据卷（会删除所有数据）：
+
+```shell
+docker compose down -v
+```
+
+---
+
+## 方式二：直接下载演示
 
 1. 下载本项目后，进入项目根目录
 ```shell
@@ -23,7 +82,7 @@
 
 3. 执行运行脚本将自动安装依赖并部署
 ```shell
-[userid@localhost SocialMediaStreamDownloader]$ sh ./run-server.sh 
+[userid@localhost SocialMediaStreamDownloader]$ sh ./run-server.sh
 激活Python虚拟环境
 激活成功！
 当前pip3的版本是：26.0.1

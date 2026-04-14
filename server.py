@@ -6,6 +6,8 @@ sys.path.append(os.getcwd())
 
 ## <<Base>>
 import os
+import traceback
+import logging
 
 ## <<Third-Part>>
 from dotenv import load_dotenv
@@ -14,12 +16,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from backend.src.platform.platform_dispatcher import PlatformDispatcher
+from backend.src.base.log import get_logger
 
 from flask import Flask, request, jsonify, render_template
+from werkzeug.exceptions import BadRequest
 
 
 platform_dispatcher = PlatformDispatcher()
 app = Flask(__name__, static_folder='./frontend/src/static', template_folder='./frontend/src/templates')
+
+# 配置日志记录器
+logger = get_logger() if callable(get_logger) else logging.getLogger(__name__)
 
 ##
 ## handle the request from the client
@@ -28,20 +35,97 @@ app = Flask(__name__, static_folder='./frontend/src/static', template_folder='./
 def process_request():
   try:
     ##
-    ## get request from the client
+    ## 校验请求数据
     ##
-    platform_dispatcher.dispatch(request.json)
+    if not request.is_json:
+      return jsonify({
+        "status": "error",
+        "message": "请求必须是 JSON 格式",
+        "code": 400
+      }), 400
+
+    json_data = request.get_json(silent=True)
+    if json_data is None:
+      return jsonify({
+        "status": "error",
+        "message": "请求体为空或格式错误",
+        "code": 400
+      }), 400
+
+    ##
+    ## 校验必需字段
+    ##
+    urls = json_data.get('urls')
+    if not urls or not isinstance(urls, list) or len(urls) == 0:
+      return jsonify({
+        "status": "error",
+        "message": "缺少必需字段: urls（必须是非空数组）",
+        "code": 400
+      }), 400
+
+    ##
+    ## 校验 URL 格式（可选，根据业务需求调整）
+    ##
+    for idx, url in enumerate(urls):
+      if not isinstance(url, str) or not url.startswith(('http://', 'https://')):
+        return jsonify({
+          "status": "error",
+          "message": f"第 {idx + 1} 个 URL 格式无效",
+          "code": 400
+        }), 400
+
+    ##
+    ## 处理请求
+    ##
+    platform_dispatcher.dispatch(json_data)
+
+  except BadRequest as e:
+    ## 客户端请求格式错误（Flask 自动抛出）
+    logger.warning(f"无效的请求格式: {str(e)}")
+    return jsonify({
+      "status": "error",
+      "message": "请求格式无效",
+      "code": 400
+    }), 400
+
+  except ValueError as e:
+    ## 业务逻辑校验错误
+    logger.warning(f"参数校验失败: {str(e)}")
+    return jsonify({
+      "status": "error",
+      "message": f"参数错误: {str(e)}",
+      "code": 400
+    }), 400
+
   except Exception as e:
-    print(f"ERROR: {e}")
-    ##
-    ## response to the client
-    ##
-    return jsonify({"message": f"request 处理失败"}), 500
+    ## 服务器内部错误
+    error_traceback = traceback.format_exc()
+    logger.error(f"请求处理失败 - 异常: {str(e)}\n{error_traceback}")
+
+    ## 生产环境返回通用错误，开发环境返回详细错误
+    debug_mode = os.getenv('FLASK_DEBUG', 'false').lower() in ('true', '1', 'yes')
+    if debug_mode:
+      return jsonify({
+        "status": "error",
+        "message": f"服务器内部错误: {str(e)}",
+        "traceback": error_traceback.split('\n'),
+        "code": 500
+      }), 500
+    else:
+      return jsonify({
+        "status": "error",
+        "message": "服务器内部错误，请稍后重试",
+        "code": 500
+      }), 500
 
   ##
-  ## response to the client
+  ## 响应成功
   ##
-  return jsonify({"message": f"request 已开始处理"}), 200
+  return jsonify({
+    "status": "success",
+    "message": "请求已开始处理",
+    "code": 200
+  }), 200
 
 @app.route('/', methods=['GET'])
 def index():
