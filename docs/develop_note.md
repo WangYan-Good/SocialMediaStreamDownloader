@@ -164,3 +164,125 @@ CREATE TABLE auth_function (
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 ```
+
+---
+
+## 🚀 v0.8.0 开发记录（2026.04.14）
+
+### 1. 数据库连接池实现
+
+`背景`
+在 v0.7.2 及之前版本中，数据库连接采用每次请求创建新连接的模式：
+```python
+def get_db_connector(self):
+    self.__connector = pymysql.connect(host=..., user=..., passwd=..., db=...)
+    return self.__connector
+```
+这种模式存在以下问题：
+1. **连接泄露**：异常时未执行 `close()`，连接未归还
+2. **性能瓶颈**：频繁创建/销毁连接产生大量开销
+3. **并发限制**：高并发时可能耗尽 MySQL 最大连接数
+
+`解决方案`
+引入 `DBUtils PooledDB` 连接池管理数据库连接。
+
+`核心设计`
+```python
+__pool_config = {
+    'mincached': 2,       # 初始化2个空闲连接
+    'maxcached': 10,      # 最多保持10个空闲连接
+    'maxshared': 20,      # 最多20个共享连接
+    'maxconnections': 30, # 最大30个连接
+    'blocking': True,     # 超限时阻塞等待
+    'maxusage': 1000,     # 单连接最多使用1000次
+    'ping': 1,            # 失效时自动重连
+}
+```
+
+`使用模式`
+```python
+# 新方式：自动管理连接生命周期
+with db.get_connection() as conn:
+    with conn.cursor() as cursor:
+        cursor.execute(sql, params)
+# 连接自动归还，异常时也会归还
+```
+
+`关键技术点`
+1. **线程安全单例**：使用双检锁（Double-Check Locking）避免多线程创建多个连接池
+2. **上下文管理器**：`@contextmanager` 装饰器实现 `get_connection()`，自动处理连接的获取和归还
+3. **异常处理**：异常时自动 `rollback()` 并归还连接，避免连接泄露
+4. **向后兼容**：保留原有 `get_db_connector()` 方法（标记为废弃），避免影响现有代码
+
+### 2. API 错误处理改进
+
+`背景`
+v0.7.2 之前，Flask POST 端点错误处理存在以下问题：
+```python
+@app.route('/', methods=['POST'])
+def process_request():
+    try:
+        platform_dispatcher.dispatch(request.json)
+    except Exception as e:
+        print(f"ERROR: {e}")  # 仅打印到控制台
+        return jsonify({"message": "request 处理失败"}), 500
+```
+
+问题：
+1. 未校验请求格式（可能不是 JSON）
+2. 未校验必需字段（`urls` 可能为空）
+3. 异常信息仅打印，未记录到日志
+4. 返回信息过于笼统，无法区分客户端错误和服务器错误
+
+`解决方案`
+```python
+@app.route('/', methods=['POST'])
+def process_request():
+    # 1. 校验请求格式
+    if not request.is_json:
+        return jsonify({"status": "error", "message": "...", "code": 400}), 400
+
+    # 2. 校验必需字段
+    urls = json_data.get('urls')
+    if not urls or not isinstance(urls, list):
+        return jsonify({"status": "error", "message": "...", "code": 400}), 400
+
+    # 3. 处理请求
+    platform_dispatcher.dispatch(json_data)
+
+    # 4. 分类异常处理
+    except BadRequest:  # 客户端错误 400
+    except ValueError:  # 业务校验错误 400
+    except Exception:   # 服务器错误 500
+```
+
+`关键技术点`
+1. **输入校验**：校验 JSON 格式、必需字段、URL 格式
+2. **异常分类**：`BadRequest`（400）、`ValueError`（400）、`Exception`（500）
+3. **日志记录**：使用 `logger.error()` 替代 `print()`
+4. **环境区分**：生产环境返回通用错误，开发环境返回详细错误
+5. **结构化响应**：统一返回 `status`、`message`、`code` 字段
+
+### 3. Docker 优化
+
+`背景`
+原有 Dockerfile 存在以下问题：
+1. 基于 AlmaLinux 手动编译 Python 和 OpenSSL，镜像 ~800MB
+2. 使用绝对路径 `COPY`，构建上下文不清晰
+3. 未使用多阶段构建，编译工具残留
+
+`解决方案`
+采用多阶段构建，基于 `python:3.12-slim`：
+- **阶段1**（builder）：安装编译依赖，安装 Python 包
+- **阶段2**（runtime）：仅复制虚拟环境和运行时依赖
+
+优化后镜像 ~300-400MB，减少约 50%。
+
+`Docker Compose`
+新增 `docker-compose.yml` 一键部署：
+- MySQL 8.0 服务（配置最大连接数、超时参数）
+- 应用服务（依赖 MySQL 健康检查）
+- 独立网络 `smd-network`
+- 数据卷持久化
+
+---
