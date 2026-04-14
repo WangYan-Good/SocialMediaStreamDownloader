@@ -1,0 +1,57 @@
+# Git
+.git/
+.gitignore
+.gitmodules
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+nohup.out
+
+# Config build/export
+config/build/
+config/export/
+
+# Dependencies cache
+.deps_cache/
+
+# Environment files (secrets)
+.env
+.env.*
+!.env.example
+
+# Documentation
+docs/
+README.md
+LICENSE
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Misc
+*.md.bak
