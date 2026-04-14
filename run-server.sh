@@ -67,18 +67,60 @@ else
 fi
 
 # ============================================
-# 3. 安装依赖（简化逻辑）
+# 3. 安装依赖（支持国内镜像源）
 # ============================================
 REQUIREMENTS_FILE="./requirements.txt"
 
+# 国内镜像源列表（按优先级排序）
+PIP_MIRRORS=(
+    "https://pypi.tuna.tsinghua.edu.cn/simple/"
+    "https://mirrors.aliyun.com/pypi/simple/"
+    "https://pypi.mirrors.ustc.edu.cn/simple/"
+    "https://mirrors.cloud.tencent.com/pypi/simple/"
+    "https://pypi.org/simple/"
+)
+
+# 检测可用的镜像源
+detect_pypi_mirror() {
+    local timeout=3
+    for mirror in "${PIP_MIRRORS[@]}"; do
+        log_info "检测镜像源: $mirror"
+        if curl -s -o /dev/null -w "%{http_code}" --connect-timeout "$timeout" "$mirror" | grep -q "200"; then
+            echo "$mirror"
+            return 0
+        fi
+    done
+    return 1
+}
+
 if [[ -f "$REQUIREMENTS_FILE" ]]; then
     log_info "检查并安装依赖..."
-    # pip 会自动跳过已安装且版本匹配的包
-    if pip install -q -r "$REQUIREMENTS_FILE" --disable-pip-version-check; then
-        log_info "依赖检查完成"
+
+    # 尝试检测镜像源
+    MIRROR_URL=$(detect_pypi_mirror)
+
+    if [[ -n "$MIRROR_URL" ]]; then
+        log_info "使用镜像源: $MIRROR_URL"
+        # 获取镜像源的主机名作为 trusted-host
+        TRUSTED_HOST=$(echo "$MIRROR_URL" | sed -e 's|https\?://||' -e 's|/.*||')
+
+        if pip install -q -r "$REQUIREMENTS_FILE" \
+            -i "$MIRROR_URL" \
+            --trusted-host "$TRUSTED_HOST" \
+            --disable-pip-version-check; then
+            log_info "依赖检查完成"
+        else
+            log_error "依赖安装失败，请检查网络或手动执行: pip install -r $REQUIREMENTS_FILE"
+            exit 1
+        fi
     else
-        log_error "依赖安装失败"
-        exit 1
+        log_warn "所有镜像源均不可用，尝试使用默认源"
+        if pip install -q -r "$REQUIREMENTS_FILE" --disable-pip-version-check; then
+            log_info "依赖检查完成"
+        else
+            log_error "依赖安装失败，请检查网络连接"
+            exit 1
+        fi
     fi
 else
     log_error "未找到 $REQUIREMENTS_FILE"
