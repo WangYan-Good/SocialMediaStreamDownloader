@@ -84,7 +84,7 @@ PIP_MIRRORS=(
 detect_pypi_mirror() {
     local timeout=3
     for mirror in "${PIP_MIRRORS[@]}"; do
-        log_info "检测镜像源: $mirror"
+        log_info "检测镜像源: $mirror" >&2
         if curl -s -o /dev/null -w "%{http_code}" --connect-timeout "$timeout" "$mirror" | grep -q "200"; then
             echo "$mirror"
             return 0
