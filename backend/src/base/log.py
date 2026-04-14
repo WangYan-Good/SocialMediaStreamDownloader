@@ -33,7 +33,7 @@ class LoggerManager():
   ## default logger attributes
   ##
   __DEFAULT_LOGGER_NAME          = "default"
-  __DEFAULT_LOGGER_LEVEL         = "WARNING"
+  __DEFAULT_LOGGER_LEVEL         = "INFO"
   __DEFAULT_LOG_FILE_DIR         = str()
   __DEFAULT_LOGGER_FORMATTER_STR = DEFAULT_LOGGER_FORMATTER_STR
 
