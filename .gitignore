@@ -14,3 +14,22 @@ config/build/
 nohup.out
 config/export/
 .deps_cache/
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+
+# Sensitive configuration files with real credentials
+config/douyin/headers.yml.bak
+config/douyin/login.yml.bak
+config/douyin/post.yml.bak
+
+# IDE and editor files
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db

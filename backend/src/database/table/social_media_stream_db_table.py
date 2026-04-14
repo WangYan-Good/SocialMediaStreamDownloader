@@ -154,7 +154,7 @@ class SocialMediaStreamDataTable(ABC):
   ##
   @abstractmethod
   def verify_table_schema(self) -> bool:
-    return False
+    return True
 
 ##
 ## >>============================= sub class method =============================>>
@@ -382,7 +382,6 @@ class SocialMediaStreamDataTable(ABC):
       ## prepare parameters
       ##
       params = tuple(filtered_values)
-      
       get_logger().debug("executing SQL: {}".format(sql))
       get_logger().debug("with parameters: {}".format(params))
       with self.__database.get_db_connector() as connector:
@@ -406,9 +405,7 @@ class SocialMediaStreamDataTable(ABC):
               get_logger().info("inserted record successfully with ID: {}".format(inserted_id))
             else:
               get_logger().info("inserted record successfully")
-            
             return inserted_id or 0
-              
     except Exception as e:
       get_logger().error("failed to insert record into {}: {}".format(self.get_name(), e))
       get_logger().error("record data: {}".format(record))
