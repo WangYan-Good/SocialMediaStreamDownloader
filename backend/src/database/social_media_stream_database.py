@@ -5,10 +5,13 @@ sys.path.append(os.getcwd())
 ##<< Test
 
 ##<<Base>>
+import threading
+from contextlib import contextmanager
 
 ## <<Extension>>
 import pymysql
 from pymysql.connections import Connection
+from dbutils.pooled_db import PooledDB
 
 ## <<Third-Part>>
 from backend.src.library.baselib import output_dict
@@ -23,12 +26,22 @@ class SocialMediaStreamDataBase():
   __user:str             = None
   __passwd:str           = None
   __database:str         = None
+
   ##
-  ## TODO: use connection pool to manage database connections
+  ## 连接池配置
   ##
-  __connector_pool       = None
-  __default_connector    = None
-  
+  __connection_pool      = None
+  __pool_lock            = threading.Lock()
+  __pool_config          = {
+    'mincached': 2,      # 初始化时创建的空闲连接数
+    'maxcached': 10,     # 连接池最大空闲连接数
+    'maxshared': 20,     # 连接池最大共享连接数
+    'maxconnections': 30,# 连接池最大连接数
+    'blocking': True,    # 达到最大连接时是否阻塞等待
+    'maxusage': 1000,    # 单个连接最大使用次数
+    'ping': 1,           # 连接失效时自动重连 (pymysql.ping()=1)
+  }
+
   ##
   ## table instance
   ##
@@ -38,11 +51,14 @@ class SocialMediaStreamDataBase():
 ## >>============================= private method =============================>>
 ##
   ##
-  ## singleton mode
+  ## singleton mode (thread-safe)
   ##
+  _instance_lock = threading.Lock()
   def __new__(cls, *args, **kwargs):
     if not hasattr(cls, '_instance'):
-      cls._instance = super().__new__(cls)
+      with cls._instance_lock:
+        if not hasattr(cls, '_instance'):
+          cls._instance = super().__new__(cls)
     return cls._instance
 
   ##
@@ -55,8 +71,35 @@ class SocialMediaStreamDataBase():
       self.__passwd             = passwd
       self.__database           = database
       self.__db_tables_instance = dict()
+      self.__initialize_pool()
     except Exception as e:
+      get_logger().error("数据库初始化失败: {}".format(e))
       raise e
+
+  ##
+  ## 初始化连接池
+  ##
+  def __initialize_pool(self) -> None:
+    if self.__connection_pool is None:
+      with self.__pool_lock:
+        if self.__connection_pool is None:
+          try:
+            self.__connection_pool = PooledDB(
+              creator=pymysql,
+              host=self.__host,
+              user=self.__user,
+              passwd=self.__passwd,
+              database=self.__database,
+              charset='utf8mb4',
+              cursorclass=pymysql.cursors.DictCursor,
+              **self.__pool_config
+            )
+            get_logger().info("数据库连接池初始化成功 - 主机: {}, 数据库: {}".format(
+              self.__host, self.__database))
+          except Exception as e:
+            get_logger().error("数据库连接池初始化失败: {}".format(e))
+            raise e
+
 ##
 ## >>============================= abstract method =============================>>
 ##
@@ -82,7 +125,7 @@ class SocialMediaStreamDataBase():
       set_dict_attr(self.__db_tables_instance, "$." + table_name, table_instance)
       get_logger().info("database table {} instance is added!".format(table_name))
     return
-  
+
   ##
   ## check if database table instance is registered
   ##
@@ -90,7 +133,7 @@ class SocialMediaStreamDataBase():
     if self.__db_tables_instance is None or len(self.__db_tables_instance) == 0:
       get_logger().warning("No database table instance registered")
       return False
-    
+
     if table_name in self.__db_tables_instance:
       return True
     else:
@@ -104,7 +147,7 @@ class SocialMediaStreamDataBase():
     if self.__db_tables_instance is None or len(self.__db_tables_instance) == 0:
       get_logger().warning("No database table instance registered")
       return
-    
+
     if table_name in self.__db_tables_instance:
       del self.__db_tables_instance[table_name]
       get_logger().info("database table {} instance is removed".format(table_name))
@@ -113,49 +156,63 @@ class SocialMediaStreamDataBase():
     return
 
   ##
-  ## get database connector
-  ## TODO: use connection pool to manage database connections
+  ## 从连接池获取数据库连接（上下文管理器）
   ##
-  def get_db_connector(self):
+  @contextmanager
+  def get_connection(self):
+    """
+    从连接池获取数据库连接的上下文管理器
+
+    使用方式:
+      with db.get_connection() as conn:
+        with conn.cursor() as cursor:
+          cursor.execute(sql, params)
+
+    优势:
+      1. 自动从连接池获取连接
+      2. 使用完毕后自动归还，无需手动关闭
+      3. 异常时也会归还连接，避免泄露
+    """
+    if self.__connection_pool is None:
+      get_logger().error("连接池未初始化")
+      raise RuntimeError("数据库连接池未初始化")
+
+    conn = self.__connection_pool.connection()
     try:
-      ##
-      ## connect database
-      ##
-      self.__connector = pymysql.connect(host=self.__host, user=self.__user, passwd=self.__passwd, db=self.__database)
-      self.__default_connector = self.__connector
-      get_logger().info("connect database {} successfully!".format(self.__database))
+      yield conn
     except Exception as e:
-      get_logger().error("connect database {} fail, reason: {}".format(self.__database, e))
-    return self.__default_connector
+      get_logger().error("数据库操作异常: {}".format(e))
+      conn.rollback()
+      raise
+    finally:
+      try:
+        conn.close()  # 归还到连接池，不是真正关闭
+      except Exception as e:
+        get_logger().warning("归还连接到池失败: {}".format(e))
 
   ##
-  ## close database connector
+  ## 向后兼容：保留原有 get_db_connector 方法
+  ##
+  def get_db_connector(self):
+    """
+    [已废弃] 请使用 get_connection() 替代
+
+    为保持向后兼容保留，但不推荐在新代码中使用
+    """
+    get_logger().warning("get_db_connector() 已废弃，请使用 get_connection()")
+    return self.get_connection()
+
+  ##
+  ## [已废弃] 向后兼容：保留原有 close_db_connector 方法
   ##
   def close_db_connector(self, connector:Connection=None) -> None:
-    if connector is not None:
-      ##
-      ## check if connector is valid
-      ## close the specified connector
-      ##
-      try:
-        connector.close()
-        get_logger().info("database connector closed successfully!")
-      except Exception as e:
-        get_logger().error("close database connector failed! reason: {}".format(e))
-    else:
-      ##
-      ## check if default connector is None
-      ## close the default connector
-      ##
-      if self.__default_connector is not None:
-        try:
-          self.__default_connector.close()
-          get_logger().info("default database connector closed successfully!")
-        except Exception as e:
-          get_logger().error("close default database connector failed! reason: {}".format(e))
-      else:
-        get_logger().warning("database connector is None, no need to close!")
-        raise ValueError
+    """
+    [已废弃] 连接池模式下无需手动关闭连接
+
+    为保持向后兼容保留，实际为空操作
+    """
+    get_logger().warning("close_db_connector() 已废弃，连接池模式下无需手动关闭")
+    return
 
   ##
   ## drop database table
@@ -163,13 +220,14 @@ class SocialMediaStreamDataBase():
   def drop_db_table(self, table_name:str) -> None:
     try:
       sql = '''DROP TABLE IF EXISTS {};'''.format(table_name)
-      with self.get_db_connector() as connector:
-        with connector.cursor() as cursor:
+      with self.get_connection() as conn:
+        with conn.cursor() as cursor:
           cursor.execute(sql)
+          conn.commit()
     except Exception as e:
       get_logger().error("ERROR: drop database table {} is failed! reason: {}".format(table_name, e))
       raise e
-  
+
   ##
   ## check if table exists
   ##
@@ -178,22 +236,22 @@ class SocialMediaStreamDataBase():
       sql = '''
               SELECT COUNT(*)
               FROM information_schema.TABLES
-              WHERE TABLE_SCHEMA = "{}"
-              AND TABLE_NAME = "{}";
-            '''.format(self.__database, table_name)
-      with self.get_db_connector() as connector:
-        with connector.cursor() as cursor:
+              WHERE TABLE_SCHEMA = %s
+              AND TABLE_NAME = %s;
+            '''
+      with self.get_connection() as conn:
+        with conn.cursor() as cursor:
           get_logger().debug(sql)
-          cursor.execute(sql)
-          result = cursor.fetchall()
-      if result[0][0] == 1:
+          cursor.execute(sql, (self.__database, table_name))
+          result = cursor.fetchone()
+      if result and result.get('COUNT(*)') == 1:
         return True
       else:
         return False
     except Exception as e:
       get_logger().error("ERROR: check if table {} exists is failed! reason: {}".format(table_name, e))
       raise e
-  
+
   ##
   ## dump database tables
   ##
@@ -203,3 +261,39 @@ class SocialMediaStreamDataBase():
       get_logger().warning("No database table instance registered")
       return
     output_dict(self.__db_tables_instance, tab=1)
+
+  ##
+  ## 获取连接池状态
+  ##
+  def get_pool_status(self) -> dict:
+    """
+    获取连接池当前状态（用于监控和调试）
+    """
+    if self.__connection_pool is None:
+      return {"status": "未初始化"}
+
+    return {
+      "status": "运行中",
+      "mincached": self.__pool_config['mincached'],
+      "maxcached": self.__pool_config['maxcached'],
+      "maxshared": self.__pool_config['maxshared'],
+      "maxconnections": self.__pool_config['maxconnections'],
+      # 注：DBUtils 不直接暴露当前使用数，需通过内部API
+    }
+
+  ##
+  ## 关闭连接池（应用退出时调用）
+  ##
+  def close_pool(self) -> None:
+    """
+    关闭连接池，释放所有连接
+
+    应在应用退出时调用
+    """
+    if self.__connection_pool is not None:
+      try:
+        self.__connection_pool.close()
+        self.__connection_pool = None
+        get_logger().info("数据库连接池已关闭")
+      except Exception as e:
+        get_logger().error("关闭连接池失败: {}".format(e))

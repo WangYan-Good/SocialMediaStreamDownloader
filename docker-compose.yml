@@ -11,6 +11,8 @@ services:
       MYSQL_DATABASE: ${DB_NAME:-social_media_stream_downloader}
       MYSQL_USER: ${DB_USER:-smd_user}
       MYSQL_PASSWORD: ${DB_PASSWORD:-smd_secure_pass}
+      # 连接池相关配置
+      MYSQL_MAX_CONNECTIONS: 100
     ports:
       - "${DB_PORT:-3306}:3306"
     volumes:
@@ -18,6 +20,10 @@ services:
       - ./config/init-db:/docker-entrypoint-initdb.d
     networks:
       - smd-network
+    command: >
+      --max-connections=100
+      --wait-timeout=28800
+      --interactive-timeout=28800
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
