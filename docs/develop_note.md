@@ -286,3 +286,107 @@ def process_request():
 - 数据卷持久化
 
 ---
+
+### 4. run-server.sh 启动脚本重构
+
+`背景`
+原有 `run-server.sh` 存在以下问题：
+1. **输出丢弃**：`nohup python3 ./server.py > /dev/null 2>&1 &` 导致所有日志丢失
+2. **pip 更新脆弱**：依赖清华源和 `pip index versions` 命令，可能失败
+3. **依赖安装复杂**：MD5 校验 + 逐个检查逻辑复杂，但 pip 本身已优化
+4. **无配置检查**：未检查 `.env` 是否存在，可能使用默认配置启动
+5. **无端口检查**：未检查 5000 端口是否占用，导致启动冲突
+6. **可重复启动**：多次执行脚本启动多个实例
+7. **重复激活**：两次 `source venv/bin/activate`
+
+`解决方案`
+重写启动脚本，添加以下功能：
+
+**1. Python 版本检查**
+```bash
+PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+if [[ "$PYTHON_VERSION" < "3.12" ]]; then
+    log_warn "Python 版本低于要求"
+fi
+```
+
+**2. 虚拟环境管理**
+```bash
+if [[ -n "$VIRTUAL_ENV" ]]; then
+    log_info "已处于虚拟环境中"
+else
+    if [[ ! -d "venv" ]]; then
+        python3 -m venv venv
+    fi
+    source venv/bin/activate
+fi
+```
+
+**3. 依赖安装简化**
+```bash
+# 原：复杂的 MD5 校验 + 逐个检查
+# 新：pip 自动跳过已安装的包
+pip install -q -r "$REQUIREMENTS_FILE" --disable-pip-version-check
+```
+
+**4. 配置文件检查**
+```bash
+if [[ ! -f ".env" ]]; then
+    log_warn "未找到 .env 配置文件"
+    cp .env.example .env
+    sleep 10  # 给用户时间编辑配置
+fi
+```
+
+**5. 端口占用检查**
+```bash
+if command -v lsof &> /dev/null; then
+    if lsof -i ":$SERVER_PORT" &> /dev/null; then
+        log_error "端口 $SERVER_PORT 已被占用"
+        exit 1
+    fi
+fi
+```
+
+**6. PID 防重复启动**
+```bash
+PID_FILE="./.server.pid"
+if [[ -f "$PID_FILE" ]]; then
+    OLD_PID=$(cat "$PID_FILE")
+    if kill -0 "$OLD_PID" 2>/dev/null; then
+        log_error "服务已在运行 (PID: $OLD_PID)"
+        exit 1
+    fi
+fi
+```
+
+**7. 日志输出到文件**
+```bash
+# 原：> /dev/null 2>&1
+# 新：输出到日志文件
+nohup python3 ./server.py > "$LOG_FILE" 2>&1 &
+```
+
+**8. 彩色输出**
+```bash
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+
+log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+```
+
+`优化效果`
+| 指标 | 优化前 | 优化后 |
+|------|--------|--------|
+| 日志可追溯性 | 无（丢弃到 /dev/null） | 有（logs/ 文件） |
+| 配置检查 | 无 | 自动创建模板 |
+| 端口冲突 | 可能冲突 | 启动前检查 |
+| 重复进程 | 可启动多个 | PID 文件阻止 |
+| pip 更新 | 依赖外部镜像源 | 不强制更新 |
+| 依赖安装 | 复杂 MD5 校验 | pip 自动处理 |
+| 错误提示 | 简单 | 彩色分类 |
+
+---
