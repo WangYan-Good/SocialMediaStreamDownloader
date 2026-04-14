@@ -176,3 +176,4 @@ skip this step!
 - ♻️优化了 Docker Compose 配置，同步了 MySQL 与连接池的连接数限制
 - ♻️重构了 `run-server.sh`，添加 Python 版本检查、端口检查、PID 防重复机制
 - ♻️简化了依赖安装逻辑，移除脆弱的 pip 更新和 MD5 校验逻辑
+- ♻️添加了 PyPI 镜像源自动检测功能，支持清华、阿里、中科大、腾讯、官方源

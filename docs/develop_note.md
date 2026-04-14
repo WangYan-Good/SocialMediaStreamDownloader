@@ -389,4 +389,55 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 | 依赖安装 | 复杂 MD5 校验 | pip 自动处理 |
 | 错误提示 | 简单 | 彩色分类 |
 
+### 5. PyPI 镜像源自动检测
+
+`背景`
+国内服务器直接 `pip install` 官方源经常超时或失败，原脚本依赖单一清华源，若该源不可用则安装失败。
+
+`解决方案`
+添加镜像源自动检测功能：
+
+**1. 多源列表**
+```bash
+PIP_MIRRORS=(
+    "https://pypi.tuna.tsinghua.edu.cn/simple/"
+    "https://mirrors.aliyun.com/pypi/simple/"
+    "https://pypi.mirrors.ustc.edu.cn/simple/"
+    "https://mirrors.cloud.tencent.com/pypi/simple/"
+    "https://pypi.org/simple/"
+)
+```
+
+**2. 自动检测**
+```bash
+detect_pypi_mirror() {
+    local timeout=3
+    for mirror in "${PIP_MIRRORS[@]}"; do
+        if curl -s -o /dev/null -w "%{http_code}" --connect-timeout "$timeout" "$mirror" | grep -q "200"; then
+            echo "$mirror"
+            return 0
+        fi
+    done
+    return 1
+}
+```
+
+**3. 使用检测到的源**
+```bash
+MIRROR_URL=$(detect_pypi_mirror)
+if [[ -n "$MIRROR_URL" ]]; then
+    TRUSTED_HOST=$(echo "$MIRROR_URL" | sed -e 's|https\?://||' -e 's|/.*||')
+    pip install -q -r requirements.txt -i "$MIRROR_URL" --trusted-host "$TRUSTED_HOST"
+else
+    # 回退到默认源
+    pip install -q -r requirements.txt
+fi
+```
+
+`优势`
+1. **自动容灾**：一个源不可用自动尝试下一个
+2. **超时控制**：每个源最多等待 3 秒
+3. **智能回退**：所有源不可用时使用官方源
+4. **无需配置**：用户无需手动指定源
+
 ---
