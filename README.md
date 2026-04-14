@@ -16,34 +16,71 @@
 [userid@localhost SocialMediaStreamDownloader]$ pwd
 /mnt/nvme/CodeSpace/OpenSource/SocialMediaStreamDownloader
 ```
-2. 执行前请确认已经下载安装 python3.11 或之后的版本
-```shell
-[userid@localhost SocialMediaStreamDownloader]$ python3 --version
-Python 3.11.8
-```
-3. 创建虚拟环境 venv 并激活
-```shell
-[userid@localhost SocialMediaStreamDownloader]$ python3 -m venv venv
 
-[userid@localhost SocialMediaStreamDownloader]$ . ./venv/bin/activate
-(venv) [userid@localhost SocialMediaStreamDownloader]$
-```
+2. 配置环境配置 .env
 
-4. 执行脚本安装依赖并后台运行
+参考下一节 [🔐 安全配置](#-安全配置security-configuration)
+
+3. 执行运行脚本将自动安装依赖并部署
 ```shell
-(venv) [userid@localhost SocialMediaStreamDownloader]$ sh run-server.sh # 等待执行完成即可
-你处于Python虚拟环境中，路径为：/mnt/nvme/CodeSpace/OpenSource/SocialMediaStreamDownloader/venv
-当前pip3的版本是：24.2
-当前pip3版本不是最新，正在更新...
-Looking in indexes: https://pypi.tuna.tsinghua.edu.cn/simple/
-Requirement already satisfied: pip in ./venv/lib/python3.11/site-packages (24.2)
-pip3 更新完成，新版本为：
-Looking in indexes: https://pypi.tuna.tsinghua.edu.cn/simple/
-...
+[userid@localhost SocialMediaStreamDownloader]$ sh ./run-server.sh 
+激活Python虚拟环境
+激活成功！
+当前pip3的版本是：26.0.1
+最新的pip3版本是：26.0.1
+当前pip3版本已是最新。
+🚀 安装/更新Python依赖...
+... (省略依赖安装过程日志)
+✅ 依赖安装完成
+服务进入后台运行，可使用 tail -f ./logs/social_media_stream_downloader 查看日志
 ```
 
-5. 打开浏览器，`localhost:5000` 进入网页，在输入框添加分享链接即可下载
+4. 打开浏览器，`localhost:5000` 进入网页，在输入框添加分享链接即可下载
 ![web-UI](./docs/media/web-ui.PNG)
+
+# 🔐 安全配置\(Security Configuration\)
+本项目支持使用环境变量管理敏感配置，避免将密码、Cookie 等凭据硬编码在配置文件中。
+
+## 创建环境配置文件
+```bash
+# 复制模板文件
+cp .env.example .env
+
+# 编辑 .env 文件，填写实际的配置值
+vim .env
+```
+
+## 配置项说明
+
+| 环境变量 | 说明 | 示例值 |
+|---------|------|--------|
+| `DB_HOST` | 数据库主机 | `localhost` |
+| `DB_PORT` | 数据库端口 | `3306` |
+| `DB_NAME` | 数据库名称 | `social_media_stream_downloader` |
+| `DB_USER` | 数据库用户 | `admin` |
+| `DB_PASSWORD` | 数据库密码 | `your_secure_password` |
+| `DOUYIN_COOKIE_SHARE_LIVE_URL` | 抖音分享页面 Cookie | 从浏览器获取 |
+| `DOUYIN_COOKIE_LIVE_ROOM_INFO` | 抖音直播房间 Cookie | 从浏览器获取 |
+| `DOUYIN_COOKIE_POST_INFO` | 抖音帖子请求 Cookie | 从浏览器获取 |
+| `DOUYIN_MSTOKEN` | 抖音 msToken | 从浏览器获取 |
+| `DOWNLOAD_SAVE_PATH` | 下载保存路径 | `/path/to/videos` |
+| `SERVER_PORT` | 服务器端口 | `5000` |
+| `FLASK_DEBUG` | 调试模式开关 | `false` |
+
+## 获取抖音 Cookie 和 msToken
+
+1. 浏览器打开抖音并登录
+2. 按 F12 打开开发者工具
+3. 进入 Network 标签，刷新页面
+4. 点击任意请求，在 Headers 中找到 Cookie
+5. 复制完整的 Cookie 值粘贴到 `.env` 文件对应位置
+
+## 安全注意事项
+
+- ⚠️ **切勿将 `.env` 文件提交到代码仓库**
+- 定期更换数据库密码和 Cookie
+- 生产环境务必关闭调试模式 (`FLASK_DEBUG=false`)
+- 使用强密码，避免使用默认值
 
 # 📋 项目说明\(Instructions\)
 
