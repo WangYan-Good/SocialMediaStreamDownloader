@@ -147,6 +147,15 @@ fi
 # ============================================
 # 5. 检查端口占用
 # ============================================
+# 如果 .env 存在且 SERVER_PORT 未定义，则从 .env 加载变量
+if [[ -f ".env" && -z "${SERVER_PORT:-}" ]]; then
+    log_info "从 .env 加载环境变量"
+    set -a
+    source .env
+    set +a
+fi
+
+# 读取端口，优先使用已经存在的环境变量
 SERVER_PORT=${SERVER_PORT:-5000}
 if command -v lsof &> /dev/null; then
     if lsof -i ":$SERVER_PORT" &> /dev/null; then
