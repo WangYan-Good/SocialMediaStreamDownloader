@@ -10,7 +10,7 @@
 # 4. 检查配置文件
 # 5. 检查端口占用
 # 6. 防止重复启动
-# 7. 启动服务并输出日志
+# 7. 启动服务
 # ============================================
 
 set -e  # 遇到错误立即退出
@@ -37,34 +37,89 @@ log_error() {
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_DIR"
 
+# 最低 Python 版本要求
+REQUIRED_VERSION="3.12"
+
+# 比较版本号，判断是否满足最小版本
+version_ge() {
+    [[ "$(printf '%s\n' "$1" "$2" | sort -V | head -n1)" == "$2" ]]
+}
+
+# 选择可用的 Python 解释器（优先 3.12）
+select_python_cmd() {
+    local candidates=("python3.12" "python3.13" "python3.14" "python3")
+    local cmd ver
+    for cmd in "${candidates[@]}"; do
+        if command -v "$cmd" >/dev/null 2>&1; then
+            ver=$($cmd -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+            if version_ge "$ver" "$REQUIRED_VERSION"; then
+                echo "$cmd"
+                return 0
+            fi
+        fi
+    done
+    return 1
+}
+
 # ============================================
 # 1. 检查 Python 版本
 # ============================================
-PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-REQUIRED_VERSION="3.12"
-
-if [[ "$(printf '%s\n' "$REQUIRED_VERSION" "$PYTHON_VERSION" | sort -V | head -n1)" != "$REQUIRED_VERSION" ]]; then
-    log_warn "Python 版本 $PYTHON_VERSION 低于要求版本 $REQUIRED_VERSION"
-    log_warn "可能导致部分功能异常，建议升级 Python"
+if ! PYTHON_CMD=$(select_python_cmd); then
+    log_error "未找到 Python $REQUIRED_VERSION 或更高版本"
+    log_error "请先安装 Python 3.12+，例如: sudo dnf install python3.12 python3.12-venv"
+    exit 1
 fi
 
+PYTHON_VERSION=$($PYTHON_CMD -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+
+log_info "Python 解释器: $PYTHON_CMD"
 log_info "Python 版本: $PYTHON_VERSION"
 
 # ============================================
 # 2. 激活虚拟环境
 # ============================================
-if [[ -n "$VIRTUAL_ENV" ]]; then
-    log_info "已处于虚拟环境中: $VIRTUAL_ENV"
-else
-    if [[ ! -d "venv" ]]; then
-        log_info "创建虚拟环境..."
-        python3 -m venv venv
-    fi
+VENV_DIR="venv"
+VENV_PYTHON="$VENV_DIR/bin/python"
+NEED_RECREATE_VENV=false
 
-    log_info "激活虚拟环境..."
-    source venv/bin/activate
-    log_info "虚拟环境已激活: $VIRTUAL_ENV"
+if [[ -d "$VENV_DIR" ]]; then
+    if [[ -x "$VENV_PYTHON" ]]; then
+        VENV_PYTHON_VERSION=$($VENV_PYTHON -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+        if ! version_ge "$VENV_PYTHON_VERSION" "$REQUIRED_VERSION"; then
+            log_warn "检测到现有虚拟环境 Python 版本为 $VENV_PYTHON_VERSION，低于 $REQUIRED_VERSION"
+            NEED_RECREATE_VENV=true
+        fi
+    else
+        log_warn "检测到虚拟环境目录损坏，准备重建"
+        NEED_RECREATE_VENV=true
+    fi
 fi
+
+if [[ ! -d "$VENV_DIR" || "$NEED_RECREATE_VENV" == true ]]; then
+    if [[ "$NEED_RECREATE_VENV" == true ]]; then
+        log_warn "重建虚拟环境: $VENV_DIR"
+        rm -rf "$VENV_DIR"
+    fi
+    log_info "创建 Python $PYTHON_VERSION 虚拟环境..."
+    "$PYTHON_CMD" -m venv "$VENV_DIR"
+fi
+
+if [[ -n "$VIRTUAL_ENV" && "$VIRTUAL_ENV" != "$PROJECT_DIR/$VENV_DIR" ]]; then
+    log_warn "当前已激活其他虚拟环境: $VIRTUAL_ENV"
+    log_warn "将切换到项目虚拟环境: $PROJECT_DIR/$VENV_DIR"
+fi
+
+log_info "激活虚拟环境..."
+source "$VENV_DIR/bin/activate"
+
+ACTIVE_PYTHON_VERSION=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+if ! version_ge "$ACTIVE_PYTHON_VERSION" "$REQUIRED_VERSION"; then
+    log_error "激活后的虚拟环境 Python 版本为 $ACTIVE_PYTHON_VERSION，未达到 $REQUIRED_VERSION"
+    exit 1
+fi
+
+log_info "虚拟环境已激活: $VIRTUAL_ENV"
+log_info "虚拟环境 Python 版本: $ACTIVE_PYTHON_VERSION"
 
 # ============================================
 # 3. 安装依赖（支持国内镜像源）
@@ -104,7 +159,7 @@ if [[ -f "$REQUIREMENTS_FILE" ]]; then
         # 获取镜像源的主机名作为 trusted-host
         TRUSTED_HOST=$(echo "$MIRROR_URL" | sed -e 's|https\?://||' -e 's|/.*||')
 
-        if pip install -q -r "$REQUIREMENTS_FILE" \
+        if python -m pip install -q -r "$REQUIREMENTS_FILE" \
             -i "$MIRROR_URL" \
             --trusted-host "$TRUSTED_HOST" \
             --disable-pip-version-check; then
@@ -115,7 +170,7 @@ if [[ -f "$REQUIREMENTS_FILE" ]]; then
         fi
     else
         log_warn "所有镜像源均不可用，尝试使用默认源"
-        if pip install -q -r "$REQUIREMENTS_FILE" --disable-pip-version-check; then
+        if python -m pip install -q -r "$REQUIREMENTS_FILE" --disable-pip-version-check; then
             log_info "依赖检查完成"
         else
             log_error "依赖安装失败，请检查网络连接"
@@ -182,20 +237,13 @@ if [[ -f "$PID_FILE" ]]; then
 fi
 
 # ============================================
-# 7. 确保日志目录存在
-# ============================================
-LOG_DIR="./logs"
-mkdir -p "$LOG_DIR"
-LOG_FILE="$LOG_DIR/smsd_boot.log"
-
-# ============================================
-# 8. 启动服务
+# 7. 启动服务
 # ============================================
 log_info "启动服务..."
 log_info "端口: $SERVER_PORT"
-log_info "日志: $LOG_FILE"
+log_info "日志由应用模块自行管理"
 
-nohup python3 ./server.py > "$LOG_FILE" 2>&1 &
+nohup python ./server.py >/dev/null 2>&1 &
 SERVER_PID=$!
 
 # 保存 PID
@@ -207,9 +255,8 @@ sleep 2
 # 检查进程是否存活
 if kill -0 $SERVER_PID 2>/dev/null; then
     log_info "服务启动成功 (PID: $SERVER_PID)"
-    log_info "查看日志: tail -f $LOG_FILE"
     log_info "停止服务: kill $SERVER_PID"
 else
-    log_error "服务启动失败，请查看日志: $LOG_FILE"
+    log_error "服务启动失败，请检查应用日志模块输出"
     exit 1
 fi
