@@ -10,7 +10,7 @@
 # 4. 检查配置文件
 # 5. 检查端口占用
 # 6. 防止重复启动
-# 7. 启动服务并输出日志
+# 7. 启动服务
 # ============================================
 
 set -e  # 遇到错误立即退出
@@ -237,20 +237,13 @@ if [[ -f "$PID_FILE" ]]; then
 fi
 
 # ============================================
-# 7. 确保日志目录存在
-# ============================================
-LOG_DIR="./logs"
-mkdir -p "$LOG_DIR"
-LOG_FILE="$LOG_DIR/smsd_boot.log"
-
-# ============================================
-# 8. 启动服务
+# 7. 启动服务
 # ============================================
 log_info "启动服务..."
 log_info "端口: $SERVER_PORT"
-log_info "日志: $LOG_FILE"
+log_info "日志由应用模块自行管理"
 
-nohup python ./server.py > "$LOG_FILE" 2>&1 &
+nohup python ./server.py >/dev/null 2>&1 &
 SERVER_PID=$!
 
 # 保存 PID
@@ -262,9 +255,8 @@ sleep 2
 # 检查进程是否存活
 if kill -0 $SERVER_PID 2>/dev/null; then
     log_info "服务启动成功 (PID: $SERVER_PID)"
-    log_info "查看日志: tail -f $LOG_FILE"
     log_info "停止服务: kill $SERVER_PID"
 else
-    log_error "服务启动失败，请查看日志: $LOG_FILE"
+    log_error "服务启动失败，请检查应用日志模块输出"
     exit 1
 fi
