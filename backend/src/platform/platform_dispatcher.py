@@ -19,7 +19,10 @@ from backend.src.platform.douyin.douyin_handler import douyin_handler
 from backend.src.platform.other.other_handler import other_handler
 from backend.src.base.log import get_logger
 
-# 定义一个事件分发器
+"""
+平台分发器:
+    负责将不同平台的事件分发到对应的处理器
+"""
 class PlatformDispatcher:
 ##
 ## >>============================= attribute =============================>>
@@ -156,40 +159,3 @@ class PlatformDispatcher:
           self.executors[event].submit(self.handlers[event], token)
       else:
         get_logger().error("invalid event: {}".format(event))
-
-##
-## >>================================ test method ===============================>>
-##
-
-##
-## >>================================ main method ===============================>>
-##
-
-if __name__ == "__main__":
-  ##
-  ## register dispatcher
-  ##
-  dispatcher = PlatformDispatcher()
-  dispatcher.register()
-
-  ##
-  ## test urls
-  ##
-  urls = [
-      "https://www.douyin.com/video/1",
-      "https://www.douyin.com/video/2",
-      "https://www.douyin.com/video/3",
-      "https://www.bilibili.com/video/BV1",
-      "https://www.bilibili.com/video/BV2",
-      "https://www.bilibili.com/video/BV3",
-      "https://www.bilibili.com/video/BV4",
-      "https://www.example.com/page1",
-      "https://www.example.com/page2",
-  ]
-
-  # 分发处理链接
-  for url in urls:
-      dispatcher.dispatch(url)
-
-  # 主线程继续执行其他任务
-  get_logger().info("主线程继续运行...")
