@@ -52,6 +52,13 @@
 - ⌛添加远程下载到指定的服务器位置
 - ⌛添加日志功能
 
+### Improve
+
+1. 整合前后端分离设计
+2. 整理后端采用数据库连接池后的一致性处理
+  - [x] 各个表连接数据库的代码更新
+  - [x] get_db_connector() 弃用的处理（使用 get_connection() 接口）
+
 ### Bug & Know Issue & Limitation
 
 #### Bug & Know Issue

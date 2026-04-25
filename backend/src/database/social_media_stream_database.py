@@ -156,63 +156,39 @@ class SocialMediaStreamDataBase():
     return
 
   ##
-  ## 从连接池获取数据库连接（上下文管理器）
+  ## Obtain a database connection from the connection pool (context manager)
   ##
   @contextmanager
   def get_connection(self):
     """
-    从连接池获取数据库连接的上下文管理器
+    Context Manager for Obtaining Database Connections from a Connection Pool
 
-    使用方式:
-      with db.get_connection() as conn:
-        with conn.cursor() as cursor:
-          cursor.execute(sql, params)
+    Usage:
+    with db.get_connection() as conn:
+    with conn.cursor() as cursor:
+    cursor.execute(sql, params)
 
-    优势:
-      1. 自动从连接池获取连接
-      2. 使用完毕后自动归还，无需手动关闭
-      3. 异常时也会归还连接，避免泄露
+    Advantages:
+    1. Automatically obtains connections from the connection pool
+    2. Automatically returns connections after use, no manual closing required
+    3. Returns connections even in case of exceptions, preventing connection leaks
     """
     if self.__connection_pool is None:
-      get_logger().error("连接池未初始化")
-      raise RuntimeError("数据库连接池未初始化")
+      get_logger().error("Connection pool not initialized")
+      raise RuntimeError("Database connection pool not initialized")
 
     conn = self.__connection_pool.connection()
     try:
       yield conn
     except Exception as e:
-      get_logger().error("数据库操作异常: {}".format(e))
+      get_logger().error("Database operation exception: {}".format(e))
       conn.rollback()
       raise
     finally:
       try:
         conn.close()  # 归还到连接池，不是真正关闭
       except Exception as e:
-        get_logger().warning("归还连接到池失败: {}".format(e))
-
-  ##
-  ## 向后兼容：保留原有 get_db_connector 方法
-  ##
-  def get_db_connector(self):
-    """
-    [已废弃] 请使用 get_connection() 替代
-
-    为保持向后兼容保留，但不推荐在新代码中使用
-    """
-    get_logger().warning("get_db_connector() 已废弃，请使用 get_connection()")
-    return self.get_connection()
-
-  ##
-  ## [已废弃] 向后兼容：保留原有 close_db_connector 方法
-  ##
-  def close_db_connector(self, connector:Connection=None) -> None:
-    """
-    [已废弃] 连接池模式下无需手动关闭连接
-
-    为保持向后兼容保留，实际为空操作
-    """
-    get_logger().warning("close_db_connector() 已废弃，连接池模式下无需手动关闭")
-    return
+        get_logger().warning("Fail to return the connection pool: {}".format(e))
 
   ##
   ## drop database table
@@ -270,7 +246,7 @@ class SocialMediaStreamDataBase():
     获取连接池当前状态（用于监控和调试）
     """
     if self.__connection_pool is None:
-      return {"status": "未初始化"}
+      return {"status": "Non-initialized"}
 
     return {
       "status": "运行中",
@@ -294,6 +270,6 @@ class SocialMediaStreamDataBase():
       try:
         self.__connection_pool.close()
         self.__connection_pool = None
-        get_logger().info("数据库连接池已关闭")
+        get_logger().info("DB connect pool has been closed")
       except Exception as e:
-        get_logger().error("关闭连接池失败: {}".format(e))
+        get_logger().error("Fail to close DB connect pool: {}".format(e))

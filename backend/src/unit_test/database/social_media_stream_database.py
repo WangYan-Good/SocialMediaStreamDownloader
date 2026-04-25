@@ -22,12 +22,12 @@ def test_search_sec_user_id(live_share_url:str):
           WHERE live_share_url = "{}";
         '''.format(live_share_url)
   db = SocialMediaStreamDataBase(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
-  cursor = db.get_db_connector().cursor()
-  get_logger().debug(sql)
-  cursor.execute(sql)
-  result = cursor.fetchall()
-  get_logger().debug(result)
-  db.close_db_connector()
+  with db.get_connector() as connector:
+    with connector.cursor() as cursor:
+      get_logger().debug(sql)
+      cursor.execute(sql)
+      result = cursor.fetchall()
+      get_logger().debug(result)
 
 ##
 ## test: insert owner id into owner_liked table
@@ -38,14 +38,12 @@ def test_insert_owner_into_liked_table(owner_user_id:str, platform:str):
             insert into favorite_owner (owner_user_id, platform) values ("{}", "{}");
           '''.format(owner_user_id, platform)
     db = SocialMediaStreamDataBase(host='127.0.0.1', user='wangyan', passwd='wuyu1998', database='test_social_media_stream_downloader')
-    connector = db.get_db_connector()
-    cursor = connector.cursor()
-    cursor.execute(sql)
-    connector.commit()
-    db.close_db_connector()
+    with db.get_connection() as connector:
+      with connector.cursor() as cursor:
+        cursor.execute(sql)
+        connector.commit()
     get_logger().info("insert {} into liked table succeed!".format(owner_user_id))
   except Exception as e:
-    db.close_db_connector()
     get_logger().error("insert {} into liked table failed {}".format(owner_user_id, e))
 
 ##

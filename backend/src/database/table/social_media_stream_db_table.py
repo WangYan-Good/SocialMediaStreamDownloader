@@ -201,7 +201,7 @@ class SocialMediaStreamDataTable(ABC):
     ## create new table
     ##
     try:
-      with self.__database.get_db_connector() as connector:
+      with self.__database.get_connector() as connector:
         with connector.cursor() as cursor:
           ##
           ## 使用锁保护表创建过程
@@ -271,7 +271,7 @@ class SocialMediaStreamDataTable(ABC):
     ## 记录删除操作前的表信息
     ##
     try:
-      with self.__database.get_db_connector() as connector:
+      with self.__database.get_connector() as connector:
         with connector.cursor() as cursor:
           cursor.execute("SELECT COUNT(*) FROM {}".format(table_name))
           row_count = cursor.fetchone()[0]
@@ -283,7 +283,7 @@ class SocialMediaStreamDataTable(ABC):
     ## 执行删除操作
     ##
     try:
-      with self.__database.get_db_connector() as connector:
+      with self.__database.get_connector() as connector:
         with connector.cursor() as cursor:
           ##
           ## 使用锁保护删除操作
@@ -384,7 +384,7 @@ class SocialMediaStreamDataTable(ABC):
       params = tuple(filtered_values)
       get_logger().debug("executing SQL: {}".format(sql))
       get_logger().debug("with parameters: {}".format(params))
-      with self.__database.get_db_connector() as connector:
+      with self.__database.get_connector() as connector:
         with connector.cursor() as cursor:       
           ##
           ## execute INSERT statement with database lock
@@ -429,7 +429,7 @@ class SocialMediaStreamDataTable(ABC):
       raise ValueError("Conditions must be a non-empty dictionary")
     
     try:
-      with self.__database.get_db_connector() as connector:
+      with self.__database.get_connector() as connector:
         with connector.cursor() as cursor:
           where_parts = []
           params = []
@@ -510,7 +510,7 @@ class SocialMediaStreamDataTable(ABC):
       raise ValueError(f"Missing primary key fields: {missing_primary_keys}")
     
     try:
-      with self.__database.get_db_connector() as connector:
+      with self.__database.get_connector() as connector:
         with connector.cursor() as cursor:
           ##
           ## 分离更新字段和主键字段
@@ -595,7 +595,7 @@ class SocialMediaStreamDataTable(ABC):
       匹配的记录字典列表，如果未找到返回None
     """
     try:
-      with self.__database.get_db_connector() as connector:
+      with self.__database.get_connector() as connector:
         with connector.cursor() as cursor:
           ##
           ## 安全地构建SQL查询

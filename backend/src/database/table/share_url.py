@@ -93,10 +93,10 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
               FROM   share_url
               WHERE  owner_user_id = "{}";
             '''.format(record.get("owner_user_id"))
-      connector = self.get_db_connector()
-      cursor = connector.cursor()
-      cursor.execute(sql)
-      result = cursor.fetchall()
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql)
+          result = cursor.fetchall()
       if len(result) != 0:
         ##
         ## the record is exist in database
@@ -187,10 +187,10 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
               FROM   share_url
               WHERE  owner_user_id = "{}";
             '''.format(record.get("owner_user_id"))
-      connector = self.get_db_connector()
-      cursor = connector.cursor()
-      cursor.execute(sql)
-      result = cursor.fetchall()
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql)
+          result = cursor.fetchall()
       if len(result) != 0:
         ##
         ## the record is exist in database
@@ -247,11 +247,13 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
               FROM share_url
               WHERE live_share_url = "{}";
             '''.format(live_share_url)
-      connector = self.get_db_connector()
-      cursor = connector.cursor()
-      cursor.execute(sql)
-      result = cursor.fetchall()
-      connector.close()
+      ##
+      ## execute sql & receive result
+      ##
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql)
+          result = cursor.fetchall()
       if len(result) != 0:
         return True
       else:
@@ -270,11 +272,13 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
               FROM share_url
               WHERE live_share_url = "{}";
             '''.format(live_share_url)
-      connector = self.get_db_connector()
-      cursor = connector.cursor()
-      cursor.execute(sql)
-      result = cursor.fetchall()
-      connector.close()
+      ##
+      ## execute sql & receive result
+      ##
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql)
+          result = cursor.fetchall()
       if len(result) != 0:
         return result[0][0]
       else:
@@ -293,11 +297,13 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
               FROM share_url
               WHERE owner_user_id = "{}";
             '''.format(owner_user_id)
-      connector = self.get_db_connector()
-      cursor = connector.cursor()
-      cursor.execute(sql)
-      result = cursor.fetchall()
-      connector.close()
+      ##
+      ## execute sql & receive result
+      ##
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql)
+          result = cursor.fetchall()
       if len(result) != 0:
         return result[0][0]
       else:
@@ -316,11 +322,13 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
               FROM share_url
               WHERE live_share_url = "{}";
             '''.format(live_share_url)
-      connector = self.get_db_connector()
-      cursor = connector.cursor()
-      cursor.execute(sql)
-      result = cursor.fetchall()
-      connector.close()
+      ##
+      ## execute sql & receive result
+      ##
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql)
+          result = cursor.fetchall()
       if len(result) != 0:
         return result[0][0]
       else:
@@ -339,11 +347,13 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
               FROM share_url
               WHERE owner_user_id = "{}";
             '''.format(owner_user_id)
-      connector = self.get_db_connector()
-      cursor = connector.cursor()
-      cursor.execute(sql)
-      result = cursor.fetchall()
-      connector.close()
+      ##
+      ## execute sql & receive result
+      ##
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql)
+          result = cursor.fetchall()
       if len(result) != 0:
         return True
       else:
@@ -375,12 +385,10 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       ##
       ## execute sql & receive result
       ##
-      connector = self.get_db_connector()
-      cursor = connector.cursor()
-      cursor.execute(sql)
-      result = cursor.fetchall()
-      connector.close()
-      
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql)
+          result = cursor.fetchall()
       ##
       ## handle the result
       ##
@@ -396,15 +404,13 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
                             SET actived_count = {}
                             WHERE owner_user_id = "{}"
                           '''.format(db_record[1]+1, db_record[0])
-                          
           ##
-          ## execute sql
+          ## execute sql & commit
           ##
-          connector = self.get_db_connector()
-          cursor = connector.cursor()
-          cursor.execute(increment_sql)
-          connector.commit()
-          connector.close()
+          with self.get_connection() as connector:
+            with connector.cursor() as cursor:
+              cursor.execute(increment_sql)
+              connector.commit()
           get_logger().info("increment actived count succeed!")
     except Exception as e:
       get_logger().error("increment actived count failed {}".format(e))
@@ -420,11 +426,13 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
           and share_url.user_status != "已注销"
           order by favorite_owner.score desc;
           '''
-    connector = self.get_db_connector()
-    cursor = connector.cursor()
-    cursor.execute(sql)
-    result = cursor.fetchall()
-    connector.close()
+    ##
+    ## execute sql & receive result
+    ##
+    with self.get_connection() as connector:
+      with connector.cursor() as cursor:
+        cursor.execute(sql)
+        result = cursor.fetchall()
     return result
   
   ##
@@ -440,11 +448,13 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
             )  and user_status != "已注销"
           order by actived_count;
           '''
-    connector = self.get_db_connector()
-    cursor = connector.cursor()
-    cursor.execute(sql)
-    result = cursor.fetchall()
-    connector.close()
+    ##
+    ## execute sql & receive result
+    ##
+    with self.get_connection() as connector:
+      with connector.cursor() as cursor:
+        cursor.execute(sql)
+        result = cursor.fetchall()
     return result
 
   ##
@@ -456,11 +466,13 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
           from favorite_owner 
           where owner_user_id = "{}"
           '''.format(owner_user_id)
-    connector = self.get_db_connector()
-    cursor = connector.cursor()
-    cursor.execute(sql)
-    result = cursor.fetchall()
-    connector.close()
+    ##
+    ## execute sql & receive result
+    ##
+    with self.get_connection() as connector:
+      with connector.cursor() as cursor:
+        cursor.execute(sql)
+        result = cursor.fetchall()
     if len(result) != 0:
       return True
     else:
@@ -474,11 +486,13 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
           insert into favorite_owner (owner_user_id, platform, score)
           values ("{}", "{}", {})
           '''.format(owner_user_id, platform, score)
-    connector = self.get_db_connector()
-    cursor = connector.cursor()
-    cursor.execute(sql)
-    connector.commit()
-    connector.close()
+    ##
+    ## execute sql & commit
+    ##
+    with self.get_connection() as connector:
+      with connector.cursor() as cursor:
+        cursor.execute(sql)
+        connector.commit()
     return True
 
   ##
@@ -490,11 +504,13 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
           from favorite_owner 
           where owner_user_id = "{}"
           '''.format(owner_user_id)
-    connector = self.get_db_connector()
-    cursor = connector.cursor()
-    cursor.execute(sql)
-    result = cursor.fetchall()
-    connector.close()
+    ##
+    ## execute sql & receive result
+    ##
+    with self.get_connection() as connector:
+      with connector.cursor() as cursor:
+        cursor.execute(sql)
+        result = cursor.fetchall()
     if len(result) != 0:
       return result[0][0]
     else:
@@ -509,11 +525,13 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
           set score = {}
           where owner_user_id = "{}"
           '''.format(score, owner_user_id)
-    connector = self.get_db_connector()
-    cursor = connector.cursor()
-    cursor.execute(sql)
-    connector.commit()
-    connector.close()
+    ##
+    ## execute sql & commit
+    ##
+    with self.get_connection() as connector:
+      with connector.cursor() as cursor:
+        cursor.execute(sql)
+        connector.commit()
     return True
 ##
 ## >>================================ test method ===============================>>
@@ -528,8 +546,6 @@ def test_create_share_url_table():
   ##
   try:
     db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
-    connector = db.get_db_connector()
-    cursor = connector.cursor()
     sql = '''
             CREATE TABLE share_url (
               owner_user_id     CHAR(200) NOT NULL PRIMARY KEY,
@@ -541,9 +557,14 @@ def test_create_share_url_table():
               user_status       CHAR(100)
             )
           '''
-    cursor.execute(sql)
-    get_logger().info("test create database table success")
-    connector.close()
+    ##
+    ## execute sql & commit
+    ##
+    with db.get_connection() as connector:
+      with connector.cursor() as cursor:
+        cursor.execute(sql)
+        connector.commit()
+        get_logger().info("test create database table success")
   except Exception as e:
     get_logger().error("test create database table failed {}".format(e))
 
@@ -556,14 +577,16 @@ def test_drop_db_table():
   ##
   try:
     db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
-    connector = db.get_db_connector()
-    cursor = connector.cursor()
     sql = '''
             DROP TABLE share_url;
           '''
-    cursor.execute(sql)
-    get_logger().info("test drop database table success")
-    connector.close()
+    ##
+    ## execute sql & commit
+    ##
+    with db.get_connection() as connector:
+      with connector.cursor() as cursor:
+        cursor.execute(sql)
+        get_logger().info("test drop database table success")
   except Exception as e:
     get_logger().error("test drop database table failed {}".format(e))
 
