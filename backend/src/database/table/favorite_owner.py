@@ -43,30 +43,3 @@ class FavoriteOwnerTable(SocialMediaStreamDataBase):
 ##
 ## >>============================= sub class method =============================>>
 ##
-
-##
-## >>================================ test method ===============================>>
-##
-
-##
-## test: create a database favorite owner table
-##
-def test_create_favorite_owner_table():
-  ##
-  ## test for create a table
-  ##
-  try:
-    db = FavoriteOwnerTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
-    connector = db.get_db_connector()
-    cursor = connector.cursor()
-    sql = '''
-            CREATE TABLE favorite_owner (
-              owner_user_id     CHAR(200) NOT NULL PRIMARY KEY,
-              platform          CHAR(20)
-            )
-          '''
-    cursor.execute(sql)
-    get_logger().info("test create database table success")
-    connector.close()
-  except Exception as e:
-    get_logger().error("test create database table failed {}".format(e))
