@@ -493,7 +493,7 @@ class StreamCompletePushUrlTable(SocialMediaStreamDataTable):
                                                      room_id                 varchar(200) NOT NULL,
                                                      stream_id               varchar(200) NOT NULL,
                                                      complete_push_url_index bigint       NOT NULL AUTO_INCREMENT,
-                                                     complete_push_url       varchar(20)  DEFAULT NULL,
+                                                     complete_push_url       text         DEFAULT NULL,
                                                      PRIMARY KEY (complete_push_url_index),
                                                      UNIQUE KEY unique_record (now, platform, room_id, stream_id, complete_push_url_index)
                                                    )

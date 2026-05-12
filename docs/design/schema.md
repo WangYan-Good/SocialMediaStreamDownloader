@@ -65,28 +65,28 @@ external_info.data.room
 │ 2. room_owner_v2      - 主播信息 (80 字段 + 18 JSON)         │
 └─────────────────────────────────────────────────────────────┘
 
-┌─────────────────────────────────────────────────────────────┐
-│                    扩展表 (17 张)                            │
-├─────────────────────────────────────────────────────────────┤
-│ 3. room_admin_user              - 管理员表                   │
-│ 3-1. room_admin_user_open_id    - 管理员开放 ID 表           │
-│ 4. room_decoration              - 装饰表                     │
-│ 4-1. room_fans_group_admin_user_id      - 粉丝群管理员 ID 表 │
-│ 4-2. room_fans_group_admin_user_open_id - 粉丝群管理员开放 ID 表 │
-│ 5. room_stats                   - 统计数据表                 │
-│ 6. room_stream                  - 流信息表                   │
-│ 7. room_stream_resolution       - 流分辨率表                 │
-│ 8. room_short_touch_element     - 短接触元素表               │
-│ 9. room_temp_state_strategy     - 临时状态策略表             │
-│ 10. room_battle_score           - 对战分数表                 │
-│ 11. room_auth_bitmap            - 权限位图表                 │
-│ 12. room_auth_cert_label        - 认证徽章内容表             │
-│ 13. room_pack_meta_extra        - 包元数据额外信息表         │
-│ 14. room_extra_admin_op_type    - 管理员操作类型表           │
-│ 15. room_realtime_playback_quality - 实时回放质量表         │
-│ 16. room_owner_auth_level       - 主播认证等级表             │
-│ 17. room_owner_admin_privilege  - 主播管理员权限表           │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                    扩展表 (17 张)                                    │
+├──────────────────────────────────────────────────────────────────────┤
+│ 3. room_admin_user                      - 管理员表                   │
+│ 3-1. room_admin_user_open_id            - 管理员开放 ID 表           │
+│ 4. room_decoration                      - 装饰表                     │
+│ 4-1. room_fans_group_admin_user_id      - 粉丝群管理员 ID 表         │
+│ 4-2. room_fans_group_admin_user_open_id - 粉丝群管理员开放 ID 表     │
+│ 5. room_stats                           - 统计数据表                 │
+│ 6. room_stream                          - 流信息表                   │
+│ 7. room_stream_resolution               - 流分辨率表                 │
+│ 8. room_short_touch_element             - 短接触元素表               │
+│ 9. room_temp_state_strategy             - 临时状态策略表             │
+│ 10. room_battle_score                   - 对战分数表                 │
+│ 11. room_auth_bitmap                    - 权限位图表                 │
+│ 12. room_auth_cert_label                - 认证徽章内容表             │
+│ 13. room_pack_meta_extra                - 包元数据额外信息表         │
+│ 14. room_extra_admin_op_type            - 管理员操作类型表           │
+│ 15. room_realtime_playback_quality      - 实时回放质量表             │
+│ 16. room_owner_auth_level               - 主播认证等级表             │
+│ 17. room_owner_admin_privilege          - 主播管理员权限表           │
+└──────────────────────────────────────────────────────────────────────┘
 
 **总计：22 张表** (vs 原方案 120+ 张，减少 82%)
 
@@ -901,7 +901,6 @@ CREATE TABLE IF NOT EXISTS `room_owner_v2` (
     `pay_grade_data`          JSON    DEFAULT NULL COMMENT '付费等级数据',
     `fans_club_data`          JSON    DEFAULT NULL COMMENT '粉丝俱乐部完整数据 (JSON，包含 data 和 prefer_data)',
     `fans_group_info`         JSON    DEFAULT NULL COMMENT '粉丝群信息 (JSON)',
-    `follow_info`             JSON    DEFAULT NULL COMMENT '关注信息 (JSON)',
     `subscribe_data`          JSON    DEFAULT NULL COMMENT '订阅信息',
     `user_attr_data`          JSON    DEFAULT NULL COMMENT '用户属性',
     `user_dress_info_data`    JSON    DEFAULT NULL COMMENT '用户装扮信息',
@@ -1031,7 +1030,6 @@ CREATE TABLE IF NOT EXISTS `room_owner_v2` (
 | pay_grade_data            | json              | YES  |     | NULL    |       | "$.data.room.owner.pay_grade"               | 付费等级数据 (JSON)              |
 | fans_club_data            | json              | YES  |     | NULL    |       | "$.data.room.owner.fans_club"               | 粉丝俱乐部完整数据 (JSON，包含 data 和 prefer_data) |
 | fans_group_info           | json              | YES  |     | NULL    |       | "$.data.room.owner.fans_group_info"         | 粉丝群信息 (JSON)                |
-| follow_info               | json              | YES  |     | NULL    |       | "$.data.room.owner.follow_info"             | 关注信息 (JSON)                  |
 | subscribe_data            | json              | YES  |     | NULL    |       | "$.data.room.owner.subscribe"               | 订阅信息 (JSON)                  |
 | user_attr_data            | json              | YES  |     | NULL    |       | "$.data.room.owner.user_attr"               | 用户属性数据 (JSON)              |
 | user_dress_info_data      | json              | YES  |     | NULL    |       | "$.data.room.owner.user_dress_info"         | 用户装扮数据 (JSON)              |
