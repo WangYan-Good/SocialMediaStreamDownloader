@@ -7,11 +7,12 @@ sys.path.append(os.getcwd())
 ##<<Base>>
 import threading
 from contextlib import contextmanager
+from typing     import Iterator
 
 ## <<Extension>>
 import pymysql
 from pymysql.connections import Connection
-from dbutils.pooled_db import PooledDB
+from dbutils.pooled_db   import PooledDB
 
 ## <<Third-Part>>
 from backend.src.library.baselib import output_dict
@@ -159,7 +160,7 @@ class SocialMediaStreamDataBase():
   ## Obtain a database connection from the connection pool (context manager)
   ##
   @contextmanager
-  def get_connection(self):
+  def get_connection(self) -> Iterator[Connection]:
     """
     Context Manager for Obtaining Database Connections from a Connection Pool
 

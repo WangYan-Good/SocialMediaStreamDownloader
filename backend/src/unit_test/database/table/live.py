@@ -11,6 +11,7 @@ from datetime                                                         import dat
 from backend.src.database.social_media_stream_database                import SocialMediaStreamDataBase
 from backend.src.database.table.live                                  import LiveRecordTable
 from backend.src.base.log                                             import get_logger
+from backend.src.unit_test.test_db_config                             import get_test_db_config
 
 ##
 ## >>================================ live record table test method ===============================>>
@@ -230,7 +231,7 @@ def test_update_live_record(db:SocialMediaStreamDataBase = None):
 ## >>================================ main method ===============================>>
 ##
 if __name__ == "__main__":
-  db = SocialMediaStreamDataBase(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
+  db = SocialMediaStreamDataBase(**get_test_db_config())
 
   ##
   ## live record table

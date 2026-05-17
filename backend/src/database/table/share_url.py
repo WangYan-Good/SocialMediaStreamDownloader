@@ -28,17 +28,21 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
   __DOUYIN_SHARE_URL_TABLE_HEADER = ['owner_user_id', 'sec_user_id', 'nickname', 'post_share_url', 'live_share_url', 'directory_name', 'user_status', 'actived_count']
   __DOUYIN_SHARE_URL_TABLE_TUPLE  = {item:None for item in __DOUYIN_SHARE_URL_TABLE_HEADER}
   __SQL_DROP_SHARE_URL_TABLE      = '''
-                                    DROP TABLE share_url;
+                                    DROP TABLE IF EXISTS share_url;
                                   '''
   __SQL_CREATE_SHARE_URL_TABLE    = '''
-                                    CREATE TABLE share_url (
-                                      sec_user_id       CHAR(200) NOT NULL PRIMARY KEY,
-                                      nickname          CHAR(20),
-                                      post_share_url    CHAR(100),
-                                      live_share_url    CHAR(100),
-                                      directory_name    CHAR(100),
-                                      user_status       CHAR(100)
-                                    )
+                                    CREATE TABLE IF NOT EXISTS share_url (
+                                      owner_user_id     VARCHAR(200) NOT NULL,
+                                      sec_user_id       VARCHAR(200) DEFAULT NULL,
+                                      nickname          VARCHAR(50)  DEFAULT NULL,
+                                      post_share_url    VARCHAR(100) DEFAULT NULL,
+                                      live_share_url    VARCHAR(100) DEFAULT NULL,
+                                      directory_name    VARCHAR(100) DEFAULT NULL,
+                                      user_status       VARCHAR(100) DEFAULT NULL,
+                                      actived_count     INT UNSIGNED NOT NULL DEFAULT 0,
+                                      PRIMARY KEY (owner_user_id),
+                                      INDEX idx_nickname (nickname)
+                                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
                                   '''
 ##
 ## >>============================= private method =============================>>
@@ -380,38 +384,32 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       sql = '''
               SELECT owner_user_id, actived_count
               FROM share_url
-              WHERE owner_user_id = "{}";
-            '''.format(owner_user_id)
-      ##
-      ## execute sql & receive result
-      ##
+              WHERE owner_user_id = %s;
+            '''
       with self.get_connection() as connector:
         with connector.cursor() as cursor:
-          cursor.execute(sql)
-          result = cursor.fetchall()
-      ##
-      ## handle the result
-      ##
-      if len(result) == 0:
-        pass
+          cursor.execute(sql, (owner_user_id,))
+          db_record = cursor.fetchone()
+
+      if db_record is None:
+        get_logger().warning("owner_user_id {} not found, skip increment".format(owner_user_id))
+        return
+
+      if isinstance(db_record, dict):
+        current_count = int(db_record.get("actived_count", 0))
       else:
-        for db_record in result:
-          ##
-          ## construct sql
-          ##
-          increment_sql = '''
-                            UPDATE share_url
-                            SET actived_count = {}
-                            WHERE owner_user_id = "{}"
-                          '''.format(db_record[1]+1, db_record[0])
-          ##
-          ## execute sql & commit
-          ##
-          with self.get_connection() as connector:
-            with connector.cursor() as cursor:
-              cursor.execute(increment_sql)
-              connector.commit()
-          get_logger().info("increment actived count succeed!")
+        current_count = int(db_record[1])
+
+      increment_sql = '''
+                      UPDATE share_url
+                      SET actived_count = %s
+                      WHERE owner_user_id = %s
+                    '''
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(increment_sql, (current_count + 1, owner_user_id))
+          connector.commit()
+      get_logger().info("increment actived count succeed!")
     except Exception as e:
       get_logger().error("increment actived count failed {}".format(e))
 
@@ -423,6 +421,7 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
           select share_url.live_share_url
           from share_url, favorite_owner
           where share_url.owner_user_id = favorite_owner.owner_user_id
+          and favorite_owner.platform = "douyin"
           and share_url.user_status != "已注销"
           order by favorite_owner.score desc;
           '''
@@ -445,6 +444,7 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
           where owner_user_id not in (
             select owner_user_id 
             from favorite_owner
+            where platform = "douyin"
             )  and user_status != "已注销"
           order by actived_count;
           '''
@@ -460,12 +460,13 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
   ##
   ## check if the douyin platform favorite owner score record is exist
   ##
-  def is_owner_score_record_exist(self, owner_user_id:str) -> bool:
+  def is_owner_score_record_exist(self, owner_user_id:str, platform:str="douyin") -> bool:
     sql = '''
           select owner_user_id
           from favorite_owner 
           where owner_user_id = "{}"
-          '''.format(owner_user_id)
+          and platform = "{}"
+          '''.format(owner_user_id, platform)
     ##
     ## execute sql & receive result
     ##
@@ -498,12 +499,13 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
   ##
   ## get douyin platform favorite owner score
   ##
-  def get_owner_score_by_user_id(self, owner_user_id:str) -> int:
+  def get_owner_score_by_user_id(self, owner_user_id:str, platform:str="douyin") -> int:
     sql = '''
           select score
           from favorite_owner 
           where owner_user_id = "{}"
-          '''.format(owner_user_id)
+          and platform = "{}"
+          '''.format(owner_user_id, platform)
     ##
     ## execute sql & receive result
     ##
@@ -519,12 +521,13 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
   ##
   ## update douyin platform favorite owner score
   ##
-  def update_owner_score(self, owner_user_id:str, score:int):
+  def update_owner_score(self, owner_user_id:str, score:int, platform:str="douyin"):
     sql = '''
           update favorite_owner
           set score = {}
           where owner_user_id = "{}"
-          '''.format(score, owner_user_id)
+          and platform = "{}"
+          '''.format(score, owner_user_id, platform)
     ##
     ## execute sql & commit
     ##
@@ -533,113 +536,3 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
         cursor.execute(sql)
         connector.commit()
     return True
-##
-## >>================================ test method ===============================>>
-##
-
-##
-## test：create a database table
-##
-def test_create_share_url_table():
-  ##
-  ## test for connect to database
-  ##
-  try:
-    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
-    sql = '''
-            CREATE TABLE share_url (
-              owner_user_id     CHAR(200) NOT NULL PRIMARY KEY,
-              sec_user_id       CHAR(200),
-              nickname          CHAR(20),
-              post_share_url    CHAR(100),
-              live_share_url    CHAR(100),
-              directory_name    CHAR(100),
-              user_status       CHAR(100)
-            )
-          '''
-    ##
-    ## execute sql & commit
-    ##
-    with db.get_connection() as connector:
-      with connector.cursor() as cursor:
-        cursor.execute(sql)
-        connector.commit()
-        get_logger().info("test create database table success")
-  except Exception as e:
-    get_logger().error("test create database table failed {}".format(e))
-
-##
-## test：drop a database table
-##
-def test_drop_db_table():  
-  ##
-  ## test for connect to database
-  ##
-  try:
-    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
-    sql = '''
-            DROP TABLE share_url;
-          '''
-    ##
-    ## execute sql & commit
-    ##
-    with db.get_connection() as connector:
-      with connector.cursor() as cursor:
-        cursor.execute(sql)
-        get_logger().info("test drop database table success")
-  except Exception as e:
-    get_logger().error("test drop database table failed {}".format(e))
-
-##
-## test：insert a record to database table
-##
-def test_insert_record():
-  record = dict()
-  record["owner_user_id"]  = "58859666123"
-  record["sec_user_id"]    = "MS4wLjABAAAAGZkW5n1EHZD_TFyQ-QiaISBPemtKFxVVdhLSeoXhh-U"
-  record["nickname"]       = "\u2728\u7C73\u5F00\u6717\u7EFF\u841D\u2728"
-  record["post_share_url"] = "https://v.douyin.com/iYkvSmAw/"
-  record["live_share_url"] = "https://v.douyin.com/iFemNNTW/"
-  record["directory_name"] = "_\u7C73\u5F00\u6717\u7EFF\u841D_"
-  record["user_status"]    = "正常"
-
-  try:
-    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
-    db.insert_live_share_url_record(record)
-  except Exception as e:
-    get_logger().error("insert a record failed {}".format(e))
-
-##
-## test: search recode from table
-##
-def test_search_record_from_table():
-  try:
-    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
-    url = "https://v.douyin.com/ikRBs7Sy/"
-    if db.is_live_share_url_record_exist(url) is True:
-      get_logger().info("live share url {} is exist".format(url))
-  except Exception as e:
-    get_logger().error("search records from table failed {}".format(e))
-    raise e
-
-##
-## test: increment actived count
-##
-def test_increment_actived_count():
-  try:
-    owner_user_id = "55262425391"
-    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
-    db.increment_live_actived_count(owner_user_id)      
-  except Exception as e:
-    pass
-  
-##
-## test: increment actived count
-##
-def test_increment_actived_count():
-  try:
-    owner_user_id = "55262425391"
-    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
-    db.increment_live_actived_count(owner_user_id)      
-  except Exception as e:
-    pass
