@@ -207,7 +207,6 @@ def import_douyin_room_deco_to_database(db:SocialMediaStreamDataBase, data:dict)
         deco_data = deco_list[deco_index]
         if isinstance(deco_data, dict) is False:
           continue
-        inserted_deco_index = deco_index + 1
         try:
           ##
           ## create the table if not exist
@@ -218,7 +217,6 @@ def import_douyin_room_deco_to_database(db:SocialMediaStreamDataBase, data:dict)
 
           set_dict_attr(room_deco_table_tuple, "$.platform",                             DOUYIN_PLATFORM)
           set_dict_attr(room_deco_table_tuple, "$.room_id",                              str(room_id))
-          set_dict_attr(room_deco_table_tuple, "$.deco_index",                           inserted_deco_index)
           set_dict_attr(room_deco_table_tuple, "$.deco_id",                              get_dict_attr(deco_data,            "$.id"))
           set_dict_attr(room_deco_table_tuple, "$.deco_type",                            get_dict_attr(deco_data,            "$.type"))
           set_dict_attr(room_deco_table_tuple, "$.kind",                                 get_dict_attr(deco_data,            "$.kind"))
