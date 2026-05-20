@@ -430,7 +430,10 @@ class SocialMediaStreamDataTable(ABC):
             ## handle insertion result
             ##
             if on_duplicate == 'ignore' and cursor.rowcount == 0:
-              get_logger().warning("duplicate record ignored")
+              get_logger().warning(
+                "duplicate record ignored on table=%s",
+                self.get_name(),
+              )
               return -1
             
             inserted_id = cursor.lastrowid

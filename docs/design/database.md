@@ -109,11 +109,11 @@
 | assist_label_list             | table             |      |     |         |       | "$.data.room.assist_label_list"                   | 助手列表                        |
 | auth_city                     | varchar(100)      |      |     |         |       | "$.data.room.auth_city"                           | 直播间认证城市                   |
 | auto_cover                    | unsigned tinyint  |      |     |         |       | "$.data.room.auto_cover"                          | 自动封面                         |
-| base_category                 | unsigned tinyint  |      |     |         |       | "$.data.room.base_category"                       | 基础分类                         |
+| base_category                 | bigint            |      |     |         |       | "$.data.room.base_category"                       | 基础分类                         |
 | book_end_time                 | timestamp         |      |     |         |       | "$.data.room.book_end_time"                       | 直播间预约结束时间                |
 | book_time                     | timestamp         |      |     |         |       | "$.data.room.book_time"                           | 直播间预约开始时间                |
 | business_live                 | unsigned tinyint  |      |     |         |       | "$.data.room.business_live"                       | 商业直播                         |
-| category                      | unsigned tinyint  |      |     |         |       | "$.data.room.category"                            | 分类                            |
+| category                      | bigint            |      |     |         |       | "$.data.room.category"                            | 分类                            |
 | cell_style                    | unsigned tinyint  |      |     |         |       | "$.data.room.cell_style"                          | 直播间单元样式                   |
 | challenge_info                | tinytext          |      |     |         |       | "$.data.room.challenge_info"                      |                                 |
 | city_top_distance             | tinytext          |      |     |         |       | "$.data.room.city_top_distance"                   | 城市顶部距离                     |
@@ -152,7 +152,7 @@
 | xigua_uid                     | varchar(200)      |      |     |         |       | "$.data.room.extra.xigua_uid"                     | 西瓜用户ID                       |
 | fansclub_msg_style            | unsigned tinyint  |      |     |         |       | "$.data.room.fansclub_msg_style"                  | 粉丝俱乐部消息样式                |
 | fcdn_appid                    | varchar(200)      |      |     |         |       | "$.data.room.fcdn_appid"                          | FCDN应用ID                       |
-| finish_reason                 | unsigned tinyint  |      |     |         |       | "$.data.room.finish_reason"                       | 直播结束原因                     |
+| finish_reason                 | unsigned smallint |      |     |         |       | "$.data.room.finish_reason"                       | 直播结束原因                     |
 | finish_time                   | timestamp         |      |     |         |       | "$.data.room.finish_time"                         | 直播结束时间                     |
 | finish_url                    | text              |      |     |         |       | "$.data.room.finish_url"                          | 直播结束URL                      |
 | follow_msg_style              | unsigned tinyint  |      |     |         |       | "$.data.room.follow_msg_style"                    | 关注消息样式                     |

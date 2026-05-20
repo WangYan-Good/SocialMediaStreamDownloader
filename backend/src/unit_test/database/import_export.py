@@ -12,8 +12,10 @@ sys.path.append(os.getcwd())
 ##<< Test
 
 ## <<Base>>
+import random
 from pathlib                                                          import   Path
-import                                                                         glob
+import glob
+import time
 
 ## <<Third-Part>>
 from backend.src.library.baselib                                      import   load_yml, get_dict_attr, set_dict_attr, get_logger
@@ -84,24 +86,26 @@ def test_export_live_info_to_yml(db: SocialMediaStreamDataBase, output_path: str
 if __name__ == "__main__":
   db = SocialMediaStreamDataBase(**get_test_db_config())
 
+  input_root = os.path.abspath('./config/build/douyin/live')
+  export_root = os.path.abspath('./config/export')
+  os.makedirs(export_root, exist_ok=True)
+
   imported_count = 0
   exported_count = 0
   failed_count = 0
   failed_files: list[str] = []
   
   ##
-  ## text single file
+  ## 找到 config/export 下不存在的文件，避免重复测试已经成功导入导出的文件
   ##
-  # file = '一汽_大众菏泽众志新能源.yml'
-  # identifier = test_import_live_info_to_database(db, f'./config/build/douyin/live/{file}')
-  # export_live_info_to_yml(db, identifier, f"./config/export/{file}")
-
-  ##
-  ## read all yml import files
-  ## config/build/douyin/live
-  ##
-  input_path_list = sorted(glob.glob(os.path.join('./config/build/douyin/live', "*.yml")))
-  for input_path in input_path_list:
+  input_path_list = []
+  for file in glob.glob(os.path.join(input_root, "*.yml")):
+    file_name = os.path.basename(file)
+    output_file = os.path.join(export_root, file_name)
+    if not os.path.exists(output_file):
+      input_path_list.append(file)
+  input_path_list = sorted(input_path_list)
+  for input_path in input_path_list:    
     ##
     ## 获取文件名（不含扩展名）作为缓存变量名
     ##
@@ -112,14 +116,25 @@ if __name__ == "__main__":
       imported_count += 1
       get_logger().info(f"{input_path} import succeed")
 
-      output_path = f"./config/export/{file_name}"
+      output_path = os.path.join(export_root, file_name)
       export_live_info_to_yml(db, identifier, output_path)
       exported_count += 1
       get_logger().info(f"{file_name} export succeed")
     except Exception as e:
       failed_count += 1
       failed_files.append(file_name)
+      ##
+      ## 输出当前进度
+      ##
+      get_logger().info(
+        "current progress: total=%s imported=%s exported=%s failed=%s",
+        len(input_path_list),
+        imported_count,
+        exported_count,
+        failed_count,
+      )
       get_logger().error(f"failed to process {input_path}: {e}")
+      raise e
 
   get_logger().info(
     "import summary: total=%s imported=%s exported=%s failed=%s",

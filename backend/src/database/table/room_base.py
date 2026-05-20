@@ -108,15 +108,15 @@ class RoomBaseTable(SocialMediaStreamDataTable):
                                         finish_time                      bigint         DEFAULT NULL,
                                         stream_close_time                bigint         DEFAULT NULL,
 
-                                        status                           tinyint unsigned DEFAULT 0,
-                                        finish_reason                    tinyint unsigned DEFAULT NULL,
-                                        acquaintance_status              tinyint unsigned DEFAULT 0,
+                                        status                           tinyint  unsigned DEFAULT 0,
+                                        finish_reason                    smallint unsigned DEFAULT NULL,
+                                        acquaintance_status              tinyint  unsigned DEFAULT 0,
 
                                         owner_user_id                    bigint         DEFAULT NULL,
 
                                         app_id                           bigint         DEFAULT NULL,
-                                        base_category                    int unsigned   DEFAULT 0,
-                                        category                         int unsigned   DEFAULT 0,
+                                        base_category                    bigint         DEFAULT 0,
+                                        category                         bigint         DEFAULT 0,
                                         client_version                   bigint         DEFAULT NULL,
                                         orientation                      tinyint unsigned DEFAULT 0,
                                         layout                           tinyint unsigned DEFAULT 0,

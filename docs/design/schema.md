@@ -202,15 +202,15 @@ CREATE TABLE IF NOT EXISTS `room_base` (
     `finish_time`                      BIGINT            DEFAULT NULL,
     `stream_close_time`                BIGINT            DEFAULT NULL,
 
-    `status`                           TINYINT UNSIGNED DEFAULT 0,
-    `finish_reason`                    TINYINT UNSIGNED DEFAULT NULL,
-    `acquaintance_status`              TINYINT UNSIGNED DEFAULT 0,
+    `status`                           TINYINT  UNSIGNED DEFAULT 0,
+    `finish_reason`                    SMALLINT UNSIGNED DEFAULT NULL,
+    `acquaintance_status`              TINYINT  UNSIGNED DEFAULT 0,
 
     `owner_user_id`                    BIGINT            DEFAULT NULL,
 
     `app_id`                           BIGINT            DEFAULT NULL,
-    `base_category`                    TINYINT UNSIGNED DEFAULT 0,
-    `category`                         TINYINT UNSIGNED DEFAULT 0,
+    `base_category`                    BIGINT            DEFAULT 0,
+    `category`                         BIGINT            DEFAULT 0,
     `client_version`                   BIGINT            DEFAULT NULL,
     `orientation`                      TINYINT UNSIGNED DEFAULT 0,
     `layout`                           TINYINT UNSIGNED DEFAULT 0,
