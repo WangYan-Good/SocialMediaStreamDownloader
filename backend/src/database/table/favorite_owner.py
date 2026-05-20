@@ -17,20 +17,22 @@ class FavoriteOwnerTable(SocialMediaStreamDataBase):
 ##
 ## >>============================= attribute =============================>>
 ##
-  __FAVORITE_OWNER_TABLE_NAME  = 'favorite_owner'
-  __FAVORITE_OWNER_TABLE_TITLE = ['owner_user_id', 'platform', 'score']
-  __FAVORITE_OWNER_TABLE_TUPLE = {item:None for item in __FAVORITE_OWNER_TABLE_TITLE}
-  __SQL_DROP_FAVORITE_OWNER_TABLE = '''
-                                     DROP TABLE IF EXISTS favorite_owner;
-                                   '''
+  __FAVORITE_OWNER_TABLE_NAME     = 'favorite_owner'
+  __FAVORITE_OWNER_TABLE_HEADER   = ['owner_user_id', 'platform', 'score']
+  __FAVORITE_OWNER_TABLE_PRI_KEY  = ['owner_user_id', 'platform']
+  __TABLE_AUTO_INCREMENT          = []
+  __FAVORITE_OWNER_TABLE_TUPLE    = {item:None for item in __FAVORITE_OWNER_TABLE_HEADER}
   __SQL_CREATE_FAVORITE_OWNER_TABLE = '''
-                                       CREATE TABLE IF NOT EXISTS favorite_owner (
+                                       CREATE TABLE IF NOT EXISTS {} (
                                          owner_user_id  VARCHAR(200)     NOT NULL,
                                          platform       VARCHAR(20)      NOT NULL,
                                          score          TINYINT UNSIGNED NOT NULL DEFAULT 0,
                                          PRIMARY KEY (owner_user_id, platform)
                                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-                                     '''
+                                     '''.format(__FAVORITE_OWNER_TABLE_NAME)
+  __SQL_DROP_FAVORITE_OWNER_TABLE = '''
+                                     DROP TABLE IF EXISTS {};
+                                   '''.format(__FAVORITE_OWNER_TABLE_NAME)
 ##
 ## favorite owner table header
 ## +---------------+----------+-------+
@@ -64,7 +66,7 @@ class FavoriteOwnerTable(SocialMediaStreamDataBase):
   ## get favorite owner table header
   ##
   def get_favorite_owner_table_header(self) -> list:
-    return self.__FAVORITE_OWNER_TABLE_TITLE
+    return self.__FAVORITE_OWNER_TABLE_HEADER
 
   ##
   ## get favorite owner table tuple

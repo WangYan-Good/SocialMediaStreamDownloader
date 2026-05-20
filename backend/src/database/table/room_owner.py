@@ -197,6 +197,10 @@ class RoomOwnerV2Table(SocialMediaStreamDataTable):
                                         INDEX idx_nickname (nickname)
                                       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='主播信息表';
                                       '''.format(__ROOM_OWNER_V2_TABLE_NAME)
+  __SQL_DROP_ROOM_OWNER_V2_TABLE = '''
+                                      DROP TABLE IF EXISTS {};
+                                    '''.format(__ROOM_OWNER_V2_TABLE_NAME)
+
 ##
 ## <<=============================== room_owner_v2 ==============================<<
 ##
@@ -237,7 +241,7 @@ class RoomOwnerV2Table(SocialMediaStreamDataTable):
     return self.__SQL_CREATE_ROOM_OWNER_V2_TABLE
 
   def get_drop_sql_cmd(self) -> str:
-    return 'DROP TABLE IF EXISTS {};'.format(self.__ROOM_OWNER_V2_TABLE_NAME)
+    return self.__SQL_DROP_ROOM_OWNER_V2_TABLE
 
   def verify_table_schema(self) -> bool:
     return super().verify_table_schema()

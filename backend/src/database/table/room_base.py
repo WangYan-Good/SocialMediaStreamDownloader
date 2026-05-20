@@ -279,6 +279,10 @@ class RoomBaseTable(SocialMediaStreamDataTable):
                                         PRIMARY KEY (now, id, start_time)
                                       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                                       '''.format(__ROOM_BASE_TABLE_NAME)
+  __SQL_DROP_ROOM_BASE_TABLE = '''
+                              DROP TABLE IF EXISTS {};
+                            '''.format(__ROOM_BASE_TABLE_NAME)
+
 ##
 ## <<=============================== attribute ==============================<<
 ##
@@ -319,7 +323,7 @@ class RoomBaseTable(SocialMediaStreamDataTable):
     return self.__SQL_CREATE_ROOM_BASE_TABLE
 
   def get_drop_sql_cmd(self) -> str:
-    return 'DROP TABLE IF EXISTS {};'.format(self.__ROOM_BASE_TABLE_NAME)
+    return self.__SQL_DROP_ROOM_BASE_TABLE
 
   def verify_table_schema(self) -> bool:
     return super().verify_table_schema()

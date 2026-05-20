@@ -27,11 +27,8 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
   __DOUYIN_SHARE_URL_TABLE_NAME   = 'share_url'
   __DOUYIN_SHARE_URL_TABLE_HEADER = ['owner_user_id', 'sec_user_id', 'nickname', 'post_share_url', 'live_share_url', 'directory_name', 'user_status', 'actived_count']
   __DOUYIN_SHARE_URL_TABLE_TUPLE  = {item:None for item in __DOUYIN_SHARE_URL_TABLE_HEADER}
-  __SQL_DROP_SHARE_URL_TABLE      = '''
-                                    DROP TABLE IF EXISTS share_url;
-                                  '''
   __SQL_CREATE_SHARE_URL_TABLE    = '''
-                                    CREATE TABLE IF NOT EXISTS share_url (
+                                    CREATE TABLE IF NOT EXISTS {} (
                                       owner_user_id     VARCHAR(200) NOT NULL,
                                       sec_user_id       VARCHAR(200) DEFAULT NULL,
                                       nickname          VARCHAR(50)  DEFAULT NULL,
@@ -43,7 +40,10 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
                                       PRIMARY KEY (owner_user_id),
                                       INDEX idx_nickname (nickname)
                                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-                                  '''
+                                  '''.format(__DOUYIN_SHARE_URL_TABLE_NAME)
+  __SQL_DROP_SHARE_URL_TABLE      = '''
+                                    DROP TABLE IF EXISTS {};
+                                  '''.format(__DOUYIN_SHARE_URL_TABLE_NAME)
 ##
 ## >>============================= private method =============================>>
 ##
@@ -145,7 +145,7 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
                           '''.format(df_result_record[1], df_result_record[2], df_result_record[3], df_result_record[0])
             cursor.execute(update_sql)
             connector.commit()
-            print("INFO: update {} success".format([item for item in df_result_record]))     
+            get_logger().info("update {} success".format([item for item in df_result_record]))     
       else:
         ##
         ## the record is not exist in database
