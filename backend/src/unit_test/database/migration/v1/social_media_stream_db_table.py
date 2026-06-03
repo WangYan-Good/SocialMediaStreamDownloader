@@ -41,53 +41,26 @@ class SocialMediaStreamDataTable(ABC):
   ## singleton pattern
   ##
   def __new__(cls, *args, **kwargs):
-    with cls.__db_lock:
-      if getattr(cls, 'instance', None) is None:
-        cls.instance = super().__new__(cls)
-      
-      ##
-      ## Whenever a table is retrieved/instantiated, dynamically bind it to the newly provided database instance or transaction proxy.
-      ## 无论何时获取/实例化表，动态地将其绑定到新传入的数据库实例或事务代理上（解决各子表单例模式下缓存过期数据库连接的问题）
-      ##
-      db_instance = None
-      if args:
-        db_instance = args[0]
-      else:
-        db_instance = kwargs.get('db_instance') or kwargs.get('db')
-        
-      if db_instance is not None:
-        cls.instance.__database = db_instance
-      
-      return cls.instance
+    if not hasattr(cls, 'instance'):
+      cls.instance = super().__new__(cls)
+    return cls.instance
 
   ##
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
     ##
-    ## prevent re-initialization for singleton pattern
-    ##
-    if getattr(self, '_initialized', False) and self._initialized:
-      ##
-      ## Update the database instance/proxy reference if provided to allow dynamic switching/transactions
-      ## 动态更新数据库实例或代理引用，满足多数据库会话与事务代理的需要
-      ##
-      if db_instance is not None:
-        self.__database = db_instance
-      return
-
-    ##
     ## check if db_instance is provided
     ##
     if db_instance is None:
       get_logger().error("db_instance is None, please provide a valid database instance")
       raise ValueError
-
+    
     ##
     ## initialize the database instance
     ##
     self.__database = db_instance
-
+    
     ##
     ## register the table when room_attribute table is exist but not registered
     ##
@@ -100,11 +73,6 @@ class SocialMediaStreamDataTable(ABC):
         raise e
     else:
       get_logger().info("{} table is already registered or does not exist".format(self.get_name()))
-
-    ##
-    ## mark as initialized
-    ##
-    self._initialized = True
     return
   
   def __init_subclass__(cls, **kwargs):
@@ -117,32 +85,6 @@ class SocialMediaStreamDataTable(ABC):
     ## register subclass
     ##
     cls.__REGISTRY[cls.get_name(cls)] = cls
-
-  ##
-  ## quote SQL identifier safely
-  ##
-  @staticmethod
-  def _quote_identifier(identifier: str) -> str:
-    if not isinstance(identifier, str):
-      raise ValueError("SQL identifier must be a string")
-    if len(identifier.strip()) == 0:
-      raise ValueError("SQL identifier must not be empty")
-    ##
-    ## If identifier already contains surrounding backticks (e.g. "`rank`"),
-    ## strip them to avoid producing doubled/backtick-included identifiers such as "```rank```".
-    ##
-    if identifier.startswith('`') and identifier.endswith('`') and len(identifier) >= 2:
-      identifier = identifier[1:-1]
-    return "`{}`".format(identifier.replace("`", "``"))
-
-  ##
-  ## validate keys belong to current table header
-  ##
-  def _validate_record_keys(self, keys: list) -> None:
-    header_set = set(self.get_header())
-    invalid_keys = [key for key in keys if key not in header_set]
-    if len(invalid_keys) != 0:
-      raise ValueError("Invalid columns for {}: {}".format(self.get_name(), invalid_keys))
 
 ##
 ## >>============================= abstract method =============================>>
@@ -201,7 +143,7 @@ class SocialMediaStreamDataTable(ABC):
   ##
   @abstractmethod
   def verify_table_schema(self) -> bool:
-    return True
+    return False
 
 ##
 ## >>============================= sub class method =============================>>
@@ -248,7 +190,7 @@ class SocialMediaStreamDataTable(ABC):
     ## create new table
     ##
     try:
-      with self.__database.get_connection() as connector:
+      with self.__database.get_db_connector() as connector:
         with connector.cursor() as cursor:
           ##
           ## 使用锁保护表创建过程
@@ -318,16 +260,10 @@ class SocialMediaStreamDataTable(ABC):
     ## 记录删除操作前的表信息
     ##
     try:
-      with self.__database.get_connection() as connector:
+      with self.__database.get_db_connector() as connector:
         with connector.cursor() as cursor:
-          cursor.execute("SELECT COUNT(*) AS row_count FROM {}".format(self._quote_identifier(table_name)))
-          result = cursor.fetchone()
-          if isinstance(result, dict):
-            row_count = result.get('row_count', 0)
-          elif result is None:
-            row_count = 0
-          else:
-            row_count = result[0]
+          cursor.execute("SELECT COUNT(*) FROM {}".format(table_name))
+          row_count = cursor.fetchone()[0]
           get_logger().info("table {} has {} rows before drop".format(table_name, row_count))
     except Exception as e:
       get_logger().warning("failed to get row count before drop: {}".format(e))
@@ -336,7 +272,7 @@ class SocialMediaStreamDataTable(ABC):
     ## 执行删除操作
     ##
     try:
-      with self.__database.get_connection() as connector:
+      with self.__database.get_db_connector() as connector:
         with connector.cursor() as cursor:
           ##
           ## 使用锁保护删除操作
@@ -390,8 +326,6 @@ class SocialMediaStreamDataTable(ABC):
     
     if on_duplicate not in ['error', 'ignore', 'update']:
       raise ValueError("on_duplicate must be one of: 'error', 'ignore', 'update'")
-
-    self._validate_record_keys(list(record.keys()))
     
     ##
     ## insert the record into the database
@@ -412,39 +346,35 @@ class SocialMediaStreamDataTable(ABC):
           continue
         filtered_keys.append(key)
         filtered_values.append(value)
-
-      if len(filtered_keys) == 0:
-        raise ValueError("no insertable fields after filtering auto-increment fields")
       
       ##
       ## build INSERT SQL statement
       ##
-      quoted_columns = [self._quote_identifier(key) for key in filtered_keys]
-      columns_str = ', '.join(quoted_columns)
+      columns_str = ', '.join(filtered_keys)
       placeholders_str = ', '.join(['%s' for _ in filtered_keys])
       
       sql = '''
         INSERT INTO {} ({})
         VALUES ({})
-      '''.format(self._quote_identifier(self.get_name()), columns_str, placeholders_str)
+      '''.format(self.get_name(), columns_str, placeholders_str)
       
       ##
       ## handle duplicate record strategy
       ##
       if on_duplicate == 'ignore':
-        quoted_key = self._quote_identifier(filtered_keys[0])
-        sql += " ON DUPLICATE KEY UPDATE {0} = {0}".format(quoted_key)
+        sql += " ON DUPLICATE KEY UPDATE {0} = {0}".format(filtered_keys[0])
       elif on_duplicate == 'update':
-        update_clause = ', '.join(["{0} = VALUES({0})".format(self._quote_identifier(key)) for key in filtered_keys])
+        update_clause = ', '.join(["{} = VALUES({})".format(key, key) for key in filtered_keys])
         sql += " ON DUPLICATE KEY UPDATE " + update_clause
       
       ##
       ## prepare parameters
       ##
       params = tuple(filtered_values)
+      
       get_logger().debug("executing SQL: {}".format(sql))
       get_logger().debug("with parameters: {}".format(params))
-      with self.__database.get_connection() as connector:
+      with self.__database.get_db_connector() as connector:
         with connector.cursor() as cursor:       
           ##
           ## execute INSERT statement with database lock
@@ -457,10 +387,7 @@ class SocialMediaStreamDataTable(ABC):
             ## handle insertion result
             ##
             if on_duplicate == 'ignore' and cursor.rowcount == 0:
-              get_logger().warning(
-                "duplicate record ignored on table=%s",
-                self.get_name(),
-              )
+              get_logger().warning("duplicate record ignored")
               return -1
             
             inserted_id = cursor.lastrowid
@@ -468,7 +395,9 @@ class SocialMediaStreamDataTable(ABC):
               get_logger().info("inserted record successfully with ID: {}".format(inserted_id))
             else:
               get_logger().info("inserted record successfully")
+            
             return inserted_id or 0
+              
     except Exception as e:
       get_logger().error("failed to insert record into {}: {}".format(self.get_name(), e))
       get_logger().error("record data: {}".format(record))
@@ -490,17 +419,15 @@ class SocialMediaStreamDataTable(ABC):
     """
     if not isinstance(conditions, dict) or not conditions:
       raise ValueError("Conditions must be a non-empty dictionary")
-
-    self._validate_record_keys(list(conditions.keys()))
     
     try:
-      with self.__database.get_connection() as connector:
+      with self.__database.get_db_connector() as connector:
         with connector.cursor() as cursor:
           where_parts = []
           params = []
           
           for key, value in conditions.items():
-            where_parts.append("{} = %s".format(self._quote_identifier(key)))
+            where_parts.append(f"`{key}` = %s")
             params.append(value)
           
           where_clause = ' AND '.join(where_parts)
@@ -510,7 +437,7 @@ class SocialMediaStreamDataTable(ABC):
             ## 软删除：更新标记字段
             ##
             sql = f"""
-              UPDATE {self._quote_identifier(self.get_name())}
+              UPDATE `{self.get_name()}`
               SET `is_deleted` = 1, `delete_time` = NOW()
               WHERE {where_clause}
             """
@@ -518,7 +445,7 @@ class SocialMediaStreamDataTable(ABC):
             ##
             ## 物理删除
             ##
-            sql = "DELETE FROM {} WHERE {}".format(self._quote_identifier(self.get_name()), where_clause)
+            sql = f"DELETE FROM `{self.get_name()}` WHERE {where_clause}"
           
           ##
           ## 使用锁
@@ -560,8 +487,6 @@ class SocialMediaStreamDataTable(ABC):
     if not record:
       get_logger().warning("Empty update record provided")
       return 0
-
-    self._validate_record_keys(list(record.keys()))
     
     ##
     ## 获取主键字段
@@ -577,7 +502,7 @@ class SocialMediaStreamDataTable(ABC):
       raise ValueError(f"Missing primary key fields: {missing_primary_keys}")
     
     try:
-      with self.__database.get_connection() as connector:
+      with self.__database.get_db_connector() as connector:
         with connector.cursor() as cursor:
           ##
           ## 分离更新字段和主键字段
@@ -591,11 +516,11 @@ class SocialMediaStreamDataTable(ABC):
           ##
           ## 安全构建SQL语句
           ##
-          set_clause = ', '.join(["{} = %s".format(self._quote_identifier(field)) for field in update_fields])
-          where_clause = ' AND '.join(["{} = %s".format(self._quote_identifier(pk)) for pk in primary_keys])
+          set_clause = ', '.join([f"`{field}` = %s" for field in update_fields])
+          where_clause = ' AND '.join([f"`{pk}` = %s" for pk in primary_keys])
           
           sql = f"""
-            UPDATE {self._quote_identifier(self.get_name())}
+            UPDATE `{self.get_name()}`
             SET {set_clause}
             WHERE {where_clause}
           """
@@ -661,13 +586,8 @@ class SocialMediaStreamDataTable(ABC):
     Returns:
       匹配的记录字典列表，如果未找到返回None
     """
-    if not isinstance(record, dict) or not record:
-      raise ValueError("record must be a non-empty dictionary")
-
-    self._validate_record_keys(list(record.keys()))
-
     try:
-      with self.__database.get_connection() as connector:
+      with self.__database.get_db_connector() as connector:
         with connector.cursor() as cursor:
           ##
           ## 安全地构建SQL查询
@@ -677,21 +597,20 @@ class SocialMediaStreamDataTable(ABC):
           
           for key, value in record.items():
             if value is not None:  ## 只处理非None的条件
-              where_conditions.append("{} = %s".format(self._quote_identifier(key)))
+              where_conditions.append(f"{key} = %s")
               params.append(value)
           
           if not where_conditions:
             get_logger().warning("No valid conditions provided for query")
             return None
           
-          header_sql = ', '.join([self._quote_identifier(key) for key in self.get_header()])
           sql = '''
             SELECT {} 
             FROM {}
             WHERE {}
             '''.format(
-            header_sql,
-            self._quote_identifier(self.get_name()),
+            ', '.join(self.get_header()), 
+            self.get_name(), 
             ' AND '.join(where_conditions)
           )
           
@@ -717,12 +636,9 @@ class SocialMediaStreamDataTable(ABC):
               ##
               if result is None:
                 return None
-
-              for row in result:
-                if isinstance(row, dict):
-                  record_dict = dict(row)
-                else:
-                  record_dict = dict(zip(self.get_header(), row))
+              
+              for record in result:
+                record_dict = dict(zip(self.get_header(), record))
                 record_list.append(record_dict)
             else:
               result = cursor.fetchone()
@@ -732,10 +648,7 @@ class SocialMediaStreamDataTable(ABC):
               ##
               if result is None:
                 return list()
-              if isinstance(result, dict):
-                record_list.append(dict(result))
-              else:
-                record_list.append(dict(zip(self.get_header(), result)))
+              record_list.append(dict(zip(self.get_header(), result)))
             if result is None:
               get_logger().debug("{} record not found with conditions: {}".format(
                 self.get_name(), record))

@@ -22,7 +22,7 @@ from backend.src.library.baselib                                      import   l
 from backend.src.database.social_media_stream_database                import   SocialMediaStreamDataBase
 from backend.src.unit_test.test_db_config                             import   get_test_db_config
 from backend.src.database.table.table_import                          import   import_douyin_live_info_to_database
-from backend.src.database.table.table_export                          import   export_live_info_to_yml
+from backend.src.database.table.table_export                          import   export_live_data
 
 ##
 ## >>================================ table agent test method ===============================>>
@@ -69,7 +69,7 @@ def test_import_live_info_to_database(db: SocialMediaStreamDataBase, input_path:
   set_dict_attr(identifier, "$.import_locator.start_time",    start_time if start_time is not None else 0, force=True)
   return identifier
   
-def test_export_live_info_to_yml(db: SocialMediaStreamDataBase, output_path: str) -> None:
+def test_export_live_data(db: SocialMediaStreamDataBase, output_path: str) -> None:
   
   ##
   ## parse living data
@@ -81,7 +81,7 @@ def test_export_live_info_to_yml(db: SocialMediaStreamDataBase, output_path: str
   ##
   ## export living data to database
   ##
-  export_live_info_to_yml(db, living_data, output_path)
+  export_live_data(db, living_data, output_path)
 
 if __name__ == "__main__":
   db = SocialMediaStreamDataBase(**get_test_db_config())
@@ -117,7 +117,7 @@ if __name__ == "__main__":
       get_logger().info(f"{input_path} import succeed")
 
       output_path = os.path.join(export_root, file_name)
-      export_live_info_to_yml(db, identifier, output_path)
+      export_live_data(db, identifier, output_path)
       exported_count += 1
       get_logger().info(f"{file_name} export succeed")
     except Exception as e:

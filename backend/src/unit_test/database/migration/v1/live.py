@@ -20,7 +20,7 @@ from backend.src.database.table.social_media_stream_db_table          import Soc
 ## | now                              | timestamp(3)      | NO   | PRI |         |       | "$.extra.now"              | 当前时间戳            |
 ## | platform                         | varchar(20)       | NO   | PRI |         |       |           -                | 平台                  | 
 ## | room_id                          | varchar(200)      | NO   | PRI |         |       | "$.data.room.id"           | 直播间ID              | 
-## | owner_user_id                    | varchar(200)      | NO   | PRI |         |       | "$.data.room.owner_user_id"| 当前主播ID            | 
+## | owner_user_id                    | varchar(200)      |      |     | NULL    |       | "$.data.room.owner_user_id"| 当前主播ID            | 
 ## | user_id                          | varchar(200)      |      |     | NULL    |       | "$.data.user.id"           | 当前观众ID            | 
 ## | start_time                       | timestamp         |      |     | NULL    |       | "$.data.room.start_time"   | 开始时间              | 
 ## | finish_time                      | timestamp         |      |     | NULL    |       | "$.data.room.finish_time"  | 结束时间              | 
@@ -45,9 +45,9 @@ class LiveRecordTable(SocialMediaStreamDataTable):
                                       user_id        varchar(200)      DEFAULT NULL,
                                       start_time     timestamp         DEFAULT NULL,
                                       finish_time    timestamp         DEFAULT NULL,
-                                      status_code    tinyint unsigned  DEFAULT NULL,
+                                      status_code    tinyint           DEFAULT NULL,
                                       PRIMARY KEY (now, platform, owner_user_id, room_id)
-                                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                                    )
                                     '''.format(__LIVE_RECORD_TABLE_NAME)
   __SQL_DROP_LIVE_RECORD_TABLE   = 'DROP TABLE IF EXISTS {};'.format(__LIVE_RECORD_TABLE_NAME)
 
@@ -65,10 +65,7 @@ class LiveRecordTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
-    if hasattr(self, '_initialized') and self._initialized:
-        return
     super().__init__(db_instance)
-    self._initialized = True
   
 ##
 ## >>============================= abstract method =============================>>

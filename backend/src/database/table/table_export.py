@@ -1082,6 +1082,9 @@ def initialize_export_data() -> dict:
   set_dict_attr(data, "$.status_code", 0, force=True)
   return data
 
+##
+## sort export fields by key, for better readability and consistency.
+##
 def _sort_export_fields(source):
   if isinstance(source, dict):
     target = dict()
@@ -1094,6 +1097,9 @@ def _sort_export_fields(source):
 
   return source
 
+##
+## normalize export data types, for better readability and consistency.
+##
 def _normalize_export_types(source:dict) -> dict:
   template = initialize_export_data()
 
@@ -1152,24 +1158,27 @@ def _normalize_export_types(source:dict) -> dict:
 
 ##
 ## export a living data from social media stream downloader database to yml file.
+## identifier: primary key of live_record table
 ##
-def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None, output_path:str = None) -> None:
+def export_live_data(db:SocialMediaStreamDataBase, identifier:dict = None, output_path:str = None) :
+  ##
+  ## check living record key field
+  ##  
+  if identifier is None:
+    raise ValueError("identifier is required")
+
   data = dict()
-  owner_user_id = get_dict_attr(identifier, "$.import_locator.owner_user_id")
-  if owner_user_id is None:
-    owner_user_id = get_dict_attr(identifier, "$.data.room.owner_user_id")
-
-  room_id = get_dict_attr(identifier, "$.import_locator.room_id")
-  if room_id is None:
-    room_id = get_dict_attr(identifier, "$.data.room.id")
-
-  start_time_id = get_dict_attr(identifier, "$.import_locator.start_time")
-  if start_time_id is None:
-    start_time_id = get_dict_attr(identifier, "$.data.room.start_time")
-
-  now_id = get_dict_attr(identifier, "$.import_locator.now")
-  if now_id is None:
-    now_id = get_dict_attr(identifier, "$.extra.now")
+  try:
+    now_id        = get_dict_attr(identifier, "$.now")
+    platform      = get_dict_attr(identifier, "$.platform")
+    room_id       = get_dict_attr(identifier, "$.room_id")
+    owner_user_id = get_dict_attr(identifier, "$.owner_user_id")
+    user_id       = get_dict_attr(identifier, "$.user_id")
+    start_time_id = get_dict_attr(identifier, "$.start_time")
+    finish_time   = get_dict_attr(identifier, "$.finish_time")
+    status_code   = get_dict_attr(identifier, "$.status_code")
+  except Exception as e:
+    raise ValueError(f"invalid identifier, error: {e}")
 
   def _to_int_or_none(value):
     if value is None:
@@ -1198,9 +1207,12 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
       value = value / 1000.0
     return dat.fromtimestamp(value)
 
+  ##
+  ## live_record
+  ##
   live_record       = LiveRecordTable(db)
   live_record_tuple = {key: None for key in live_record.get_tuple()}
-  set_dict_attr(live_record_tuple, "$.platform",      "douyin",                             force=True)
+  set_dict_attr(live_record_tuple, "$.platform",      "douyin",                                                  force=True)
   set_dict_attr(live_record_tuple, "$.owner_user_id", str(owner_user_id) if owner_user_id is not None else None, force=True)
   set_dict_attr(live_record_tuple, "$.room_id",       str(room_id) if room_id is not None else None,             force=True)
   now_id_dt = _to_datetime_or_none(now_id)
@@ -1585,3 +1597,5 @@ def export_live_info_to_yml(db:SocialMediaStreamDataBase, identifier:dict = None
   
   if output_path is not None:
     save_dict_as_file(_sort_export_fields(export_data), Path(output_path), allow_unicode=False)
+  else:
+    return _sort_export_fields(export_data)

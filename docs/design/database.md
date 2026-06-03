@@ -416,7 +416,7 @@
 | user_count_composition_my_follow    | unsigned bigint   |      |     |         |       | "$.data.room.stats.user_count_composition.my_follow"   | 我的关注              |
 | user_count_composition_other        | unsigned bigint   |      |     |         |       | "$.data.room.stats.user_count_composition.other"       | 其他                 |
 | user_count_composition_video_detail | unsigned bigint   |      |     |         |       | "$.data.room.stats.user_count_composition.video_detail"| 视频详情              |
-| user_count_str                      | unsigned bigint   |      |     |         |       | "$.data.room.stats.user_count_str"                     | 用户数量字符串        |
+| user_count_str                      | varchar(20)       |      |     |         |       | "$.data.room.stats.user_count_str"                     | 用户数量字符串        |
 | watermelon                          | unsigned bigint   |      |     |         |       | "$.data.room.stats.watermelon"                         | 西瓜                 |
 | welfare_donation_amount             | unsigned bigint   |      |     |         |       | "$.data.room.stats.welfare_donation_amount"            | 福利捐赠金额          |
 | status                              | unsigned tinyint  |      |     | 0       |       | "$.data.room.status"                                   | 直播状态             | 

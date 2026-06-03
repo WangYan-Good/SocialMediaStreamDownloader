@@ -39,7 +39,7 @@ class SocialMediaStreamDataBase():
     'maxshared': 20,     # 连接池最大共享连接数
     'maxconnections': 30,# 连接池最大连接数
     'blocking': True,    # 达到最大连接时是否阻塞等待
-    'maxusage': 1000,    # 单个连接最大使用次数
+    'maxusage': 0,       # 单个连接最大使用次数 (0 or None represents unlimited)
     'ping': 1,           # 连接失效时自动重连 (pymysql.ping()=1)
   }
 
@@ -56,23 +56,62 @@ class SocialMediaStreamDataBase():
   ##
   _instance_lock = threading.Lock()
   def __new__(cls, *args, **kwargs):
-    if not hasattr(cls, '_instance'):
-      with cls._instance_lock:
-        if not hasattr(cls, '_instance'):
-          cls._instance = super().__new__(cls)
-    return cls._instance
+    ##
+    ## each database instance is a singleton per connection config
+    ## different args including host/user/passwd/database will create different database instance
+    ## thread-safe map of instances keyed by connection parameters
+    ##
+    try:
+      if len(args) >= 4:
+        host, user, passwd, database = args[0], args[1], args[2], args[3]
+      else:
+        host = kwargs.get('host') if 'host' in kwargs else (args[0] if len(args) > 0 else None)
+        user = kwargs.get('user') if 'user' in kwargs else (kwargs.get('username') if 'username' in kwargs else (args[1] if len(args) > 1 else None))
+        passwd = kwargs.get('passwd') if 'passwd' in kwargs else (kwargs.get('password') if 'password' in kwargs else (args[2] if len(args) > 2 else None))
+        database = kwargs.get('database') if 'database' in kwargs else (args[3] if len(args) > 3 else None)
+
+      ##
+      ## Combine `user` and `passwd` into a single identifier per user request (format: "user|passwd").
+      ## Normalize None to empty string so keys are stable.
+      ##
+      def _norm(x):
+        return '' if x is None else str(x)
+
+      user_pass_combined = _norm(user) + '|' + _norm(passwd)
+      instance_key = (host, user_pass_combined, database)
+    except Exception:
+      instance_key = (args, frozenset(kwargs.items()))
+
+    if not hasattr(cls, '_instances'):
+      cls._instances = {}
+
+    with cls._instance_lock:
+      inst = cls._instances.get(instance_key)
+      if inst is None:
+        inst = super().__new__(cls)
+        cls._instances[instance_key] = inst
+    return inst
 
   ##
   ## init method
   ##
   def __init__(self, host:str, user:str, passwd:str, database:str) -> None:
+    # Make __init__ idempotent: if the instance was already initialized for
+    # this connection config, skip re-initialization.
+    if getattr(self, '_initialized', False):
+      return
+
     try:
       self.__host               = host
       self.__user               = user
       self.__passwd             = passwd
       self.__database           = database
+      # per-instance table registry
       self.__db_tables_instance = dict()
+      # initialize connection pool lazily (will no-op if already set)
       self.__initialize_pool()
+      # mark as initialized to avoid repeated init on same singleton
+      self._initialized = True
     except Exception as e:
       get_logger().error("数据库初始化失败: {}".format(e))
       raise e
@@ -108,6 +147,16 @@ class SocialMediaStreamDataBase():
 ##
 ## >>============================= sub class method =============================>>
 ##
+  ##
+  ## get database connection info
+  ##
+  def get_connection_info(self) -> dict:
+    return {
+      "host": self.__host,
+      "user": self.__user,
+      "database": self.__database
+    }
+
   ##
   ## register database table instance
   ##
