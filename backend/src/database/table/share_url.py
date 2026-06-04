@@ -101,75 +101,71 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
         with connector.cursor() as cursor:
           cursor.execute(sql)
           result = cursor.fetchall()
-      if len(result) != 0:
-        ##
-        ## the record is exist in database
-        ## next: insert it if live share url is None
-        ##
-        for db_record in result:
-          ##
-          ## flag for difference
-          ##
-          df_result_record = [item for item in db_record]
-          different = False
-          
-          ##
-          ## update nickname when the nickname is different
-          ##
-          if db_record[1] != record.get("nickname"):
-            df_result_record[1] = record.get("nickname")
-            different = True
+          if len(result) != 0:
+            ##
+            ## the record is exist in database
+            ## next: insert it if live share url is None
+            ##
+            for db_record in result:
+              ##
+              ## flag for difference
+              ##
+              df_result_record = [item for item in db_record]
+              different = False
 
-          ##
-          ## update the record when the record is None
-          ##
-          if db_record[2] is None:
-            df_result_record[2] = record.get("live_share_url")
-            different = True
-            
-          ##
-          ## update user status when the user status is different
-          ##
-          if db_record[3] != record.get("user_status"):
-            df_result_record[3] = record.get("user_status")
-            different = True
+              ##
+              ## update nickname when the nickname is different
+              ##
+              if db_record[1] != record.get("nickname"):
+                df_result_record[1] = record.get("nickname")
+                different = True
 
-          ##
-          ## update the record
-          ##
-          if different:
-            update_sql = '''
-                          UPDATE share_url
-                          SET nickname = "{}", live_share_url = "{}", user_status = "{}"
-                          WHERE owner_user_id = "{}";
-                          '''.format(df_result_record[1], df_result_record[2], df_result_record[3], df_result_record[0])
-            cursor.execute(update_sql)
+              ##
+              ## update the record when the record is None
+              ##
+              if db_record[2] is None:
+                df_result_record[2] = record.get("live_share_url")
+                different = True
+
+              ##
+              ## update user status when the user status is different
+              ##
+              if db_record[3] != record.get("user_status"):
+                df_result_record[3] = record.get("user_status")
+                different = True
+
+              ##
+              ## update the record
+              ##
+              if different:
+                update_sql = '''
+                              UPDATE share_url
+                              SET nickname = "{}", live_share_url = "{}", user_status = "{}"
+                              WHERE owner_user_id = "{}";
+                              '''.format(df_result_record[1], df_result_record[2], df_result_record[3], df_result_record[0])
+                cursor.execute(update_sql)
+                connector.commit()
+                get_logger().info("update {} success".format([item for item in df_result_record]))
+          else:
+            ##
+            ## the record is not exist in database
+            ## next: insert it into database
+            ##
+            insert_sql = '''
+                          INSERT INTO share_url (owner_user_id, sec_user_id, nickname, post_share_url, live_share_url, directory_name, user_status) VALUES (
+                            "{}",
+                            "{}",
+                            "{}",
+                            '{}',
+                            "{}",
+                            "{}",
+                            "{}"
+                          );
+                         '''.format(record.get("owner_user_id"), record.get("sec_user_id"), record.get("nickname"), record.get("post_share_url"), record.get("live_share_url"), record.get("directory_name"), record.get("user_status"))
+            cursor.execute(insert_sql)
             connector.commit()
-            get_logger().info("update {} success".format([item for item in df_result_record]))     
-      else:
-        ##
-        ## the record is not exist in database
-        ## next: insert it into database
-        ##
-        insert_sql = '''
-                      INSERT INTO share_url (owner_user_id, sec_user_id, nickname, post_share_url, live_share_url, directory_name, user_status) VALUES (
-                        "{}",
-                        "{}", 
-                        "{}", 
-                        '{}',
-                        "{}", 
-                        "{}", 
-                        "{}"
-                      );
-                     '''.format(record.get("owner_user_id"), record.get("sec_user_id"), record.get("nickname"), record.get("post_share_url"), record.get("live_share_url"), record.get("directory_name"), record.get("user_status"))
-        cursor.execute(insert_sql)
-        connector.commit()
-        get_logger().info("insert record {} success".format([item for item in record.values()]))
-      cursor.close()
-      connector.close()
+            get_logger().info("insert record {} success".format([item for item in record.values()]))
     except Exception as e:
-      cursor.close()
-      connector.close()
       get_logger().error("insert live share url {} failed {}".format(record["live_share_url"], e))
       raise e
   
@@ -195,48 +191,44 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
         with connector.cursor() as cursor:
           cursor.execute(sql)
           result = cursor.fetchall()
-      if len(result) != 0:
-        ##
-        ## the record is exist in database
-        ## next: insert it if live share url is None
-        ##
-        for db_record in result:
-          ##
-          ## update the record when the record is None
-          ##
-          if db_record[1] is None:
-            update_sql = '''
-                          UPDATE share_url
-                          SET live_share_url = "{}"
-                          WHERE owner_user_id = "{}";
-                          '''.format(record.get("live_share_url"), db_record[0])
-            cursor.execute(update_sql)
-            connector.commit()
-            connector.close()
-            get_logger().info("update owner_user_id:{} live_share_url:{} success".format(db_record[0], record["live_share_url"]))
+          if len(result) != 0:
+            ##
+            ## the record is exist in database
+            ## next: insert it if live share url is None
+            ##
+            for db_record in result:
+              ##
+              ## update the record when the record is None
+              ##
+              if db_record[1] is None:
+                update_sql = '''
+                              UPDATE share_url
+                              SET live_share_url = "{}"
+                              WHERE owner_user_id = "{}";
+                              '''.format(record.get("live_share_url"), db_record[0])
+                cursor.execute(update_sql)
+                connector.commit()
+                get_logger().info("update owner_user_id:{} live_share_url:{} success".format(db_record[0], record["live_share_url"]))
           else:
-            pass
-      else:
-        ##
-        ## the record is not exist in database
-        ## next: insert it into database
-        ## actived_count: default 0, uncessary to insert
-        ##
-        insert_sql = '''
-                      INSERT INTO share_url (owner_user_id, sec_user_id, nickname, post_share_url, live_share_url, directory_name, user_status) VALUES (
-                        "{}",
-                        "{}", 
-                        "{}", 
-                        '{}',
-                        "{}", 
-                        "{}", 
-                        "{}"
-                      );
-                     '''.format(record.get("owner_user_id"), record.get("sec_user_id"), record.get("nickname"), record.get("post_share_url"), record.get("live_share_url"), record.get("directory_name"), record.get("user_status"))
-        cursor.execute(insert_sql)
-        connector.commit()
-        connector.close()
-        get_logger().info("insert record {} success".format([item for item in record.values()]))
+            ##
+            ## the record is not exist in database
+            ## next: insert it into database
+            ## actived_count: default 0, uncessary to insert
+            ##
+            insert_sql = '''
+                          INSERT INTO share_url (owner_user_id, sec_user_id, nickname, post_share_url, live_share_url, directory_name, user_status) VALUES (
+                            "{}",
+                            "{}",
+                            "{}",
+                            '{}',
+                            "{}",
+                            "{}",
+                            "{}"
+                          );
+                         '''.format(record.get("owner_user_id"), record.get("sec_user_id"), record.get("nickname"), record.get("post_share_url"), record.get("live_share_url"), record.get("directory_name"), record.get("user_status"))
+            cursor.execute(insert_sql)
+            connector.commit()
+            get_logger().info("insert record {} success".format([item for item in record.values()]))
     except Exception as e:
       get_logger().error("insert live share url {} failed {}".format(record["live_share_url"], e))
       raise e
