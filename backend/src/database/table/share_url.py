@@ -110,28 +110,28 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
               ##
               ## flag for difference
               ##
-              df_result_record = [item for item in db_record]
+              df_result_record = db_record.copy()
               different = False
 
               ##
               ## update nickname when the nickname is different
               ##
-              if db_record[1] != record.get("nickname"):
-                df_result_record[1] = record.get("nickname")
+              if db_record.get("nickname") != record.get("nickname"):
+                df_result_record["nickname"] = record.get("nickname")
                 different = True
 
               ##
               ## update the record when the record is None
               ##
-              if db_record[2] is None:
-                df_result_record[2] = record.get("live_share_url")
+              if db_record.get("live_share_url") is None:
+                df_result_record["live_share_url"] = record.get("live_share_url")
                 different = True
 
               ##
               ## update user status when the user status is different
               ##
-              if db_record[3] != record.get("user_status"):
-                df_result_record[3] = record.get("user_status")
+              if db_record.get("user_status") != record.get("user_status"):
+                df_result_record["user_status"] = record.get("user_status")
                 different = True
 
               ##
@@ -142,10 +142,10 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
                               UPDATE share_url
                               SET nickname = "{}", live_share_url = "{}", user_status = "{}"
                               WHERE owner_user_id = "{}";
-                              '''.format(df_result_record[1], df_result_record[2], df_result_record[3], df_result_record[0])
+                              '''.format(df_result_record.get("nickname"), df_result_record.get("live_share_url"), df_result_record.get("user_status"), df_result_record.get("owner_user_id"))
                 cursor.execute(update_sql)
                 connector.commit()
-                get_logger().info("update {} success".format([item for item in df_result_record]))
+                get_logger().info("update {} success".format([item for item in df_result_record.values()]))
           else:
             ##
             ## the record is not exist in database
@@ -200,15 +200,15 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
               ##
               ## update the record when the record is None
               ##
-              if db_record[1] is None:
+              if db_record.get("live_share_url") is None:
                 update_sql = '''
                               UPDATE share_url
                               SET live_share_url = "{}"
                               WHERE owner_user_id = "{}";
-                              '''.format(record.get("live_share_url"), db_record[0])
+                              '''.format(record.get("live_share_url"), db_record.get("owner_user_id"))
                 cursor.execute(update_sql)
                 connector.commit()
-                get_logger().info("update owner_user_id:{} live_share_url:{} success".format(db_record[0], record["live_share_url"]))
+                get_logger().info("update owner_user_id:{} live_share_url:{} success".format(db_record.get("owner_user_id"), record["live_share_url"]))
           else:
             ##
             ## the record is not exist in database
@@ -276,7 +276,7 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
           cursor.execute(sql)
           result = cursor.fetchall()
       if len(result) != 0:
-        return result[0][0]
+        return result[0].get("directory_name")
       else:
         return None
     except Exception as e:
@@ -301,7 +301,7 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
           cursor.execute(sql)
           result = cursor.fetchall()
       if len(result) != 0:
-        return result[0][0]
+        return result[0].get("directory_name")
       else:
         return None
     except Exception as e:
@@ -326,7 +326,7 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
           cursor.execute(sql)
           result = cursor.fetchall()
       if len(result) != 0:
-        return result[0][0]
+        return result[0].get("nickname")
       else:
         return None
     except Exception as e:
@@ -387,10 +387,7 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
         get_logger().warning("owner_user_id {} not found, skip increment".format(owner_user_id))
         return
 
-      if isinstance(db_record, dict):
-        current_count = int(db_record.get("actived_count", 0))
-      else:
-        current_count = int(db_record[1])
+      current_count = int(db_record.get("actived_count", 0))
 
       increment_sql = '''
                       UPDATE share_url
@@ -506,7 +503,7 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
         cursor.execute(sql)
         result = cursor.fetchall()
     if len(result) != 0:
-      return result[0][0]
+      return result[0].get("score")
     else:
       raise ValueError("ERROR: get owner score failed, owner_user_id: {}".format(owner_user_id))
 
