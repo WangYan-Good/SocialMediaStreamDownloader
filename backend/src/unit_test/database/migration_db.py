@@ -16,10 +16,9 @@ sys.path.append(os.getcwd())
 ##<<Base>>
 import pymysql
 
-from pymysql.cursors      import Cursor
 from datetime             import datetime
 from pathlib              import Path
-from typing               import Dict, Iterable, Iterator, List, Optional
+from typing               import Dict, Iterable, Iterator, Optional
 from contextlib           import contextmanager
 from dotenv               import load_dotenv
 
@@ -267,177 +266,108 @@ def _live_record_key_from_source_row(row: dict) -> Optional[dict]:
     "room_id": str(room_id),
   }
 
-def _migrate_raw_table_rows_by_filters(
+def _migrate_raw_favorite_owner_table(
   source_db: smsd_v1,
-  destination_db: smsd_v2,
-  table_name: str,
-  filters: Dict[str, object],
-) -> tuple:
+  destination_db: smsd_v2
+) -> int:
   """
-  Migrate rows from source to destination for a given table, filtering by specified column values.
-  Returns a tuple of (inserted_count, skipped_count).
+  Migrate favorite_owner rows from source to destination db.
   """
-  inserted_count = 0
-  skipped_count = 0
-  try:
-    _create_destination_raw_table(destination_db, table_name)
-    source_database = source_db.get_connection_info().get("database")
-    destination_database = destination_db.get_connection_info().get("database")
-    with source_db.get_connection() as source_conn:
-      with destination_db.get_connection() as destination_conn:
-        with source_conn.cursor() as source_cursor, destination_conn.cursor() as destination_cursor:
-          if not _is_table_exist(source_cursor, source_database, table_name):
-            return inserted_count, skipped_count
-          if not _is_table_exist(destination_cursor, destination_database, table_name):
-            return inserted_count, skipped_count
+  inserted = 0
+  ##
+  ## all rows should be 1:1 migrated without any check
+  ## so we can directly migrate without extra filtering.
+  ##
+  with source_db.get_connection() as source_conn:
+    with source_conn.cursor() as source_cursor:
+      source_cursor.execute("SELECT * FROM favorite_owner")
+      for row in source_cursor.fetchall():
+        owner_user_id = row.get("owner_user_id")
+        if owner_user_id in (None, ""):
+          raise ValueError(f"Invalid favorite_owner owner_user_id: {row}")
 
-          source_columns = _get_table_columns(source_cursor, table_name)
-          destination_columns = _get_table_columns(destination_cursor, table_name)
-          columns = [column for column in source_columns if column in destination_columns]
+        with destination_db.get_connection() as dest_conn:
+          with dest_conn.cursor() as dest_cursor:
+            dest_cursor.execute(
+              """
+              INSERT IGNORE INTO favorite_owner (owner_user_id, platform, score)
+              VALUES (%s, %s, %s)
+              """,
+              (owner_user_id, row.get("platform"), row.get("score", 0))
+            )
+          dest_conn.commit()
+          inserted += 1
+  return inserted
 
-          where_parts = []
-          where_values = []
-          for column, value in filters.items():
-            if column not in columns:
-              continue
-            where_parts.append(f"`{column}` = %s")
-            where_values.append(value)
+def _migrate_raw_share_url_table(
+  source_db: smsd_v1,
+  destination_db: smsd_v2
+) -> int:
+  """
+  Migrate share_url rows from source to destination db.
+  """
+  inserted = 0
+  with source_db.get_connection() as source_conn:
+    with source_conn.cursor() as source_cursor:
+      source_cursor.execute("SELECT * FROM share_url")
+      for row in source_cursor.fetchall():
+        owner_user_id = row.get("owner_user_id")
+        if owner_user_id in (None, ""):
+          raise ValueError(f"Invalid share_url owner_user_id: {row}")
 
-          if len(where_parts) == 0:
-            return inserted_count, skipped_count
+        with destination_db.get_connection() as dest_conn:
+          with dest_conn.cursor() as dest_cursor:
+            dest_cursor.execute(
+              """
+              INSERT IGNORE INTO share_url (
+                owner_user_id, sec_user_id, nickname, post_share_url, live_share_url,
+                directory_name, user_status, actived_count
+              ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+              """,
+              (
+                owner_user_id,
+                row.get("sec_user_id"),
+                row.get("nickname"),
+                row.get("post_share_url"),
+                row.get("live_share_url"),
+                row.get("directory_name"),
+                row.get("user_status"),
+                row.get("actived_count", 0),
+              )
+            )
+          dest_conn.commit()
+          inserted += 1
 
-          column_sql = ", ".join(f"`{column}`" for column in columns)
-          placeholder_sql = ", ".join(["%s"] * len(columns))
-          where_sql = " AND ".join(where_parts)
-          select_sql = f"SELECT {column_sql} FROM `{table_name}` WHERE {where_sql}"
-          insert_sql = f"INSERT IGNORE INTO `{table_name}` ({column_sql}) VALUES ({placeholder_sql})"
-
-          source_cursor.execute(select_sql, tuple(where_values))
-          while True:
-            row = source_cursor.fetchone()
-            if row is None:
-              break
-            destination_cursor.execute(insert_sql, tuple(row.get(column) for column in columns))
-            if destination_cursor.rowcount == 1:
-              inserted_count += 1
-            else:
-              skipped_count += 1
-        destination_conn.commit()
-  except Exception as e:
-    get_logger().error(f"Error occurred during filtered raw migration {table_name}: {e}")
-    raise e
-  return inserted_count, skipped_count
+  return inserted
 
 def _migrate_non_yml_tables_for_live_record(
   source_db: smsd_v1,
-  destination_db: smsd_v2,
-  row: dict,
-) -> tuple:
+  destination_db: smsd_v2
+):
   """
   Migrate non-yml tables related to a live_record identified by the source row.
   For each related table, if the source record has valid owner_user_id and platform,
   migrate the corresponding rows from the source database to the destination database.
   """
-  inserted_count = 0
-  skipped_count = 0
-
-  room_id       = row.get("room_id")
-  owner_user_id = row.get("owner_user_id")
-  platform      = row.get("platform")
 
   ##
   ## Migrate favorite_owner rows for this live_record's owner_user_id and platform.
   ##
-  if owner_user_id not in (None, "") and platform not in (None, ""):
-    inserted, skipped = _migrate_raw_table_rows_by_filters(
-      source_db,
-      destination_db,
-      "favorite_owner",
-      {
-        "owner_user_id": owner_user_id,
-        "platform": platform,
-      },
-    )
-    inserted_count += inserted
-    skipped_count += skipped
+  try:
+    inserted = _migrate_raw_favorite_owner_table(source_db, destination_db)
+  except Exception as e:
+    raise e
+  get_logger().info(f"Migrated favorite_owner rows: inserted={inserted}")
 
 
   ##
   ## Migrate share_url rows for this live_record's owner_user_id.
   ##
-  if owner_user_id not in (None, ""):
-    inserted, skipped = _migrate_raw_table_rows_by_filters(
-      source_db,
-      destination_db,
-      "share_url",
-      {
-        "owner_user_id": owner_user_id,
-      },
-    )
-    inserted_count += inserted
-    skipped_count += skipped
-
-  return inserted_count, skipped_count
-
-def _is_table_exist(
-  cursor: Cursor,
-  database_name: str,
-  table_name: str
-) -> bool:
-  cursor.execute(
-    """
-    SELECT 1
-    FROM information_schema.tables
-    WHERE table_schema = %s AND table_name = %s
-    LIMIT 1
-    """,
-    (database_name, table_name)
-  )
-  return cursor.fetchone() is not None
-
-def _get_table_columns(cursor: Cursor, table_name: str) -> List[str]:
-  cursor.execute(f"SHOW COLUMNS FROM `{table_name}`")
-  return [row["Field"] for row in cursor.fetchall()]
-
-def _create_destination_raw_table(destination_db: smsd_v2, table_name: str) -> None:
-  """
-  Prefer canonical destination table classes when they exist. Only keep raw
-  CREATE TABLE SQL for legacy helper tables that do not have table classes.
-  """
-  if table_name == "live_record":
-    LiveRecordTable(destination_db).create(verify_schema=True)
-    return
-  create_sql_map = {
-    "favorite_owner": """
-      CREATE TABLE IF NOT EXISTS favorite_owner (
-        owner_user_id  VARCHAR(200)     NOT NULL,
-        platform       VARCHAR(20)      NOT NULL,
-        score          TINYINT UNSIGNED NOT NULL DEFAULT 0,
-        PRIMARY KEY (owner_user_id, platform)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    """,
-    "share_url": """
-      CREATE TABLE IF NOT EXISTS share_url (
-        owner_user_id     VARCHAR(200) NOT NULL,
-        sec_user_id       VARCHAR(200) DEFAULT NULL,
-        nickname          VARCHAR(50)  DEFAULT NULL,
-        post_share_url    VARCHAR(100) DEFAULT NULL,
-        live_share_url    VARCHAR(100) DEFAULT NULL,
-        directory_name    VARCHAR(100) DEFAULT NULL,
-        user_status       VARCHAR(100) DEFAULT NULL,
-        actived_count     INT UNSIGNED NOT NULL DEFAULT 0,
-        PRIMARY KEY (owner_user_id),
-        INDEX idx_nickname (nickname)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    """,
-  }
-  sql = create_sql_map.get(table_name)
-  if sql is None:
-    raise ValueError(f"Unsupported raw migration table: {table_name}")
-  with destination_db.get_connection() as conn:
-    with conn.cursor() as cursor:
-      cursor.execute(sql)
-    conn.commit()
+  try:
+    inserted = _migrate_raw_share_url_table(source_db, destination_db)
+  except Exception as e:
+    raise e
+  get_logger().info(f"Migrated share_url rows: inserted={inserted}")
 
 def migrate_source_live_records_to_destination(
   source_db: smsd_v1,
@@ -450,11 +380,12 @@ def migrate_source_live_records_to_destination(
   source_imported_count          = 0
   raw_live_record_imported_count = 0
   source_skipped_existing_count  = 0
-  non_yml_inserted_count         = 0
-  non_yml_skipped_count          = 0
 
   with source_db.get_connection() as source_conn:
     with source_conn.cursor() as source_cursor:
+      ##
+      ## migrate live record related data
+      ##
       source_cursor.execute("SELECT * FROM live_record")
       while True:
         row = source_cursor.fetchone()
@@ -500,24 +431,22 @@ def migrate_source_live_records_to_destination(
         else:
           source_skipped_existing_count += 1
 
-        ##
-        ## Step 2: migrate related non-yml tables for this source record.
-        ##
-        inserted, skipped = _migrate_non_yml_tables_for_live_record(source_db, destination_db, row)
-        non_yml_inserted_count += inserted
-        non_yml_skipped_count += skipped
-
         get_logger().info(
           f"<< Finished Phase1 source migration now={key.get('now')} platform={key.get('platform')} owner_user_id={key.get('owner_user_id')} room_id={key.get('room_id')}"
         )
+        
+      ##
+      ## Step 2: migrate related non-yml tables for this source record.
+      ##         favorite_owner and share_url layout are not changed between v1 and v2. 
+      ##         we can directly migrate rows from source to destination.
+      ##
+      _migrate_non_yml_tables_for_live_record(source_db, destination_db)
 
   return {
     "source_total_live_records": source_total_live_records,
     "source_imported_count": source_imported_count,
     "raw_live_record_imported_count": raw_live_record_imported_count,
     "source_skipped_existing_count": source_skipped_existing_count,
-    "non_yml_inserted_count": non_yml_inserted_count,
-    "non_yml_skipped_count": non_yml_skipped_count,
   }
 
 def migrate_yml_files_to_destination(
@@ -603,8 +532,6 @@ def migrate_database_destination_first(
     f"phase1_source_imported={phase1_stats['source_imported_count']}, "
     f"phase1_source_skipped_existing={phase1_stats['source_skipped_existing_count']}, "
     f"phase1_raw_live_record_imported={phase1_stats['raw_live_record_imported_count']}, "
-    f"phase1_non_yml_inserted={phase1_stats['non_yml_inserted_count']}, "
-    f"phase1_non_yml_skipped={phase1_stats['non_yml_skipped_count']}, "
     f"phase2_yml_total={phase2_stats['yml_total_count']}, "
     f"phase2_yml_add={phase2_stats['yml_add_count']}, "
     f"phase2_yml_update={phase2_stats['yml_update_count']}, "
