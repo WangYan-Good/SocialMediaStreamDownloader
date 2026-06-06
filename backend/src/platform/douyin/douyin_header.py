@@ -16,10 +16,6 @@ from backend.src.base.log import get_logger
 
 DEFAULT_HEADER_PATH = "config/douyin/headers.yml"
 
-##TODO remove
-import f2
-from f2.apps.douyin.utils import TokenManager as TM
-
 class DouyinHeader(Header):
 ##
 ## >>============================= attribute =============================>>
@@ -80,9 +76,25 @@ class DouyinHeader(Header):
   ##
   def create_douyin_msToken(self):
     ##
-    ## update attribute
+    ## Prefer explicit env token to avoid importing f2 logger side effects.
     ##
-    return TM.gen_real_msToken()
+    configured_token = os.getenv("DOUYIN_MSTOKEN", "")
+    if configured_token and configured_token != "PLEASE_REPLACE_WITH_REAL_MSTOKEN":
+      return configured_token
+
+    ##
+    ## Set DOUYIN_DISABLE_F2_TOKEN_MANAGER=1 to skip f2 import and file log creation.
+    ##
+    if os.getenv("DOUYIN_DISABLE_F2_TOKEN_MANAGER", "0") == "1":
+      get_logger().warning("DOUYIN_DISABLE_F2_TOKEN_MANAGER=1, use empty msToken")
+      return ""
+
+    try:
+      from f2.apps.douyin.utils import TokenManager as TM
+      return TM.gen_real_msToken()
+    except Exception as e:
+      get_logger().warning("f2 TokenManager unavailable, use empty msToken: {}".format(e))
+      return ""
 
 ##
 ## header for query share url

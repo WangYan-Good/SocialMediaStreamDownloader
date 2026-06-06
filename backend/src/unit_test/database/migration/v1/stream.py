@@ -128,10 +128,7 @@ class LiveStreamTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
-    if hasattr(self, '_initialized') and self._initialized:
-        return
     super().__init__(db_instance)
-    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -406,10 +403,7 @@ class StreamCandidateResolutionTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
-    if hasattr(self, '_initialized') and self._initialized:
-        return
     super().__init__(db_instance)
-    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -513,10 +507,7 @@ class StreamCompletePushUrlTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
-    if hasattr(self, '_initialized') and self._initialized:
-        return
     super().__init__(db_instance)
-    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -615,10 +606,7 @@ class LiveCoreSdkDataTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
-    if hasattr(self, '_initialized') and self._initialized:
-        return
     super().__init__(db_instance)
-    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -727,10 +715,7 @@ class LiveCoreSdkPullDataTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
-    if hasattr(self, '_initialized') and self._initialized:
-        return
     super().__init__(db_instance)
-    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -833,10 +818,7 @@ class LiveCoreSdkPullFlvDataTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
-    if hasattr(self, '_initialized') and self._initialized:
-        return
     super().__init__(db_instance)
-    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -938,10 +920,7 @@ class LiveCoreSdkPullHlsDataTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
-    if hasattr(self, '_initialized') and self._initialized:
-        return
     super().__init__(db_instance)
-    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1040,10 +1019,7 @@ class LiveCoreSdkPullDataOptionTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
-    if hasattr(self, '_initialized') and self._initialized:
-        return
     super().__init__(db_instance)
-    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1160,10 +1136,7 @@ class LiveCoreSdkPullQualityDataTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
-    if hasattr(self, '_initialized') and self._initialized:
-        return
     super().__init__(db_instance)
-    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1278,10 +1251,7 @@ class LiveCoreSdkPullDefaultQualityDataTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
-    if hasattr(self, '_initialized') and self._initialized:
-        return
     super().__init__(db_instance)
-    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1385,10 +1355,7 @@ class StreamPushUrlTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
-    if hasattr(self, '_initialized') and self._initialized:
-        return
     super().__init__(db_instance)
-    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1493,10 +1460,7 @@ class RoomLinkMicTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
-    if hasattr(self, '_initialized') and self._initialized:
-        return
     super().__init__(db_instance)
-    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1602,10 +1566,7 @@ class RoomLinkMicBattleScoreTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
-    if hasattr(self, '_initialized') and self._initialized:
-        return
     super().__init__(db_instance)
-    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1726,10 +1687,7 @@ class RoomLinkMicBattleSettingTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
-    if hasattr(self, '_initialized') and self._initialized:
-        return
     super().__init__(db_instance)
-    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>
@@ -1833,10 +1791,7 @@ class RoomLinkMicChannelInfoTable(SocialMediaStreamDataTable):
   ## init method
   ##
   def __init__(self, db_instance:SocialMediaStreamDataBase = None) -> None:
-    if hasattr(self, '_initialized') and self._initialized:
-        return
     super().__init__(db_instance)
-    self._initialized = True
 
 ##
 ## >>============================= abstract method =============================>>

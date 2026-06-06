@@ -7,11 +7,12 @@ sys.path.append(os.getcwd())
 ##<<Base>>
 import threading
 from contextlib import contextmanager
+from typing     import Iterator
 
 ## <<Extension>>
 import pymysql
 from pymysql.connections import Connection
-from dbutils.pooled_db import PooledDB
+from dbutils.pooled_db   import PooledDB
 
 ## <<Third-Part>>
 from backend.src.library.baselib import output_dict
@@ -38,7 +39,7 @@ class SocialMediaStreamDataBase():
     'maxshared': 20,     # 连接池最大共享连接数
     'maxconnections': 30,# 连接池最大连接数
     'blocking': True,    # 达到最大连接时是否阻塞等待
-    'maxusage': 1000,    # 单个连接最大使用次数
+    'maxusage': 0,       # 单个连接最大使用次数 (0 or None represents unlimited)
     'ping': 1,           # 连接失效时自动重连 (pymysql.ping()=1)
   }
 
@@ -55,23 +56,62 @@ class SocialMediaStreamDataBase():
   ##
   _instance_lock = threading.Lock()
   def __new__(cls, *args, **kwargs):
-    if not hasattr(cls, '_instance'):
-      with cls._instance_lock:
-        if not hasattr(cls, '_instance'):
-          cls._instance = super().__new__(cls)
-    return cls._instance
+    ##
+    ## each database instance is a singleton per connection config
+    ## different args including host/user/passwd/database will create different database instance
+    ## thread-safe map of instances keyed by connection parameters
+    ##
+    try:
+      if len(args) >= 4:
+        host, user, passwd, database = args[0], args[1], args[2], args[3]
+      else:
+        host = kwargs.get('host') if 'host' in kwargs else (args[0] if len(args) > 0 else None)
+        user = kwargs.get('user') if 'user' in kwargs else (kwargs.get('username') if 'username' in kwargs else (args[1] if len(args) > 1 else None))
+        passwd = kwargs.get('passwd') if 'passwd' in kwargs else (kwargs.get('password') if 'password' in kwargs else (args[2] if len(args) > 2 else None))
+        database = kwargs.get('database') if 'database' in kwargs else (args[3] if len(args) > 3 else None)
+
+      ##
+      ## Combine `user` and `passwd` into a single identifier per user request (format: "user|passwd").
+      ## Normalize None to empty string so keys are stable.
+      ##
+      def _norm(x):
+        return '' if x is None else str(x)
+
+      user_pass_combined = _norm(user) + '|' + _norm(passwd)
+      instance_key = (host, user_pass_combined, database)
+    except Exception:
+      instance_key = (args, frozenset(kwargs.items()))
+
+    if not hasattr(cls, '_instances'):
+      cls._instances = {}
+
+    with cls._instance_lock:
+      inst = cls._instances.get(instance_key)
+      if inst is None:
+        inst = super().__new__(cls)
+        cls._instances[instance_key] = inst
+    return inst
 
   ##
   ## init method
   ##
   def __init__(self, host:str, user:str, passwd:str, database:str) -> None:
+    # Make __init__ idempotent: if the instance was already initialized for
+    # this connection config, skip re-initialization.
+    if getattr(self, '_initialized', False):
+      return
+
     try:
       self.__host               = host
       self.__user               = user
       self.__passwd             = passwd
       self.__database           = database
+      # per-instance table registry
       self.__db_tables_instance = dict()
+      # initialize connection pool lazily (will no-op if already set)
       self.__initialize_pool()
+      # mark as initialized to avoid repeated init on same singleton
+      self._initialized = True
     except Exception as e:
       get_logger().error("数据库初始化失败: {}".format(e))
       raise e
@@ -107,6 +147,16 @@ class SocialMediaStreamDataBase():
 ##
 ## >>============================= sub class method =============================>>
 ##
+  ##
+  ## get database connection info
+  ##
+  def get_connection_info(self) -> dict:
+    return {
+      "host": self.__host,
+      "user": self.__user,
+      "database": self.__database
+    }
+
   ##
   ## register database table instance
   ##
@@ -156,63 +206,39 @@ class SocialMediaStreamDataBase():
     return
 
   ##
-  ## 从连接池获取数据库连接（上下文管理器）
+  ## Obtain a database connection from the connection pool (context manager)
   ##
   @contextmanager
-  def get_connection(self):
+  def get_connection(self) -> Iterator[Connection]:
     """
-    从连接池获取数据库连接的上下文管理器
+    Context Manager for Obtaining Database Connections from a Connection Pool
 
-    使用方式:
-      with db.get_connection() as conn:
-        with conn.cursor() as cursor:
-          cursor.execute(sql, params)
+    Usage:
+    with db.get_connection() as conn:
+    with conn.cursor() as cursor:
+    cursor.execute(sql, params)
 
-    优势:
-      1. 自动从连接池获取连接
-      2. 使用完毕后自动归还，无需手动关闭
-      3. 异常时也会归还连接，避免泄露
+    Advantages:
+    1. Automatically obtains connections from the connection pool
+    2. Automatically returns connections after use, no manual closing required
+    3. Returns connections even in case of exceptions, preventing connection leaks
     """
     if self.__connection_pool is None:
-      get_logger().error("连接池未初始化")
-      raise RuntimeError("数据库连接池未初始化")
+      get_logger().error("Connection pool not initialized")
+      raise RuntimeError("Database connection pool not initialized")
 
     conn = self.__connection_pool.connection()
     try:
       yield conn
     except Exception as e:
-      get_logger().error("数据库操作异常: {}".format(e))
+      get_logger().error("Database operation exception: {}".format(e))
       conn.rollback()
       raise
     finally:
       try:
         conn.close()  # 归还到连接池，不是真正关闭
       except Exception as e:
-        get_logger().warning("归还连接到池失败: {}".format(e))
-
-  ##
-  ## 向后兼容：保留原有 get_db_connector 方法
-  ##
-  def get_db_connector(self):
-    """
-    [已废弃] 请使用 get_connection() 替代
-
-    为保持向后兼容保留，但不推荐在新代码中使用
-    """
-    get_logger().warning("get_db_connector() 已废弃，请使用 get_connection()")
-    return self.get_connection()
-
-  ##
-  ## [已废弃] 向后兼容：保留原有 close_db_connector 方法
-  ##
-  def close_db_connector(self, connector:Connection=None) -> None:
-    """
-    [已废弃] 连接池模式下无需手动关闭连接
-
-    为保持向后兼容保留，实际为空操作
-    """
-    get_logger().warning("close_db_connector() 已废弃，连接池模式下无需手动关闭")
-    return
+        get_logger().warning("Fail to return the connection pool: {}".format(e))
 
   ##
   ## drop database table
@@ -270,7 +296,7 @@ class SocialMediaStreamDataBase():
     获取连接池当前状态（用于监控和调试）
     """
     if self.__connection_pool is None:
-      return {"status": "未初始化"}
+      return {"status": "Non-initialized"}
 
     return {
       "status": "运行中",
@@ -294,6 +320,6 @@ class SocialMediaStreamDataBase():
       try:
         self.__connection_pool.close()
         self.__connection_pool = None
-        get_logger().info("数据库连接池已关闭")
+        get_logger().info("DB connect pool has been closed")
       except Exception as e:
-        get_logger().error("关闭连接池失败: {}".format(e))
+        get_logger().error("Fail to close DB connect pool: {}".format(e))

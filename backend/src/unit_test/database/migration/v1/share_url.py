@@ -1,0 +1,634 @@
+##>> Test
+import os
+import sys
+sys.path.append(os.getcwd())
+##<< Test
+
+## <<Base>>
+
+## <<Extension>>
+
+## <<Third-Part>>
+from backend.src.database.social_media_stream_database       import SocialMediaStreamDataBase
+from backend.src.base.log                                    import get_logger
+
+
+class DouyinShareUrlTable(SocialMediaStreamDataBase):
+##
+## >>============================= attribute =============================>>
+##
+
+##
+## douyin share url table header
+## +---------------+-------------+-----------+----------------+----------------+----------------+-------------+---------------+
+## | owner_user_id | sec_user_id | nickname  | post_share_url | live_share_url | directory_name | user_status | actived_count |
+## +---------------+-------------+-----------+----------------+----------------+----------------+-------------+---------------+
+##
+  __DOUYIN_SHARE_URL_TABLE_NAME   = 'share_url'
+  __DOUYIN_SHARE_URL_TABLE_HEADER = ['owner_user_id', 'sec_user_id', 'nickname', 'post_share_url', 'live_share_url', 'directory_name', 'user_status', 'actived_count']
+  __DOUYIN_SHARE_URL_TABLE_TUPLE  = {item:None for item in __DOUYIN_SHARE_URL_TABLE_HEADER}
+  __SQL_DROP_SHARE_URL_TABLE      = '''
+                                    DROP TABLE share_url;
+                                  '''
+  __SQL_CREATE_SHARE_URL_TABLE    = '''
+                                    CREATE TABLE share_url (
+                                      sec_user_id       CHAR(200) NOT NULL PRIMARY KEY,
+                                      nickname          CHAR(20),
+                                      post_share_url    CHAR(100),
+                                      live_share_url    CHAR(100),
+                                      directory_name    CHAR(100),
+                                      user_status       CHAR(100)
+                                    )
+                                  '''
+##
+## >>============================= private method =============================>>
+##
+  def __init__(self, host:str, user:str, passwd:str, database:str):
+    super().__init__(host, user, passwd, database)
+
+##
+## >>============================= abstract method =============================>>
+##
+
+##
+## >>============================= sub class method =============================>>
+##
+  ##
+  ## get share url table name
+  ##
+  def get_share_url_table_name(self) -> str:
+    return self.__DOUYIN_SHARE_URL_TABLE_NAME
+  
+  ##
+  ## get share url table header
+  ##
+  def get_share_url_table_header(self) -> list:
+    return self.__DOUYIN_SHARE_URL_TABLE_HEADER
+  
+  ##
+  ## get share url table tuple
+  ##
+  def get_share_url_table_tuple(self) -> dict:
+    return self.__DOUYIN_SHARE_URL_TABLE_TUPLE
+  
+  ##
+  ## update live share url record
+  ##
+  def update_live_share_url_record(self, record:dict):
+    try:
+      db_result_record = list()
+      ##
+      ## check if the primary key is exist
+      ##
+      if record.get("owner_user_id") is None:
+        raise KeyError
+      
+      ##
+      ## check if the record is exist in database
+      ##
+      sql = '''SELECT owner_user_id, nickname, live_share_url, user_status
+              FROM   share_url
+              WHERE  owner_user_id = "{}";
+            '''.format(record.get("owner_user_id"))
+      connector = self.get_db_connector()
+      cursor = connector.cursor()
+      cursor.execute(sql)
+      result = cursor.fetchall()
+      if len(result) != 0:
+        ##
+        ## the record is exist in database
+        ## next: insert it if live share url is None
+        ##
+        for db_record in result:
+          ##
+          ## flag for difference
+          ##
+          df_result_record = [item for item in db_record]
+          different = False
+          
+          ##
+          ## update nickname when the nickname is different
+          ##
+          if db_record[1] != record.get("nickname"):
+            df_result_record[1] = record.get("nickname")
+            different = True
+
+          ##
+          ## update the record when the record is None
+          ##
+          if db_record[2] is None:
+            df_result_record[2] = record.get("live_share_url")
+            different = True
+            
+          ##
+          ## update user status when the user status is different
+          ##
+          if db_record[3] != record.get("user_status"):
+            df_result_record[3] = record.get("user_status")
+            different = True
+
+          ##
+          ## update the record
+          ##
+          if different:
+            update_sql = '''
+                          UPDATE share_url
+                          SET nickname = "{}", live_share_url = "{}", user_status = "{}"
+                          WHERE owner_user_id = "{}";
+                          '''.format(df_result_record[1], df_result_record[2], df_result_record[3], df_result_record[0])
+            cursor.execute(update_sql)
+            connector.commit()
+            print("INFO: update {} success".format([item for item in df_result_record]))     
+      else:
+        ##
+        ## the record is not exist in database
+        ## next: insert it into database
+        ##
+        insert_sql = '''
+                      INSERT INTO share_url (owner_user_id, sec_user_id, nickname, post_share_url, live_share_url, directory_name, user_status) VALUES (
+                        "{}",
+                        "{}", 
+                        "{}", 
+                        '{}',
+                        "{}", 
+                        "{}", 
+                        "{}"
+                      );
+                     '''.format(record.get("owner_user_id"), record.get("sec_user_id"), record.get("nickname"), record.get("post_share_url"), record.get("live_share_url"), record.get("directory_name"), record.get("user_status"))
+        cursor.execute(insert_sql)
+        connector.commit()
+        get_logger().info("insert record {} success".format([item for item in record.values()]))
+      cursor.close()
+      connector.close()
+    except Exception as e:
+      cursor.close()
+      connector.close()
+      get_logger().error("insert live share url {} failed {}".format(record["live_share_url"], e))
+      raise e
+  
+  ##
+  ## create a share url record
+  ##
+  def insert_live_share_url_record(self, record:dict):
+    try:        
+      ##
+      ## check if the primary key is exist
+      ##
+      if record.get("owner_user_id") is None:
+        raise KeyError
+      
+      ##
+      ## check if the record is exist in database
+      ##
+      sql = '''SELECT owner_user_id, live_share_url
+              FROM   share_url
+              WHERE  owner_user_id = "{}";
+            '''.format(record.get("owner_user_id"))
+      connector = self.get_db_connector()
+      cursor = connector.cursor()
+      cursor.execute(sql)
+      result = cursor.fetchall()
+      if len(result) != 0:
+        ##
+        ## the record is exist in database
+        ## next: insert it if live share url is None
+        ##
+        for db_record in result:
+          ##
+          ## update the record when the record is None
+          ##
+          if db_record[1] is None:
+            update_sql = '''
+                          UPDATE share_url
+                          SET live_share_url = "{}"
+                          WHERE owner_user_id = "{}";
+                          '''.format(record.get("live_share_url"), db_record[0])
+            cursor.execute(update_sql)
+            connector.commit()
+            connector.close()
+            get_logger().info("update owner_user_id:{} live_share_url:{} success".format(db_record[0], record["live_share_url"]))
+          else:
+            pass
+      else:
+        ##
+        ## the record is not exist in database
+        ## next: insert it into database
+        ## actived_count: default 0, uncessary to insert
+        ##
+        insert_sql = '''
+                      INSERT INTO share_url (owner_user_id, sec_user_id, nickname, post_share_url, live_share_url, directory_name, user_status) VALUES (
+                        "{}",
+                        "{}", 
+                        "{}", 
+                        '{}',
+                        "{}", 
+                        "{}", 
+                        "{}"
+                      );
+                     '''.format(record.get("owner_user_id"), record.get("sec_user_id"), record.get("nickname"), record.get("post_share_url"), record.get("live_share_url"), record.get("directory_name"), record.get("user_status"))
+        cursor.execute(insert_sql)
+        connector.commit()
+        connector.close()
+        get_logger().info("insert record {} success".format([item for item in record.values()]))
+    except Exception as e:
+      get_logger().error("insert live share url {} failed {}".format(record["live_share_url"], e))
+      raise e
+
+  ##
+  ## check if the douyin user is recorded
+  ##
+  def is_live_share_url_record_exist (self, live_share_url:str) -> bool:
+    try:
+      sql = '''
+              SELECT live_share_url 
+              FROM share_url
+              WHERE live_share_url = "{}";
+            '''.format(live_share_url)
+      connector = self.get_db_connector()
+      cursor = connector.cursor()
+      cursor.execute(sql)
+      result = cursor.fetchall()
+      connector.close()
+      if len(result) != 0:
+        return True
+      else:
+        return False
+    except Exception as e:
+      get_logger().error("search live share url {} failed {}".format(live_share_url, e))
+      raise e
+
+  ##
+  ## get the owner directory name from database
+  ##
+  def get_owner_directory_name_by_live_share_url(self, live_share_url:str) -> str:
+    try:
+      sql = '''
+              SELECT directory_name
+              FROM share_url
+              WHERE live_share_url = "{}";
+            '''.format(live_share_url)
+      connector = self.get_db_connector()
+      cursor = connector.cursor()
+      cursor.execute(sql)
+      result = cursor.fetchall()
+      connector.close()
+      if len(result) != 0:
+        return result[0][0]
+      else:
+        return None
+    except Exception as e:
+      get_logger().error("search owner directory name {} failed {}".format(live_share_url, e))
+      raise e
+
+  ##
+  ## get the owner nickname from database
+  ##
+  def get_directory_name_by_owner_user_id(self, owner_user_id:str) -> str:
+    try:
+      sql = '''
+              SELECT directory_name
+              FROM share_url
+              WHERE owner_user_id = "{}";
+            '''.format(owner_user_id)
+      connector = self.get_db_connector()
+      cursor = connector.cursor()
+      cursor.execute(sql)
+      result = cursor.fetchall()
+      connector.close()
+      if len(result) != 0:
+        return result[0][0]
+      else:
+        return None
+    except Exception as e:
+      get_logger().error("search owner directory name {} failed {}".format(owner_user_id, e))
+      raise e
+
+  ##
+  ## get the owner nickname from database
+  ##
+  def get_owner_nickname_by_live_share_url(self, live_share_url:str) -> str:
+    try:
+      sql = '''
+              SELECT nickname
+              FROM share_url
+              WHERE live_share_url = "{}";
+            '''.format(live_share_url)
+      connector = self.get_db_connector()
+      cursor = connector.cursor()
+      cursor.execute(sql)
+      result = cursor.fetchall()
+      connector.close()
+      if len(result) != 0:
+        return result[0][0]
+      else:
+        return None
+    except Exception as e:
+      get_logger().error("search owner nickname {} failed {}".format(live_share_url, e))
+      raise e
+
+  ##
+  ## check if the douyin owner is recorded
+  ##
+  def is_owner_user_id_record_exist(self, owner_user_id:str) -> bool:
+    try:
+      sql = '''
+              SELECT owner_user_id 
+              FROM share_url
+              WHERE owner_user_id = "{}";
+            '''.format(owner_user_id)
+      connector = self.get_db_connector()
+      cursor = connector.cursor()
+      cursor.execute(sql)
+      result = cursor.fetchall()
+      connector.close()
+      if len(result) != 0:
+        return True
+      else:
+        return False
+    except Exception as e:
+      get_logger().error("search owner user id {} failed {}".format(owner_user_id, e))
+      raise e
+
+  ##
+  ## increment live actived count
+  ##
+  def increment_live_actived_count(self, owner_user_id:str):
+    try:
+      
+      ##
+      ## check if the input is valid
+      ##
+      if owner_user_id is None:
+        raise KeyError
+      
+      ##
+      ## construct sql to access database for actived_count
+      ##
+      sql = '''
+              SELECT owner_user_id, actived_count
+              FROM share_url
+              WHERE owner_user_id = "{}";
+            '''.format(owner_user_id)
+      ##
+      ## execute sql & receive result
+      ##
+      connector = self.get_db_connector()
+      cursor = connector.cursor()
+      cursor.execute(sql)
+      result = cursor.fetchall()
+      connector.close()
+      
+      ##
+      ## handle the result
+      ##
+      if len(result) == 0:
+        pass
+      else:
+        for db_record in result:
+          ##
+          ## construct sql
+          ##
+          increment_sql = '''
+                            UPDATE share_url
+                            SET actived_count = {}
+                            WHERE owner_user_id = "{}"
+                          '''.format(db_record[1]+1, db_record[0])
+                          
+          ##
+          ## execute sql
+          ##
+          connector = self.get_db_connector()
+          cursor = connector.cursor()
+          cursor.execute(increment_sql)
+          connector.commit()
+          connector.close()
+          get_logger().info("increment actived count succeed!")
+    except Exception as e:
+      get_logger().error("increment actived count failed {}".format(e))
+
+  ##
+  ## get douyin platform favorite owner live url
+  ##
+  def get_douyin_favorite_live_url(self) -> list:
+    sql = '''
+          select share_url.live_share_url
+          from share_url, favorite_owner
+          where share_url.owner_user_id = favorite_owner.owner_user_id
+          and share_url.user_status != "已注销"
+          order by favorite_owner.score desc;
+          '''
+    connector = self.get_db_connector()
+    cursor = connector.cursor()
+    cursor.execute(sql)
+    result = cursor.fetchall()
+    connector.close()
+    return result
+  
+  ##
+  ## get douyin platform general owner live url
+  ##
+  def get_douyin_non_favorite_live_url(self) -> list:
+    sql = '''
+          select live_share_url
+          from share_url 
+          where owner_user_id not in (
+            select owner_user_id 
+            from favorite_owner
+            )  and user_status != "已注销"
+          order by actived_count;
+          '''
+    connector = self.get_db_connector()
+    cursor = connector.cursor()
+    cursor.execute(sql)
+    result = cursor.fetchall()
+    connector.close()
+    return result
+
+  ##
+  ## check if the douyin platform favorite owner score record is exist
+  ##
+  def is_owner_score_record_exist(self, owner_user_id:str) -> bool:
+    sql = '''
+          select owner_user_id
+          from favorite_owner 
+          where owner_user_id = "{}"
+          '''.format(owner_user_id)
+    connector = self.get_db_connector()
+    cursor = connector.cursor()
+    cursor.execute(sql)
+    result = cursor.fetchall()
+    connector.close()
+    if len(result) != 0:
+      return True
+    else:
+      return False
+
+  ##
+  ## insert douyin platform favorite owner score
+  ##
+  def insert_owner_score(self, owner_user_id:str, platform:str="douyin", score:int=0):
+    sql = '''
+          insert into favorite_owner (owner_user_id, platform, score)
+          values ("{}", "{}", {})
+          '''.format(owner_user_id, platform, score)
+    connector = self.get_db_connector()
+    cursor = connector.cursor()
+    cursor.execute(sql)
+    connector.commit()
+    connector.close()
+    return True
+
+  ##
+  ## get douyin platform favorite owner score
+  ##
+  def get_owner_score_by_user_id(self, owner_user_id:str) -> int:
+    sql = '''
+          select score
+          from favorite_owner 
+          where owner_user_id = "{}"
+          '''.format(owner_user_id)
+    connector = self.get_db_connector()
+    cursor = connector.cursor()
+    cursor.execute(sql)
+    result = cursor.fetchall()
+    connector.close()
+    if len(result) != 0:
+      return result[0][0]
+    else:
+      raise ValueError("ERROR: get owner score failed, owner_user_id: {}".format(owner_user_id))
+
+  ##
+  ## update douyin platform favorite owner score
+  ##
+  def update_owner_score(self, owner_user_id:str, score:int):
+    sql = '''
+          update favorite_owner
+          set score = {}
+          where owner_user_id = "{}"
+          '''.format(score, owner_user_id)
+    connector = self.get_db_connector()
+    cursor = connector.cursor()
+    cursor.execute(sql)
+    connector.commit()
+    connector.close()
+    return True
+##
+## >>================================ test method ===============================>>
+##
+
+##
+## test：create a database table
+##
+def test_create_share_url_table():
+  ##
+  ## test for connect to database
+  ##
+  try:
+    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
+    connector = db.get_db_connector()
+    cursor = connector.cursor()
+    sql = '''
+            CREATE TABLE share_url (
+              owner_user_id     CHAR(200) NOT NULL PRIMARY KEY,
+              sec_user_id       CHAR(200),
+              nickname          CHAR(20),
+              post_share_url    CHAR(100),
+              live_share_url    CHAR(100),
+              directory_name    CHAR(100),
+              user_status       CHAR(100)
+            )
+          '''
+    cursor.execute(sql)
+    get_logger().info("test create database table success")
+    connector.close()
+  except Exception as e:
+    get_logger().error("test create database table failed {}".format(e))
+
+##
+## test：drop a database table
+##
+def test_drop_db_table():  
+  ##
+  ## test for connect to database
+  ##
+  try:
+    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
+    connector = db.get_db_connector()
+    cursor = connector.cursor()
+    sql = '''
+            DROP TABLE share_url;
+          '''
+    cursor.execute(sql)
+    get_logger().info("test drop database table success")
+    connector.close()
+  except Exception as e:
+    get_logger().error("test drop database table failed {}".format(e))
+
+##
+## test：insert a record to database table
+##
+def test_insert_record():
+  record = dict()
+  record["owner_user_id"]  = "58859666123"
+  record["sec_user_id"]    = "MS4wLjABAAAAGZkW5n1EHZD_TFyQ-QiaISBPemtKFxVVdhLSeoXhh-U"
+  record["nickname"]       = "\u2728\u7C73\u5F00\u6717\u7EFF\u841D\u2728"
+  record["post_share_url"] = "https://v.douyin.com/iYkvSmAw/"
+  record["live_share_url"] = "https://v.douyin.com/iFemNNTW/"
+  record["directory_name"] = "_\u7C73\u5F00\u6717\u7EFF\u841D_"
+  record["user_status"]    = "正常"
+
+  try:
+    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
+    db.insert_live_share_url_record(record)
+  except Exception as e:
+    get_logger().error("insert a record failed {}".format(e))
+
+##
+## test: search recode from table
+##
+def test_search_record_from_table():
+  try:
+    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
+    url = "https://v.douyin.com/ikRBs7Sy/"
+    if db.is_live_share_url_record_exist(url) is True:
+      get_logger().info("live share url {} is exist".format(url))
+  except Exception as e:
+    get_logger().error("search records from table failed {}".format(e))
+    raise e
+
+##
+## test: increment actived count
+##
+def test_increment_actived_count():
+  try:
+    owner_user_id = "55262425391"
+    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
+    db.increment_live_actived_count(owner_user_id)      
+  except Exception as e:
+    pass
+  
+##
+## test: increment actived count
+##
+def test_increment_actived_count():
+  try:
+    owner_user_id = "55262425391"
+    db = DouyinShareUrlTable(host='127.0.0.1', user='admin', passwd='admin', database='test_social_media_stream_downloader')
+    db.increment_live_actived_count(owner_user_id)      
+  except Exception as e:
+    pass
+
+##
+## >>================================ main method ===============================>>
+##
+if __name__ == "__main__":
+  ##
+  ## test for connect to database
+  ##
+  # test_create_db_table()
+  # test_drop_db_table()
+  # test_insert_record()
+  # test_search_record_from_table()
+  # test_increment_actived_count()
+  # test_create_favorite_owner_table()
+  pass

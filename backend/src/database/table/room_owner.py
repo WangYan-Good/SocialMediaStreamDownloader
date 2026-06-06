@@ -44,14 +44,15 @@ class RoomOwnerV2Table(SocialMediaStreamDataTable):
     # 认证
     'verified',                 'verified_reason',          'verified_content',         'verified_mobile',
     'enterprise_verify_reason', 'custom_verify',            'block_status',             'comment_restrict',
-    'public_area_oper_freq',    'secret',                   'user_role',                'webcast_private',
-    'can_view_webcast_private', 'user_canceled',            'telephone',
+    'public_area_oper_freq',    'push_comment_status',      'push_digg',                'push_follow',
+    'push_friend_action',       'push_ichat',               'push_status',              'push_video_post',
+    'push_video_recommend',     'remark_name',              'secret',                   'user_role',
+    'webcast_private',          'can_view_webcast_private', 'user_canceled',            'telephone',
     # 权限
     'with_commerce_permission', 'with_fusion_shop_entry',   'with_car_management_permission', 'adversary_authorization_info',
     'adversary_user_status',    'authorization_info',       'allow_be_located',         'allow_find_by_contacts',
     'allow_others_download_video', 'allow_others_download_when_sharing_video', 'allow_share_show_profile', 'allow_show_in_gossip',
     'allow_show_my_action',     'allow_strange_comment',    'allow_unfollower_comment', 'allow_use_linkmic',
-    'remark_name',
     # JSON 扩展字段
     'avatar_large',             'avatar_medium',            'avatar_thumb',             'badge_image_list',
     'badge_image_list_v2',      'commerce_webcast_config_ids', 'authentication_info',   'border_data',
@@ -70,7 +71,7 @@ class RoomOwnerV2Table(SocialMediaStreamDataTable):
 
                                         room_id                          varchar(200)   NOT NULL,
 
-                                        user_id                          bigint         DEFAULT NULL,
+                                        user_id                          varchar(200)   DEFAULT NULL,
                                         owner_open_id                    varchar(200)   DEFAULT NULL,
                                         owner_device_id                  bigint         DEFAULT NULL,
                                         sec_uid                          text           DEFAULT NULL,
@@ -81,27 +82,27 @@ class RoomOwnerV2Table(SocialMediaStreamDataTable):
                                         signature                        text           DEFAULT NULL,
                                         share_qrcode_uri                 text           DEFAULT NULL,
                                         special_id                       varchar(100)   DEFAULT NULL,
-                                        status                           tinyint        DEFAULT 0,
+                                        status                           tinyint unsigned DEFAULT 0,
                                         bg_img_url                       text           DEFAULT NULL,
 
-                                        gender                           tinyint        DEFAULT 0,
+                                        gender                           tinyint unsigned DEFAULT NULL,
                                         city                             varchar(100)   DEFAULT NULL,
                                         constellation                    varchar(20)    DEFAULT NULL,
-                                        age_range                        tinyint        DEFAULT 0,
+                                        age_range                        tinyint unsigned DEFAULT 0,
                                         birthday                         bigint         DEFAULT 0,
                                         birthday_description             varchar(100)   DEFAULT NULL,
                                         birthday_valid                   bool           DEFAULT FALSE,
                                         location_city                    varchar(100)   DEFAULT NULL,
-                                        foreign_user                     tinyint        DEFAULT 0,
-                                        mystery_man                      tinyint        DEFAULT 0,
+                                        foreign_user                     tinyint unsigned DEFAULT 0,
+                                        mystery_man                      tinyint unsigned DEFAULT 0,
 
-                                        level                            smallint       DEFAULT 0,
+                                        level                            smallint unsigned DEFAULT NULL,
                                         exp                              bigint         DEFAULT 0,
                                         experience                       bigint         DEFAULT 0,
-                                        fan_ticket_count                 bigint         DEFAULT 0,
-                                        consume_diamond_level            tinyint        DEFAULT 0,
-                                        income_share_percent             tinyint        DEFAULT 0,
-                                        link_mic_stats                   tinyint        DEFAULT 0,
+                                        fan_ticket_count                 bigint         DEFAULT NULL,
+                                        consume_diamond_level            tinyint unsigned DEFAULT 0,
+                                        income_share_percent             tinyint unsigned DEFAULT 0,
+                                        link_mic_stats                   tinyint unsigned DEFAULT 0,
                                         media_badge_image_list           JSON           DEFAULT NULL,
                                         modify_time                      bigint         DEFAULT 0,
                                         pay_score                        bigint         DEFAULT 0,
@@ -110,7 +111,7 @@ class RoomOwnerV2Table(SocialMediaStreamDataTable):
                                         new_real_time_icons              JSON           DEFAULT NULL,
                                         real_time_icons                  JSON           DEFAULT NULL,
 
-                                        follow_status                    tinyint        DEFAULT 0,
+                                        follow_status                    tinyint unsigned DEFAULT 0,
                                         is_follower                      bool           DEFAULT FALSE,
                                         is_following                     bool           DEFAULT FALSE,
                                         follow_info                      JSON           DEFAULT NULL,
@@ -118,9 +119,9 @@ class RoomOwnerV2Table(SocialMediaStreamDataTable):
                                         is_anonymous                     bool           DEFAULT FALSE,
                                         hotsoon_verified                 bool           DEFAULT FALSE,
                                         hotsoon_verified_reason          varchar(255)   DEFAULT NULL,
-                                        ichat_restrict_type              tinyint        DEFAULT 0,
-                                        disable_ichat                    tinyint        DEFAULT 0,
-                                        enable_ichat_img                 tinyint        DEFAULT 0,
+                                        ichat_restrict_type              tinyint unsigned DEFAULT 0,
+                                        disable_ichat                    tinyint unsigned DEFAULT 0,
+                                        enable_ichat_img                 tinyint unsigned DEFAULT 0,
                                         fold_stranger_chat               bool           DEFAULT FALSE,
                                         desensitized_nickname            varchar(50)    DEFAULT NULL,
 
@@ -130,22 +131,30 @@ class RoomOwnerV2Table(SocialMediaStreamDataTable):
                                         verified_mobile                  bool           DEFAULT FALSE,
                                         enterprise_verify_reason         varchar(255)   DEFAULT NULL,
                                         custom_verify                    varchar(100)   DEFAULT NULL,
-                                        block_status                     tinyint        DEFAULT 0,
-                                        comment_restrict                 tinyint        DEFAULT 0,
-                                        public_area_oper_freq            tinyint        DEFAULT 0,
-                                        secret                           tinyint        DEFAULT 0,
-                                        user_role                        tinyint        DEFAULT 0,
-                                        webcast_private                  tinyint        DEFAULT 0,
-                                        can_view_webcast_private         tinyint        DEFAULT 0,
+                                        block_status                     tinyint unsigned DEFAULT 0,
+                                        comment_restrict                 tinyint unsigned DEFAULT 0,
+                                        public_area_oper_freq            tinyint unsigned DEFAULT 0,
+                                        push_comment_status              bool           DEFAULT FALSE,
+                                        push_digg                        bool           DEFAULT FALSE,
+                                        push_follow                      bool           DEFAULT FALSE,
+                                        push_friend_action               bool           DEFAULT FALSE,
+                                        push_ichat                       bool           DEFAULT FALSE,
+                                        push_status                      bool           DEFAULT FALSE,
+                                        push_video_post                  bool           DEFAULT FALSE,
+                                        push_video_recommend             bool           DEFAULT FALSE,
+                                        secret                           tinyint unsigned DEFAULT 0,
+                                        user_role                        tinyint unsigned DEFAULT 0,
+                                        webcast_private                  tinyint unsigned DEFAULT 0,
+                                        can_view_webcast_private         tinyint unsigned DEFAULT 0,
                                         user_canceled                    bool           DEFAULT FALSE,
                                         telephone                        varchar(20)    DEFAULT NULL,
 
                                         with_commerce_permission         bool           DEFAULT FALSE,
                                         with_fusion_shop_entry           bool           DEFAULT FALSE,
                                         with_car_management_permission   bool           DEFAULT FALSE,
-                                        adversary_authorization_info     tinyint        DEFAULT 0,
-                                        adversary_user_status            tinyint        DEFAULT 0,
-                                        authorization_info               tinyint        DEFAULT 0,
+                                        adversary_authorization_info     tinyint unsigned DEFAULT 0,
+                                        adversary_user_status            tinyint unsigned DEFAULT 0,
+                                        authorization_info               tinyint unsigned DEFAULT 0,
                                         allow_be_located                 bool           DEFAULT FALSE,
                                         allow_find_by_contacts           bool           DEFAULT FALSE,
                                         allow_others_download_video      bool           DEFAULT FALSE,
@@ -176,7 +185,7 @@ class RoomOwnerV2Table(SocialMediaStreamDataTable):
                                         j_accredit_info_data             JSON           DEFAULT NULL,
                                         own_room_data                    JSON           DEFAULT NULL,
                                         total_recharge_diamond_count     bigint         DEFAULT 0,
-                                        watch_duration_month             int            DEFAULT 0,
+                                        watch_duration_month             int unsigned   DEFAULT 0,
                                         web_rid                          varchar(100)   DEFAULT NULL,
                                         webcast_nick                     varchar(50)    DEFAULT NULL,
                                         webcast_uid                      text           DEFAULT NULL,
@@ -186,8 +195,12 @@ class RoomOwnerV2Table(SocialMediaStreamDataTable):
                                         PRIMARY KEY (room_id),
                                         INDEX idx_user_id (user_id),
                                         INDEX idx_nickname (nickname)
-                                      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                                      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='主播信息表';
                                       '''.format(__ROOM_OWNER_V2_TABLE_NAME)
+  __SQL_DROP_ROOM_OWNER_V2_TABLE = '''
+                                      DROP TABLE IF EXISTS {};
+                                    '''.format(__ROOM_OWNER_V2_TABLE_NAME)
+
 ##
 ## <<=============================== room_owner_v2 ==============================<<
 ##
@@ -228,7 +241,7 @@ class RoomOwnerV2Table(SocialMediaStreamDataTable):
     return self.__SQL_CREATE_ROOM_OWNER_V2_TABLE
 
   def get_drop_sql_cmd(self) -> str:
-    return 'DROP TABLE IF EXISTS {};'.format(self.__ROOM_OWNER_V2_TABLE_NAME)
+    return self.__SQL_DROP_ROOM_OWNER_V2_TABLE
 
   def verify_table_schema(self) -> bool:
     return super().verify_table_schema()
