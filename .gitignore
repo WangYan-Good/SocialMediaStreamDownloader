@@ -26,11 +26,10 @@ config/export/
 .env.*.local
 !.env.example
 !.env.docker.example
+.server.pid
 
 # Sensitive configuration files with real credentials
-config/douyin/headers.yml.bak
-config/douyin/login.yml.bak
-config/douyin/post.yml.bak
+config
 
 # IDE and editor files
 *.swp
