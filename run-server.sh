@@ -206,7 +206,7 @@ fi
 if [[ -f ".env" && -z "${SERVER_PORT:-}" ]]; then
     log_info "从 .env 加载环境变量"
     set -a
-    source .env
+    source ./.env
     set +a
 fi
 
