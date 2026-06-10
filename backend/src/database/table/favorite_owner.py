@@ -11,7 +11,6 @@ from logging import debug, info, warning, error
 
 ## <<Third-Part>>
 from backend.src.database.social_media_stream_database import SocialMediaStreamDataBase
-from backend.src.base.log                              import get_logger
 
 class FavoriteOwnerTable(SocialMediaStreamDataBase):
 ##

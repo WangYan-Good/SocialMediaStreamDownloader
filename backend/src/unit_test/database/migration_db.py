@@ -23,7 +23,7 @@ from contextlib           import contextmanager
 from dotenv               import load_dotenv
 
 ##<<Third-part>>
-from backend.src.base.log                                        import get_logger
+from backend.src.library.loglib                                  import get_logger
 from backend.src.library.baselib                                 import get_dict_attr, load_yml
 from backend.src.database.table.room_base                        import RoomBaseTable
 from backend.src.database.table.live                             import LiveRecordTable

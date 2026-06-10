@@ -13,7 +13,7 @@ from threading import Thread
 ##<<Third-part>>
 from backend.src.base.listener import Listener
 from backend.src.platform.douyin.douyin_url_list_config import UrlListConfig
-from backend.src.base.log import get_logger
+from backend.src.library.loglib import get_logger
 
 class ListenerItem():
 ##

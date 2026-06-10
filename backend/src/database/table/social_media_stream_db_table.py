@@ -11,7 +11,7 @@ from typing    import ClassVar, Dict, Type
 
 ## <<Third-Part>>
 from backend.src.database.social_media_stream_database       import SocialMediaStreamDataBase
-from backend.src.base.log                                    import get_logger
+from backend.src.library.loglib                              import get_logger
 
 class SocialMediaStreamDataTable(ABC):
 ##

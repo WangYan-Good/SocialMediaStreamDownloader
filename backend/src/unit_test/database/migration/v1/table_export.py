@@ -20,7 +20,7 @@ import                                                                         j
 
 ## <<Third-Part>>
 from backend.src.library.baselib                                              import   load_yml, get_dict_attr, set_dict_attr, output_dict, save_dict_as_file
-from backend.src.base.log                                                     import   get_logger
+from backend.src.library.loglib                                               import   get_logger
 from backend.src.unit_test.database.social_media_stream_database              import   SocialMediaStreamDataBase
 from backend.src.unit_test.database.migration.v1.live                         import   LiveRecordTable
 from backend.src.unit_test.database.migration.v1.room                         import   RoomAttributeTable,                                  \

@@ -10,7 +10,7 @@ from datetime                                                         import dat
 ## <<Third-Part>>
 from backend.src.database.social_media_stream_database                import SocialMediaStreamDataBase
 from backend.src.database.table.live                                  import LiveRecordTable
-from backend.src.base.log                                             import get_logger
+from backend.src.library.loglib                                       import get_logger
 from backend.src.unit_test.test_db_config                             import get_test_db_config
 
 ##

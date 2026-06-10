@@ -10,7 +10,7 @@ import yaml as yml
 from pathlib                     import Path
 from backend.src.base.api        import Api
 from backend.src.library.baselib import get_dict_attr
-from backend.src.base.log        import get_logger
+from backend.src.library.loglib  import get_logger
 
 
 DEFAULT_API_CONFIG_PATH = "./config/douyin/api.yml"

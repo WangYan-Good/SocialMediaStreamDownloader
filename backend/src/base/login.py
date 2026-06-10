@@ -11,7 +11,7 @@ from pathlib import Path
 import yaml as yml
 
 ##<<Third-part>>
-from backend.src.base.log import get_logger
+from backend.src.library.loglib import get_logger
 DEFAULT_BASE_CONFIG_PATH = "config/douyin/login.yml"
 
 class Proxies(ABC):

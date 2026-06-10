@@ -7,7 +7,7 @@ sys.path.append(os.getcwd())
 ## <<Third-Part>>
 from backend.src.database.social_media_stream_database       import SocialMediaStreamDataBase
 from backend.src.database.table.social_media_stream_db_table import SocialMediaStreamDataTable
-from backend.src.base.log                                    import get_logger
+from backend.src.library.loglib                              import get_logger
 
 def create_table(db:SocialMediaStreamDataBase, table:str):
   ##

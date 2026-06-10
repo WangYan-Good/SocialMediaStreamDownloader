@@ -7,17 +7,17 @@ sys.path.append(os.getcwd())
 ##
 ## <<Base>>
 ##
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse
 
 ##
 ## <<Third-Part>>
 ##
-from backend.src.library.baselib import set_dict_attr
-from backend.src.base.config import BaseConfig
+from backend.src.library.baselib                import set_dict_attr
 from backend.src.platform.douyin.douyin_handler import douyin_handler
-from backend.src.platform.other.other_handler import other_handler
-from backend.src.base.log import get_logger
+from backend.src.platform.other.other_handler   import other_handler
+from backend.src.library.loglib                 import get_logger
 
 """
 平台分发器:
@@ -27,12 +27,19 @@ class PlatformDispatcher:
 ##
 ## >>============================= attribute =============================>>
 ##
+  __instance_lock   = threading.Lock()
   __event_list      = ['douyin', 'other']
   __handler_dict    = {'douyin': douyin_handler, 'other':other_handler}
 
 ##
 ## >>============================= private method =============================>>
 ##
+  def __new__(cls, *args, **kwargs):    
+    with cls.__instance_lock:
+      if not hasattr(cls, "_instance"):
+        cls._instance = super(PlatformDispatcher, cls).__new__(cls)
+    return cls._instance
+
   def __init__(self):
     self.handlers  = dict()
     self.executors = dict()

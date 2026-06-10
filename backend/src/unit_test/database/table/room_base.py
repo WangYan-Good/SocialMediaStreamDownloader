@@ -12,7 +12,7 @@ from typing                                                           import Opt
 ## <<Third-Part>>
 from backend.src.database.social_media_stream_database                import SocialMediaStreamDataBase
 from backend.src.database.table.room_base                             import RoomBaseTable
-from backend.src.base.log                                             import get_logger
+from backend.src.library.loglib                                       import get_logger
 from backend.src.unit_test.test_db_config                             import get_test_db_config
 
 SAMPLE_ROOM_ID = '7362550606306773794'

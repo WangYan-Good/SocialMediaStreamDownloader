@@ -16,7 +16,7 @@ from dbutils.pooled_db   import PooledDB
 
 ## <<Third-Part>>
 from backend.src.library.baselib import output_dict
-from backend.src.base.log        import get_logger
+from backend.src.library.loglib  import get_logger
 from backend.src.library.baselib import set_dict_attr
 
 class SocialMediaStreamDataBase():
@@ -56,11 +56,11 @@ class SocialMediaStreamDataBase():
   ##
   _instance_lock = threading.Lock()
   def __new__(cls, *args, **kwargs):
-    ##
-    ## each database instance is a singleton per connection config
-    ## different args including host/user/passwd/database will create different database instance
-    ## thread-safe map of instances keyed by connection parameters
-    ##
+    """
+    each database instance is a singleton per connection config
+    different args including host/user/passwd/database will create different database instance
+    thread-safe map of instances keyed by connection parameters
+    """
     try:
       if len(args) >= 4:
         host, user, passwd, database = args[0], args[1], args[2], args[3]
@@ -96,8 +96,10 @@ class SocialMediaStreamDataBase():
   ## init method
   ##
   def __init__(self, host:str, user:str, passwd:str, database:str) -> None:
-    # Make __init__ idempotent: if the instance was already initialized for
-    # this connection config, skip re-initialization.
+    """
+    Make __init__ idempotent: if the instance was already initialized for
+    this connection config, skip re-initialization.
+    """
     if getattr(self, '_initialized', False):
       return
 
@@ -106,11 +108,20 @@ class SocialMediaStreamDataBase():
       self.__user               = user
       self.__passwd             = passwd
       self.__database           = database
-      # per-instance table registry
+      
+      ##
+      ## per-instance table registry
+      ##
       self.__db_tables_instance = dict()
-      # initialize connection pool lazily (will no-op if already set)
+      
+      ##
+      ## initialize connection pool lazily (will no-op if already set)
+      ##
       self.__initialize_pool()
-      # mark as initialized to avoid repeated init on same singleton
+      
+      ##
+      ## mark as initialized to avoid repeated init on same singleton
+      ##
       self._initialized = True
     except Exception as e:
       get_logger().error("数据库初始化失败: {}".format(e))

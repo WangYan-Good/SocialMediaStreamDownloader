@@ -7,20 +7,22 @@ sys.path.append(os.getcwd())
 ##<<Base>>
 import os
 import sys
+import threading
 from pathlib import Path
 
 ##<<Extension>>
 
 ##<<Third-part>>
 from backend.src.library.baselib import get_dict_attr, set_dict_attr, save_dict_as_file, output_dict, load_yml
-from backend.src.base.log import get_logger
-from backend.src.base.default import DEFAULT_BASE_CONFIG_PATH
+from backend.src.library.loglib  import get_logger
+from backend.src.base.default    import DEFAULT_BASE_CONFIG_PATH
 
 ##
 ## Defination sbstract class
 ##
 class BaseConfig():
   '''
+  singleton class, responsible for loading and managing base configuration
   save_path: /mnt/nvme2/vedio
   max_thread: 0
   folderize: True
@@ -56,9 +58,23 @@ class BaseConfig():
   ## The part of extension
   ##
   __config                 = dict()
+  
+  ##
+  ## singleton lock
+  ##
+  __instance_lock          = threading.Lock()
 ##
 ## >>============================= private method =============================>>
 ##
+  ##
+  ## singleton pattern
+  ##
+  def __new__(cls, *args, **kwargs):
+    with cls.__instance_lock:
+      if not hasattr(cls, "_instance"):
+        cls._instance = super(BaseConfig, cls).__new__(cls)
+    return cls._instance
+
   ##
   ## Initialize base config
   ##
@@ -74,7 +90,6 @@ class BaseConfig():
       path = Path(path)
     self.BASE_CONFIG_FILE = path
     try:
-
       ##
       ## Parse configuration file
       ##
