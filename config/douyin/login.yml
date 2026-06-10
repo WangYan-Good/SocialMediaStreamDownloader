@@ -1,8 +1,7 @@
 ##
-## for real msToken
+## Real tokens must be supplied by environment variables or .env.
 ##
-msToken: cmDJA3i4FujBR1eEjQgL68DHy2zX0MPeN9tDhAr4NuCyG0dh_blLcIymp95LSmAre4HKR5MuoXvhWn0l_x0olXd26_Z6MA0bgJ_TCJLF0WN4nvfLpRF3733m3gxuhw==
-# msToken: 5rNKkDfGkpKIZNkMb9D66UzslGTynlV8PkyJKfl3mXBTn--Z4GAxWQHSH0LfiVaXPUv0Ch6MDYsvULdNrvdAv3ewn4KLsIwEACvDWMwAE2fS4S3TAAJLNX4mzZFV-Q==
+msToken: "${DOUYIN_MSTOKEN:-}"
 magic:
 version:
 dataType:

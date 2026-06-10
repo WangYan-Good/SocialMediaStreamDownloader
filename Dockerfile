@@ -70,6 +70,5 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:5000/ || exit 1
 
-# 启动命令
-ENTRYPOINT ["sh", "-c"]
-CMD ["./run-server.sh"]
+# 启动命令：依赖已在镜像构建阶段安装，运行时不再联网安装依赖
+CMD ["python", "./server.py"]

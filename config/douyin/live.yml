@@ -40,7 +40,7 @@ params_no_login:
   sec_user_id: 'MS4wLjABAAAA3REn4Oekpt-zrnovTqTVWrTPkevbUHRJZRX2td0l_EdDr8Zgzk1HlnNgKHEyguTr'
   version_code: '99.99.99'
   app_id: '1128'
-  msToken: 'jlfD5fAuY8MVOXxw3D5g7lGmLlKjusOTsOjS1rKbsPLDhNLYIfU8N2AZHQ-_tuWuoHhOPJ8UbAjfXG2f8hFtStKiS_vJkoCuHqGR37S0upa7yxs8VaXZ'
+  msToken: "${DOUYIN_MSTOKEN:-}"
   X-Bogus: 'DFSzswVOqabANG3TtI66rlSwXQ8h'
 
 

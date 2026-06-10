@@ -8,7 +8,6 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 ##<<Extension>>
-import yaml as yml
 
 ##<<Third-part>>
 from backend.src.library.loglib import get_logger
@@ -86,10 +85,7 @@ class Login(ABC):
     
     try:
       
-      ##
-      ## read config file
-      ##
-      base_config = yml.safe_load(path.read_text(encoding="utf-8"))
+      base_config = load_yml(path)
     except Exception as e:
       get_logger().error("Parse configuration failed: {}".format(e))
     return base_config

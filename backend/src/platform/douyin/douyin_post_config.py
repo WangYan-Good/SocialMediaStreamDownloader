@@ -7,10 +7,8 @@ import sys
 # sys.path.append(os.path.join(SRC_WORK_SPACE))
 sys.path.append(os.getcwd())
 
-## <<Extension>>
-import yaml as yml
-
 ## <<Third-part>>
+from backend.src.library.baselib import load_yml
 from backend.src.platform.douyin.douyin_config import DouyinConfig, DEFAULT_BASE_CONFIG_PATH
 from backend.src.library.loglib import get_logger
 
@@ -134,10 +132,7 @@ class DouyinPostConfig(DouyinConfig):
     
     try:
       
-      ##
-      ## read config file
-      ##
-      self.__config = yml.safe_load(path.read_text(encoding="utf-8"))
+      self.__config = load_yml(path)
 
       ##
       ## construct configuration

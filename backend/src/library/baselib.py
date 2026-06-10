@@ -6,6 +6,7 @@ sys.path.append(os.getcwd())
 
 ##<<Base>>
 import os
+import re
 from pathlib import Path
 
 ##<<Extension>>
@@ -13,6 +14,60 @@ import yaml as yml
 
 ##<<Third-part>>
 from backend.src.library.loglib import get_logger
+
+try:
+  from dotenv import load_dotenv
+except ImportError:
+  load_dotenv = None
+
+_DOTENV_LOADED = False
+_ENV_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-(.*?))?\}")
+
+def load_env_file() -> None:
+  global _DOTENV_LOADED
+  if _DOTENV_LOADED:
+    return
+  if load_dotenv is not None:
+    load_dotenv()
+  _DOTENV_LOADED = True
+
+def _coerce_env_value(value: str):
+  lowered = value.lower()
+  if lowered == "true":
+    return True
+  if lowered == "false":
+    return False
+  if lowered in ("none", "null"):
+    return None
+  try:
+    return int(value)
+  except ValueError:
+    return value
+
+def replace_env_variables(source):
+  if isinstance(source, dict):
+    return {key: replace_env_variables(value) for key, value in source.items()}
+
+  if isinstance(source, list):
+    return [replace_env_variables(item) for item in source]
+
+  if not isinstance(source, str):
+    return source
+
+  full_match = _ENV_PATTERN.fullmatch(source)
+  if full_match:
+    env_name, default_value = full_match.groups()
+    value = os.getenv(env_name, default_value)
+    if value is None:
+      return source
+    return _coerce_env_value(value)
+
+  def _replace(match):
+    env_name, default_value = match.groups()
+    value = os.getenv(env_name, default_value)
+    return match.group(0) if value is None else value
+
+  return _ENV_PATTERN.sub(_replace, source)
 
 ##
 ## get dict attribute
@@ -132,12 +187,16 @@ def load_yml(path:Path=None)->dict:
   if path is None:
     get_logger().error("invalid yaml path!")
     raise ValueError
+  if isinstance(path, str):
+    path = Path(path)
   
   try:      
+    load_env_file()
     ##
     ## Read config file
     ##
     config = yml.safe_load(path.read_text(encoding="utf-8"))
+    config = replace_env_variables(config)
   except Exception as e:
     get_logger().error("load yaml file failed: {}".format(e))
     raise e

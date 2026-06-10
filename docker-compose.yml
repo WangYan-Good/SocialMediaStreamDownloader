@@ -7,14 +7,14 @@ services:
     container_name: smd-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_secure_pass}
-      MYSQL_DATABASE: ${DB_NAME:-social_media_stream_downloader}
-      MYSQL_USER: ${DB_USER:-smd_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-smd_secure_pass}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-social_media_stream_downloader}
+      MYSQL_USER: ${MYSQL_USER:-smd_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
       # 连接池相关配置
       MYSQL_MAX_CONNECTIONS: 100
     ports:
-      - "${DB_PORT:-3306}:3306"
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./config/init-db:/docker-entrypoint-initdb.d
@@ -53,25 +53,40 @@ services:
         condition: service_healthy
     environment:
       # 数据库配置
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_NAME=${DB_NAME:-social_media_stream_downloader}
-      - DB_USER=${DB_USER:-smd_user}
-      - DB_PASSWORD=${DB_PASSWORD:-smd_secure_pass}
+      - SMSD_DB_ENABLE=${SMSD_DB_ENABLE:-true}
+      - SMSD_DB_HOST=${SMSD_DB_HOST:-mysql}
+      - SMSD_DB_PORT=${SMSD_DB_PORT:-3306}
+      - SMSD_DB_NAME=${SMSD_DB_NAME:-social_media_stream_downloader}
+      - SMSD_DB_USER=${SMSD_DB_USER:-smd_user}
+      - SMSD_DB_PASSWORD=${SMSD_DB_PASSWORD:?SMSD_DB_PASSWORD is required}
 
       # 抖音配置
+      - DOUYIN_LOGIN=${DOUYIN_LOGIN:-false}
       - DOUYIN_COOKIE_SHARE_LIVE_URL=${DOUYIN_COOKIE_SHARE_LIVE_URL}
       - DOUYIN_COOKIE_LIVE_ROOM_INFO=${DOUYIN_COOKIE_LIVE_ROOM_INFO}
       - DOUYIN_COOKIE_POST_INFO=${DOUYIN_COOKIE_POST_INFO}
+      - DOUYIN_COOKIE_SHARE_LIVE_URL_NO_LOGIN=${DOUYIN_COOKIE_SHARE_LIVE_URL_NO_LOGIN}
+      - DOUYIN_COOKIE_LIVE_ROOM_INFO_NO_LOGIN=${DOUYIN_COOKIE_LIVE_ROOM_INFO_NO_LOGIN}
+      - DOUYIN_COOKIE_POST_INFO_NO_LOGIN=${DOUYIN_COOKIE_POST_INFO_NO_LOGIN}
       - DOUYIN_MSTOKEN=${DOUYIN_MSTOKEN}
 
       # 下载配置
-      - DOWNLOAD_SAVE_PATH=/app/downloads
-      - DOWNLOAD_MAX_THREAD=${DOWNLOAD_MAX_THREAD:-0}
+      - SMSD_DOWNLOAD_SAVE_PATH=${SMSD_DOWNLOAD_SAVE_PATH:-/app/downloads}
+      - SMSD_DOWNLOAD_MAX_THREAD=${SMSD_DOWNLOAD_MAX_THREAD:-0}
+      - SMSD_LOG_ENABLE=${SMSD_LOG_ENABLE:-true}
+      - SMSD_LOG_PATH=${SMSD_LOG_PATH:-/app/logs}
+      - SMSD_DEBUG=${SMSD_DEBUG:-false}
+      - SMSD_SAVE_RESPONSE=${SMSD_SAVE_RESPONSE:-false}
+      - SMSD_SAVE_ERROR_RESPONSE=${SMSD_SAVE_ERROR_RESPONSE:-true}
 
       # 服务器配置
+      - SERVER_HOST=${SERVER_HOST:-0.0.0.0}
       - SERVER_PORT=${SERVER_PORT:-5000}
       - FLASK_DEBUG=${FLASK_DEBUG:-false}
+      - SMSD_API_TOKEN=${SMSD_API_TOKEN}
+      - SMSD_ALLOWED_DOMAINS=${SMSD_ALLOWED_DOMAINS:-douyin.com,iesdouyin.com,v.douyin.com,live.douyin.com,www.douyin.com}
+      - SMSD_MAX_URLS_PER_REQUEST=${SMSD_MAX_URLS_PER_REQUEST:-20}
+      - SMSD_MAX_REQUEST_BYTES=${SMSD_MAX_REQUEST_BYTES:-65536}
     ports:
       - "${SERVER_PORT:-5000}:${SERVER_PORT:-5000}"
     volumes:
@@ -79,10 +94,12 @@ services:
       - download_data:/app/downloads
       # 持久化日志
       - ./logs:/app/logs
-      # 挂载配置文件（可选，便于热更新）
-      - ./.env:/app/.env:ro
     networks:
       - smd-network
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${SERVER_PORT:-5000}/"]
       interval: 30s

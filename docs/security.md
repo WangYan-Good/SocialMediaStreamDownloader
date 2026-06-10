@@ -49,18 +49,18 @@
 ### 改进前
 ```yaml
 # config/base_config.yml
-database_user: "admin"
-database_password: "admin"
+database_user: "example_user"
+database_password: "example_password"
 
 # config/douyin/headers.yml
-cookie: 'ttwid=1%7Cng95gsOqDIZ...（完整 Cookie 值）'
+cookie: '<real cookie value>'
 ```
 
 ### 改进后
 ```yaml
 # config/base_config.yml
-database_user: "${DB_USER}"
-database_password: "${DB_PASSWORD}"
+database_user: "${SMSD_DB_USER}"
+database_password: "${SMSD_DB_PASSWORD}"
 
 # config/douyin/headers.yml
 cookie: '${DOUYIN_COOKIE_SHARE_LIVE_URL}'
