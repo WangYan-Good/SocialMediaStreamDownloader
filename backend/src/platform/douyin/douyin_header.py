@@ -3,16 +3,12 @@ import os
 import sys
 sys.path.append(os.getcwd())
 ##>>Test
-##<<Base>>
-from abc import abstractmethod
-
-##<<Extension>>
 
 ##<<Third-part>>
-from pathlib import Path
-from backend.src.base.header import Header
+from pathlib                     import Path
+from backend.src.base.header     import Header
 from backend.src.library.baselib import output_dict, get_dict_attr, set_dict_attr
-from backend.src.base.log import get_logger
+from backend.src.library.loglib  import get_logger
 
 DEFAULT_HEADER_PATH = "config/douyin/headers.yml"
 

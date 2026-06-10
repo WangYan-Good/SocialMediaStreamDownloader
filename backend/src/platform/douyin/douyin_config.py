@@ -9,7 +9,7 @@ sys.path.append(os.getcwd())
 ## <<Third-part>>
 from backend.src.library.baselib import output_dict, save_dict_as_file, get_dict_attr, set_dict_attr, load_yml
 from backend.src.base.config     import BaseConfig, DEFAULT_BASE_CONFIG_PATH
-from backend.src.base.log        import get_logger
+from backend.src.library.loglib  import get_logger
 
 class DouyinConfig(BaseConfig):
 

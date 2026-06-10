@@ -22,7 +22,7 @@ from backend.src.platform.douyin.douyin_url_list_config import UrlListConfig
 from backend.src.platform.douyin.douyin_post_config import DouyinPostConfig, DEFAULT_BASE_CONFIG_PATH
 from backend.src.platform.douyin.douyin_login import DouyinLogin
 from backend.src.platform.douyin.douyin_api import DouyinApi
-from backend.src.base.log import get_logger
+from backend.src.library.loglib import get_logger
 
 '''
 Basic configuration:

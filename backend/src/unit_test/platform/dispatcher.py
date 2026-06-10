@@ -8,7 +8,7 @@ sys.path.append(os.getcwd())
 ## <<third-party>>
 ##
 from backend.src.platform.platform_dispatcher import PlatformDispatcher
-from backend.src.base.log import get_logger
+from backend.src.library.loglib import get_logger
 
 ##
 ## >>================================ test method ===============================>>

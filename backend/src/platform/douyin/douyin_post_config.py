@@ -12,7 +12,7 @@ import yaml as yml
 
 ## <<Third-part>>
 from backend.src.platform.douyin.douyin_config import DouyinConfig, DEFAULT_BASE_CONFIG_PATH
-from backend.src.base.log import get_logger
+from backend.src.library.loglib import get_logger
 
 ## TODO remove
 from verify_fp_manager import VerifyFpManager as VFM

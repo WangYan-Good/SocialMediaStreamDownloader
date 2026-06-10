@@ -9,7 +9,7 @@ from typing import Dict, Any, cast
 
 ## <<Third-Part>>
 from backend.src.database.table.share_url import DouyinShareUrlTable
-from backend.src.base.log                 import get_logger
+from backend.src.library.loglib           import get_logger
 from backend.src.unit_test.test_db_config import get_test_db_config
 
 

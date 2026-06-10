@@ -17,7 +17,7 @@ from backend.src.database.table.room import (
   FansGroupAdminUserIdTable,
   FansGroupAdminUserOpenIdTable,
 )
-from backend.src.base.log import get_logger
+from backend.src.library.loglib import get_logger
 from backend.src.unit_test.test_db_config import get_test_db_config
 
 

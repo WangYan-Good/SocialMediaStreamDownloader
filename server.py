@@ -8,25 +8,17 @@ sys.path.append(os.getcwd())
 import os
 import traceback
 import logging
-
-## <<Third-Part>>
 from dotenv import load_dotenv
 
-# 加载 .env 文件（如果存在）
-load_dotenv()
-
-from backend.src.platform.platform_dispatcher import PlatformDispatcher
-from backend.src.base.log import get_logger
-
+## <<Extension>>
 from flask import Flask, request, jsonify, render_template
 from werkzeug.exceptions import BadRequest
 
+## <<Third-Part>>
+from backend.src.library.configlib import init_config
+from backend.src.platform.platform_dispatcher import PlatformDispatcher
+from backend.src.library.loglib import get_logger
 
-platform_dispatcher = PlatformDispatcher()
-app = Flask(__name__, static_folder='./frontend/src/static', template_folder='./frontend/src/templates')
-
-# 配置日志记录器
-logger = get_logger() if callable(get_logger) else logging.getLogger(__name__)
 
 ##
 ## handle the request from the client
@@ -80,7 +72,9 @@ def process_request():
     platform_dispatcher.dispatch(json_data)
 
   except BadRequest as e:
+    ##
     ## 客户端请求格式错误（Flask 自动抛出）
+    ##
     logger.warning(f"无效的请求格式: {str(e)}")
     return jsonify({
       "status": "error",
@@ -89,7 +83,9 @@ def process_request():
     }), 400
 
   except ValueError as e:
+    ##
     ## 业务逻辑校验错误
+    ##
     logger.warning(f"参数校验失败: {str(e)}")
     return jsonify({
       "status": "error",
@@ -98,11 +94,15 @@ def process_request():
     }), 400
 
   except Exception as e:
+    ##
     ## 服务器内部错误
+    ##
     error_traceback = traceback.format_exc()
     logger.error(f"请求处理失败 - 异常: {str(e)}\n{error_traceback}")
 
+    ##
     ## 生产环境返回通用错误，开发环境返回详细错误
+    ##
     debug_mode = os.getenv('FLASK_DEBUG', 'false').lower() in ('true', '1', 'yes')
     if debug_mode:
       return jsonify({
@@ -132,6 +132,30 @@ def index():
     return render_template('index.html')
 
 if __name__ == '__main__':
+  ##
+  ## 加载 .env 文件（如果存在）
+  ##
+  load_dotenv()
+  
+  ##
+  ## 初始化配置
+  ##
+  try:
+    init_config()
+  except Exception as e:
+    raise RuntimeError(f"配置初始化失败: {str(e)}")
+
+  ##
+  ## 创建平台分发器实例和 Flask 应用实例
+  ##
+  platform_dispatcher = PlatformDispatcher()
+  app = Flask(__name__, static_folder='./frontend/src/static', template_folder='./frontend/src/templates')
+
+  ##
+  ## 配置日志记录器
+  ##
+  logger = get_logger() if callable(get_logger) else logging.getLogger(__name__)
+
   ##
   ## register platform_dispatcher
   ##

@@ -2,7 +2,7 @@
 import re
 
 ## <<Third-Part>>
-from backend.src.base.log import get_logger
+from backend.src.library.loglib import get_logger
 
 # config file path
 DEFAULT_CONFIG_FILE = "config/douyin/conf.ini"

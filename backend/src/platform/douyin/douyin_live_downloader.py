@@ -31,7 +31,7 @@ from backend.src.platform.douyin.douyin_api                 import DouyinApi
 from backend.src.database.social_media_stream_database      import SocialMediaStreamDataBase
 from backend.src.database.table.share_url                   import DouyinShareUrlTable
 from backend.src.database.table.table_import                import import_douyin_live_info_to_database
-from backend.src.base.log                                   import get_logger
+from backend.src.library.loglib                             import get_logger
 
 ## TODO
 from backend.src.platform.douyin.xbogus import XBogus as XB

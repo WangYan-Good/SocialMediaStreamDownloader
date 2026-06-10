@@ -8,10 +8,10 @@ sys.path.append(os.getcwd())
 from requests import request
 
 ## <<Third-Part>>
-from backend.src.library.baselib                        import get_dict_attr, set_dict_attr
+from backend.src.library.baselib                        import get_dict_attr
 from backend.src.platform.douyin.douyin_api             import DouyinApi
 from backend.src.platform.douyin.douyin_live_downloader import download_multiple_live
-from backend.src.base.log                               import get_logger
+from backend.src.library.loglib                         import get_logger
 
 ##
 ## handler douyin live url

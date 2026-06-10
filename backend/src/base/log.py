@@ -20,7 +20,6 @@ from backend.src.base.default import DEFAULT_BASE_CONFIG_PATH
 ##
 DEFAULT_LOGGER_FORMATTER_STR = '[%(asctime)s]-[%(name)s]-[%(levelname)s]: %(message)s'
 class LoggerManager():
-
 ##
 ## >>============================= attribute =============================>>
 ##
@@ -44,9 +43,9 @@ class LoggerManager():
   ## singleton pattern
   ##
   def __new__(cls, *args, **kwargs):
-    if not hasattr(cls, 'instance'):
-      cls.instance = super().__new__(cls)
-    return cls.instance
+    if not hasattr(cls, '_instance'):
+      cls._instance = super().__new__(cls)
+    return cls._instance
 
   ##
   ## init the logger manager
@@ -229,57 +228,3 @@ class LoggerManager():
 ##
 ## >>================================ public method ===============================>>
 ##
-
-##
-## register a logger for module-level logging
-##
-def register_logger(name:str, level:str) -> Logger:
-  return LoggerManager().register_logger(name, level)
-
-##
-## get logger by name
-##
-def get_logger(name:str="default") -> Logger:
-  return LoggerManager().get_logger(name)
-  
-##
-## set logger with file handler
-##
-def set_logger_file_handler(name:str, file_path:str, format:str=None, level:str="DEBUG") -> None:
-  LoggerManager().set_logger_file_handler(name, file_path, format, level)
-
-##
-## set logger with console handler
-##
-def set_logger_console_handler(name:str, format:str=None, level:str="DEBUG") -> None:
-  LoggerManager().set_logger_console_handler(name, format, level)
-
-##
-## >>================================ test method ===============================>>
-##
-def test_default_logger():
-  """
-  Test the default logger
-  """
-  logger = get_logger()
-  logger.info("This is a test log message from the default logger.")
-  logger.error("This is a test error message from the default logger.")
-  logger.warning("This is a test warning message from the default logger.")
-  logger.debug("This is a test debug message from the default logger.")
-  logger.critical("This is a test critical message from the default logger.")
-  
-  # test_logger = register_logger(name="test_logger", level="DEBUG")
-  # set_logger_console_handler(name="test_logger", format=DEFAULT_LOGGER_FORMATTER_STR, level="DEBUG")
-  # set_logger_file_handler(name="test_logger", file_path="test_log.log", format=DEFAULT_LOGGER_FORMATTER_STR, level="DEBUG")
-  # test_logger.info("This is a test log message from the test logger.")
-  # test_logger.error("This is a test error message from the test logger.")
-  # test_logger.warning("This is a test warning message from the test logger.")
-  # test_logger.debug("This is a test debug message from the test logger.")
-  # test_logger.critical("This is a test critical message from the test logger.")
-
-##
-## >>================================ main method ===============================>>
-##
-if __name__ == "__main__":
-  test_default_logger()
-  
