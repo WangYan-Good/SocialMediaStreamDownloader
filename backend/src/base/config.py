@@ -8,61 +8,35 @@ sys.path.append(os.getcwd())
 import os
 import sys
 import threading
-from pathlib import Path
 
 ##<<Extension>>
 
 ##<<Third-part>>
-from backend.src.library.baselib import get_dict_attr, set_dict_attr, save_dict_as_file, output_dict, load_yml
-from backend.src.library.loglib  import get_logger
-from backend.src.base.default    import DEFAULT_BASE_CONFIG_PATH
+from backend.src.library.baselib     import set_dict_attr, has_dict_attr
 
 ##
 ## Defination sbstract class
 ##
 class BaseConfig():
-  '''
-  singleton class, responsible for loading and managing base configuration
-  save_path: /mnt/nvme2/vedio
-  max_thread: 0
-  folderize: True
-  config_directory: config
-  stream_platform: douyin
-  build_directory: build
-  login: True
-  save_response: True
-  headers_file: headers.yml
-  download_file: download.yml
-  base_config_directory: /mnt/nvme/CodeSpace/OpenSource/TikTokDownload/config
-  platform_config_path: /mnt/nvme/CodeSpace/OpenSource/TikTokDownload/config/douyin
-  header_config_path: /mnt/nvme/CodeSpace/OpenSource/TikTokDownload/config/douyin/headers.yml
-  download_config_path: /mnt/nvme/CodeSpace/OpenSource/TikTokDownload/config/douyin/download.yml
-  build_path: /mnt/nvme/CodeSpace/OpenSource/TikTokDownload/config/build
-  '''
 ##
 ## >>============================= attribute =============================>>
 ##
   ##
-  ## Declare and define default value
+  ## configuration dict
   ##
-  WORK_SPACE_PATH          = os.getcwd()
-  BASE_CONFIG_FILE         = None
-  base_config_directory    = None
-  platform_config_path     = None
-  header_config_path       = None
-  download_config_path     = None
-  build_path               = None
-  _base_config_save_path   = None
+  __default_config = dict()
+  __config = dict()
 
-  ##
-  ## The part of extension
-  ##
-  __config                 = dict()
-  
   ##
   ## singleton lock
   ##
-  __instance_lock          = threading.Lock()
+  __instance_lock = threading.Lock()
+
+  ##
+  ## identify whether the instance is initialized
+  ##
+  __initialized = False
+
 ##
 ## >>============================= private method =============================>>
 ##
@@ -72,103 +46,136 @@ class BaseConfig():
   def __new__(cls, *args, **kwargs):
     with cls.__instance_lock:
       if not hasattr(cls, "_instance"):
-        cls._instance = super(BaseConfig, cls).__new__(cls)
+        cls._instance = super().__new__(cls)
     return cls._instance
-
+  
   ##
-  ## Initialize base config
+  ## initialize base config
   ##
-  def __init__(self, path:Path|str = None):
-    if path is None:
-      get_logger().warning("invalid input, will use default base configuration")
-      path = DEFAULT_BASE_CONFIG_PATH
+  def __init__(self):
+    '''
+    Initialize base configuration, the config will be loaded in the following order:
+    load config from database, if failed, load config from default config.
+    '''
+    if self.__initialized:
+      return
+    try:      
+      ##
+      ## load default config
+      ##
+      self.__init_default_config()
+      
+      ##
+      ## load config from database, if failed, load config from default config
+      ##
+      self.__init_config()
 
-    ##
-    ## Initialize base config
-    ##
-    if isinstance(path, str) is True:
-      path = Path(path)
-    self.BASE_CONFIG_FILE = path
-    try:
       ##
-      ## Parse configuration file
+      ## flag the instance is initialized
       ##
-      self.__config = load_yml(Path(self.BASE_CONFIG_FILE))
+      self.__initialized = True
     except Exception as e:
-      get_logger().error("Parse base configuration failed! {}".format(e))
-      return None
-
-    try:
       ##
-      ## Construct extension config path
+      ## logger still cannot be used at this time.
       ##
-      self.base_config_directory     = self.WORK_SPACE_PATH + "/" + get_dict_attr(self.__config,"$.config_directory")
-      self.platform_config_path      = self.WORK_SPACE_PATH + "/" + get_dict_attr(self.__config,"$.config_directory") + "/" + get_dict_attr(self.__config,"$.stream_platform")
-      self.header_config_path        = self.platform_config_path + "/" + get_dict_attr(self.__config,"$.headers_file")
-      self.download_config_path      = self.platform_config_path + "/" + get_dict_attr(self.__config,"$.download_file")
-      self.build_path                = self.WORK_SPACE_PATH + "/" + get_dict_attr(self.__config,"$.config_directory") + "/" + get_dict_attr(self.__config,"$.build_directory")
-      self._base_config_save_path    = self.build_path + "/" + "base_config.yml"
-
-      ##
-      ## Construct config dict
-      ##
-      set_dict_attr(self.__config, "$.base_config_directory", self.base_config_directory)
-      set_dict_attr(self.__config, "$.platform_config_path",  self.platform_config_path)
-      set_dict_attr(self.__config, "$.header_config_path",    self.header_config_path)
-      set_dict_attr(self.__config, "$.download_config_path",  self.download_config_path)
-      set_dict_attr(self.__config, "$.build_path",            self.build_path)
-      set_dict_attr(self.__config, "$.base_config_save_path", self._base_config_save_path)
-
-      ##
-      ## Construct configuration
-      ##
-      self.__dict__.update(self.__config)
-    except Exception as e:
-      get_logger().error("Base config init failed! {}".format(e))
       raise e
 
-##
-## >>============================= abstract method =============================>>
-##
-  ##
-  ## Transform config to dict
-  ##
-  def to_dict(self)->dict:
-    return self.__config
+  def __init_default_config(self):
+    '''
+    Default config is the bootstrap config for the process.
+    It is NOT the final source of truth. 
+    The final config should be loaded from the database for non-first startup.
+    For those cases the default config will be used as a fallback:
+      1. first startup
+      2. database connection failure
+    '''
+    self.__default_config = {
+      "ENVIRONMENT": os.getenv("ENVIRONMENT"),
 
-  ##
-  ## Dump config
-  ##
-  def dump_config(self):
-    get_logger().info("Base configuration:")
-    output_dict(self.to_dict())
+      ##
+      ## Database bootstrap config. These values let the app connect to the
+      ## config database and load the main config on non-first startup.
+      ##
+      "SMSD_DB_ENABLE": os.getenv("SMSD_DB_ENABLE", None),
+      "SMSD_DB_HOST": os.getenv("SMSD_DB_HOST", None),
+      "SMSD_DB_PORT": int(os.getenv("SMSD_DB_PORT", None)),
+      "SMSD_DB_NAME": os.getenv("SMSD_DB_NAME", None),
+      "SMSD_DB_USER": os.getenv("SMSD_DB_USER", None),
+      "SMSD_DB_PASSWORD": os.getenv("SMSD_DB_PASSWORD", None),
 
-  ##
-  ## get config dict attr
-  ##
-  def get_config_dict_attr(self, attr:str=None):
-    value = None
-    try:
-      value = get_dict_attr(self.to_dict(), attr)
-    except Exception as e:
-      get_logger().error("get base config attr({}) failed: {}".format(attr, e))
-      raise e
-    return value
+      ##
+      ## Download defaults. These are fallback values only; user/main config in
+      ## the database should override them after initialization.
+      ## TODO: move these to user config after the migration is done, 
+      ##       since they are user-level preferences rather than system-level defaults.
+      ##
+      "DOWNLOAD_SAVE_PATH": os.getenv("DOWNLOAD_SAVE_PATH"),
+      "DOWNLOAD_MAX_THREADS": os.getenv("DOWNLOAD_MAX_THREADS"),
 
-  ##
-  ## set config dict
-  ##
-  def set_config_dict_attr(self, attr:str=None, value:any=None):
-    set_dict_attr(self.to_dict(), attr, value)
+      ##
+      ## Server and logger bootstrap config. These keep the service operable
+      ## before the database-backed main config is available.
+      ##
+      "SERVER_HOST": os.getenv("SERVER_HOST"),
+      "SERVER_PORT": os.getenv("SERVER_PORT"),
+      
+      ##
+      ## Logger debug config
+      ##
+      "FLASK_DEBUG": os.getenv("FLASK_DEBUG"),
+      "LOG_LEVEL": os.getenv("LOG_LEVEL"),
+      "LOG_FILE_PATH": os.getenv("LOG_FILE_PATH")
+    }
 
-##
-## >>============================= sub class method =============================>>
-##
-  ##
-  ## Save config
-  ##
-  def save_config(self, output:Path = None):
-    if output is None:
-      output = self._base_config_save_path
-      get_logger().warning("save base config in default path: {}".format(output))
-    save_dict_as_file(self.to_dict(), output)
+    ##
+    ## Default config is also the active config until a later database-backed
+    ## load succeeds. Expose every config key as an instance attribute to keep
+    ## compatibility with the older BaseConfig access pattern.
+    ##
+    self.__config = self.__default_config.copy()
+    self.__dict__.update(self.__config)
+
+  def __init_config(self):
+    '''
+    Initialize main config from database,
+    if failed, it will use default config.
+    '''
+    ##
+    ## check database config from default config
+    ##
+    smsd_db_host = self.__default_config.get("SMSD_DB_HOST")
+    smsd_db_port = self.__default_config.get("SMSD_DB_PORT")
+    smsd_db_name = self.__default_config.get("SMSD_DB_NAME")
+    smsd_db_user = self.__default_config.get("SMSD_DB_USER")
+    smsd_db_password = self.__default_config.get("SMSD_DB_PASSWORD")
+    
+    self.__config = __get_base_config_from_db(smsd_db_host, smsd_db_port, smsd_db_name, smsd_db_user, smsd_db_password)
+    
+    ##
+    ## Internal function to fetch base config from database
+    ##
+    def __get_base_config_from_db(host:str=None, port:int=None, name:str=None, user:str=None, password:str=None):
+      try:
+        if host is None or port is None or name is None or user is None or password is None:
+          raise ValueError("Database configuration is incomplete")
+        ##
+        ## Fetch the base config from the database using the provided credentials
+        ##
+        pass
+      except Exception as e:
+        raise e
+
+  def update_config(self, field:str, value:any):
+    '''
+    Update the active config with new values, typically loaded from the database.
+    This will override the default/bootstrap config values with the new ones.
+    '''
+    if has_dict_attr(self.__config, field) is False:
+      raise ValueError("field cannot be None")
+    set_dict_attr(self.__config, field, value)
+    self.__dict__.update(self.__config)
+    
+    ##
+    ## TODO
+    ## write back updated config to database
+    ##

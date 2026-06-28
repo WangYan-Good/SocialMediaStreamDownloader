@@ -1,0 +1,26 @@
+environment: development/production
+database:
+  name: smsd
+  enable: true
+  host: localhost
+  port: 3306
+  username: root
+  password: password
+
+download:
+  save_path: ./downloads
+  max_threads: 3
+
+server:
+  host:0.0.0.0
+  port: 5000
+  debug: false
+  log_level: INFO
+  log_file_path: ./logs/server.log
+
+migrate:
+  source_db_name: smsd_old
+  source_db_host: localhost
+  source_db_port: 3306
+  source_db_username: <user_name>
+  source_db_password: <password>

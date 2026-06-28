@@ -8,6 +8,7 @@ from logging import Logger, FileHandler, StreamHandler, Formatter
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 import re
+import threading
 
 ##<<Existension>>
 import yaml as yml
@@ -26,6 +27,8 @@ class LoggerManager():
   __default_logger          = None
   __default_console_handler = None
   __logger_queue            = dict()
+  __initialized             = False
+  __instance_Lock           = threading.Lock()
   
   
   ##
@@ -43,8 +46,9 @@ class LoggerManager():
   ## singleton pattern
   ##
   def __new__(cls, *args, **kwargs):
-    if not hasattr(cls, '_instance'):
-      cls._instance = super().__new__(cls)
+    with cls.__instance_Lock:
+      if not hasattr(cls, '_instance'):
+        cls._instance = super().__new__(cls)
     return cls._instance
 
   ##
@@ -54,7 +58,7 @@ class LoggerManager():
     ##
     ## prevent re-initialization for singleton pattern
     ##
-    if hasattr(self, '_initialized') and self._initialized:
+    if hasattr(self, '__initialized') and self.__initialized:
       return
 
     try:
@@ -71,7 +75,7 @@ class LoggerManager():
       ##
       ## mark as initialized
       ##
-      self._initialized = True
+      self.__initialized = True
     except Exception as e:
       raise e
     return

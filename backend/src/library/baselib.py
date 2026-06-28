@@ -67,6 +67,22 @@ def set_dict_attr(source: dict = None, attr: str = None, value: any = None, forc
     target.update({path[-1]:value})
 
 ##
+## check if dict has attribute
+##
+def has_dict_attr(source: dict, attr: str) -> bool:
+  path = attr.split(".")
+  if path[0] != "$":
+    raise ValueError("attr must start with '$'")
+
+  target = source
+  for key in path[1:]:
+    if not isinstance(target, dict) or key not in target:
+      return False
+    target = target[key]
+
+  return True
+
+##
 ## format output dict
 ##
 def output_dict(source:dict=None, tab:int=1):
