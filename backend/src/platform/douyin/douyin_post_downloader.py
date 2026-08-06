@@ -17,9 +17,10 @@ import yaml as yml
 from xbogus import XBogus as XB
 from xbogus import XBogusManager as XBM
 from backend.src.base.downloader import Downloader
+from backend.src.base.default import DEFAULT_BASE_CONFIG_PATH
 from backend.src.platform.douyin.douyin_header import DouyinHeader
 from backend.src.platform.douyin.douyin_url_list_config import UrlListConfig
-from backend.src.platform.douyin.douyin_post_config import DouyinPostConfig, DEFAULT_BASE_CONFIG_PATH
+from backend.src.platform.douyin.douyin_post_config import DouyinPostConfig
 from backend.src.platform.douyin.douyin_login import DouyinLogin
 from backend.src.platform.douyin.douyin_api import DouyinApi
 from backend.src.library.loglib import get_logger

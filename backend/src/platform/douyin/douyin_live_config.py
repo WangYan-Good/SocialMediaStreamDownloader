@@ -9,7 +9,7 @@ import yaml as yml
 
 ## <<Third-part>>
 from backend.src.library.baselib import output_dict, save_dict_as_file, set_dict_attr, get_dict_attr, load_yml
-from backend.src.base.config import DEFAULT_BASE_CONFIG_PATH
+from backend.src.base.default import DEFAULT_BASE_CONFIG_PATH
 from backend.src.platform.douyin.douyin_config import DouyinConfig
 from backend.src.library.loglib import get_logger
 

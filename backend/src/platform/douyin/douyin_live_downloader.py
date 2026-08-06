@@ -21,7 +21,8 @@ import yaml as yml
 
 ## <<Third-Part>>
 from backend.src.library.baselib                            import set_dict_attr, get_dict_attr, output_dict, save_dict_as_file
-from backend.src.base.downloader                            import Downloader, DEFAULT_BASE_CONFIG_PATH
+from backend.src.base.default                               import DEFAULT_BASE_CONFIG_PATH
+from backend.src.base.downloader                            import Downloader
 from backend.src.platform.douyin.douyin_header              import DouyinShareHeader, DouyinLiveInfoHeader
 from backend.src.platform.douyin.douyin_live_config         import DouyinLiveConfig
 from backend.src.platform.douyin.douyin_login               import DouyinLogin

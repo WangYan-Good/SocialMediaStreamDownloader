@@ -11,7 +11,8 @@ sys.path.append(os.getcwd())
 import yaml as yml
 
 ## <<Third-part>>
-from backend.src.platform.douyin.douyin_config import DouyinConfig, DEFAULT_BASE_CONFIG_PATH
+from backend.src.base.default import DEFAULT_BASE_CONFIG_PATH
+from backend.src.platform.douyin.douyin_config import DouyinConfig
 from backend.src.library.loglib import get_logger
 
 ## TODO remove
