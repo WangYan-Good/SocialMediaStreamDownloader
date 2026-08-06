@@ -22,7 +22,7 @@
 不纳入统一配置：
 
 - `config/douyin/live_response.yml`。它是直播响应样本，当前也不是合法 YAML 配置。
-- 运行时生成的 `stream_url`、`stream_name`、下载计数和直播响应内容。
+- 运行时生成或注入的 `stream_url`、`stream_name`、`post.share_url`、`post.nickname`、下载计数和直播响应内容。
 - 程序可以根据项目根目录推导的 `*_config_path`、`build_path` 等路径。
 
 `msToken`、`verifyFp` 和 `a_bogus` 可以作为初始配置保留；运行时刷新值只保存在内存中，本阶段不写回 YAML。
