@@ -15,8 +15,8 @@ from flask import Flask, request, jsonify, render_template
 from werkzeug.exceptions import BadRequest
 
 ## <<Third-Part>>
-from backend.src.library.loglib    import init_bootstrap_logger, get_logger
-from backend.src.library.configlib import init_base_config
+from backend.src.library.loglib    import get_logger
+from backend.src.library.configlib import load_config
 from backend.src.platform.platform_dispatcher import PlatformDispatcher
 
 ##
@@ -130,31 +130,12 @@ def process_request():
 def index():
     return render_template('index.html')
 
-if __name__ == '__main__':
+if __name__ == '__main__': 
   ##
-  ## 加载 .env 文件（如果存在）
-  ##
-  environment = os.getenv("ENVIRONMENT", None)
-  if environment is None:
-    load_dotenv()
-  
-  ##
-  ## 初始化配置
+  ## 加载配置
   ##
   try:
-    ##
-    ## 初始化引导日志记录器，确保在配置加载前有日志输出
-    ##
-    init_bootstrap_logger()
-    
-    ##
-    ## 初始化基础配置
-    ##
-    init_base_config()
-    
-    ##
-    ## 更新日志记录器配置（如果基础配置中包含日志配置）
-    ##
+    load_config()
   except Exception as e:
     raise RuntimeError(f"配置初始化失败: {str(e)}")
 
@@ -178,7 +159,7 @@ if __name__ == '__main__':
   ## 启动服务
   ## 从环境变量读取配置，默认: debug=False, host=0.0.0.0, port=5000
   ##
-  debug_mode = os.getenv('FLASK_DEBUG', 'false').lower() in ('true', '1', 'yes')
+  debug_mode  = os.getenv('FLASK_DEBUG', 'false').lower() in ('true', '1', 'yes')
   server_host = os.getenv('SERVER_HOST', '0.0.0.0')
   server_port = int(os.getenv('SERVER_PORT', 5000))
   
