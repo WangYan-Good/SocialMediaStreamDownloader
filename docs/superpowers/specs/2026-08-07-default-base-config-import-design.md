@@ -48,6 +48,8 @@ backend.src.base.default.DEFAULT_BASE_CONFIG_PATH
 
 ## 测试
 
-聚焦测试导入上述六个模块，并验证它们暴露的 `DEFAULT_BASE_CONFIG_PATH` 与 `backend.src.base.default.DEFAULT_BASE_CONFIG_PATH` 一致。该测试在当前代码上会因错误导入而失败，修复后应通过。
+聚焦测试使用 Python AST 解析上述六个模块，验证每个模块都直接从 `backend.src.base.default` 导入 `DEFAULT_BASE_CONFIG_PATH`。该测试在当前代码上会因错误导入来源而失败，修复后应通过；随后使用 `compileall` 验证语法。
+
+本步骤不执行六个模块的运行时导入，因为其中存在与本目标无关的既有导入副作用和旧式顶层依赖。这些问题不在本次修复范围内。
 
 完成本步骤后停止，不处理 Flask 初始化顺序问题。
