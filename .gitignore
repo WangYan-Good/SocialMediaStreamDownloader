@@ -19,6 +19,7 @@ config/build/
 nohup.out
 config/export/
 .deps_cache/
+.worktrees/
 
 # Environment variables and secrets
 .env
