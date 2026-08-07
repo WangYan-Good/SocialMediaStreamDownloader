@@ -1,5 +1,9 @@
 ##<<Base>>
+from dataclasses import dataclass
+from pathlib import PurePosixPath
 import re
+from typing import Literal
+from urllib.parse import urlparse
 
 ##<<Extension>>
 
@@ -10,10 +14,25 @@ from backend.src.library.baselib import get_dict_attr
 ##
 ## Live stream file name
 ##
-# LIVE_STREAM_FILE_NAME_RE = r"stream-(\d+)_(\w+)\.(?:flv|m3u8)"
-LIVE_STREAM_FILE_NAME_RE = r'/([^/?]+\.(?:flv|m3u8))'
+@dataclass(frozen=True)
+class LiveStreamSource:
+  url: str
+  file_name: str
+  protocol: Literal["flv", "hls"]
+
+
+class _NoUsableStreamError(ValueError):
+  pass
+
 
 class LiveExternal(JSON):
+  CLARITY_NAMES = {
+    1: "FULL_HD1",
+    2: "HD1",
+    3: "SD1",
+    4: "SD2",
+  }
+
   def __init__(self) -> None:
     super().__init__()
 
@@ -59,41 +78,75 @@ class LiveExternal(JSON):
       raise ValueError
     return nickname
 
-  def get_flv_pull_url(self, response, flv_clarity, hls_clarity=None):
-    clarity_names = {
-      1: "FULL_HD1",
-      2: "HD1",
-      3: "SD1",
-      4: "SD2",
-    }
-    stream_url = response.json()["data"]["room"]["stream_url"]
-    configured_clarity = clarity_names.get(flv_clarity)
+  def _clarity_order(self, clarity, protocol):
+    configured_clarity = self.CLARITY_NAMES.get(clarity)
     if configured_clarity is None:
-      raise ValueError("Unsupported FLV clarity: {}".format(flv_clarity))
-
-    flv_urls = stream_url.get("flv_pull_url", {})
-    fallback_order = [
+      raise ValueError("Unsupported {} clarity: {}".format(protocol, clarity))
+    return (
       configured_clarity,
-      *[
-        clarity
-        for clarity in clarity_names.values()
-        if clarity != configured_clarity
-      ],
-    ]
-    live_stream_url = next(
-      (flv_urls.get(clarity) for clarity in fallback_order if flv_urls.get(clarity)),
-      None,
+      *(name for name in self.CLARITY_NAMES.values() if name != configured_clarity),
     )
-    if not live_stream_url:
-      raise ValueError("No usable FLV live stream URL found")
 
-    match = re.search(LIVE_STREAM_FILE_NAME_RE, live_stream_url)
-    if match is None:
-      raise ValueError("Live stream URL does not contain a media file name")
-    return live_stream_url, match.group(1)
+  def _quality_urls(self, urls, clarity, protocol):
+    source = urls if isinstance(urls, dict) else {}
+    for name in self._clarity_order(clarity, protocol):
+      candidate = source.get(name)
+      if isinstance(candidate, str) and candidate.strip():
+        yield candidate.strip()
 
-  def get_hls_pull_url(self, response):
-     pass
+  @staticmethod
+  def _parse_http_url(candidate):
+    try:
+      parsed = urlparse(candidate)
+    except ValueError:
+      return None
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+      return None
+    return parsed
+
+  def get_flv_pull_url(self, response, flv_clarity, hls_clarity=None):
+    stream_url = response.json()["data"]["room"]["stream_url"]
+    for live_stream_url in self._quality_urls(
+        stream_url.get("flv_pull_url"), flv_clarity, "FLV"):
+      parsed = self._parse_http_url(live_stream_url)
+      if parsed is None:
+        continue
+      path = PurePosixPath(parsed.path)
+      if path.suffix.lower() == ".flv":
+        return live_stream_url, path.name
+    raise _NoUsableStreamError("No usable FLV live stream URL found")
+
+  def get_hls_pull_url(self, response, hls_clarity):
+    stream_url = response.json()["data"]["room"]["stream_url"]
+    for live_stream_url in self._quality_urls(
+        stream_url.get("hls_pull_url_map"), hls_clarity, "HLS"):
+      parsed = self._parse_http_url(live_stream_url)
+      if parsed is None:
+        continue
+      path = PurePosixPath(parsed.path)
+      candidate = path.stem
+      if candidate.lower() == "index":
+        candidate = path.parent.name
+      safe_name = re.sub(
+        r"[^\u4e00-\u9fa5a-zA-Z0-9#_-]",
+        "_",
+        candidate,
+      ).strip("._")
+      return live_stream_url, (safe_name or "live") + ".ts"
+    raise _NoUsableStreamError("No usable HLS live stream URL found")
+
+  def get_live_stream_source(self, response, flv_clarity, hls_clarity):
+    try:
+      url, file_name = self.get_flv_pull_url(response, flv_clarity)
+      return LiveStreamSource(url, file_name, "flv")
+    except _NoUsableStreamError:
+      pass
+
+    try:
+      url, file_name = self.get_hls_pull_url(response, hls_clarity)
+      return LiveStreamSource(url, file_name, "hls")
+    except _NoUsableStreamError as hls_error:
+      raise ValueError("No usable FLV or HLS live stream URL found") from hls_error
   
   def get_room_status (self, response):
     build_dict = response.json()

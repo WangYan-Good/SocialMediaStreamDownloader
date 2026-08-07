@@ -26,6 +26,7 @@ from backend.src.platform.douyin.douyin_header              import DouyinShareHe
 from backend.src.platform.douyin.douyin_live_config         import DouyinLiveConfig
 from backend.src.platform.douyin.douyin_login               import DouyinLogin
 from backend.src.platform.douyin.douyin_live_external_info  import LiveExternal
+from backend.src.platform.douyin.hls_recorder               import FfmpegUnavailable, HlsRecorder
 from backend.src.platform.douyin.douyin_api                 import DouyinApi
 from backend.src.database.table.share_url                   import DouyinShareUrlTable
 from backend.src.database.table.table_import                import import_douyin_live_info_to_database
@@ -66,9 +67,27 @@ class DouyinLiveDownloader(Downloader):
     self._database_clock = monotonic
     self._database_retry_at = 0.0
     self._database_retry_seconds = 30.0
+    self.hls_recorder = HlsRecorder()
     self._actived_task_number = 0
     self._lock = Lock()
     self.construct_aggregation_class(config)
+
+  @staticmethod
+  def _reserve_hls_output_path(save_path, file_name):
+    directory = Path(save_path)
+    duplicate_index = None
+    while True:
+      prefix = "" if duplicate_index is None else "re_{}_".format(
+        duplicate_index
+      )
+      output_path = directory / (prefix + file_name)
+      try:
+        output_path.touch(exist_ok=False)
+        return output_path
+      except FileExistsError:
+        duplicate_index = (
+          0 if duplicate_index is None else duplicate_index + 1
+        )
 
   def __request_file__(
     self,
@@ -79,6 +98,7 @@ class DouyinLiveDownloader(Downloader):
     file_name: str,
     nickname: str,
     stream: bool,
+    protocol: str,
     proxies,
     headers: dict = None,
     timeout = 10,
@@ -90,7 +110,15 @@ class DouyinLiveDownloader(Downloader):
       ## output message
       ##
       get_logger().info("start download:")
-      get_logger().info("\tshare_url:{}\n\tpath:{}\n\tmethod:{}\n\turl:{}\n\tstram:{}\n\tproxies:{}\n\theaders:{}\n\ttimeout:{}".format(share_url, save_path + "/" + file_name, method, url, stream, proxies, headers, timeout))
+      get_logger().info(
+        "\tpath:{}\n\tmethod:{}\n\tprotocol:{}\n\tstream:{}\n\ttimeout:{}".format(
+          save_path + "/" + file_name,
+          method,
+          protocol,
+          stream,
+          timeout,
+        )
+      )
       get_logger().info("当前总下载数：{}".format(self._actived_task_number))
 
       ##
@@ -106,19 +134,40 @@ class DouyinLiveDownloader(Downloader):
       if self.config.get_config_dict_attr("$.download.test_mode") is True:
         get_logger().info("test mode enabled, skip live stream data download")
       else:
-        self.auto_down(
-          url,
-          save_path,
-          file_name,
-          0,
-          headers=headers,
-          proxies=proxies,
-          timeout=timeout,
-        )
+        if protocol == "hls":
+          output_path = self._reserve_hls_output_path(save_path, file_name)
+          get_logger().info("HLS output reserved: {}".format(output_path))
+          try:
+            self.hls_recorder.record(
+              url,
+              output_path,
+              headers=headers,
+              proxies=proxies,
+              max_retry=self.config.get_config_dict_attr("$.download.max_retry"),
+            )
+          except (FfmpegUnavailable, TypeError, ValueError):
+            output_path.unlink(missing_ok=True)
+            raise
+        else:
+          self.auto_down(
+            url,
+            save_path,
+            file_name,
+            0,
+            headers=headers,
+            proxies=proxies,
+            timeout=timeout,
+          )
       succeeded = True
     except Exception as e:
       get_logger().error("request error: {err}".format(err=e))
-      get_logger().error("\tname:{}\n\tpath:{}\n\turl:{}\n\tdownload failed!!!\n".format(nickname, save_path + "/" + file_name, url))
+      get_logger().error(
+        "\tname:{}\n\tpath:{}\n\tprotocol:{}\n\tdownload failed!!!\n".format(
+          nickname,
+          save_path + "/" + file_name,
+          protocol,
+        )
+      )
       raise
     finally:
       ##
@@ -132,9 +181,19 @@ class DouyinLiveDownloader(Downloader):
       ## update download message
       ##
       if succeeded:
-        get_logger().info("name:{} \nurl:{} \ndownload complete!\n".format(nickname, url))
+        get_logger().info(
+          "name:{} \nprotocol:{} \ndownload complete!\n".format(
+            nickname,
+            protocol,
+          )
+        )
       else:
-        get_logger().info("name:{} \nurl:{} \ndownload stopped!\n".format(nickname, url))
+        get_logger().info(
+          "name:{} \nprotocol:{} \ndownload stopped!\n".format(
+            nickname,
+            protocol,
+          )
+        )
       get_logger().info("当前总下载数：{}\n".format(self._actived_task_number))
     return None
 
@@ -359,7 +418,7 @@ class DouyinLiveDownloader(Downloader):
     ##
     if self.config.get_config_dict_attr("$.server.debug_mode") is True:
       get_logger().info("Live external information:")
-      output_dict(live_response.json())
+      get_logger().info("Live external response received")
 
     ##
     ## transform response to json format
@@ -415,19 +474,27 @@ class DouyinLiveDownloader(Downloader):
       ## get live stream flv url and stream name
       ##
       if room_status == 2:
-        stream_url, stream_name = self.live_external_info.get_flv_pull_url(
+        stream_source = self.live_external_info.get_live_stream_source(
           live_response,
           self.config.get_config_dict_attr("$.platform.douyin.live.flv_clarity"),
           self.config.get_config_dict_attr("$.platform.douyin.live.hls_clarity"),
         )
-        set_dict_attr(summary, "$.stream_url", stream_url)
-        set_dict_attr(summary, "$.stream_name", stream_name)
+        stream_url = stream_source.url
+        stream_name = stream_source.file_name
+        set_dict_attr(summary, "$.stream_url", stream_source.url)
+        set_dict_attr(summary, "$.stream_name", stream_source.file_name)
+        set_dict_attr(summary, "$.stream_protocol", stream_source.protocol)
         
         ##
         ## output debug information
         ##
         if self.config.get_config_dict_attr("$.server.debug_mode") is True:
-          get_logger().info("stream url: {}\nstream name:{}".format(stream_url, stream_name))  
+          get_logger().info(
+            "stream protocol:{}\nstream name:{}".format(
+              stream_source.protocol,
+              stream_name,
+            )
+          )
     except Exception as e:
       get_logger().error("Try download live stream {} failed! {}".format(url, e))
 
@@ -755,6 +822,7 @@ class DouyinLiveDownloader(Downloader):
     ## if tick_naming
     ##
     stream_name = get_dict_attr(params, "$.summary.stream_name")
+    stream_protocol = get_dict_attr(params, "$.summary.stream_protocol") or "flv"
     if self.config.get_config_dict_attr("$.download.tick_naming") is True:
       stream_name = datetime.now().strftime("%Y%m%d%H%M%S") + "_" + stream_name
     
@@ -785,6 +853,7 @@ class DouyinLiveDownloader(Downloader):
           stream_name,
           nickname,
           True, 
+          stream_protocol,
           proxies,
           header,
           max_timeout)
