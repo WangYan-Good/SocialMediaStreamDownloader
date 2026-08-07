@@ -18,14 +18,18 @@ def register_logger(name:str, level:str) -> Logger:
 ## get logger by name
 ##
 def get_logger(name:str="default") -> Logger:
-  instances = getattr(LoggerManager, '_instances', {})
-  if len(instances) == 0:
+  manager = getattr(LoggerManager, "_instance", None)
+  if manager is None or not getattr(
+    manager,
+    "_LoggerManager__initialized",
+    False,
+  ):
     ##
     ## LoggerManager is not initialized
     ## return a simple logger that outputs to console with DEBUG level
     ##
     return logging.getLogger("bootstrap")
-  return LoggerManager().get_logger(name)
+  return manager.get_logger(name)
   
 ##
 ## set logger with file handler

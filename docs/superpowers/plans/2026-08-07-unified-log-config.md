@@ -272,7 +272,6 @@ git commit -m "fix: preserve configured logger singleton"
 
 **Files:**
 - Modify: `backend/src/unit_test/test_log_config.py`
-- Modify: `backend/src/unit_test/test_default_config_imports.py:6-17`
 - Modify: `backend/src/base/log.py:6-18`
 
 **Interfaces:**
@@ -325,7 +324,7 @@ import yaml as yml
 from backend.src.base.default import DEFAULT_BASE_CONFIG_PATH
 ```
 
-Add `backend/src/base/log.py` to `UNIFIED_CONFIG_CONSUMER_FILES` in `test_default_config_imports.py`, preserving the repository's existing import-policy test convention.
+The no-argument construction test must remain the proof that the logging chain reads `BaseConfig().get_config()["log"]`; do not add a source-text or AST assertion for removed imports.
 
 - [ ] **Step 4: Run logging and import-policy tests**
 
@@ -363,8 +362,7 @@ Expected: zero test failures, zero syntax errors, and no diff whitespace errors.
 
 ```bash
 git add backend/src/base/log.py backend/src/library/loglib.py \
-  backend/src/unit_test/test_log_config.py \
-  backend/src/unit_test/test_default_config_imports.py
+  backend/src/unit_test/test_log_config.py
 git commit -m "test: verify unified logger configuration"
 ```
 

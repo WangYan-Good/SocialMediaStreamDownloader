@@ -10,16 +10,11 @@ from pathlib import Path
 import re
 import threading
 
-##<<Existension>>
-import yaml as yml
-
-##<<Third-part>>
-from backend.src.base.default import DEFAULT_BASE_CONFIG_PATH
-
 ##
 ## >>============================= public defination =============================>>
 ##
 DEFAULT_LOGGER_FORMATTER_STR = '[%(asctime)s]-[%(name)s]-[%(levelname)s]: %(message)s'
+VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
 class LoggerManager():
 ##
 ## >>============================= attribute =============================>>
@@ -36,7 +31,8 @@ class LoggerManager():
   ##
   __DEFAULT_LOGGER_NAME          = "default"
   __DEFAULT_LOGGER_LEVEL         = "INFO"
-  __DEFAULT_LOG_FILE_DIR         = str()
+  __DEFAULT_LOG_FILE_DIR         = Path(".")
+  __DEFAULT_LOG_FILE_PATH        = None
   __DEFAULT_LOGGER_FORMATTER_STR = DEFAULT_LOGGER_FORMATTER_STR
 
 ##
@@ -51,67 +47,97 @@ class LoggerManager():
         cls._instance = super().__new__(cls)
     return cls._instance
 
+  @classmethod
+  def get_instance(cls):
+    instance = getattr(cls, "_instance", None)
+    if instance is not None and getattr(
+      instance, "_LoggerManager__initialized", False
+    ):
+      return instance
+    return cls()
+
   ##
   ## init the logger manager
   ##
-  def __init__(self) -> None:
-    ##
-    ## prevent re-initialization for singleton pattern
-    ##
-    if hasattr(self, '__initialized') and self.__initialized:
+  def __init__(self, config: dict = None) -> None:
+    if self._LoggerManager__initialized:
       return
+    with self.__instance_Lock:
+      if self._LoggerManager__initialized:
+        return
+      log_config = self.__load_log_config(config)
+      self.__configure(log_config)
+      self.__logger_queue = {}
+      try:
+        self.__init_default_logger()
+      except Exception:
+        self.__cleanup_failed_initialization()
+        raise
+      self._LoggerManager__initialized = True
 
-    try:
-      ##
-      ## initialize the log file directory
-      ##
-      self.__init_log_file_handle_dir()
-      
-      ##
-      ## initialize the default logger
-      ##
-      self.__init_default_logger()
+  def __cleanup_failed_initialization(self) -> None:
+    if self.__default_logger is not None:
+      for handler in self.__default_logger.handlers[:]:
+        self.__default_logger.removeHandler(handler)
+        handler.close()
+    self.__default_logger = None
+    self.__default_console_handler = None
+    self.__logger_queue = {}
+    self._LoggerManager__initialized = False
 
-      ##
-      ## mark as initialized
-      ##
-      self.__initialized = True
-    except Exception as e:
-      raise e
-    return
+  def __load_log_config(self, config):
+    if config is None:
+      from backend.src.base.config import BaseConfig
+      config = BaseConfig().get_config().get("log")
+    if not isinstance(config, dict):
+      raise ValueError("Unified log config must be a mapping")
+    return config
 
-  ##
-  ## initialize the log directory
-  ##
-  def __init_log_file_handle_dir(self) -> None:
-    try:
-      ##
-      ## load default config from file
-      ##
-      with open(DEFAULT_BASE_CONFIG_PATH, 'r') as file:
-        config = yml.safe_load(file)
-        
-        ##
-        ## get the log path from the config file
-        ##
-        self.__DEFAULT_LOG_FILE_DIR =  config.get("log_path", None)
-        if self.__DEFAULT_LOG_FILE_DIR is None:
-          raise Exception("Log path is not defined in the base config file.")
-        
-        ##
-        ## set create the log directory if it does not exist
-        ##
-        log_dir = Path(self.__DEFAULT_LOG_FILE_DIR)
-        if not log_dir.exists():
-          log_dir.mkdir(parents=True, exist_ok=True)
-    except Exception as e:
-      raise Exception(f"Failed to initialize log file directory: {e}")
+  def __configure(self, config: dict) -> None:
+    log_enable = config.get("log_enable")
+    log_level = config.get("log_level")
+    log_save = config.get("log_save")
+    log_file_path = config.get("log_file_path")
+
+    if type(log_enable) is not bool:
+      raise ValueError("log_enable must be a boolean")
+    if not isinstance(log_level, str) or log_level not in VALID_LOG_LEVELS:
+      raise ValueError("log_level must be a standard logging level")
+    if type(log_save) is not bool:
+      raise ValueError("log_save must be a boolean")
+    if log_save:
+      if not isinstance(log_file_path, str) or not log_file_path.strip():
+        raise ValueError("log_file_path must be a non-empty string")
+      normalized_path = log_file_path.strip()
+      file_name = re.split(r"[\\/]", normalized_path)[-1]
+      if (
+        not file_name
+        or file_name in (".", "..")
+        or Path(normalized_path).is_dir()
+      ):
+        raise ValueError("log_file_path must include a file name")
+
+    self.__log_enable = log_enable
+    self.__log_save = log_save
+    self.__DEFAULT_LOGGER_LEVEL = log_level
+    self.__DEFAULT_LOG_FILE_PATH = (
+      Path(log_file_path) if isinstance(log_file_path, str) and log_file_path.strip()
+      else None
+    )
+    self.__DEFAULT_LOG_FILE_DIR = (
+      self.__DEFAULT_LOG_FILE_PATH.parent
+      if self.__DEFAULT_LOG_FILE_PATH is not None
+      else Path(".")
+    )
+    if self.__log_save:
+      self.__DEFAULT_LOG_FILE_DIR.mkdir(parents=True, exist_ok=True)
 
   ##
   ## initialize the default logger
   ##
   def __init_default_logger(self) -> None:
     self.__default_logger = Logger(name=self.__DEFAULT_LOGGER_NAME, level=self.__DEFAULT_LOGGER_LEVEL)
+    self.__default_logger.disabled = not self.__log_enable
 
     ##
     ## set console handler for the default logger
@@ -124,16 +150,16 @@ class LoggerManager():
     ##
     ## initialize the default logger with file handler
     ##
-    file_handler = TimedRotatingFileHandler(
-      filename=os.path.join(self.__DEFAULT_LOG_FILE_DIR, "social_media_stream_downloader"),
-      when='midnight',
-      interval=1,
-      encoding="utf-8"
-    )
-    file_handler.suffix="-%Y-%m-%d.log"
-    file_handler.setLevel(self.__DEFAULT_LOGGER_LEVEL)
-    file_handler.setFormatter(Formatter(self.__DEFAULT_LOGGER_FORMATTER_STR))
-    self.__default_logger.addHandler(file_handler)
+    if self.__log_save:
+      file_handler = TimedRotatingFileHandler(
+        filename=str(self.__DEFAULT_LOG_FILE_PATH),
+        when="midnight",
+        interval=1,
+        encoding="utf-8",
+      )
+      file_handler.setLevel(self.__DEFAULT_LOGGER_LEVEL)
+      file_handler.setFormatter(Formatter(self.__DEFAULT_LOGGER_FORMATTER_STR))
+      self.__default_logger.addHandler(file_handler)
     
     ##
     ## add the default logger to the logger queue
@@ -189,6 +215,7 @@ class LoggerManager():
       ## create a new logger and add it to the logger queue
       ##
       self.__logger_queue[name] = Logger(name=name, level=level)
+      self.__logger_queue[name].disabled = not self.__log_enable
 
       ##
       ## return the logger
