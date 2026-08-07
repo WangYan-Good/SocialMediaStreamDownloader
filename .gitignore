@@ -19,6 +19,11 @@ config/build/
 nohup.out
 config/export/
 .deps_cache/
+.worktrees/
+
+# Agent-generated temporary planning artifacts
+.superpowers/
+docs/superpowers/
 
 # Environment variables and secrets
 .env

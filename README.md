@@ -21,9 +21,20 @@
 ~/SocialMediaStreamDownloader
 ```
 
-2. 配置环境配置 .env
+2. 创建唯一运行时配置并填写实际值
 
-参考 [🔐 安全配置](#-安全配置security-configuration)
+```shell
+mkdir -p config
+cp docs/design/config.yml.example config/config.yml
+chmod 600 config/config.yml
+```
+
+`config/config.yml` 是唯一持久配置源；不要提交该文件，也不要另建 `.env`
+保存数据库、端口、Cookie 或 Token。
+
+`download.test_mode: true` 只跳过最终的直播流数据传输。分享链接解析、直播信息请求、
+状态判断、流地址提取、数据库读写、目录准备和任务调度与正常模式保持一致，因此测试模式
+仍会访问网络和数据库，也不能作为离线或沙箱模式使用。
 
 3. 执行运行脚本将自动安装依赖并部署
 ```shell
@@ -31,20 +42,31 @@
 [SocialMediaStreamDownloader]$ sh ./run-server.sh
 ```
 
-4. 打开浏览器，`localhost:5000` 进入网页，在输入框添加分享链接即可下载
+4. 使用 `config/config.yml` 中的 `server.port` 打开网页，在输入框添加分享链接即可下载
 ![web-UI](./docs/media/web-ui.PNG)
 
-# 🔐 安全配置\(Security Configuration\)
-本项目支持使用环境变量管理敏感配置，避免将密码、Cookie 等凭据硬编码在配置文件中。
+## 方式二：Docker Compose
 
-## 创建环境配置文件
-```bash
-# 复制模板文件
-cp .env.example .env
+完成同一份 `config/config.yml` 后，通过包装脚本启动：
 
-# 编辑 .env 文件，填写实际的配置值
-vim .env
+```shell
+./run-docker.sh up -d
 ```
+
+脚本仅在本次 Compose 命令期间派生权限为 `0600` 的临时插值文件，并在退出时删除；
+应用容器将 `config/config.yml` 只读挂载到 `/run/secrets/`，入口以 root 校验并复制到
+容器可写层的 canonical 路径，设置 `appuser` 所有权和 `0600` 后立即降权运行服务。
+容器内连接配套 MySQL 时，将
+`database.host` 配置为 `mysql`。
+
+# 🔐 安全配置\(Security Configuration\)
+本项目使用本地且被 Git/Docker 构建上下文排除的 `config/config.yml` 管理敏感配置。
+
+## 安全要求
+
+- 保持 `config/config.yml` 权限最小化，并定期轮换数据库密码、Cookie 和 Token。
+- 不要将真实配置复制进镜像、日志、Issue 或测试 fixture。
+- 仓库历史中曾暴露的凭据需要在外部完成轮换；本项目不会自动重写 Git 历史。
 
 # ⚠️ 免责声明\(Disclaimers\)
 

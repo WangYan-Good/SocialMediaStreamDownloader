@@ -8,61 +8,55 @@ sys.path.append(os.getcwd())
 import os
 import sys
 import threading
+from copy import deepcopy
 from pathlib import Path
 
 ##<<Extension>>
 
 ##<<Third-part>>
-from backend.src.library.baselib import get_dict_attr, set_dict_attr, save_dict_as_file, output_dict, load_yml
-from backend.src.library.loglib  import get_logger
-from backend.src.base.default    import DEFAULT_BASE_CONFIG_PATH
+from backend.src.library.baselib     import load_yml
+
+##
+## config file path
+##
+CONFIG_PATH = Path(__file__).resolve().parents[3] / "config" / "config.yml"
+
+REQUIRED_TOP_LEVEL_SECTIONS = (
+  "database", "download", "log", "server", "migrate", "platform",
+)
+REQUIRED_DOUYIN_SECTIONS = (
+  "download", "api", "headers", "login", "post", "live",
+)
+
+
+def _require_mapping(source: dict, key: str, path: str) -> dict:
+  value = source.get(key)
+  if not isinstance(value, dict):
+    raise ValueError(f"{path} must be a mapping")
+  return value
 
 ##
 ## Defination sbstract class
 ##
 class BaseConfig():
-  '''
-  singleton class, responsible for loading and managing base configuration
-  save_path: /mnt/nvme2/vedio
-  max_thread: 0
-  folderize: True
-  config_directory: config
-  stream_platform: douyin
-  build_directory: build
-  login: True
-  save_response: True
-  headers_file: headers.yml
-  download_file: download.yml
-  base_config_directory: /mnt/nvme/CodeSpace/OpenSource/TikTokDownload/config
-  platform_config_path: /mnt/nvme/CodeSpace/OpenSource/TikTokDownload/config/douyin
-  header_config_path: /mnt/nvme/CodeSpace/OpenSource/TikTokDownload/config/douyin/headers.yml
-  download_config_path: /mnt/nvme/CodeSpace/OpenSource/TikTokDownload/config/douyin/download.yml
-  build_path: /mnt/nvme/CodeSpace/OpenSource/TikTokDownload/config/build
-  '''
 ##
 ## >>============================= attribute =============================>>
 ##
   ##
-  ## Declare and define default value
+  ## configuration dict
   ##
-  WORK_SPACE_PATH          = os.getcwd()
-  BASE_CONFIG_FILE         = None
-  base_config_directory    = None
-  platform_config_path     = None
-  header_config_path       = None
-  download_config_path     = None
-  build_path               = None
-  _base_config_save_path   = None
+  __config = dict()
 
-  ##
-  ## The part of extension
-  ##
-  __config                 = dict()
-  
   ##
   ## singleton lock
   ##
-  __instance_lock          = threading.Lock()
+  __instance_lock = threading.Lock()
+
+  ##
+  ## identify whether the instance is initialized
+  ##
+  __initialized = False
+
 ##
 ## >>============================= private method =============================>>
 ##
@@ -72,103 +66,64 @@ class BaseConfig():
   def __new__(cls, *args, **kwargs):
     with cls.__instance_lock:
       if not hasattr(cls, "_instance"):
-        cls._instance = super(BaseConfig, cls).__new__(cls)
+        cls._instance = super().__new__(cls)
     return cls._instance
-
+  
   ##
-  ## Initialize base config
+  ## initialize base config
   ##
-  def __init__(self, path:Path|str = None):
-    if path is None:
-      get_logger().warning("invalid input, will use default base configuration")
-      path = DEFAULT_BASE_CONFIG_PATH
+  def __init__(self):
+    '''
+    Load the YAML configuration once for the process-wide singleton.
+    '''
+    if self.__initialized:
+      return
+    with self.__instance_lock:
+      if self.__initialized:
+        return
+      try:
 
-    ##
-    ## Initialize base config
-    ##
-    if isinstance(path, str) is True:
-      path = Path(path)
-    self.BASE_CONFIG_FILE = path
+        ##
+        ## load config from file
+        ##
+        self.__init_config()
+
+        ##
+        ## flag the instance is initialized
+        ##
+        self.__initialized = True
+      except Exception as e:
+        ##
+        ## logger still cannot be used at this time.
+        ##
+        raise e
+
+  def __init_config(self):
+    '''
+    Load the active config.
+    '''
     try:
-      ##
-      ## Parse configuration file
-      ##
-      self.__config = load_yml(Path(self.BASE_CONFIG_FILE))
+      config = load_yml(CONFIG_PATH)
+      if not isinstance(config, dict):
+        raise ValueError("Config root must be a mapping")
+      self.__validate_config(config)
+      self.__config = config
     except Exception as e:
-      get_logger().error("Parse base configuration failed! {}".format(e))
-      return None
-
-    try:
-      ##
-      ## Construct extension config path
-      ##
-      self.base_config_directory     = self.WORK_SPACE_PATH + "/" + get_dict_attr(self.__config,"$.config_directory")
-      self.platform_config_path      = self.WORK_SPACE_PATH + "/" + get_dict_attr(self.__config,"$.config_directory") + "/" + get_dict_attr(self.__config,"$.stream_platform")
-      self.header_config_path        = self.platform_config_path + "/" + get_dict_attr(self.__config,"$.headers_file")
-      self.download_config_path      = self.platform_config_path + "/" + get_dict_attr(self.__config,"$.download_file")
-      self.build_path                = self.WORK_SPACE_PATH + "/" + get_dict_attr(self.__config,"$.config_directory") + "/" + get_dict_attr(self.__config,"$.build_directory")
-      self._base_config_save_path    = self.build_path + "/" + "base_config.yml"
-
-      ##
-      ## Construct config dict
-      ##
-      set_dict_attr(self.__config, "$.base_config_directory", self.base_config_directory)
-      set_dict_attr(self.__config, "$.platform_config_path",  self.platform_config_path)
-      set_dict_attr(self.__config, "$.header_config_path",    self.header_config_path)
-      set_dict_attr(self.__config, "$.download_config_path",  self.download_config_path)
-      set_dict_attr(self.__config, "$.build_path",            self.build_path)
-      set_dict_attr(self.__config, "$.base_config_save_path", self._base_config_save_path)
-
-      ##
-      ## Construct configuration
-      ##
-      self.__dict__.update(self.__config)
-    except Exception as e:
-      get_logger().error("Base config init failed! {}".format(e))
-      raise e
-
-##
-## >>============================= abstract method =============================>>
-##
-  ##
-  ## Transform config to dict
-  ##
-  def to_dict(self)->dict:
-    return self.__config
+      raise RuntimeError(f"Failed to load config file '{CONFIG_PATH}': {str(e)}") from e
 
   ##
-  ## Dump config
+  ## validate required configuration mappings
   ##
-  def dump_config(self):
-    get_logger().info("Base configuration:")
-    output_dict(self.to_dict())
+  def __validate_config(self, config: dict) -> None:
+    for section in REQUIRED_TOP_LEVEL_SECTIONS:
+      _require_mapping(config, section, f"$.{section}")
+    platform = _require_mapping(config, "platform", "$.platform")
+    douyin = _require_mapping(platform, "douyin", "$.platform.douyin")
+    for section in REQUIRED_DOUYIN_SECTIONS:
+      _require_mapping(douyin, section, f"$.platform.douyin.{section}")
 
   ##
-  ## get config dict attr
+  ## get config dict
   ##
-  def get_config_dict_attr(self, attr:str=None):
-    value = None
-    try:
-      value = get_dict_attr(self.to_dict(), attr)
-    except Exception as e:
-      get_logger().error("get base config attr({}) failed: {}".format(attr, e))
-      raise e
-    return value
-
-  ##
-  ## set config dict
-  ##
-  def set_config_dict_attr(self, attr:str=None, value:any=None):
-    set_dict_attr(self.to_dict(), attr, value)
-
-##
-## >>============================= sub class method =============================>>
-##
-  ##
-  ## Save config
-  ##
-  def save_config(self, output:Path = None):
-    if output is None:
-      output = self._base_config_save_path
-      get_logger().warning("save base config in default path: {}".format(output))
-    save_dict_as_file(self.to_dict(), output)
+  def get_config(self):
+    return deepcopy(self.__config)

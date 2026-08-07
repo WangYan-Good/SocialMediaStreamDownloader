@@ -2,8 +2,8 @@
 import os
 import sys
 sys.path.append(os.getcwd())
+from copy import deepcopy
 import re
-from pathlib import Path
 from time import sleep
 from random import randint
 from requests import request,get
@@ -14,14 +14,12 @@ from urllib.parse import parse_qs
 import yaml as yml
 
 ##<<Third-part>>
-from xbogus import XBogus as XB
-from xbogus import XBogusManager as XBM
 from backend.src.base.downloader import Downloader
-from backend.src.platform.douyin.douyin_header import DouyinHeader
-from backend.src.platform.douyin.douyin_url_list_config import UrlListConfig
-from backend.src.platform.douyin.douyin_post_config import DouyinPostConfig, DEFAULT_BASE_CONFIG_PATH
+from backend.src.platform.douyin.douyin_header import DouyinPostInfoHeader
+from backend.src.platform.douyin.douyin_post_config import DouyinPostConfig
 from backend.src.platform.douyin.douyin_login import DouyinLogin
 from backend.src.platform.douyin.douyin_api import DouyinApi
+from backend.src.library.configlib import load_config
 from backend.src.library.loglib import get_logger
 
 '''
@@ -79,52 +77,22 @@ class DouyinPostDownloader(Downloader):
   # max_counts = int()
 
   ##
-  ## Cache
-  ##
-  __build  = dict()
-
-  ##
   ## class
   ##
-  def __init__(self, path: Path = None) -> None:
-    if path is None:
-       get_logger().warning("invalid config path, will use default config")
-       path = DEFAULT_BASE_CONFIG_PATH
-    
-    ##
-    ## Initialize attribute
-    ##
-    self.CONFIG_PATH = path
-    super().__init__(path)
+  def __init__(self, config: dict = None) -> None:
+    source = load_config() if config is None else config
+    self.config = DouyinPostConfig(source)
+    self._source_config = deepcopy(source)
+    self.__build = {}
+    super().__init__(self._source_config["download"])
+    self.construct_aggregation_class(self._source_config)
 
-    ##
-    ## construct aggregation class
-    ##
-    self.construct_aggregation_class()
-
-  def construct_aggregation_class(self):
-    
-    try:
-      ##
-      ## construct member
-      ##
-      self.config = DouyinPostConfig(self.CONFIG_PATH)
-      self.header = DouyinHeader(self.config.header_config_path)
-      self.login  = DouyinLogin(self.config.login_config_path)
-      self.API    = DouyinApi(self.config.api_config_path)
-
-      ##
-      ## update user config
-      ## TODO
-      ##
-
-      ##
-      ## apply user config
-      ## TODO
-      ##
-    except Exception as e:
-      get_logger().error("constrcute aggregation member failed!\n{}".format(e))
-      raise e
+  def construct_aggregation_class(self, config: dict):
+    douyin = config["platform"]["douyin"]
+    self.header = DouyinPostInfoHeader(douyin["headers"])
+    self.header.init_header(self.config.login)
+    self.login = DouyinLogin(douyin["login"])
+    self.API = DouyinApi(douyin["api"])
 
   def set_share_url(self, url:str=None):
     sec_user_id = str()
@@ -494,8 +462,17 @@ class DouyinPostDownloader(Downloader):
     for k,v in self.__build.items():
       get_logger().info("\t{}: {}".format(k,v))
 
-  def run(self, params: None = ...) -> None:
-     return super().run(params)
+  def run(self, token: dict) -> None:
+    if not isinstance(token, dict) or not isinstance(token.get("url"), str):
+      raise ValueError("Post token must contain a URL")
+    self.config.update_post_share_url({"share_url": token["url"]})
+    if self.config.test_mode:
+      return None
+    self.set_share_url(token["url"])
+    if self.config.login:
+      self.query_user_post()
+    else:
+      self.query_user_post_without_login()
 
 def download_test():
   post_downloader = DouyinPostDownloader()
@@ -503,7 +480,7 @@ def download_test():
   ##
   ## 1. Analysis all shared url from configuration.
   ##
-  post_download_url_list = UrlListConfig().get_config_list(SectionName="post")
+  post_download_url_list = []
 
   ##
   ## 2. Enmulate client to login server.
@@ -594,7 +571,7 @@ if __name__ == "__main__":
   ##
   ## 1. Analysis all shared url from configuration.
   ##
-  post_download_url_list = UrlListConfig().get_config_list(SectionName="post")
+  post_download_url_list = []
 
   ##
   ## 2. Enmulate client to login server.

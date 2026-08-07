@@ -4,16 +4,14 @@ import sys
 sys.path.append(os.getcwd())
 ##>>Test
 ##<<Extension>>
-import yaml as yml
+from copy import deepcopy
 
 ##<<Third-part>>
-from pathlib                     import Path
 from backend.src.base.api        import Api
 from backend.src.library.baselib import get_dict_attr
+from backend.src.library.configlib import get_config
 from backend.src.library.loglib  import get_logger
 
-
-DEFAULT_API_CONFIG_PATH = "./config/douyin/api.yml"
 
 class DouyinApi(Api):
 ##
@@ -23,27 +21,18 @@ class DouyinApi(Api):
 ##
 ## >>============================= private method =============================>>
 ##
-  def __init__(self, path: Path | str = None) -> None:
-    if path is None:
-      get_logger().warning("invalid api config path, will use default api config")
-      path = DEFAULT_API_CONFIG_PATH
-    super().__init__(path)
-
-    ##
-    ## parse api path
-    ##
-    self.__parse_api(path=Path(path))
+  def __init__(self, config: dict = None) -> None:
+    source = get_config("$.platform.douyin.api") if config is None else config
+    if not isinstance(source, dict):
+      raise ValueError("$.platform.douyin.api must be a mapping")
+    super().__init__(source)
+    self.__api = deepcopy(source)
 
     ##
     ## transform dict to attribute
     ##
     self.__dict__.update(self.__api)
 
-  def __parse_api(self, path: Path = None):
-    if path is None:
-      get_logger().error("invalid api config path")
-      raise FileNotFoundError
-    self.__api = yml.safe_load(path.read_text(encoding="utf-8"))
 ##
 ## >>============================= abstract method =============================>>
 ##
@@ -66,6 +55,3 @@ class DouyinApi(Api):
       get_logger().error("Douyin API get config attr failed: {}".format(e))
       raise e
     return value
-if __name__ == "__main__":
-  douyin_api = DouyinApi(DEFAULT_API_CONFIG_PATH)
-  douyin_api.dump_config()

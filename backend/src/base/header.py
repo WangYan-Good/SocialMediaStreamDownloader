@@ -3,13 +3,12 @@
 
 ##<<Base>>
 from abc import ABC, abstractmethod
-from pathlib import Path
+from copy import deepcopy
 
 ##<<Extension>>
 
 ##<<Third-part>>
-from backend.src.library.baselib import load_yml, set_dict_attr, output_dict, get_dict_attr
-from backend.src.library.loglib  import get_logger
+from backend.src.library.baselib import set_dict_attr, output_dict, get_dict_attr
 DEFAULT_REFERER = "https://www.douyin.com/"
 DEFAULT_USERR_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36"
 
@@ -28,20 +27,10 @@ class Header(ABC):
   ##
   ## Initialize header and constrcut
   ##
-  def __init__(self, header_path:Path|str = None) -> None:
-    if header_path is None:
-      raise FileNotFoundError
-    
-    try:
-      if isinstance(header_path, str) is True:
-        header_path = Path(header_path)
-      ##
-      ## Load header configuration
-      ##
-      self._header = load_yml(header_path)
-    except Exception as e:
-      get_logger().error("Header init failed: {}".format(e))
-      raise e
+  def __init__(self, config: dict) -> None:
+    if not isinstance(config, dict):
+      raise ValueError("configuration must be a mapping")
+    self._header = deepcopy(config)
     return None
 ##
 ## >>============================= abstract method =============================>>
@@ -82,8 +71,5 @@ class Header(ABC):
   ##
   ## save header
   ##
-  def save_header(self, output:Path = None):
+  def save_header(self, output = None):
     pass
-
-if __name__ == "__main__":
-  Header(Path("config/douyin/headers.yml")).dump_header()

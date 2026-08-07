@@ -164,6 +164,56 @@ CREATE TABLE auth_function (
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 ```
+
+### 5. .env 环境变量的优先级冲突
+
+`问题`：“.env 文件 vs Docker Compose 环境变量的优先级冲突”。
+在代码中写了“加载 .env 文件”，但在 Docker Compose 中，环境变量是直接注入到容器环境中的。
+这样会导致：容器内运行时，代码会加载容器里的 .env 文件，而不是使用 Compose 注入的环境变量。
+
+`解决方法`：针对环境变量的优先级，可以在 .env 中添加某个标志性变量，通过运行代码时检查该变量判断是否需要加载 .env 文件。
+例如：添加 `ENVIRONMENT` 来判断，正常在宿主机中运行时，是不会默认加载 .env 中的环境变量时，因此直接在宿主机中执行代码是找不到 `ENVIRONMENT` 该环境变量的，此时可以加载 .env 文件来配置。但如果是在 docker compose 容器中的话，此变量是需要提前提供配置的，因此此时不用再加载 .env 文件。
+
+`实例代码`:
+```py
+  environment = os.getenv("ENVIRONMENT", None)
+  if environment is None:
+    ##
+    ## indicate that the ENVIRONMENT variable is not set,
+    ## we will load .env file by default
+    ##
+    load_dotenv()
+```
+
+### 6. 启动服务先后顺序问题
+
+`问题`：
+当前服务启动前需要配置日志，数据库以及服务基本配置（例如域名，端口等），遇到以下问题：
+1. 日志管理器需要最先加载以保证调试信息能最早被看到，日志默认配置在 .env 启动文件中，最新配置在数据库 DB 中
+2. 系统默认最先加载 .env 使用默认配置初始化日志管理器，等到数据库起来之后，根据数据库中的主配置重新加载日志管理器
+3. 在初始化日志管理器时分为两步走，第一步加载默认配置 .env, 第二步是添加 hook 点来监控数据库服务是否就绪。
+   问题在这里，理论上这里完成第一步后，第二步中需要调用到数据库的 service，其中可能会调用服务打印日志，因此应该在第一步和第二步中间以默认配置日志管理器的初始化，但是此如此操作会将获取配置过程和初始化过程混淆在一起。
+
+`分析`：
+“第二步 hook DB service 时，DB service 又要用 logger” 这个问题的本质在于 - **试图在“未完成 bootstrap 阶段”使用“最终系统能力”**
+
+`解决方案`：引入“双 Logger + 生命周期切换”
+
+1. 启动阶段只用 Bootstrap Logger**
+  - 仅读取 `.env`
+  - 不依赖 DB
+  - 保证全程可打印日志
+2. DB 未就绪前禁止任何“重新配置日志”的行为
+  - DB service 只能用 Bootstrap Logger
+3. DB 就绪后只做一件事：发配置事件
+  - 从 DB 读取日志配置
+4. 统一在 Bootstrap 层切换 Logger
+  - `Logger.replace(dbConfig.loggerConfig)`
+  - 不在 DB service / 初始化流程里改 logger
+
+日志永远先 Bootstrap，DB 只产配置，最终在启动控制器统一切换 Logger（不要在服务内部改日志）。
+
+
 # 🚩待办列表\(TODO\)
 
 ## feature

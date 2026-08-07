@@ -37,6 +37,11 @@ log_error() {
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_DIR"
 
+if [[ "${1:-}" == "--check-config" ]]; then
+    exec "${PYTHON_BIN:-python3}" \
+        "$PROJECT_DIR/scripts/runtime_config.py" validate
+fi
+
 # 最低 Python 版本要求
 REQUIRED_VERSION="3.12"
 
@@ -183,39 +188,19 @@ else
 fi
 
 # ============================================
-# 4. 检查配置文件
+# 4. 检查统一配置文件
 # ============================================
-if [[ ! -f ".env" ]]; then
-    log_warn "未找到 .env 配置文件"
-    log_warn "将从 .env.example 复制模板"
-    if [[ -f ".env.example" ]]; then
-        cp .env.example .env
-        log_warn "已创建 .env，请编辑该文件填写实际配置"
-        log_warn "按 Ctrl+C 取消启动，或等待 10 秒继续（使用默认配置可能失败）"
-        sleep 10
-    else
-        log_error "未找到 .env.example 模板文件"
-        exit 1
-    fi
+if ! SERVER_PORT=$(python "$PROJECT_DIR/scripts/runtime_config.py" server-port); then
+    exit 1
 fi
 
 # ============================================
 # 5. 检查端口占用
 # ============================================
-# 如果 .env 存在且 SERVER_PORT 未定义，则从 .env 加载变量
-if [[ -f ".env" && -z "${SERVER_PORT:-}" ]]; then
-    log_info "从 .env 加载环境变量"
-    set -a
-    source ./.env
-    set +a
-fi
-
-# 读取端口，优先使用已经存在的环境变量
-SERVER_PORT=${SERVER_PORT:-5000}
 if command -v lsof &> /dev/null; then
     if lsof -i ":$SERVER_PORT" &> /dev/null; then
-        log_error "端口 $SERVER_PORT 已被占用"
-        log_error "请关闭占用进程或修改 .env 中的 SERVER_PORT"
+        log_error "统一配置指定的服务端口已被占用"
+        log_error "请关闭占用进程或修改 config/config.yml"
         exit 1
     fi
 fi
@@ -240,7 +225,6 @@ fi
 # 7. 启动服务
 # ============================================
 log_info "启动服务..."
-log_info "端口: $SERVER_PORT"
 log_info "日志由应用模块自行管理"
 
 nohup python ./server.py >/dev/null 2>&1 &

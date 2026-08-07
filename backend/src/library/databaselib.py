@@ -4,7 +4,6 @@ import sys
 sys.path.append(os.getcwd())
 ##<< Test
 
-## <<Third-Part>>
 from backend.src.database.social_media_stream_database       import SocialMediaStreamDataBase
 from backend.src.database.table.social_media_stream_db_table import SocialMediaStreamDataTable
 from backend.src.library.loglib                              import get_logger

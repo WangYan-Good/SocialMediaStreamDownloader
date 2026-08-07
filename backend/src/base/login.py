@@ -2,17 +2,11 @@
 ##<< test
 
 ##<<Base>>
-import os
-import sys
 from abc import ABC, abstractmethod
-from pathlib import Path
-
-##<<Extension>>
-import yaml as yml
+from copy import deepcopy
 
 ##<<Third-part>>
 from backend.src.library.loglib import get_logger
-DEFAULT_BASE_CONFIG_PATH = "config/douyin/login.yml"
 
 class Proxies(ABC):
 
@@ -61,38 +55,11 @@ class Login(ABC):
   ##
   ## Initialize and construc class
   ##
-  def __init__(self, path: Path|str = None):
-    if path is None:
-      get_logger().warning("invalid input path, will use default path")
-      path = DEFAULT_BASE_CONFIG_PATH
-    
-    ##
-    ## Parse configuration file
-    ##
-    if isinstance(path, str) is True:
-      path = Path(path)
-    try:
-      self.__login = self.parse_config(path)
-      self.__dict__.update(self.__login)
-    except Exception as e:
-      get_logger().error("Login init failed: {}".format(e))
-  ##
-  ## Parse and genearte download config
-  ##
-  def parse_config(self, path:Path = None)->dict:
-    if path is None:
-      get_logger().error("Invalid configuration path!")
-      return
-    
-    try:
-      
-      ##
-      ## read config file
-      ##
-      base_config = yml.safe_load(path.read_text(encoding="utf-8"))
-    except Exception as e:
-      get_logger().error("Parse configuration failed: {}".format(e))
-    return base_config
+  def __init__(self, config: dict):
+    if not isinstance(config, dict):
+      raise ValueError("login configuration must be a mapping")
+    self.__login = deepcopy(config)
+    self.__dict__.update(self.__login)
 
   ##
   ## Return dict raw data

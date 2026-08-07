@@ -47,7 +47,7 @@ flowchart LR
 	- 安装依赖、检查配置与端口、后台启动服务
 - docker-compose.yml
 	- 编排 `app` 与 `mysql` 服务
-	- 通过环境变量注入数据库和业务配置
+	- 只读挂载统一 YAML，由容器入口安全暂存后降权启动应用
 
 ### 3.2 前端层
 
@@ -80,7 +80,8 @@ flowchart LR
 - backend/src/base/listener.py
 	- 监听器抽象基类
 - backend/src/base/config.py
-	- 读取并组装基础配置路径（含平台配置与构建目录）
+	- 从项目根目录读取并缓存唯一的 `config/config.yml`
+	- 校验统一配置根结构，并向消费端提供隔离副本
 
 ### 3.5 数据层
 
@@ -114,6 +115,9 @@ flowchart LR
 4. 下载器初始化配置、登录、请求头与外部信息构建器。
 5. 拉取直播信息、解析流地址、执行下载与持久化。
 
+当 `download.test_mode` 为 `true` 时，以上链路、数据库行为、目录准备和任务调度保持不变，
+仅在最底层跳过直播流数据传输，不写入直播流文件。该模式仍会访问网络和数据库。
+
 ## 5. 并发模型
 
 - 平台级并发：每个平台独立线程池，互不阻塞。
@@ -127,24 +131,24 @@ flowchart LR
 
 ## 6. 配置与环境
 
-配置来源由三部分组成：
-
-- `.env`：运行时环境变量（数据库、Cookie、端口等）
-- `config/base_config.yml`：基础配置与目录约定
-- `config/douyin/*.yml`：平台专属配置（headers、download、api 等）
+唯一持久配置来源为 `config/config.yml`。应用通过 `BaseConfig` 加载一次，并按
+`server`、`database`、`download`、`log` 与 `platform.douyin` section 向消费对象
+分发隔离副本；运行时环境变量不覆盖这些值。
 
 运行模式：
 
 - 本地模式：`run-server.sh` 启动 Flask
-- 容器模式：`docker-compose.yml` 启动 `app + mysql`
+- 容器模式：`run-docker.sh` 从统一 YAML 临时派生 Compose 插值后启动 `app + mysql`；
+  原始配置只读挂载到 `/run/secrets/config.yml`，入口校验并以 `0600` 暂存到容器可写层，
+  随后降权为 `appuser` 运行服务
 
 ## 7. 可扩展性设计
 
 新增平台（例如 `xhs`）建议步骤：
 
-1. 在 `backend/src/platform/xhs/` 新建 handler、api、config、downloader。
+1. 在 `backend/src/platform/xhs/` 新建 handler、api、downloader。
 2. 在 `platform_dispatcher.py` 注册事件名与处理函数映射。
-3. 补充 `config/xhs/` 平台配置文件。
+3. 在唯一的 `config/config.yml` 中增加对应平台 section，并同步脱敏示例。
 4. 如需落库，新增表封装与初始化 SQL。
 
 约束建议：

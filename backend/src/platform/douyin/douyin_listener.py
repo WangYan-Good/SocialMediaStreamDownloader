@@ -12,7 +12,6 @@ from threading import Thread
 
 ##<<Third-part>>
 from backend.src.base.listener import Listener
-from backend.src.platform.douyin.douyin_url_list_config import UrlListConfig
 from backend.src.library.loglib import get_logger
 
 class ListenerItem():
@@ -332,10 +331,9 @@ def output(url:str):
   sleep(5)
   get_logger().info(url)
 
-def test_listen_item():
-  url_list = UrlListConfig(None).get_config_list("live")
+def test_listen_item(urls: list[str]):
   # listener = DouyinLiveListener(output)
-  for url in url_list:
+  for url in urls:
     listen_item = ListenerItem(func=output, args=(url,))
     
     # expect: false
@@ -354,10 +352,9 @@ def test_listen_item():
     listen_item.dump_item()
     break
 
-def test_douyin_live_listener():
-  url_list = UrlListConfig(None).get_config_list("live")
+def test_douyin_live_listener(urls: list[str]):
   live_listener = DouyinLiveListener()
-  for url in url_list:
+  for url in urls:
     listen_item = ListenerItem(func=output, args=(url,))
     live_listener.add_sub_task(listen_item)
   live_listener.start()
@@ -373,4 +370,4 @@ def test_douyin_live_listener():
 ##
 if __name__ == "__main__":
   # test_listen_item()
-  test_douyin_live_listener()
+  test_douyin_live_listener([])

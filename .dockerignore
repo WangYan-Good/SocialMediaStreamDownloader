@@ -33,6 +33,7 @@ logs/
 nohup.out
 
 # Config build/export
+config/config.yml
 config/build/
 config/export/
 
