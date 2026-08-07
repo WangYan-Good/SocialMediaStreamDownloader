@@ -97,7 +97,6 @@ base_config_save_path: null
 ##>>------------------ douyin config path -------------------------------->>
 login_config_path: null
 post_config_path: null
-live_config_path: null
 share_url_path: null
 api_config_path: null
 douyin_base_config_save_path: null

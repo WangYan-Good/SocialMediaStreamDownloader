@@ -10,6 +10,26 @@ CONFIG_EXAMPLE_PATH = PROJECT_ROOT / "docs" / "design" / "config.yml.example"
 
 
 class UnifiedConfigSchemaTest(unittest.TestCase):
+  def test_redundant_live_config_files_are_removed(self):
+    redundant_paths = [
+      PROJECT_ROOT / "config" / "douyin" / "live.yml",
+      PROJECT_ROOT / "config" / "douyin" / "live_response.yml",
+      PROJECT_ROOT / "config" / "user_config.yml",
+    ]
+
+    self.assertEqual(
+      [path for path in redundant_paths if path.exists()],
+      [],
+    )
+    self.assertNotIn(
+      "live_config_path",
+      load_yml(PROJECT_ROOT / "config" / "base_config.yml"),
+    )
+    self.assertNotIn(
+      "live_download_config_file",
+      load_yml(PROJECT_ROOT / "config" / "douyin" / "download.yml"),
+    )
+
   def test_example_contains_complete_unified_schema(self):
     config = load_yml(CONFIG_EXAMPLE_PATH)
 

@@ -8,9 +8,6 @@ type: live
 ##<<------------------ post download cofnig -------------<<
 post_download_config_file: post.yml
 
-##<<------------------ live download cofnig -------------<<
-live_download_config_file: live.yml
-
 ##<<------------------ share link file -------------<<
 multiple_download: true
 share_url_file: conf.ini
