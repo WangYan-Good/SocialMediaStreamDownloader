@@ -25,7 +25,6 @@ from backend.src.base.downloader                            import Downloader
 from backend.src.platform.douyin.douyin_header              import DouyinShareHeader, DouyinLiveInfoHeader
 from backend.src.platform.douyin.douyin_live_config         import DouyinLiveConfig
 from backend.src.platform.douyin.douyin_login               import DouyinLogin
-from backend.src.platform.douyin.douyin_url_list_config     import UrlListConfig
 from backend.src.platform.douyin.douyin_live_external_info  import LiveExternal
 from backend.src.platform.douyin.douyin_api                 import DouyinApi
 from backend.src.database.table.share_url                   import DouyinShareUrlTable
@@ -46,7 +45,6 @@ class DouyinLiveDownloader(Downloader):
   ##
   ## Attribute
   ##
-  url_list                  = None
   REGULAR_ROOM_ID           = r"/douyin/webcast/reflow/(\S+)"
   REGULAR_ROOM_ID_LIVE_PATH = r"/douyin/webcast/reflow/\S+"
 
@@ -89,10 +87,6 @@ class DouyinLiveDownloader(Downloader):
       get_logger().info("\tshare_url:{}\n\tpath:{}\n\tmethod:{}\n\turl:{}\n\tstram:{}\n\tproxies:{}\n\theaders:{}\n\ttimeout:{}".format(share_url, save_path + "/" + file_name, method, url, stream, proxies, headers, timeout))
       get_logger().info("当前总下载数：{}".format(self._actived_task_number))
 
-      if self.config.get_config_dict_attr("$.download.test_mode") is True:
-        get_logger().info("test mode enabled, skip live stream file write")
-        return None
-
       ##
       ## create directory
       ##
@@ -103,15 +97,18 @@ class DouyinLiveDownloader(Downloader):
       ##
       ## download live stream
       ##
-      self.auto_down(
-        url,
-        save_path,
-        file_name,
-        0,
-        headers=headers,
-        proxies=proxies,
-        timeout=timeout,
-      )
+      if self.config.get_config_dict_attr("$.download.test_mode") is True:
+        get_logger().info("test mode enabled, skip live stream data download")
+      else:
+        self.auto_down(
+          url,
+          save_path,
+          file_name,
+          0,
+          headers=headers,
+          proxies=proxies,
+          timeout=timeout,
+        )
       succeeded = True
     except Exception as e:
       get_logger().error("request error: {err}".format(err=e))
@@ -148,15 +145,11 @@ class DouyinLiveDownloader(Downloader):
       self.login                = DouyinLogin(self.config.get_config_dict_attr("$.platform.douyin.login"))
       self.header               = DouyinShareHeader(self.config.get_config_dict_attr("$.platform.douyin.headers"))
       self.API                  = DouyinApi(self.config.get_config_dict_attr("$.platform.douyin.api"))
-      self.url_list             = UrlListConfig(self.config.share_url_path)
       self.live_external_info   = LiveExternal()
       self.live_douyin_listener = DouyinLiveListener()
       self._lock                = Lock()
       
-      if (
-        self.config.get_config_dict_attr("$.database.enable") is True
-        and self.config.get_config_dict_attr("$.download.test_mode") is not True
-      ):
+      if self.config.get_config_dict_attr("$.database.enable") is True:
         try:
           self.database = DouyinShareUrlTable(
             host=self.config.get_config_dict_attr("$.database.host"),
@@ -193,7 +186,6 @@ class DouyinLiveDownloader(Downloader):
   
   def dump_config(self):
     super().dump_config()
-    self.url_list.dump_url_list()
 
   def run(self, token) -> None:
     
@@ -205,10 +197,6 @@ class DouyinLiveDownloader(Downloader):
       get_logger().error("invalid url")
       raise ValueError
 
-    if self.config.get_config_dict_attr("$.download.test_mode") is True:
-      get_logger().info("test mode enabled, skip live download pipeline")
-      return None
-    
     ##
     ## download task should be blocked if the number >= max task
     ## TODO
@@ -687,10 +675,6 @@ class DouyinLiveDownloader(Downloader):
     if params is None:
       raise ValueError
 
-    if self.config.get_config_dict_attr("$.download.test_mode") is True:
-      get_logger().info("test mode enabled, skip live stream file write")
-      return None
-    
     ##
     ## cache all temp variable for multiple thread
     ##
@@ -853,7 +837,7 @@ def download_single_live(url):
   except Exception as e:
     raise e
 
-def download_multiple_live_with_patrolman():
+def download_multiple_live_with_patrolman(urls: list[str]):
   downloader = get_live_downloader()
   ##
   ## construct live downloader
@@ -861,15 +845,11 @@ def download_multiple_live_with_patrolman():
   if downloader.config.get_config_dict_attr("$.server.debug_mode") is True:
     downloader.dump_config()
 
-  ##
-  ## get live url list
-  ##
-  live_url_list = downloader.url_list.get_config_list("live")
-  for url in live_url_list:
+  for url in urls:
     item = ListenerItem(func=downloader.run, args=({"url": url},))
     downloader.live_douyin_listener.add_sub_task(item)
-    if downloader.live_douyin_listener.is_patrolman_actived() is not True:
-      downloader.live_douyin_listener.start()
+  if urls and downloader.live_douyin_listener.is_patrolman_actived() is not True:
+    downloader.live_douyin_listener.start()
 
 def download_multiple_live(token_list:list):
   downloader = get_live_downloader()
@@ -911,18 +891,12 @@ def download_live_stream_by_score():
 ##
 ## test: download a live stream by url
 ##
-def download_live_test():
+def download_live_test(urls: list[str]):
   downloader = get_live_downloader()
   if downloader.config.get_config_dict_attr("$.server.debug_mode") is True:
     downloader.dump_config()
-  live_url_list = downloader.url_list.get_config_list("live")
-  for url in live_url_list:
-    try:
-      downloader.run({"url": url})
-      # if downloader.config.get_config_dict_attr("$.max_thread") <= total_live_number and downloader.config.get_config_dict_attr("$.max_thread") != 0:
-      break
-    except Exception:
-      continue
+  for url in urls:
+    downloader.run({"url": url})
     
 if __name__ == "__main__":
   # download_live()

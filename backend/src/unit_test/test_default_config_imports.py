@@ -1,58 +1,50 @@
-import ast
 from pathlib import Path
 import unittest
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-LEGACY_CONFIG_CONSUMER_FILES = (
-  "backend/src/base/downloader.py",
-  "backend/src/platform/douyin/douyin_config.py",
-  "backend/src/platform/douyin/douyin_post_config.py",
-  "backend/src/platform/douyin/douyin_post_downloader.py",
-)
-UNIFIED_CONFIG_CONSUMER_FILES = (
-  "backend/src/platform/douyin/douyin_live_config.py",
-  "backend/src/platform/douyin/douyin_live_downloader.py",
+RUNTIME_PATHS = [PROJECT_ROOT / "server.py", PROJECT_ROOT / "backend" / "src"]
+FORBIDDEN_TEXT = (
+  "DEFAULT_BASE_CONFIG_PATH",
+  "base_config.yml",
+  "config/douyin/api.yml",
+  "config/douyin/download.yml",
+  "config/douyin/headers.yml",
+  "config/douyin/login.yml",
+  "config/douyin/post.yml",
+  "SERVER_HOST",
+  "SERVER_PORT",
+  "FLASK_DEBUG",
+  "DOUYIN_MSTOKEN",
+  "DOUYIN_DISABLE_F2_TOKEN_MANAGER",
 )
 
 
 class DefaultConfigImportTest(unittest.TestCase):
-  def test_consumers_import_default_path_from_canonical_module(self):
-    for relative_path in LEGACY_CONFIG_CONSUMER_FILES:
-      with self.subTest(file=relative_path):
-        source_path = PROJECT_ROOT / relative_path
-        syntax_tree = ast.parse(source_path.read_text(encoding="utf-8"))
+  def test_runtime_sources_have_no_legacy_configuration_dependency(self):
+    sources = [PROJECT_ROOT / "server.py"]
+    sources.extend(
+      path for path in (PROJECT_ROOT / "backend" / "src").rglob("*.py")
+      if "unit_test" not in path.parts
+    )
+    violations = {
+      str(path.relative_to(PROJECT_ROOT)): marker
+      for path in sources
+      for marker in FORBIDDEN_TEXT
+      if marker in path.read_text(encoding="utf-8")
+    }
+    self.assertEqual(violations, {})
 
-        default_path_import_sources = [
-          node.module
-          for node in ast.walk(syntax_tree)
-          if isinstance(node, ast.ImportFrom)
-          for imported_name in node.names
-          if imported_name.name == "DEFAULT_BASE_CONFIG_PATH"
-        ]
-
-        self.assertEqual(
-          default_path_import_sources,
-          ["backend.src.base.default"],
-          f"{relative_path} must import DEFAULT_BASE_CONFIG_PATH only "
-          "from backend.src.base.default",
-        )
-
-  def test_unified_config_consumers_do_not_import_legacy_default_path(self):
-    for relative_path in UNIFIED_CONFIG_CONSUMER_FILES:
-      with self.subTest(file=relative_path):
-        source_path = PROJECT_ROOT / relative_path
-        syntax_tree = ast.parse(source_path.read_text(encoding="utf-8"))
-
-        default_path_import_sources = [
-          node.module
-          for node in ast.walk(syntax_tree)
-          if isinstance(node, ast.ImportFrom)
-          for imported_name in node.names
-          if imported_name.name == "DEFAULT_BASE_CONFIG_PATH"
-        ]
-
-        self.assertEqual(default_path_import_sources, [])
+  def test_conf_ini_is_referenced_only_by_tests(self):
+    production_sources = [
+      path for path in (PROJECT_ROOT / "backend" / "src").rglob("*.py")
+      if "unit_test" not in path.parts
+    ]
+    self.assertEqual([
+      str(path.relative_to(PROJECT_ROOT))
+      for path in production_sources
+      if "conf.ini" in path.read_text(encoding="utf-8")
+    ], [])
 
 
 if __name__ == "__main__":

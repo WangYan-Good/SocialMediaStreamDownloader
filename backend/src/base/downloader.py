@@ -3,16 +3,11 @@
 
 ##<<Base>>
 from abc import ABC, abstractmethod
-from pathlib import Path
+from copy import deepcopy
 
 ##<<Extension>>
 
 ##<<Third-part>>
-from backend.src.base.config       import BaseConfig
-from backend.src.base.default      import DEFAULT_BASE_CONFIG_PATH
-from backend.src.base.header       import Header
-from backend.src.base.login        import Login
-from backend.src.library.loglib    import get_logger
 
 ##
 ## Defination save file name
@@ -59,11 +54,10 @@ class Downloader(ABC):
   ##
   ## TODO: config path as input parameter
   ##
-  def __init__(self, path:Path = None) -> None:
-    if path is None:
-      get_logger().warning("invalid input, will use default configuration")
-      path = DEFAULT_BASE_CONFIG_PATH
-    self.CONFIG_PATH = path
+  def __init__(self, download_config: dict) -> None:
+    if not isinstance(download_config, dict):
+      raise ValueError("$.download must be a mapping")
+    self.download_config = deepcopy(download_config)
 
 ##
 ## >>============================= abstract method =============================>>
@@ -72,17 +66,8 @@ class Downloader(ABC):
   ## Generate download config based on base configuration
   ##
   @abstractmethod
-  def construct_aggregation_class(self):
-    ##
-    ## construct user config
-    ##
-    self.config = BaseConfig(self.CONFIG_PATH)
-
-    self.header = Header(Path(self.config.header_config_path))
-    ##
-    ## construct target config
-    ##
-    self.login = Login(self.login_config_path)
+  def construct_aggregation_class(self, config: dict):
+    raise NotImplementedError
 
   ##
   ## Dump downloader configuration
@@ -93,9 +78,7 @@ class Downloader(ABC):
     ##
     ## Dump extension configuration
     ##
-    self.config.dump_config()
-    self.header.dump_header()
-    self.login.dump_config()
+    pass
 
   ##
   ## Common download interface
@@ -151,12 +134,3 @@ def parse_str_to_dict(source:str=None)->dict:
     ##
     pass
   '''
-
-if __name__ == "__main__":
-  downloader = Downloader()
-  for url in downloader.download_url_list:
-    stream_url = downloader.get_douyin_live_download_stream(url)
-    if stream_url is None:
-      continue
-    get_logger().info(downloader.live_stream_name)
-  get_logger().info("all live download completed!")

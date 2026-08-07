@@ -8,17 +8,32 @@ sys.path.append(os.getcwd())
 import os
 import sys
 import threading
+from copy import deepcopy
 from pathlib import Path
 
 ##<<Extension>>
 
 ##<<Third-part>>
-from backend.src.library.baselib     import load_yml, set_dict_attr, has_dict_attr
+from backend.src.library.baselib     import load_yml
 
 ##
 ## config file path
 ##
 CONFIG_PATH = Path(__file__).resolve().parents[3] / "config" / "config.yml"
+
+REQUIRED_TOP_LEVEL_SECTIONS = (
+  "database", "download", "log", "server", "migrate", "platform",
+)
+REQUIRED_DOUYIN_SECTIONS = (
+  "download", "api", "headers", "login", "post", "live",
+)
+
+
+def _require_mapping(source: dict, key: str, path: str) -> dict:
+  value = source.get(key)
+  if not isinstance(value, dict):
+    raise ValueError(f"{path} must be a mapping")
+  return value
 
 ##
 ## Defination sbstract class
@@ -91,18 +106,24 @@ class BaseConfig():
       config = load_yml(CONFIG_PATH)
       if not isinstance(config, dict):
         raise ValueError("Config root must be a mapping")
+      self.__validate_config(config)
       self.__config = config
     except Exception as e:
       raise RuntimeError(f"Failed to load config file '{CONFIG_PATH}': {str(e)}") from e
 
   ##
-  ## update config value by field path
+  ## validate required configuration mappings
   ##
-  def update_config(self, field:str, value:any):
-    pass
+  def __validate_config(self, config: dict) -> None:
+    for section in REQUIRED_TOP_LEVEL_SECTIONS:
+      _require_mapping(config, section, f"$.{section}")
+    platform = _require_mapping(config, "platform", "$.platform")
+    douyin = _require_mapping(platform, "douyin", "$.platform.douyin")
+    for section in REQUIRED_DOUYIN_SECTIONS:
+      _require_mapping(douyin, section, f"$.platform.douyin.{section}")
 
   ##
   ## get config dict
   ##
   def get_config(self):
-    return self.__config
+    return deepcopy(self.__config)

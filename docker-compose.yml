@@ -7,14 +7,12 @@ services:
     container_name: smd-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_secure_pass}
-      MYSQL_DATABASE: ${DB_NAME:-social_media_stream_downloader}
-      MYSQL_USER: ${DB_USER:-smd_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-smd_secure_pass}
-      # 连接池相关配置
-      MYSQL_MAX_CONNECTIONS: 100
+      MYSQL_ROOT_PASSWORD: "${SMSD_DB_PASSWORD:?run ./run-docker.sh}"
+      MYSQL_DATABASE: "${SMSD_DB_NAME:?run ./run-docker.sh}"
+      MYSQL_USER: "${SMSD_DB_USER:?run ./run-docker.sh}"
+      MYSQL_PASSWORD: "${SMSD_DB_PASSWORD:?run ./run-docker.sh}"
     ports:
-      - "${DB_PORT:-3306}:3306"
+      - "${SMSD_DB_PORT:?run ./run-docker.sh}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./config/init-db:/docker-entrypoint-initdb.d
@@ -51,40 +49,19 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-    environment:
-      # 数据库配置
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_NAME=${DB_NAME:-social_media_stream_downloader}
-      - DB_USER=${DB_USER:-smd_user}
-      - DB_PASSWORD=${DB_PASSWORD:-smd_secure_pass}
-
-      # 抖音配置
-      - DOUYIN_COOKIE_SHARE_LIVE_URL=${DOUYIN_COOKIE_SHARE_LIVE_URL}
-      - DOUYIN_COOKIE_LIVE_ROOM_INFO=${DOUYIN_COOKIE_LIVE_ROOM_INFO}
-      - DOUYIN_COOKIE_POST_INFO=${DOUYIN_COOKIE_POST_INFO}
-      - DOUYIN_MSTOKEN=${DOUYIN_MSTOKEN}
-
-      # 下载配置
-      - DOWNLOAD_SAVE_PATH=/app/downloads
-      - DOWNLOAD_MAX_THREAD=${DOWNLOAD_MAX_THREAD:-0}
-
-      # 服务器配置
-      - SERVER_PORT=${SERVER_PORT:-5000}
-      - FLASK_DEBUG=${FLASK_DEBUG:-false}
     ports:
-      - "${SERVER_PORT:-5000}:${SERVER_PORT:-5000}"
+      - "${SMSD_SERVER_PORT:?run ./run-docker.sh}:${SMSD_SERVER_PORT:?run ./run-docker.sh}"
     volumes:
       # 持久化下载视频
       - download_data:/app/downloads
       # 持久化日志
       - ./logs:/app/logs
-      # 挂载配置文件（可选，便于热更新）
-      - ./.env:/app/.env:ro
+      # 唯一持久配置源；root 入口复制后立即降权运行应用
+      - ./config/config.yml:/run/secrets/config.yml:ro
     networks:
       - smd-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${SERVER_PORT:-5000}/"]
+      test: ["CMD", "curl", "-f", "http://localhost:${SMSD_SERVER_PORT:?run ./run-docker.sh}/"]
       interval: 30s
       timeout: 10s
       retries: 3

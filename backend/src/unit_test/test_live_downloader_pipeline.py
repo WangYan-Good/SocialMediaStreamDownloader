@@ -1,5 +1,4 @@
 from pathlib import Path
-import os
 import tempfile
 from threading import Thread
 from time import sleep
@@ -10,6 +9,7 @@ from requests import exceptions
 from backend.src.library.baselib import load_yml
 from backend.src.platform.douyin import douyin_live_downloader as live_module
 from backend.src.platform.douyin import douyin_api as api_module
+from backend.src.platform.douyin.douyin_header import DouyinShareHeader
 from backend.src.platform.douyin.douyin_live_external_info import LiveExternal
 
 
@@ -31,39 +31,17 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
     config["platform"]["douyin"]["api"]["LIVE_DOMAIN"] = (
       "unified-live.example.test"
     )
-    original_load_config = getattr(api_module, "load_config", None)
-    api_module.load_config = lambda: config
+    original_get_config = api_module.get_config
+    api_module.get_config = lambda path: config["platform"]["douyin"]["api"]
     try:
       api = api_module.DouyinApi()
     finally:
-      if original_load_config is None:
-        del api_module.load_config
-      else:
-        api_module.load_config = original_load_config
+      api_module.get_config = original_get_config
 
     self.assertEqual(
       api.get_config_dict_attr("$.LIVE_DOMAIN"),
       "unified-live.example.test",
     )
-
-  def test_run_in_test_mode_does_not_access_network(self):
-    config = live_config()
-    downloader = live_module.DouyinLiveDownloader(config)
-    original_request = live_module.request
-    network_calls = []
-
-    def reject_network(*args, **kwargs):
-      network_calls.append((args, kwargs))
-      raise AssertionError("test mode must not access the network")
-
-    live_module.request = reject_network
-    try:
-      result = downloader.run({"url": "https://v.douyin.com/example/"})
-    finally:
-      live_module.request = original_request
-
-    self.assertIsNone(result)
-    self.assertEqual(network_calls, [])
 
   def test_single_live_entry_passes_a_token_to_run(self):
     original_downloader = live_module.downloader
@@ -126,9 +104,8 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
     self.assertTrue(params["verifyFp"])
     self.assertTrue(params["X-Bogus"])
 
-  def test_run_resolves_share_url_and_extracts_live_stream(self):
+  def test_run_in_test_mode_resolves_share_url_and_extracts_live_stream(self):
     config = live_config()
-    config["download"]["test_mode"] = False
     downloader = live_module.DouyinLiveDownloader(config)
     downloaded = []
 
@@ -187,9 +164,7 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
     responses = [share_response, live_response]
     original_request = live_module.request
     original_sleep = live_module.sleep
-    original_disable_token_manager = os.environ.get(
-      "DOUYIN_DISABLE_F2_TOKEN_MANAGER"
-    )
+    original_token_generator = DouyinShareHeader.create_douyin_msToken
 
     def request(*args, **kwargs):
       return responses.pop(0)
@@ -200,18 +175,13 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
     live_module.request = request
     live_module.sleep = lambda *_args, **_kwargs: None
     downloader.download_live_stream = capture_download
-    os.environ["DOUYIN_DISABLE_F2_TOKEN_MANAGER"] = "1"
+    DouyinShareHeader.create_douyin_msToken = lambda _header: ""
     try:
       downloader.run({"url": "https://v.douyin.com/example/"})
     finally:
       live_module.request = original_request
       live_module.sleep = original_sleep
-      if original_disable_token_manager is None:
-        os.environ.pop("DOUYIN_DISABLE_F2_TOKEN_MANAGER", None)
-      else:
-        os.environ[
-          "DOUYIN_DISABLE_F2_TOKEN_MANAGER"
-        ] = original_disable_token_manager
+      DouyinShareHeader.create_douyin_msToken = original_token_generator
 
     self.assertEqual(responses, [])
     self.assertEqual(len(downloaded), 1)
@@ -223,6 +193,7 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
     )
     self.assertEqual(build["summary"]["stream_name"], "live.flv")
     self.assertEqual(build["summary"]["nickname"], "Test Host")
+    self.assertEqual(build["live_payload"]["msToken"], "")
 
   def test_stream_extraction_rejects_hls_only_response(self):
     class Response:
@@ -276,9 +247,8 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
     )
     self.assertEqual(stream_name, "live_hd.flv")
 
-  def test_test_mode_does_not_create_download_directory(self):
+  def test_test_mode_skips_only_live_stream_data_download(self):
     config = live_config()
-    config["database"]["enable"] = True
     config["download"]["test_mode"] = True
     config["download"]["tick_naming"] = False
 
@@ -288,12 +258,12 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
       downloader = live_module.DouyinLiveDownloader(config)
       database_calls = []
 
-      class FailingDatabase:
+      class RecordingDatabase:
         def is_owner_user_id_record_exist(self, owner_user_id):
           database_calls.append(owner_user_id)
-          raise RuntimeError("database disconnected")
+          return False
 
-      downloader.database = FailingDatabase()
+      downloader.database = RecordingDatabase()
       build = {
         "summary": {
           "stream_url": "https://stream.example.test/live.flv",
@@ -311,8 +281,11 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
         build,
       )
 
-      self.assertFalse(save_path.exists())
-      self.assertEqual(database_calls, [])
+      stream_directory = save_path / "douyin" / "live" / "Test_Host"
+      self.assertTrue(stream_directory.is_dir())
+      self.assertFalse((stream_directory / "live.flv").exists())
+      self.assertEqual(database_calls, ["owner-1"])
+      self.assertEqual(downloader._actived_task_number, 0)
 
   def test_download_live_stream_writes_stream_bytes(self):
     config = live_config()
@@ -565,10 +538,6 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
       def get_config_dict_attr(self, attr):
         return False
 
-    class UrlList:
-      def get_config_list(self, section):
-        return ["https://example.test/live"]
-
     class Listener:
       def add_sub_task(self, item):
         listener_items.append(item)
@@ -578,7 +547,6 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
 
     class Downloader:
       config = Config()
-      url_list = UrlList()
       live_douyin_listener = Listener()
 
       def run(self, token):
@@ -586,7 +554,9 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
 
     live_module.downloader = Downloader()
     try:
-      live_module.download_multiple_live_with_patrolman()
+      live_module.download_multiple_live_with_patrolman([
+        "https://example.test/live",
+      ])
     finally:
       live_module.downloader = original_downloader
 
@@ -603,20 +573,15 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
       def get_config_dict_attr(self, attr):
         return False
 
-    class UrlList:
-      def get_config_list(self, section):
-        return ["https://example.test/live"]
-
     class Downloader:
       config = Config()
-      url_list = UrlList()
 
       def run(self, token):
         received.append(token)
 
     live_module.downloader = Downloader()
     try:
-      live_module.download_live_test()
+      live_module.download_live_test(["https://example.test/live"])
     finally:
       live_module.downloader = original_downloader
 

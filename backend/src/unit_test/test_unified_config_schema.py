@@ -10,25 +10,27 @@ CONFIG_EXAMPLE_PATH = PROJECT_ROOT / "docs" / "design" / "config.yml.example"
 
 
 class UnifiedConfigSchemaTest(unittest.TestCase):
-  def test_redundant_live_config_files_are_removed(self):
-    redundant_paths = [
-      PROJECT_ROOT / "config" / "douyin" / "live.yml",
-      PROJECT_ROOT / "config" / "douyin" / "live_response.yml",
-      PROJECT_ROOT / "config" / "user_config.yml",
-    ]
+  def test_share_url_file_is_not_persistent_configuration(self):
+    config = load_yml(CONFIG_EXAMPLE_PATH)
 
-    self.assertEqual(
-      [path for path in redundant_paths if path.exists()],
-      [],
-    )
     self.assertNotIn(
-      "live_config_path",
-      load_yml(PROJECT_ROOT / "config" / "base_config.yml"),
+      "share_url_file",
+      config["platform"]["douyin"]["download"],
     )
-    self.assertNotIn(
-      "live_download_config_file",
-      load_yml(PROJECT_ROOT / "config" / "douyin" / "download.yml"),
-    )
+
+  def test_all_legacy_configuration_files_are_removed(self):
+    legacy_paths = [
+      PROJECT_ROOT / "config" / "base_config.yml",
+      PROJECT_ROOT / "config" / "douyin" / "api.yml",
+      PROJECT_ROOT / "config" / "douyin" / "download.yml",
+      PROJECT_ROOT / "config" / "douyin" / "headers.yml",
+      PROJECT_ROOT / "config" / "douyin" / "login.yml",
+      PROJECT_ROOT / "config" / "douyin" / "post.yml",
+      PROJECT_ROOT / "backend" / "src" / "base" / "default.py",
+      PROJECT_ROOT / "backend" / "src" / "platform" / "douyin" / "douyin_config.py",
+    ]
+    self.assertEqual([path for path in legacy_paths if path.exists()], [])
+    self.assertTrue((PROJECT_ROOT / "config" / "douyin" / "conf.ini").is_file())
 
   def test_example_contains_complete_unified_schema(self):
     config = load_yml(CONFIG_EXAMPLE_PATH)

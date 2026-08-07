@@ -36,7 +36,6 @@ platform:
     download:
       type: live
       multiple_download: true
-      share_url_file: conf.ini
     api:
       DOUYIN_DOMAIN: https://www.douyin.com
       IESDOUYIN_DOMAIN: https://www.iesdouyin.com

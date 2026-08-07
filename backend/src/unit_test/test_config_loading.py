@@ -3,15 +3,25 @@ import tempfile
 import threading
 import unittest
 
+import yaml
+
 from backend.src.base import config as config_module
 from backend.src.base.config import BaseConfig
-from backend.src.library.configlib import load_config
+from backend.src.library.configlib import get_config, load_config
+from backend.src.unit_test.config_fixture import unified_config
 
 
 class ConfigLoadingTest(unittest.TestCase):
   def setUp(self):
     self.original_config_path = config_module.CONFIG_PATH
     self.reset_base_config()
+
+  @staticmethod
+  def write_config(path, config):
+    path.write_text(
+      yaml.safe_dump(config, sort_keys=False, allow_unicode=True),
+      encoding="utf-8",
+    )
 
   def tearDown(self):
     config_module.CONFIG_PATH = self.original_config_path
@@ -32,27 +42,93 @@ class ConfigLoadingTest(unittest.TestCase):
   def test_load_config_returns_nested_yaml_mapping(self):
     with tempfile.TemporaryDirectory() as temp_directory:
       config_path = Path(temp_directory) / "config.yml"
-      config_path.write_text(
-        "server:\n"
-        "  host: 127.0.0.1\n"
-        "  port: 5000\n"
-        "download:\n"
-        "  max_threads: 3\n",
-        encoding="utf-8"
-      )
+      expected_config = unified_config()
+      expected_config["server"]["host"] = "127.0.0.1"
+      expected_config["server"]["port"] = 5000
+      expected_config["download"]["max_threads"] = 3
+      self.write_config(config_path, expected_config)
       config_module.CONFIG_PATH = config_path
 
       config = load_config()
 
-    self.assertEqual(config, {
-      "server": {
-        "host": "127.0.0.1",
-        "port": 5000
-      },
-      "download": {
-        "max_threads": 3
-      }
-    })
+    self.assertEqual(config, expected_config)
+
+  def test_base_config_get_config_isolates_nested_mutations(self):
+    with tempfile.TemporaryDirectory() as temp_directory:
+      config_path = Path(temp_directory) / "config.yml"
+      config = unified_config()
+      config["platform"]["douyin"]["post"]["count"] = 18
+      self.write_config(config_path, config)
+      config_module.CONFIG_PATH = config_path
+
+      first_read = BaseConfig().get_config()
+      first_read["platform"]["douyin"]["post"]["count"] = 999
+
+      self.assertEqual(
+        BaseConfig().get_config()["platform"]["douyin"]["post"]["count"],
+        18,
+      )
+
+  def test_load_config_isolates_nested_mutations(self):
+    with tempfile.TemporaryDirectory() as temp_directory:
+      config_path = Path(temp_directory) / "config.yml"
+      config = unified_config()
+      config["server"]["port"] = 5000
+      self.write_config(config_path, config)
+      config_module.CONFIG_PATH = config_path
+
+      first_read = load_config()
+      first_read["server"]["port"] = 9999
+
+      self.assertEqual(load_config()["server"]["port"], 5000)
+
+  def test_get_config_isolates_nested_mapping_mutations(self):
+    with tempfile.TemporaryDirectory() as temp_directory:
+      config_path = Path(temp_directory) / "config.yml"
+      config = unified_config()
+      config["platform"]["douyin"]["post"]["count"] = 18
+      self.write_config(config_path, config)
+      config_module.CONFIG_PATH = config_path
+
+      first_read = get_config("$.platform.douyin.post")
+      first_read["count"] = 999
+
+      self.assertEqual(
+        get_config("$.platform.douyin.post")["count"],
+        18,
+      )
+
+  def test_get_config_reads_a_strict_nested_path(self):
+    with tempfile.TemporaryDirectory() as temp_directory:
+      config_path = Path(temp_directory) / "config.yml"
+      config = unified_config()
+      config["server"]["port"] = 5101
+      self.write_config(config_path, config)
+      config_module.CONFIG_PATH = config_path
+
+      self.assertEqual(get_config("$.server.port"), 5101)
+
+  def test_get_config_rejects_missing_and_invalid_paths(self):
+    with tempfile.TemporaryDirectory() as temp_directory:
+      config_path = Path(temp_directory) / "config.yml"
+      self.write_config(config_path, unified_config())
+      config_module.CONFIG_PATH = config_path
+
+      with self.assertRaisesRegex(KeyError, r"\$\.server\.missing"):
+        get_config("$.server.missing")
+      with self.assertRaisesRegex(ValueError, "path"):
+        get_config("server.port")
+
+  def test_load_config_rejects_a_missing_required_section(self):
+    with tempfile.TemporaryDirectory() as temp_directory:
+      config_path = Path(temp_directory) / "config.yml"
+      config = unified_config()
+      del config["platform"]["douyin"]["post"]
+      self.write_config(config_path, config)
+      config_module.CONFIG_PATH = config_path
+
+      with self.assertRaisesRegex(RuntimeError, r"\$\.platform\.douyin\.post"):
+        load_config()
 
   def test_load_config_rejects_non_mapping_yaml(self):
     with tempfile.TemporaryDirectory() as temp_directory:
@@ -75,7 +151,7 @@ class ConfigLoadingTest(unittest.TestCase):
         load_barrier.wait(timeout=0.2)
       except threading.BrokenBarrierError:
         pass
-      return {"environment": "test"}
+      return unified_config()
 
     original_load_yml = config_module.load_yml
     config_module.load_yml = controlled_load

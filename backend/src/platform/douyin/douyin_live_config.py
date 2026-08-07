@@ -1,7 +1,5 @@
 from copy import deepcopy
-from pathlib import Path
 
-from backend.src.base.config import CONFIG_PATH
 from backend.src.library.baselib import get_dict_attr, output_dict, set_dict_attr
 from backend.src.library.configlib import load_config
 from backend.src.platform.douyin.verify_fp_manager import VerifyFpManager as VFM
@@ -30,15 +28,6 @@ class DouyinLiveConfig:
     if not isinstance(value, dict):
       raise ValueError("Unified config section '{}' must be a mapping".format(attr))
     return value
-
-  @property
-  def share_url_path(self) -> Path:
-    file_name = self.get_config_dict_attr(
-      "$.platform.douyin.download.share_url_file"
-    )
-    if not isinstance(file_name, str) or not file_name:
-      raise ValueError("Douyin share_url_file must be a non-empty string")
-    return CONFIG_PATH.parent / "douyin" / file_name
 
   def to_dict(self) -> dict:
     return self.__config

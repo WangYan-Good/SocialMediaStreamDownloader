@@ -7,12 +7,7 @@ sys.path.append(os.getcwd())
 ##<<Third-Part>>
 from backend.src.library.loglib   import get_logger
 from backend.src.base.config      import BaseConfig
-
-ENV_SMSD_DB_HOST     = "SMSD_DB_HOST"
-ENV_SMSD_DB_PORT     = "SMSD_DB_PORT"
-ENV_SMSD_DB_USER     = "SMSD_DB_USER"
-ENV_SMSD_DB_PASSWORD = "SMSD_DB_PASSWORD"
-ENV_SMSD_DB_NAME     = "SMSD_DB_NAME"
+from backend.src.library.baselib import get_dict_attr, has_dict_attr
 
 # ============================================
 # initialize system base configuration
@@ -27,33 +22,10 @@ def load_config():
     get_logger().error(f"Failed to initialize configuration: {e}")
     raise e
 
-def get_config(config_name:str=None):
-  '''
-  Get the configuration value by name
-  '''
-  try:
-    config = BaseConfig()
-    if config_name:
-      return getattr(config.get_config(), config_name, None)
-    else:
-      raise ValueError("config_name cannot be None")
-  except Exception as e:
-    ##
-    ## Handle exceptions during getting configuration
-    ##
-    get_logger().error(f"Error getting configuration: {e}")
-    return None
-
-def set_config(config_name:str, config_value):
-  '''
-  Set the configuration value by name
-  '''
-  try:
-    config = BaseConfig()
-    config.update_config(f"$.{config_name}", config_value)
-  except Exception as e:
-    ##
-    ## Handle exceptions during setting configuration
-    ##
-    get_logger().error(f"Error setting configuration: {e}")
-    raise e
+def get_config(path: str):
+  if not isinstance(path, str) or not path.startswith("$."):
+    raise ValueError("config path must start with '$.'")
+  config = load_config()
+  if not has_dict_attr(config, path):
+    raise KeyError(f"Configuration path not found: {path}")
+  return get_dict_attr(config, path)

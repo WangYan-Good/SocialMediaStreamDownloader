@@ -1,3 +1,4 @@
+import configparser
 import importlib
 from pathlib import Path
 import tempfile
@@ -6,6 +7,7 @@ from time import sleep
 import unittest
 
 from backend.src.library.baselib import load_yml
+from backend.src.unit_test.config_fixture import unified_config
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -20,7 +22,7 @@ class LiveDownloaderConstructionTest(unittest.TestCase):
 
     self.assertIsNone(module.downloader)
 
-  def test_constructs_from_unified_config_without_test_mode_side_effects(self):
+  def test_test_mode_initializes_database_like_normal_mode(self):
     module = importlib.import_module(
       "backend.src.platform.douyin.douyin_live_downloader"
     )
@@ -29,16 +31,13 @@ class LiveDownloaderConstructionTest(unittest.TestCase):
     config["download"]["test_mode"] = True
 
     original_database = module.DouyinShareUrlTable
-    original_request = module.request
+    database_connections = []
 
-    def fail_if_database_is_created(*args, **kwargs):
-      raise AssertionError("test mode must not initialize the database")
+    class RecordingDatabase:
+      def __init__(self, **kwargs):
+        database_connections.append(kwargs)
 
-    def fail_if_network_is_accessed(*args, **kwargs):
-      raise AssertionError("construction must not access the network")
-
-    module.DouyinShareUrlTable = fail_if_database_is_created
-    module.request = fail_if_network_is_accessed
+    module.DouyinShareUrlTable = RecordingDatabase
     try:
       with tempfile.TemporaryDirectory() as temporary_directory:
         save_path = Path(temporary_directory) / "downloads"
@@ -46,7 +45,13 @@ class LiveDownloaderConstructionTest(unittest.TestCase):
 
         downloader = module.DouyinLiveDownloader(config)
 
-        self.assertIsNone(downloader.database)
+        self.assertIsInstance(downloader.database, RecordingDatabase)
+        self.assertEqual(database_connections, [{
+          "host": config["database"]["host"],
+          "user": config["database"]["username"],
+          "passwd": config["database"]["password"],
+          "database": config["database"]["name"],
+        }])
         self.assertEqual(
           downloader.API.get_config_dict_attr("$.LIVE_INFO_ROOM_ID"),
           config["platform"]["douyin"]["api"]["LIVE_INFO_ROOM_ID"],
@@ -62,7 +67,22 @@ class LiveDownloaderConstructionTest(unittest.TestCase):
         self.assertFalse(save_path.exists())
     finally:
       module.DouyinShareUrlTable = original_database
-      module.request = original_request
+
+  def test_live_construction_has_no_file_url_list(self):
+    module = importlib.import_module(
+      "backend.src.platform.douyin.douyin_live_downloader"
+    )
+
+    downloader = module.DouyinLiveDownloader(unified_config())
+
+    self.assertFalse(hasattr(downloader, "url_list"))
+
+  def test_conf_ini_remains_available_as_test_input(self):
+    parser = configparser.ConfigParser()
+    parser.read(PROJECT_ROOT / "config" / "douyin" / "conf.ini")
+    urls = [value for _key, value in parser.items("live")]
+
+    self.assertTrue(urls)
 
   def test_lazy_downloader_is_constructed_once_for_concurrent_callers(self):
     module = importlib.import_module(

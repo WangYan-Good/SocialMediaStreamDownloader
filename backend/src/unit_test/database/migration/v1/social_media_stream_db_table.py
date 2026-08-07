@@ -67,7 +67,6 @@ class SocialMediaStreamDataTable(ABC):
     if self.__database.is_table_exist(self.get_name()) and self.__database.is_table_registered(self.get_name()) is False:
       try:
         self.__database.register_table(self.get_name(), self)
-        get_logger().info("{} table registered successfully".format(self.get_name()))
       except Exception as e:
         get_logger().error("failed to register {} table: {}".format(self.get_name(), e))
         raise e
@@ -223,7 +222,6 @@ class SocialMediaStreamDataTable(ABC):
     finally:
       try:
         self.__database.register_table(table_name, self)
-        get_logger().info("{} table registered successfully".format(table_name))
       except Exception as e:
         get_logger().error("failed to register {} table: {}".format(table_name, e))
   

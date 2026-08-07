@@ -198,7 +198,6 @@ class SocialMediaStreamDataBase():
     if table_name in self.__db_tables_instance:
       return True
     else:
-      get_logger().warning("database table {} instance is not registered".format(table_name))
       return False
 
   ##
@@ -212,8 +211,6 @@ class SocialMediaStreamDataBase():
     if table_name in self.__db_tables_instance:
       del self.__db_tables_instance[table_name]
       get_logger().info("database table {} instance is removed".format(table_name))
-    else:
-      get_logger().warning("database table {} instance is not registered".format(table_name))
     return
 
   ##

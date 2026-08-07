@@ -1,191 +1,92 @@
-## <<Base>>
-import os
+from copy import deepcopy
 from pathlib import Path
-import sys
 
-# SRC_WORK_SPACE = os.path.dirname(sys.path[0])
-# sys.path.append(os.path.join(SRC_WORK_SPACE))
-sys.path.append(os.getcwd())
-
-## <<Extension>>
-import yaml as yml
-
-## <<Third-part>>
-from backend.src.base.default import DEFAULT_BASE_CONFIG_PATH
-from backend.src.platform.douyin.douyin_config import DouyinConfig
+from backend.src.library.baselib import get_dict_attr, has_dict_attr
+from backend.src.library.configlib import load_config
 from backend.src.library.loglib import get_logger
+from backend.src.platform.douyin.a_bogus import ABogus as AB
+from backend.src.platform.douyin.verify_fp_manager import VerifyFpManager as VFM
 
-## TODO remove
-from verify_fp_manager import VerifyFpManager as VFM
-from a_bogus import ABogus as AB
 
-'''
-DouyinPostConfig->BaseConfig:
-  Attribute:
-    share_url
-    sec_user_id
-    nickname
-    device_platform
-    aid
-    channel
-    pc_client_type
-    version_code
-    version_name
-    cookie_enabled
-    screen_width
-    screen_height
-    browser_language
-    browser_platform
-    browser_name
-    browser_version
-    browser_online
-    engine_name
-    engine_version
-    os_name
-    os_version
-    cpu_core_num
-    device_memory
-    platform
-    downlink
-    effective_type
-    round_trip_time
-    max_cursor
-    page_counts
-    max_counts
+PROJECT_ROOT = Path(__file__).resolve().parents[4]
 
-  Operation:
-    to_dict
-    dump_config
-'''
 
-class DouyinPostConfig(DouyinConfig):
+class DouyinPostConfig:
+  def __init__(self, config: dict = None) -> None:
+    source = load_config() if config is None else config
+    if not isinstance(source, dict):
+      raise ValueError("Unified configuration must be a mapping")
+    self.__config = deepcopy(source)
+    download = self.__require("$.download")
+    self.__require("$.server")
+    self.__require("$.platform")
+    self.__require("$.platform.douyin")
+    douyin_download = self.__require("$.platform.douyin.download")
+    post = self.__require("$.platform.douyin.post")
+    self.__require("$.platform.douyin.headers")
+    self.__require("$.platform.douyin.login")
+    self.__require("$.platform.douyin.api")
+    self.login = self.__require_boolean("$.download.user_login")
+    self.debug = self.__require_boolean("$.server.debug_mode")
+    selected_header = "post_info" if self.login else "post_info_no_login"
+    self.__require(f"$.platform.douyin.headers.{selected_header}")
+    self.__dict__.update(download)
+    self.__dict__.update(douyin_download)
+    self.__dict__.update(post)
+    self.stream_platform = "douyin"
+    self.build_path = str(PROJECT_ROOT / "config" / "build")
+    self.share_url = ""
+    self.nickname = ""
 
-  ##
-  ## The part of extension
-  ##
-  __config = dict()
+  def __require(self, path: str) -> dict:
+    value = get_dict_attr(self.__config, path)
+    if not isinstance(value, dict):
+      raise ValueError(f"{path} must be a mapping")
+    return value
 
-  def __init__(self, path:Path = None) -> None:
-    if path is None:
-      get_logger().warning("invalid input, will use default configuration")
-      path = DEFAULT_BASE_CONFIG_PATH
-    super().__init__(path=Path(path))
-    self.__parse_config(Path(self.post_config_path))
+  def __require_boolean(self, path: str) -> bool:
+    if not has_dict_attr(self.__config, path):
+      raise ValueError(f"{path} is required")
+    value = get_dict_attr(self.__config, path)
+    if type(value) is not bool:
+      raise ValueError(f"{path} must be a boolean")
+    return value
 
-  ##
-  ## Update verify Fp Manager
-  ##
+  def __post_config(self) -> dict:
+    return get_dict_attr(self.__config, "$.platform.douyin.post")
+
   def update_verifyFp(self):
-    ##
-    ## update attribute
-    ##
-    if self.login is True:
-      pass
-    else:
+    if self.login is not True:
       self.verifyFp = VFM.gen_verify_fp()
-    
-      ##
-      ## update dict
-      ##
-      self.__config["verifyFp"] = self.verifyFp
+      self.__post_config()["verifyFp"] = self.verifyFp
 
-  ##
-  ## Update verify Fp Manager
-  ##
   def update_fp(self):
-    ##
-    ## update attribute
-    ##
-    if self.login is True:
-      pass
-    else:
+    if self.login is not True:
       self.fp = self.verifyFp
-    
-      ##
-      ## update dict
-      ##
-      self.__config["fp"] = self.__config["verifyFp"]
-  
-  ##
-  ## update a-bogus
-  ##
-  def update_a_bogus(self, params:dict=None):
-    ## update attribute
-    if self.login is True:
-      pass
-    else:
-      self.a_bogus = AB().get_value(params, "GET")
-      self.__config["a_bogus"] = self.a_bogus
+      self.__post_config()["fp"] = self.fp
 
-  ##
-  ## update count
-  ##
-  def update_count(self, count:int=0):
+  def update_a_bogus(self, params: dict = None):
+    if self.login is not True:
+      self.a_bogus = AB().get_value(params, "GET")
+      self.__post_config()["a_bogus"] = self.a_bogus
+
+  def update_count(self, count: int = 0):
     if count == 0:
       raise ValueError
     self.count = count
+    self.__post_config()["count"] = self.count
 
-  ##
-  ## parse and genearte douyin post download config
-  ##
-  def __parse_config(self, path:Path = None)->dict:
-    if path is None:
-      get_logger().error("invalid post configuration path!")
-      raise FileNotFoundError
-    
-    try:
-      
-      ##
-      ## read config file
-      ##
-      self.__config = yml.safe_load(path.read_text(encoding="utf-8"))
-
-      ##
-      ## construct configuration
-      ##
-      self.__dict__.update(self.__config)
-    except Exception as e:
-      get_logger().error("parse configuration failed = {}".format(e))
-      raise e
-    return self.__config
-
-  ##
-  ## update douyin post share url
-  ##
-  def update_post_share_url(self, param:dict = None):
+  def update_post_share_url(self, param: dict = None):
     if param is None:
       get_logger().error("invalid parameter!")
       raise ValueError
-    
-    try:
-      ##
-      ## update post config
-      ##
-      self.share_url   = param.get("share_url", "")
-      # self.sec_user_id = param.get("sec_user_id", "")
-    except Exception as e:
-      get_logger().error("update douyin post config failed!\n{}".format(e))
-      raise e
+    self.share_url = param.get("share_url", "")
+    self.__post_config()["share_url"] = self.share_url
 
-  ##
-  ## Transform config to dict
-  ##
   def to_dict(self) -> dict:
-    return self.__config
-    
+    return deepcopy(self.__config)
+
   def dump_config(self):
-    ##
-    ## dump super config
-    ##
-    super().dump_config()
-
-    ##
-    ## dump config
-    ##
     get_logger().info("Douyin POST configuration:")
-    for key, value in self.__config.items():
+    for key, value in self.__post_config().items():
       get_logger().info("\t{k}: {v}".format(k=key, v=value))
-
-if __name__ == "__main__":
-  post_config = DouyinPostConfig()
-  post_config.dump_config()

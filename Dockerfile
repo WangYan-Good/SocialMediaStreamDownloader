@@ -53,23 +53,16 @@ RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuse
 # 设置工作目录
 WORKDIR /app
 
-# 复制项目文件（排除不必要的文件）
-COPY --chown=appuser:appuser . .
+# 复制项目文件；root 入口代码必须不可由 appuser 改写
+COPY . .
 
 # 创建必要的目录
-RUN mkdir -p /app/logs /app/config/build /app/config/export && \
-    chown -R appuser:appuser /app/logs /app/config
+RUN mkdir -p /app/logs /app/downloads /app/config/build /app/config/export && \
+    chown -R appuser:appuser /app/logs /app/downloads /app/config
 
-# 切换到非root用户
-USER appuser
+# 入口仅以 root 复制只读挂载的配置，随后立即降权执行应用
+USER root
 
-# 暴露端口
-EXPOSE 5000
-
-# 健康检查
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:5000/ || exit 1
-
-# 启动命令
-ENTRYPOINT ["sh", "-c"]
-CMD ["./run-server.sh"]
+# 启动命令；runtime_config 使用 initgroups/setgid/setuid 后 exec server
+ENTRYPOINT ["python", "./scripts/runtime_config.py", "container-entrypoint", "/run/secrets/config.yml", "appuser"]
+CMD ["python", "./server.py"]

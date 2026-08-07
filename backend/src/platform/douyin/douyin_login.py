@@ -2,7 +2,6 @@
 import os
 import sys
 sys.path.append(os.getcwd())
-from pathlib import Path
 
 
 ## <<Extension>>
@@ -21,11 +20,11 @@ class DouyinLogin(Login):
   ##
   ## Initialize Attribute & super
   ##
-  def __init__(self, path: Path | str | dict = None):
+  def __init__(self, config: dict):
     ##
     ## Initialize attribute
     ##
-    super().__init__(path)
+    super().__init__(config)
 
     ##
     ## Initialize member
@@ -74,7 +73,3 @@ class DouyinLogin(Login):
   
   def dump_config(self):
     super().dump_config()
-
-if __name__ == "__main__":
-  dylogin = DouyinLogin()
-  dylogin.dump_config()

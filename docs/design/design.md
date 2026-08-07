@@ -127,16 +127,14 @@ flowchart LR
 
 ## 6. 配置与环境
 
-配置来源由三部分组成：
-
-- `.env`：运行时环境变量（数据库、Cookie、端口等）
-- `config/base_config.yml`：基础配置与目录约定
-- `config/douyin/*.yml`：平台专属配置（headers、download、api 等）
+唯一持久配置来源为 `config/config.yml`。应用通过 `BaseConfig` 加载一次，并按
+`server`、`database`、`download`、`log` 与 `platform.douyin` section 向消费对象
+分发隔离副本；运行时环境变量不覆盖这些值。
 
 运行模式：
 
 - 本地模式：`run-server.sh` 启动 Flask
-- 容器模式：`docker-compose.yml` 启动 `app + mysql`
+- 容器模式：`run-docker.sh` 从统一 YAML 临时派生 Compose 插值后启动 `app + mysql`
 
 ## 7. 可扩展性设计
 

@@ -5,12 +5,9 @@ sys.path.append(os.getcwd())
 ##>>Test
 
 ##<<Third-part>>
-from pathlib                     import Path
 from backend.src.base.header     import Header
 from backend.src.library.baselib import output_dict, get_dict_attr, set_dict_attr
 from backend.src.library.loglib  import get_logger
-
-DEFAULT_HEADER_PATH = "config/douyin/headers.yml"
 
 class DouyinHeader(Header):
 ##
@@ -27,15 +24,8 @@ class DouyinHeader(Header):
   ##
   ## init
   ##
-  def __init__(self, header_path: Path | str | dict = None) -> None:
-    if header_path is None:
-      get_logger().warning("invalid config, use default douyin header config")
-      header_path = DEFAULT_HEADER_PATH
-    
-    ##
-    ## initialize header
-    ##
-    super().__init__(header_path)
+  def __init__(self, config: dict) -> None:
+    super().__init__(config)
     self._header = super().to_dict()
 ##
 ## >>============================= abstract method =============================>>
@@ -71,20 +61,6 @@ class DouyinHeader(Header):
   ## Update msToken
   ##
   def create_douyin_msToken(self):
-    ##
-    ## Prefer explicit env token to avoid importing f2 logger side effects.
-    ##
-    configured_token = os.getenv("DOUYIN_MSTOKEN", "")
-    if configured_token and configured_token != "PLEASE_REPLACE_WITH_REAL_MSTOKEN":
-      return configured_token
-
-    ##
-    ## Set DOUYIN_DISABLE_F2_TOKEN_MANAGER=1 to skip f2 import and file log creation.
-    ##
-    if os.getenv("DOUYIN_DISABLE_F2_TOKEN_MANAGER", "0") == "1":
-      get_logger().warning("DOUYIN_DISABLE_F2_TOKEN_MANAGER=1, use empty msToken")
-      return ""
-
     try:
       from f2.apps.douyin.utils import TokenManager as TM
       return TM.gen_real_msToken()
@@ -110,8 +86,8 @@ class DouyinShareHeader(DouyinHeader):
   ##
   ## Initialize header and constrcut
   ##
-  def __init__(self, header_path: Path | str | dict = None) -> None:
-    super().__init__(header_path)
+  def __init__(self, config: dict) -> None:
+    super().__init__(config)
 
 ##
 ## >>============================= abstract method =============================>>
@@ -184,8 +160,8 @@ class DouyinLiveInfoHeader(DouyinHeader):
   ##
   ## init
   ##
-  def __init__(self, header_path: Path | str | dict = None) -> None:
-    super().__init__(header_path)
+  def __init__(self, config: dict) -> None:
+    super().__init__(config)
 
 ##
 ## >>============================= abstract method =============================>>
@@ -267,8 +243,8 @@ class DouyinPostInfoHeader(DouyinHeader):
   ##
   ## init
   ##
-  def __init__(self, header_path: Path | str = None) -> None:
-    super().__init__(header_path)
+  def __init__(self, config: dict) -> None:
+    super().__init__(config)
   
 ##
 ## >>============================= abstract method =============================>>
@@ -313,22 +289,3 @@ class DouyinPostInfoHeader(DouyinHeader):
       get_logger().error("Douyin post info header does not found!")
       raise ModuleNotFoundError
     get_logger().info("Douyin post info header initialize complete")
-
-if __name__ == "__main__":
-  # '''
-  dyheader = DouyinShareHeader(DEFAULT_HEADER_PATH)
-  dyheader.init_header(False)
-  dyheader.dump_header()
-  # '''
-
-  # '''
-  dyheader = DouyinLiveInfoHeader(DEFAULT_HEADER_PATH)
-  dyheader.init_header(False)
-  dyheader.dump_header()
-  # '''
-
-  # '''
-  dyheader = DouyinPostInfoHeader(DEFAULT_HEADER_PATH)
-  dyheader.init_header(False)
-  dyheader.dump_header()
-  # '''
