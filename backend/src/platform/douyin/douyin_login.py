@@ -21,7 +21,7 @@ class DouyinLogin(Login):
   ##
   ## Initialize Attribute & super
   ##
-  def __init__(self, path: Path = None):
+  def __init__(self, path: Path | str | dict = None):
     ##
     ## Initialize attribute
     ##

@@ -1,140 +1,70 @@
-## <<Base>>
-import os
+from copy import deepcopy
 from pathlib import Path
-import sys
-sys.path.append(os.getcwd())
 
-## <<Extension>>
-import yaml as yml
-
-## <<Third-part>>
-from backend.src.library.baselib import output_dict, save_dict_as_file, set_dict_attr, get_dict_attr, load_yml
-from backend.src.base.default import DEFAULT_BASE_CONFIG_PATH
-from backend.src.platform.douyin.douyin_config import DouyinConfig
-from backend.src.library.loglib import get_logger
-
-##TODO remove
+from backend.src.base.config import CONFIG_PATH
+from backend.src.library.baselib import get_dict_attr, output_dict, set_dict_attr
+from backend.src.library.configlib import load_config
 from backend.src.platform.douyin.verify_fp_manager import VerifyFpManager as VFM
 
-class DouyinLiveConfig(DouyinConfig):
-##
-## >>============================= attribute =============================>>
-##
-  _douyin_live_config_save_path = None
-  ##
-  ## The part of extension
-  ##
-  __config                 = dict()
 
-##
-## >>============================= private method =============================>>
-##
-  ##
-  ## Initialize douyin live config
-  ##
-  def __init__(self, path: Path = None):
-    if path is None:
-      get_logger().warning("invalid input, will use default config path")
-      path = DEFAULT_BASE_CONFIG_PATH
-    super().__init__(path)
+class DouyinLiveConfig:
+  """Live-domain view of the process-wide unified configuration."""
 
-    ##
-    ## Parse live config
-    ##
-    self.__config = super().to_dict()
-    self.__config.update(load_yml(Path(self.live_config_path)))
-    
-    ##
-    ## Transform dict to attribute
-    ##
-    self.__dict__.update(self.__config)
+  def __init__(self, config: dict = None):
+    source = load_config() if config is None else config
+    if not isinstance(source, dict):
+      raise ValueError("Unified config root must be a mapping")
 
-    ##
-    ## constructure douyin live config
-    ##
-    self._douyin_live_config_save_path = self.build_path + "/" + self.stream_platform + "/" + "douyin_live_config.yml"
-    self.set_config_dict_attr("$.douyin_live_config_save_path", self._douyin_live_config_save_path)
+    self.__config = deepcopy(source)
+    self._require_mapping("$.database")
+    self._require_mapping("$.download")
+    self._require_mapping("$.server")
+    self._require_mapping("$.platform.douyin")
+    self._require_mapping("$.platform.douyin.api")
+    self._require_mapping("$.platform.douyin.headers")
+    self._require_mapping("$.platform.douyin.login")
+    self._require_mapping("$.platform.douyin.live")
 
-##
-## >>============================= abstract method =============================>>
-##
-  ##
-  ## Transform config to dict
-  ##
-  def to_dict(self) -> dict:
-    return self.__config
-  
-  ##
-  ##  Dump config
-  ##
-  def dump_config(self):
-    # super().dump_config()
-
-    get_logger().info("Douyin live config:")
-    output_dict(self.__config)
-
-  ##
-  ## get config dict attr
-  ##
-  def get_config_dict_attr(self, attr: str = None):
-    value = None
-    try:
-      value = get_dict_attr(self.__config, attr)
-    except KeyError:
-      value = super().get_config_dict_attr(attr)
-    except Exception as e:
-      get_logger().error("get douyin live config attr({}) failed".format(attr))
-      raise e
+  def _require_mapping(self, attr: str) -> dict:
+    value = get_dict_attr(self.__config, attr)
+    if not isinstance(value, dict):
+      raise ValueError("Unified config section '{}' must be a mapping".format(attr))
     return value
 
+  @property
+  def share_url_path(self) -> Path:
+    file_name = self.get_config_dict_attr(
+      "$.platform.douyin.download.share_url_file"
+    )
+    if not isinstance(file_name, str) or not file_name:
+      raise ValueError("Douyin share_url_file must be a non-empty string")
+    return CONFIG_PATH.parent / "douyin" / file_name
 
-  ##
-  ## set config dict
-  ##
+  def to_dict(self) -> dict:
+    return self.__config
+
+  def dump_config(self):
+    output_dict(self.__config)
+
+  def get_config_dict_attr(self, attr: str = None):
+    return get_dict_attr(self.__config, attr)
+
   def set_config_dict_attr(self, attr: str = None, value: any = None):
     set_dict_attr(self.__config, attr, value)
 
-##
-## >>============================= sub class method =============================>>
-##
-  ##
-  ## Update verify Fp Manager
-  ##
   def update_verifyFp(self):
-    ##
-    ## update attribute
-    ##
-    if self.get_config_dict_attr("$.login") is True:
-      pass
-    else:
-      self.verifyFp = VFM.gen_verify_fp()
-    
-      ##
-      ## update dict
-      ##
-      self.set_config_dict_attr("$.params_no_login.verifyFp", self.verifyFp)
-      return self.verifyFp
-##
-## >>============================= override super method =============================>>
-##
-  ##
-  ## Save config
-  ##
-  def save_config(self, output: Path = None):
-    ##
-    ## save super config
-    ##
-    super().save_config(output)
-    
-    ##
-    ## save sub class config
-    ##
-    if output is None:
-      get_logger().warning("save douyin live config in default path")
-      output = self._douyin_live_config_save_path
-    save_dict_as_file(self.__config, output)
+    if self.get_config_dict_attr("$.download.user_login") is True:
+      return self.get_config_dict_attr(
+        "$.platform.douyin.live.params_no_login.verifyFp"
+      )
+
+    verify_fp = VFM.gen_verify_fp()
+    self.set_config_dict_attr(
+      "$.platform.douyin.live.params_no_login.verifyFp",
+      verify_fp,
+    )
+    return verify_fp
+
 
 if __name__ == "__main__":
-  live_config = DouyinLiveConfig()
-  live_config.save_config()
-  live_config.dump_config()
+  DouyinLiveConfig().dump_config()

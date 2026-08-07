@@ -59,54 +59,38 @@ class LiveExternal(JSON):
       raise ValueError
     return nickname
 
-  def get_flv_pull_url(self, response, flv_clarity):
-    ##
-    ## catch live status success
-    ## return live stream
-    ##
-    try:
-      build_dict = response.json()
-      ##
-      ## FULL_HD1
-      ##
-      if flv_clarity == 1 and build_dict["data"]["room"]["stream_url"]["flv_pull_url"]["FULL_HD1"] is not None:
-        self.live_stream_url = build_dict["data"]["room"]["stream_url"]["flv_pull_url"]["FULL_HD1"]
-      elif self.hls_clarity == 1 and build_dict["data"]["room"]["stream_url"]["hls_pull_url_map"]["FULL_HD1"] is not None:
-        self.live_stream_url = build_dict["data"]["room"]["stream_url"]["hls_pull_url_map"]["FULL_HD1"]
-      ##
-      ## HD1
-      ##
-      elif flv_clarity == 2 and build_dict["data"]["room"]["stream_url"]["flv_pull_url"]["HD1"] is not None:
-        self.live_stream_url = build_dict["data"]["room"]["stream_url"]["flv_pull_url"]["HD1"]
-      elif self.hls_clarity == 2 and build_dict["data"]["room"]["stream_url"]["hls_pull_url_map"]["HD1"] is not None:
-        self.live_stream_url = build_dict["data"]["room"]["stream_url"]["hls_pull_url_map"]["HD1"]
-      ##
-      ## SD1
-      ##
-      elif flv_clarity == 3 and build_dict["data"]["room"]["stream_url"]["flv_pull_url"]["SD1"] is not None:
-        self.live_stream_url = build_dict["data"]["room"]["stream_url"]["flv_pull_url"]["SD1"]
-      elif self.hls_clarity == 3 and build_dict["data"]["room"]["stream_url"]["hls_pull_url_map"]["SD1"] is not None:
-        self.live_stream_url = build_dict["data"]["room"]["stream_url"]["hls_pull_url_map"]["SD1"]
-      ##
-      ## SD2
-      ##
-      elif flv_clarity == 4 and build_dict["data"]["room"]["stream_url"]["flv_pull_url"]["SD2"] is not None:
-        self.live_stream_url = build_dict["data"]["room"]["stream_url"]["flv_pull_url"]["SD2"]
-      elif self.hls_clarity == 4 and build_dict["data"]["room"]["stream_url"]["hls_pull_url_map"]["SD2"] is not None:
-        self.live_stream_url = build_dict["data"]["room"]["stream_url"]["hls_pull_url_map"]["SD2"]
-    except Exception as e:
-       raise e
-     
-    ##
-    ## catch live stream name
-    ##
-    try:
-      live_stream_name = re.search(LIVE_STREAM_FILE_NAME_RE, self.live_stream_url).group(1)
-    except AttributeError:
-      raise TypeError
-    except Exception as e:
-      raise e
-    return self.live_stream_url, live_stream_name
+  def get_flv_pull_url(self, response, flv_clarity, hls_clarity=None):
+    clarity_names = {
+      1: "FULL_HD1",
+      2: "HD1",
+      3: "SD1",
+      4: "SD2",
+    }
+    stream_url = response.json()["data"]["room"]["stream_url"]
+    configured_clarity = clarity_names.get(flv_clarity)
+    if configured_clarity is None:
+      raise ValueError("Unsupported FLV clarity: {}".format(flv_clarity))
+
+    flv_urls = stream_url.get("flv_pull_url", {})
+    fallback_order = [
+      configured_clarity,
+      *[
+        clarity
+        for clarity in clarity_names.values()
+        if clarity != configured_clarity
+      ],
+    ]
+    live_stream_url = next(
+      (flv_urls.get(clarity) for clarity in fallback_order if flv_urls.get(clarity)),
+      None,
+    )
+    if not live_stream_url:
+      raise ValueError("No usable FLV live stream URL found")
+
+    match = re.search(LIVE_STREAM_FILE_NAME_RE, live_stream_url)
+    if match is None:
+      raise ValueError("Live stream URL does not contain a media file name")
+    return live_stream_url, match.group(1)
 
   def get_hls_pull_url(self, response):
      pass

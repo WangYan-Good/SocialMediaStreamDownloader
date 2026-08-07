@@ -3,6 +3,7 @@
 
 ##<<Base>>
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from pathlib import Path
 
 ##<<Extension>>
@@ -28,11 +29,14 @@ class Header(ABC):
   ##
   ## Initialize header and constrcut
   ##
-  def __init__(self, header_path:Path|str = None) -> None:
+  def __init__(self, header_path:Path|str|dict = None) -> None:
     if header_path is None:
       raise FileNotFoundError
     
     try:
+      if isinstance(header_path, dict):
+        self._header = deepcopy(header_path)
+        return
       if isinstance(header_path, str) is True:
         header_path = Path(header_path)
       ##

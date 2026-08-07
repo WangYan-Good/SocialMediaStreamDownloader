@@ -27,7 +27,7 @@ class DouyinHeader(Header):
   ##
   ## init
   ##
-  def __init__(self, header_path: Path | str = None) -> None:
+  def __init__(self, header_path: Path | str | dict = None) -> None:
     if header_path is None:
       get_logger().warning("invalid config, use default douyin header config")
       header_path = DEFAULT_HEADER_PATH
@@ -110,7 +110,7 @@ class DouyinShareHeader(DouyinHeader):
   ##
   ## Initialize header and constrcut
   ##
-  def __init__(self, header_path: Path | str = None) -> None:
+  def __init__(self, header_path: Path | str | dict = None) -> None:
     super().__init__(header_path)
 
 ##
@@ -184,7 +184,7 @@ class DouyinLiveInfoHeader(DouyinHeader):
   ##
   ## init
   ##
-  def __init__(self, header_path: Path | str = None) -> None:
+  def __init__(self, header_path: Path | str | dict = None) -> None:
     super().__init__(header_path)
 
 ##

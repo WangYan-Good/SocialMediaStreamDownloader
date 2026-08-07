@@ -5,6 +5,7 @@
 import os
 import sys
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from pathlib import Path
 
 ##<<Extension>>
@@ -61,7 +62,7 @@ class Login(ABC):
   ##
   ## Initialize and construc class
   ##
-  def __init__(self, path: Path|str = None):
+  def __init__(self, path: Path|str|dict = None):
     if path is None:
       get_logger().warning("invalid input path, will use default path")
       path = DEFAULT_BASE_CONFIG_PATH
@@ -72,7 +73,10 @@ class Login(ABC):
     if isinstance(path, str) is True:
       path = Path(path)
     try:
-      self.__login = self.parse_config(path)
+      if isinstance(path, dict):
+        self.__login = deepcopy(path)
+      else:
+        self.__login = self.parse_config(path)
       self.__dict__.update(self.__login)
     except Exception as e:
       get_logger().error("Login init failed: {}".format(e))

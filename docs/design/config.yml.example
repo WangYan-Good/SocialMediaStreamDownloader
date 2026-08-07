@@ -1,38 +1,263 @@
-environment: development/production   # 运行环境
 database:
-  enable: true                        # 数据库开关
-  name: smsd                          # 数据库名
-  host: localhost                     # 数据库 URI
-  port: 3306                          # 数据库端口
-  username: root                      # 数据库用户名
-  password: password                  # 数据库密码
-
+  enable: true
+  name: smsd
+  host: localhost
+  port: 3306
+  username: <user_name>
+  password: <password>
 download:
-  save_path: ./downloads              # 保存路径
-  folderize: true                     # 是否按照文件夹保存
-  max_threads: 0                      # 下载线程数，当为 0 时，将不做下载数量限制
-  max_retry: 3                        # 最大重试次数
-  save_response: false                # 是否保存下载过程中服务器响应内容
-  save_error_response: true           # 下载失败时是否保存错误响应内容
-  test_mode: false                    # 测试模式：该模式下不会下载数据，仅会执行下载流程
-  listening: false                    # 监听下载列表，当为 True 时，会不断监听列表
-  tick_naming: true                   # 下载文件名前面加上时间
-  user_login: false                   # 是否需要用户登录才能下载
-
+  save_path: ./downloads
+  folderize: true
+  max_threads: 0
+  max_retry: 3
+  save_response: false
+  save_error_response: true
+  test_mode: false
+  listening: false
+  tick_naming: true
+  user_login: false
 log:
-  log_enable: true                    # 日志打印开关
-  log_level: INFO                     # 日志等级
-  log_save: true                      # 日志保存开关
-  log_file_path: ./logs/server.log    # 日志保存位置
-
+  log_enable: true
+  log_level: INFO
+  log_save: true
+  log_file_path: ./logs/server.log
 server:
-  host: 0.0.0.0                       # 主机
-  port: 5000                          # 端口
-  debug_mode: true                    # 是否启用调试模式（生产环境必须设为 false）
-
+  host: 0.0.0.0
+  port: 5000
+  debug_mode: true
 migrate:
   source_db_name: smsd_old
   source_db_host: localhost
   source_db_port: 3306
   source_db_username: <user_name>
   source_db_password: <password>
+platform:
+  douyin:
+    download:
+      type: live
+      multiple_download: true
+      share_url_file: conf.ini
+    api:
+      DOUYIN_DOMAIN: https://www.douyin.com
+      IESDOUYIN_DOMAIN: https://www.iesdouyin.com
+      IESDOUYIN_HEADER_REFERER: https://www.iesdouyin.com/share/user/
+      LIVE_DOMAIN: https://live.douyin.com
+      LIVE_DOMAIN2: https://webcast.amemv.com
+      SSO_DOMAIN: https://sso.douyin.com
+      WEBCAST_WSS_DOMAIN: wss://webcast5-ws-web-lf.douyin.com
+      TAB_FEED: https://www.douyin.com/aweme/v1/web/tab/feed/
+      USER_SHORT_INFO: https://www.douyin.com/aweme/v1/web/im/user/info/
+      USER_DETAIL: https://www.douyin.com/aweme/v1/web/user/profile/other/
+      BASE_AWEME: https://www.douyin.com/aweme/v1/web/aweme/
+      USER_POST: https://www.douyin.com/aweme/v1/web/aweme/post/
+      IESDOUYIN_USER_POST: https://www.iesdouyin.com/web/api/v2/aweme/post/
+      LOCATE_POST: https://www.douyin.com/aweme/v1/web/locate/post/
+      POST_SEARCH: https://www.douyin.com/aweme/v1/web/general/search/single/
+      POST_DETAIL: https://www.douyin.com/aweme/v1/web/aweme/detail/
+      USER_FAVORITE_A: https://www.douyin.com/aweme/v1/web/aweme/favorite/
+      USER_FAVORITE_B: https://www.iesdouyin.com/web/api/v2/aweme/like/
+      USER_FOLLOWING: https://www.douyin.com/aweme/v1/web/user/following/list/
+      USER_FOLLOWER: https://www.douyin.com/aweme/v1/web/user/follower/list/
+      MIX_AWEME: https://www.douyin.com/aweme/v1/web/mix/aweme/
+      USER_HISTORY: https://www.douyin.com/aweme/v1/web/history/read/
+      USER_COLLECTION: https://www.douyin.com/aweme/v1/web/aweme/listcollection/
+      USER_COLLECTS: https://www.douyin.com/aweme/v1/web/collects/list/
+      USER_COLLECTS_VIDEO: https://www.douyin.com/aweme/v1/web/collects/video/list/
+      USER_MUSIC_COLLECTION: https://www.douyin.com/aweme/v1/web/music/listcollection/
+      FRIEND_FEED: https://www.douyin.com/aweme/v1/web/familiar/feed/
+      FOLLOW_FEED: https://www.douyin.com/aweme/v1/web/follow/feed/
+      POST_RELATED: https://www.douyin.com/aweme/v1/web/aweme/related/
+      FOLLOW_USER_LIVE: https://www.douyin.com/webcast/web/feed/follow/
+      LIVE_INFO: https://live.douyin.com/webcast/room/web/enter/
+      LIVE_INFO_ROOM_ID: https://webcast.amemv.com/webcast/room/reflow/info/
+      LIVE_USER_INFO: https://live.douyin.com/webcast/user/me/
+      SUGGEST_WORDS: https://www.douyin.com/aweme/v1/web/api/suggest_words/
+      SSO_LOGIN_GET_QR: https://sso.douyin.com/get_qrcode/
+      SSO_LOGIN_CHECK_QR: https://sso.douyin.com/check_qrconnect/
+      SSO_LOGIN_CHECK_LOGIN: https://sso.douyin.com/check_login/
+      SSO_LOGIN_REDIRECT: https://www.douyin.com/login/
+      SSO_LOGIN_CALLBACK: https://www.douyin.com/passport/sso/login/callback/
+      POST_COMMENT: https://www.douyin.com/aweme/v1/web/comment/list/
+      POST_COMMENT_PUBLISH: https://www.douyin.com/aweme/v1/web/comment/publish
+      POST_COMMENT_DELETE: https://www.douyin.com/aweme/v1/web/comment/delete/
+      POST_COMMENT_DIGG: https://www.douyin.com/aweme/v1/web/comment/digg
+    headers:
+      share_live_url:
+        accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+        accept-encoding: gzip, deflate, br, zstd
+        accept-language: en-US,en;q=0.9
+        cookie: null
+        priority: u=0, i
+        sec-ch-ua: '"Not)A;Brand";v="99", "Google Chrome";v="127", "Chromium";v="127"'
+        sec-ch-ua-mobile: ?0
+        sec-ch-ua-platform: Windows
+        sec-fetch-dest: document
+        sec-fetch-mode: navigate
+        sec-fetch-site: none
+        sec-fetch-user: ?1
+        upgrade-insecure-requests: '1'
+        user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
+          like Gecko) Chrome/127.0.0.0 Safari/537.36
+      live_room_info:
+        accept: application/json, text/plain, */*
+        accept-encoding: gzip, deflate, br, zstd
+        accept-language: en-US,en;q=0.9
+        cookie: null
+        priority: u=1, i
+        Referer: https://www.douyin.com/
+        Sec-Ch-Ua: '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"'
+        Sec-Ch-Ua-Mobile: ?0
+        Sec-Ch-Ua-Platform: Windows
+        Sec-Fetch-Dest: empty
+        Sec-Fetch-Mode: cors
+        Sec-Fetch-Site: same-origin
+        user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
+          like Gecko) Chrome/126.0.0.0 Safari/537.36
+      post_info:
+        accept: application/json, text/plain, */*
+        accept-encoding: gzip, deflate, br, zstd
+        accept-language: en-US,en;q=0.9
+        cookie: null
+        priority: u=1, i
+        referer: https://www.douyin.com/
+        sec-ch-ua: '"Not)A;Brand";v="99", "Google Chrome";v="127", "Chromium";v="127"'
+        sec-ch-ua-mobile: ?0
+        sec-ch-ua-platform: Windows
+        sec-fetch-dest: empty
+        sec-fetch-mode: cors
+        sec-fetch-site: same-origin
+        user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
+          like Gecko) Chrome/127.0.0.0 Safari/537.36
+      share_live_url_no_login:
+        accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+        accept-encoding: gzip, deflate, br, zstd
+        accept-language: en-US,en;q=0.9,zh;q=0.8
+        cookie: null
+        priority: u=0, i
+        sec-ch-ua: '"Chromium";v="128", "Not;A=Brand";v="24", "Microsoft Edge";v="128"'
+        sec-ch-ua-mobile: ?0
+        sec-ch-ua-platform: Windows
+        sec-fetch-dest: document
+        sec-fetch-mode: navigate
+        sec-fetch-site: none
+        sec-fetch-user: ?1
+        upgrade-insecure-requests: '1'
+        user-agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+          (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 Edg/128.0.0.0 '
+      live_room_info_no_login:
+        accept: application/json, text/plain, */*
+        accept-encoding: gzip, deflate, br, zstd
+        accept-language: en-US,en;q=0.9,zh;q=0.8
+        cookie: null
+        priority: u=1, i
+        sec-ch-ua: '"Chromium";v="128", "Not;A=Brand";v="24", "Microsoft Edge";v="128"'
+        sec-ch-ua-mobile: ?0
+        sec-ch-ua-platform: Windows
+        sec-fetch-dest: empty
+        sec-fetch-mode: cors
+        sec-fetch-site: same-origin
+        user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
+          like Gecko) Chrome/128.0.0.0 Safari/537.36 Edg/128.0.0.0
+        content-type: application/json; charset=utf-8
+      post_info_no_login:
+        accept: application/json, text/plain, */*
+        accept-encoding: gzip, deflate, br, zstd
+        accept-language: en-US,en;q=0.9
+        Agw-Js-Conv: str
+        cookie: null
+        priority: u=1, i
+        Referer: https://www.iesdouyin.com/
+        Sec-Ch-Ua: '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"'
+        Sec-Ch-Ua-Mobile: ?1
+        Sec-Ch-Ua-Platform: Android
+        Sec-Fetch-Dest: empty
+        Sec-Fetch-Mode: cors
+        Sec-Fetch-Site: same-origin
+        User-Agent: Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36
+          (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36
+    login:
+      msToken: null
+      magic: null
+      version: null
+      dataType: null
+      strData: null
+      tspFromClient: null
+      proxies:
+        http: null
+        https: null
+    post:
+      MAX_TIMEOUT: 10
+      MAX_COUNT_WITHOUT_LOGIN: 15
+      MAX_COUNT_WITH_LOGIN: 18
+      device_platform: webapp
+      aid: 6383
+      channel: channel_pc_web
+      sec_user_id: null
+      max_cursor: 0
+      locate_query: false
+      show_live_replay_strategy: 1
+      need_time_list: 1
+      time_list_query: 0
+      whale_cut_token: null
+      cut_version: 1
+      count: 18
+      publish_video_strategy_type: 2
+      update_version_code: 170400
+      pc_client_type: 1
+      version_code: 290100
+      version_name: 29.1.0
+      cookie_enabled: true
+      screen_width: 1920
+      screen_height: 1080
+      browser_language: en-US
+      browser_platform: Win32
+      browser_name: Chrome
+      browser_version: 126.0.0.0
+      browser_online: true
+      engine_name: Blink
+      engine_version: 126.0.0.0
+      os_name: Windows
+      os_version: 10
+      cpu_core_num: 8
+      device_memory: 8
+      platform: PC
+      downlink: 10
+      effective_type: 4g
+      round_trip_time: 150
+      webid: null
+      verifyFp: null
+      fp: null
+      msToken: null
+      a_bogus: null
+      reflow_source: reflow_page
+      web_id: null
+      device_id: null
+      sec_uid: null
+      reflow_id: null
+    live:
+      live_api: https://live.douyin.com/webcast/room/web/enter/
+      live_api_share: https://webcast.amemv.com/webcast/room/reflow/info/
+      flv_clarity: 1
+      hls_clarity: 1
+      params:
+        type_id: '0'
+        live_id: '1'
+        room_id: null
+        sec_user_id: null
+        version_code: 99.99.99
+        app_id: '1128'
+        x_bogus: null
+        msToken: null
+        a_bogus: null
+        verifyFp: null
+      params_no_login:
+        verifyFp: null
+        type_id: '0'
+        live_id: '1'
+        room_id: null
+        sec_user_id: null
+        version_code: 99.99.99
+        app_id: '1128'
+        msToken: null
+        X-Bogus: null
+      max_timeout: 10

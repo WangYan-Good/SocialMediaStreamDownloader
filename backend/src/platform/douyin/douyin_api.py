@@ -5,11 +5,13 @@ sys.path.append(os.getcwd())
 ##>>Test
 ##<<Extension>>
 import yaml as yml
+from copy import deepcopy
 
 ##<<Third-part>>
 from pathlib                     import Path
 from backend.src.base.api        import Api
 from backend.src.library.baselib import get_dict_attr
+from backend.src.library.configlib import load_config
 from backend.src.library.loglib  import get_logger
 
 
@@ -23,16 +25,17 @@ class DouyinApi(Api):
 ##
 ## >>============================= private method =============================>>
 ##
-  def __init__(self, path: Path | str = None) -> None:
+  def __init__(self, path: Path | str | dict = None) -> None:
     if path is None:
-      get_logger().warning("invalid api config path, will use default api config")
-      path = DEFAULT_API_CONFIG_PATH
+      path = get_dict_attr(load_config(), "$.platform.douyin.api")
+      if not isinstance(path, dict):
+        raise ValueError("Unified Douyin API config must be a mapping")
     super().__init__(path)
 
-    ##
-    ## parse api path
-    ##
-    self.__parse_api(path=Path(path))
+    if isinstance(path, dict):
+      self.__api = deepcopy(path)
+    else:
+      self.__parse_api(path=Path(path))
 
     ##
     ## transform dict to attribute
