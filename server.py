@@ -18,6 +18,7 @@ from werkzeug.exceptions import BadRequest
 from backend.src.library.loglib    import get_logger
 from backend.src.library.configlib import load_config
 from backend.src.base.log import LoggerManager
+from backend.src.database.schema_guard import initialize_schema_guard
 from backend.src.platform.platform_dispatcher import PlatformDispatcher
 
 def _server_options(config: dict) -> dict:
@@ -36,7 +37,13 @@ def _server_options(config: dict) -> dict:
   return {"host": host, "port": port, "debug": debug_mode}
 
 
-def _new_flask_app(dispatcher=None, request_logger=None, lazy_config=False):
+def _new_flask_app(
+  dispatcher=None,
+  request_logger=None,
+  lazy_config=False,
+  schema_guard_factory=initialize_schema_guard,
+  initial_schema_guard=None,
+):
   configured_app = Flask(
     __name__,
     static_folder="./frontend/src/static",
@@ -47,6 +54,8 @@ def _new_flask_app(dispatcher=None, request_logger=None, lazy_config=False):
     "logger": request_logger or logging.getLogger("bootstrap"),
     "initialized": not lazy_config,
   }
+  if initial_schema_guard is not None:
+    configured_app.extensions["smsd_schema_guard"] = initial_schema_guard
   initialization_lock = threading.Lock()
 
   def initialize_runtime():
@@ -58,11 +67,13 @@ def _new_flask_app(dispatcher=None, request_logger=None, lazy_config=False):
       source = load_config()
       options = _server_options(source)
       LoggerManager(source["log"])
+      schema_guard = schema_guard_factory(source)
       configured_dispatcher = PlatformDispatcher()
       configured_dispatcher.register()
       runtime["dispatcher"] = configured_dispatcher
       runtime["logger"] = get_logger()
       configured_app.debug = options["debug"]
+      configured_app.extensions["smsd_schema_guard"] = schema_guard
       runtime["initialized"] = True
 
   @configured_app.before_request
@@ -185,15 +196,24 @@ def _new_flask_app(dispatcher=None, request_logger=None, lazy_config=False):
 app = _new_flask_app(lazy_config=True)
 
 
-def create_app(config: dict = None, dispatcher=None):
+def create_app(
+  config: dict = None,
+  dispatcher=None,
+  schema_guard_factory=initialize_schema_guard,
+):
   source = load_config() if config is None else config
   options = _server_options(source)
   LoggerManager(source["log"])
+  schema_guard = schema_guard_factory(source)
   configured_dispatcher = (
     dispatcher if dispatcher is not None else PlatformDispatcher()
   )
   configured_dispatcher.register()
-  configured_app = _new_flask_app(configured_dispatcher, get_logger())
+  configured_app = _new_flask_app(
+    configured_dispatcher,
+    get_logger(),
+    initial_schema_guard=schema_guard,
+  )
   configured_app.debug = options["debug"]
   return configured_app
 

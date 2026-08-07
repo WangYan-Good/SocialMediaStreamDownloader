@@ -18,6 +18,10 @@ from dbutils.pooled_db   import PooledDB
 from backend.src.library.baselib import output_dict
 from backend.src.library.loglib  import get_logger
 from backend.src.library.baselib import set_dict_attr
+from backend.src.database.schema_guard import (
+  require_database_write_ready,
+  require_runtime_schema_mutation_allowed,
+)
 
 class SocialMediaStreamDataBase():
 ##
@@ -252,6 +256,8 @@ class SocialMediaStreamDataBase():
   ## drop database table
   ##
   def drop_db_table(self, table_name:str) -> None:
+    require_runtime_schema_mutation_allowed()
+    require_database_write_ready()
     try:
       sql = '''DROP TABLE IF EXISTS {};'''.format(table_name)
       with self.get_connection() as conn:
@@ -261,6 +267,12 @@ class SocialMediaStreamDataBase():
     except Exception as e:
       get_logger().error("ERROR: drop database table {} is failed! reason: {}".format(table_name, e))
       raise e
+
+  def require_write_ready(self) -> None:
+    require_database_write_ready()
+
+  def require_schema_mutation_allowed(self) -> None:
+    require_runtime_schema_mutation_allowed()
 
   ##
   ## check if table exists

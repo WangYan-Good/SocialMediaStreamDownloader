@@ -7,7 +7,7 @@ from re import compile
 
 ## <<Base>>
 from random import randint
-from time import sleep
+from time import monotonic, sleep
 from pathlib import Path
 from requests import request, exceptions
 from urllib.parse import urlparse, parse_qs
@@ -29,6 +29,8 @@ from backend.src.platform.douyin.douyin_live_external_info  import LiveExternal
 from backend.src.platform.douyin.douyin_api                 import DouyinApi
 from backend.src.database.table.share_url                   import DouyinShareUrlTable
 from backend.src.database.table.table_import                import import_douyin_live_info_to_database
+from backend.src.database.schema_guard                      import DatabaseWriteBlocked, get_schema_guard, initialize_schema_guard
+from backend.src.library.configlib                          import load_config
 from backend.src.library.loglib                             import get_logger
 
 ## TODO
@@ -60,6 +62,10 @@ class DouyinLiveDownloader(Downloader):
 ##
   def __init__(self, config: dict = None) -> None:
     self.database = None
+    self._database_warning_state = None
+    self._database_clock = monotonic
+    self._database_retry_at = 0.0
+    self._database_retry_seconds = 30.0
     self._actived_task_number = 0
     self._lock = Lock()
     self.construct_aggregation_class(config)
@@ -149,21 +155,7 @@ class DouyinLiveDownloader(Downloader):
       self.live_douyin_listener = DouyinLiveListener()
       self._lock                = Lock()
       
-      if self.config.get_config_dict_attr("$.database.enable") is True:
-        try:
-          self.database = DouyinShareUrlTable(
-            host=self.config.get_config_dict_attr("$.database.host"),
-            user=self.config.get_config_dict_attr("$.database.username"),
-            passwd=self.config.get_config_dict_attr("$.database.password"),
-            database=self.config.get_config_dict_attr("$.database.name"),
-          )
-        except Exception as e:
-          self.database = None
-          get_logger().warning(
-            "database unavailable, continue live download without persistence: {}".format(e)
-          )
-      else:
-        self.database             = None
+      self._database_if_ready()
 
       ##
       ## initialize all member
@@ -489,7 +481,7 @@ class DouyinLiveDownloader(Downloader):
       ##
       ## save share url information into database
       ##
-      if self.database is not None:
+      if self._database_if_ready() is not None:
         try:
           self._persist_live_metadata(
             token,
@@ -501,7 +493,7 @@ class DouyinLiveDownloader(Downloader):
           get_logger().warning(
             "database persistence failed, continue live download: {}".format(e)
           )
-          self.database = None
+          self._mark_database_unavailable()
 
       ##
       ## try to download stream url
@@ -568,6 +560,61 @@ class DouyinLiveDownloader(Downloader):
         origin_score = self.database.get_owner_score_by_user_id(owner_user_id)
         if origin_score != int(score):
           self.database.update_owner_score(owner_user_id, score)
+
+  def _new_database(self):
+    return DouyinShareUrlTable(
+      host=self.config.get_config_dict_attr("$.database.host"),
+      user=self.config.get_config_dict_attr("$.database.username"),
+      passwd=self.config.get_config_dict_attr("$.database.password"),
+      database=self.config.get_config_dict_attr("$.database.name"),
+    )
+
+  def _mark_database_unavailable(self):
+    self.database = None
+    self._database_retry_at = (
+      self._database_clock() + self._database_retry_seconds
+    )
+
+  def _database_for_read(self):
+    if self.database is not None:
+      return self.database
+    if self.config.get_config_dict_attr("$.database.enable") is not True:
+      return None
+    if self.database is None:
+      now = self._database_clock()
+      if now < self._database_retry_at:
+        return None
+      try:
+        self.database = self._new_database()
+        self._database_retry_at = 0.0
+        if self._database_warning_state == "unavailable":
+          self._database_warning_state = None
+      except Exception:
+        self._mark_database_unavailable()
+        if self._database_warning_state != "unavailable":
+          get_logger().warning(
+            "database unavailable, continue live download without database reads"
+          )
+          self._database_warning_state = "unavailable"
+    return self.database
+
+  def _database_if_ready(self):
+    if self.config.get_config_dict_attr("$.database.enable") is not True:
+      return None
+    guard = get_schema_guard()
+    if guard is not None:
+      try:
+        guard.require_write_ready()
+      except DatabaseWriteBlocked:
+        snapshot = guard.snapshot
+        state = "blocked" if snapshot is None else snapshot.state.value
+        if self._database_warning_state != state:
+          get_logger().warning(
+            "database persistence is {}, continue live download".format(state)
+          )
+          self._database_warning_state = state
+        return None
+    return self._database_for_read()
 
   def acquire(self):
     self._lock.acquire()
@@ -686,21 +733,22 @@ class DouyinLiveDownloader(Downloader):
     ## if database is enable, then get the directory name from database
     ##
     directory_name = get_dict_attr(params, "$.summary.directory_name")
-    if self.database is not None:
+    database = self._database_for_read()
+    if database is not None:
       try:
         owner_user_id = get_dict_attr(
           params,
           "$.external_info.data.room.owner_user_id",
         )
-        if self.database.is_owner_user_id_record_exist(owner_user_id) is True:
-          directory_name = self.database.get_directory_name_by_owner_user_id(
+        if database.is_owner_user_id_record_exist(owner_user_id) is True:
+          directory_name = database.get_directory_name_by_owner_user_id(
             owner_user_id
           )
       except Exception as e:
         get_logger().warning(
           "database directory lookup failed, use live nickname: {}".format(e)
         )
-        self.database = None
+        self._mark_database_unavailable()
     save_dir    = self.config.get_config_dict_attr("$.download.save_path")+"/douyin/" + self.config.get_config_dict_attr("$.platform.douyin.download.type") + "/" + directory_name
     
     ##
@@ -878,9 +926,15 @@ def download_live_stream_by_score():
   token = dict()
   if downloader.config.get_config_dict_attr("$.server.debug_mode") is True:
     downloader.dump_config()
-  favorite_list = downloader.database.get_douyin_favorite_live_url()
+  database = downloader._database_for_read()
+  if database is None:
+    get_logger().warning("database unavailable, skip score-based URL lookup")
+    return
+  favorite_list = database.get_douyin_favorite_live_url()
   for url in favorite_list:
-    token["url"] = url[0]
+    token["url"] = (
+      url.get("live_share_url") if isinstance(url, dict) else url[0]
+    )
     token["score"] = None
     token["favorite"] = False
     item = ListenerItem(func=downloader.run, args=(token.copy(),))
@@ -888,6 +942,12 @@ def download_live_stream_by_score():
     downloader.live_douyin_listener.add_sub_task(item)
     if downloader.live_douyin_listener.is_patrolman_actived() is not True:
       downloader.live_douyin_listener.start()
+
+
+def run_score_download_entrypoint():
+  config = load_config()
+  initialize_schema_guard(config)
+  download_live_stream_by_score()
 ##
 ## test: download a live stream by url
 ##
@@ -901,4 +961,4 @@ def download_live_test(urls: list[str]):
 if __name__ == "__main__":
   # download_live()
   # download_live_test()
-  download_live_stream_by_score()
+  run_score_download_entrypoint()

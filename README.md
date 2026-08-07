@@ -45,6 +45,42 @@ chmod 600 config/config.yml
 4. 使用 `config/config.yml` 中的 `server.port` 打开网页，在输入框添加分享链接即可下载
 ![web-UI](./docs/media/web-ui.PNG)
 
+## 数据库结构迁移
+
+数据库启用时，先显式确认 schema 状态；服务启动不会自动建表或执行迁移：
+
+```shell
+python -m backend.src.database.migration_cli status
+python -m backend.src.database.migration_cli check
+```
+
+新数据库使用：
+
+```shell
+python -m backend.src.database.migration_cli upgrade
+```
+
+已有数据库必须先通过 `check`，备份并人工复核后，才可纳入当前基线：
+
+```shell
+python -m backend.src.database.migration_cli stamp
+```
+
+其余显式命令为：
+
+```shell
+python -m backend.src.database.migration_cli downgrade REVISION --confirm-database DATABASE_NAME
+python -m backend.src.database.migration_cli revision "change description"
+```
+
+`stamp` 只写 Alembic 版本，不执行建表或 `ALTER`，但只有 12 张受管表的严格结构校验
+全部通过时才会执行。`upgrade` 会拒绝含受管表但尚未版本化的数据库，已有库必须走
+`check + stamp`。非临时库执行 `downgrade` 必须用实际库名进行显式确认；基线
+revision 的任何降级路径（包括 `base`、`-1` 等等价写法）只允许通过显式数据库名 override
+创建且严格命名的临时迁移测试库。所有降级操作前必须备份并人工审查 revision。
+运行时状态为 `ready` 时才允许持久化写入；`unavailable` 或 `blocked` 不阻断 live 网络请求
+和流下载，但会跳过数据库写入。
+
 ## 方式二：Docker Compose
 
 完成同一份 `config/config.yml` 后，通过包装脚本启动：
@@ -66,6 +102,7 @@ chmod 600 config/config.yml
 
 - 保持 `config/config.yml` 权限最小化，并定期轮换数据库密码、Cookie 和 Token。
 - 不要将真实配置复制进镜像、日志、Issue 或测试 fixture。
+- Alembic 配置不保存数据库 URL；迁移命令只从统一 YAML 在内存中构造连接。
 - 仓库历史中曾暴露的凭据需要在外部完成轮换；本项目不会自动重写 Git 历史。
 
 # ⚠️ 免责声明\(Disclaimers\)

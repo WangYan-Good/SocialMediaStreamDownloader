@@ -82,6 +82,7 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
   ## update live share url record
   ##
   def update_live_share_url_record(self, record:dict):
+    self.require_write_ready()
     try:
       db_result_record = list()
       ##
@@ -173,6 +174,7 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
   ## create a share url record
   ##
   def insert_live_share_url_record(self, record:dict):
+    self.require_write_ready()
     try:        
       ##
       ## check if the primary key is exist
@@ -362,6 +364,7 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
   ## increment live actived count
   ##
   def increment_live_actived_count(self, owner_user_id:str):
+    self.require_write_ready()
     try:
       
       ##
@@ -472,6 +475,7 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
   ## insert douyin platform favorite owner score
   ##
   def insert_owner_score(self, owner_user_id:str, platform:str="douyin", score:int=0):
+    self.require_write_ready()
     sql = '''
           insert into favorite_owner (owner_user_id, platform, score)
           values ("{}", "{}", {})
@@ -511,6 +515,7 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
   ## update douyin platform favorite owner score
   ##
   def update_owner_score(self, owner_user_id:str, score:int, platform:str="douyin"):
+    self.require_write_ready()
     sql = '''
           update favorite_owner
           set score = {}

@@ -28,6 +28,51 @@ class FalseyDispatcher(FakeDispatcher):
 
 
 class ServerConfigTest(unittest.TestCase):
+  def test_create_app_initializes_schema_guard_before_dispatcher(self):
+    config = unified_config()
+    events = []
+
+    class OrderedDispatcher(FakeDispatcher):
+      def register(self):
+        events.append("dispatcher")
+        super().register()
+
+    guard = object()
+
+    def guard_factory(received_config):
+      self.assertIs(config, received_config)
+      events.append("guard")
+      return guard
+
+    app = server.create_app(
+      config,
+      OrderedDispatcher(),
+      schema_guard_factory=guard_factory,
+    )
+
+    self.assertEqual(["guard", "dispatcher"], events)
+    self.assertIs(guard, app.extensions["smsd_schema_guard"])
+
+  def test_lazy_app_guard_failure_state_does_not_block_dispatch(self):
+    config = unified_config()
+    dispatcher = FakeDispatcher()
+    guard = object()
+    app = server._new_flask_app(
+      lazy_config=True,
+      schema_guard_factory=lambda unused: guard,
+    )
+
+    with patch.object(server, "load_config", return_value=config), patch.object(
+      server, "PlatformDispatcher", return_value=dispatcher
+    ):
+      response = app.test_client().post(
+        "/", json={"urls": ["https://v.douyin.com/guard/"]}
+      )
+
+    self.assertEqual(200, response.status_code)
+    self.assertEqual(1, dispatcher.register_calls)
+    self.assertIs(guard, app.extensions["smsd_schema_guard"])
+
   def test_wsgi_app_lazily_initializes_once_on_first_get(self):
     config = unified_config()
     dispatcher = FakeDispatcher()

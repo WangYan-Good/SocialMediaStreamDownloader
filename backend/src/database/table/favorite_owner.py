@@ -77,6 +77,7 @@ class FavoriteOwnerTable(SocialMediaStreamDataBase):
   ## create favorite owner table
   ##
   def create_favorite_owner_table(self) -> None:
+    self.require_schema_mutation_allowed()
     with self.get_connection() as connector:
       with connector.cursor() as cursor:
         cursor.execute(self.__SQL_CREATE_FAVORITE_OWNER_TABLE)
@@ -86,6 +87,7 @@ class FavoriteOwnerTable(SocialMediaStreamDataBase):
   ## drop favorite owner table
   ##
   def drop_favorite_owner_table(self) -> None:
+    self.require_schema_mutation_allowed()
     with self.get_connection() as connector:
       with connector.cursor() as cursor:
         cursor.execute(self.__SQL_DROP_FAVORITE_OWNER_TABLE)
