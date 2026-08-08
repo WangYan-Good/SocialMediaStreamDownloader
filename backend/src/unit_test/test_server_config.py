@@ -1,9 +1,11 @@
 import importlib
 import os
+import signal
 import unittest
 from unittest.mock import patch
 
 from backend.src.unit_test.config_fixture import unified_config
+from backend.src.platform.douyin import douyin_live_downloader as live_module
 import server
 
 
@@ -28,6 +30,41 @@ class FalseyDispatcher(FakeDispatcher):
 
 
 class ServerConfigTest(unittest.TestCase):
+  def test_cancel_live_downloads_does_not_construct_when_none_exists(self):
+    cancel = getattr(live_module, "cancel_live_downloads", None)
+    self.assertIsNotNone(cancel)
+
+    with patch.object(live_module, "downloader", None), patch.object(
+      live_module,
+      "get_live_downloader",
+      side_effect=AssertionError("cancellation must not construct downloader"),
+    ) as get_downloader:
+      cancel()
+
+    get_downloader.assert_not_called()
+
+  def test_cancel_live_downloads_cancels_existing_recorder_once(self):
+    cancel = getattr(live_module, "cancel_live_downloads", None)
+    self.assertIsNotNone(cancel)
+    cancel_calls = []
+
+    class Recorder:
+      def cancel_all(self):
+        cancel_calls.append("cancel")
+
+    class Downloader:
+      hls_recorder = Recorder()
+
+    with patch.object(live_module, "downloader", Downloader()), patch.object(
+      live_module,
+      "get_live_downloader",
+      side_effect=AssertionError("cancellation must use existing downloader"),
+    ) as get_downloader:
+      cancel()
+
+    get_downloader.assert_not_called()
+    self.assertEqual(["cancel"], cancel_calls)
+
   def test_create_app_initializes_schema_guard_before_dispatcher(self):
     config = unified_config()
     events = []
@@ -215,12 +252,212 @@ class ServerConfigTest(unittest.TestCase):
       "SERVER_HOST": "environment.invalid",
       "SERVER_PORT": "9999",
       "FLASK_DEBUG": "true",
-    }), patch.object(server, "create_app", return_value=App()):
+    }), patch.object(
+      server,
+      "create_app",
+      return_value=App(),
+    ), patch.object(server, "cancel_live_downloads") as cancel:
       server.run_server(config)
 
     self.assertEqual(captured, [{
       "host": "127.0.0.7", "port": 5102, "debug": False,
     }])
+    cancel.assert_called_once_with()
+
+  def test_run_server_sigterm_cancels_once_and_restores_handlers(self):
+    signal_module = getattr(server, "signal", None)
+    self.assertIsNotNone(signal_module)
+    self.assertTrue(hasattr(server, "cancel_live_downloads"))
+    config = unified_config()
+    events = []
+    prior_handlers = {
+      signal.SIGINT: object(),
+      signal.SIGTERM: object(),
+    }
+    active_handlers = dict(prior_handlers)
+
+    def install_handler(signum, handler):
+      previous = active_handlers[signum]
+      active_handlers[signum] = handler
+      events.append(("handler", signum, handler))
+      return previous
+
+    class App:
+      def run(self, **options):
+        events.append(("run", options))
+        active_handlers[signal.SIGTERM](signal.SIGTERM, None)
+
+    def cancel():
+      events.append(("cancel",))
+
+    with patch.object(server, "create_app", return_value=App()), patch.object(
+      signal_module,
+      "signal",
+      side_effect=install_handler,
+    ), patch.object(server, "cancel_live_downloads", side_effect=cancel):
+      with self.assertRaises(SystemExit) as raised:
+        server.run_server(config)
+
+    self.assertEqual(128 + signal.SIGTERM, raised.exception.code)
+    self.assertEqual(1, events.count(("cancel",)))
+    self.assertIs(prior_handlers[signal.SIGINT], active_handlers[signal.SIGINT])
+    self.assertIs(
+      prior_handlers[signal.SIGTERM],
+      active_handlers[signal.SIGTERM],
+    )
+    cancel_index = events.index(("cancel",))
+    restore_indices = [
+      index
+      for index, event in enumerate(events)
+      if event[0] == "handler" and event[2] in prior_handlers.values()
+    ]
+    self.assertTrue(all(cancel_index < index for index in restore_indices))
+
+  def test_run_server_normal_return_cancels_once_and_restores_handlers(self):
+    signal_module = getattr(server, "signal", None)
+    self.assertIsNotNone(signal_module)
+    self.assertTrue(hasattr(server, "cancel_live_downloads"))
+    config = unified_config()
+    events = []
+    prior_handlers = {
+      signal.SIGINT: object(),
+      signal.SIGTERM: object(),
+    }
+    active_handlers = dict(prior_handlers)
+
+    def install_handler(signum, handler):
+      previous = active_handlers[signum]
+      active_handlers[signum] = handler
+      events.append(("handler", signum, handler))
+      return previous
+
+    class App:
+      def run(self, **options):
+        events.append(("run", options))
+
+    with patch.object(server, "create_app", return_value=App()), patch.object(
+      signal_module,
+      "signal",
+      side_effect=install_handler,
+    ), patch.object(
+      server,
+      "cancel_live_downloads",
+      side_effect=lambda: events.append(("cancel",)),
+    ):
+      server.run_server(config)
+
+    self.assertEqual(1, events.count(("cancel",)))
+    self.assertIs(prior_handlers[signal.SIGINT], active_handlers[signal.SIGINT])
+    self.assertIs(
+      prior_handlers[signal.SIGTERM],
+      active_handlers[signal.SIGTERM],
+    )
+    run_index = next(
+      index for index, event in enumerate(events) if event[0] == "run"
+    )
+    cancel_index = events.index(("cancel",))
+    self.assertLess(run_index, cancel_index)
+
+  def test_run_server_sigterm_keeps_system_exit_when_cancellation_fails(self):
+    config = unified_config()
+    messages = []
+    prior_handlers = {
+      signal.SIGINT: object(),
+      signal.SIGTERM: object(),
+    }
+    active_handlers = dict(prior_handlers)
+
+    def install_handler(signum, handler):
+      previous = active_handlers[signum]
+      active_handlers[signum] = handler
+      return previous
+
+    class App:
+      def run(self, **options):
+        active_handlers[signal.SIGTERM](signal.SIGTERM, None)
+
+    class Logger:
+      def error(self, message):
+        messages.append(str(message))
+
+    def fail_cancellation():
+      raise RuntimeError("cancel-sensitive-marker")
+
+    caught = None
+    with patch.object(server, "create_app", return_value=App()), patch.object(
+      server.signal,
+      "signal",
+      side_effect=install_handler,
+    ), patch.object(
+      server,
+      "cancel_live_downloads",
+      side_effect=fail_cancellation,
+    ), patch.object(server, "get_logger", return_value=Logger()):
+      try:
+        server.run_server(config)
+      except BaseException as exc:
+        caught = exc
+
+    self.assertIsInstance(caught, SystemExit)
+    self.assertEqual(128 + signal.SIGTERM, caught.code)
+    self.assertIs(prior_handlers[signal.SIGINT], active_handlers[signal.SIGINT])
+    self.assertIs(
+      prior_handlers[signal.SIGTERM],
+      active_handlers[signal.SIGTERM],
+    )
+    self.assertEqual(1, len(messages))
+    self.assertIn("cancellation failed", messages[0])
+    self.assertNotIn("cancel-sensitive-marker", messages[0])
+
+  def test_run_server_keeps_app_error_when_cancellation_and_logging_fail(self):
+    config = unified_config()
+    expected_error = RuntimeError("app-sensitive-marker")
+    cancellation_calls = []
+    prior_handlers = {
+      signal.SIGINT: object(),
+      signal.SIGTERM: object(),
+    }
+    active_handlers = dict(prior_handlers)
+
+    def install_handler(signum, handler):
+      previous = active_handlers[signum]
+      active_handlers[signum] = handler
+      return previous
+
+    class App:
+      def run(self, **options):
+        raise expected_error
+
+    class FailingLogger:
+      def error(self, message):
+        raise RuntimeError("logger-sensitive-marker")
+
+    def fail_cancellation():
+      cancellation_calls.append("cancel")
+      raise RuntimeError("cancel-sensitive-marker")
+
+    caught = None
+    with patch.object(server, "create_app", return_value=App()), patch.object(
+      server.signal,
+      "signal",
+      side_effect=install_handler,
+    ), patch.object(
+      server,
+      "cancel_live_downloads",
+      side_effect=fail_cancellation,
+    ), patch.object(server, "get_logger", return_value=FailingLogger()):
+      try:
+        server.run_server(config)
+      except BaseException as exc:
+        caught = exc
+
+    self.assertIs(expected_error, caught)
+    self.assertEqual(["cancel"], cancellation_calls)
+    self.assertIs(prior_handlers[signal.SIGINT], active_handlers[signal.SIGINT])
+    self.assertIs(
+      prior_handlers[signal.SIGTERM],
+      active_handlers[signal.SIGTERM],
+    )
 
   def test_successful_web_request_dispatches_the_frontend_urls(self):
     config = unified_config()

@@ -6,6 +6,7 @@ sys.path.append(os.getcwd())
 
 ## <<Base>>
 import os
+import signal
 import traceback
 import logging
 import threading
@@ -19,6 +20,7 @@ from backend.src.library.loglib    import get_logger
 from backend.src.library.configlib import load_config
 from backend.src.base.log import LoggerManager
 from backend.src.database.schema_guard import initialize_schema_guard
+from backend.src.platform.douyin.douyin_live_downloader import cancel_live_downloads
 from backend.src.platform.platform_dispatcher import PlatformDispatcher
 
 def _server_options(config: dict) -> dict:
@@ -222,7 +224,38 @@ def run_server(config: dict = None):
   source = load_config() if config is None else config
   options = _server_options(source)
   configured_app = create_app(source)
-  configured_app.run(**options)
+  cancellation_requested = False
+  previous_handlers = {}
+  installed_signals = []
+
+  def cancel_once():
+    nonlocal cancellation_requested
+    if cancellation_requested:
+      return
+    cancellation_requested = True
+    try:
+      cancel_live_downloads()
+    except BaseException:
+      try:
+        get_logger().error("live download cancellation failed during shutdown")
+      except BaseException:
+        pass
+
+  def handle_shutdown(signum, _frame):
+    cancel_once()
+    raise SystemExit(128 + signum)
+
+  try:
+    for signum in (signal.SIGINT, signal.SIGTERM):
+      previous_handlers[signum] = signal.signal(signum, handle_shutdown)
+      installed_signals.append(signum)
+    configured_app.run(**options)
+  finally:
+    try:
+      cancel_once()
+    finally:
+      for signum in reversed(installed_signals):
+        signal.signal(signum, previous_handlers[signum])
 
 if __name__ == '__main__':
   run_server()

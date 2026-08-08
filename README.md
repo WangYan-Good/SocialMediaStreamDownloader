@@ -41,6 +41,11 @@ HLS，并通过 ffmpeg stream-copy 保存为 `.ts` 文件。Docker 镜像已经�
 宿主机运行时必须保证 `ffmpeg` 可执行文件位于 `PATH`。测试模式不会启动 ffmpeg，因此
 不要求宿主机安装该程序。
 
+HLS 的短暂网络中断由 ffmpeg 有界重连处理：`max_timeout` 限制单次网络 I/O 等待，
+`hls_stall_timeout` 限制无输出进展时长，`hls_terminate_grace` 是 TERM 后的退出宽限，
+`max_retry` 是首次尝试后的进程重启次数。健康直播没有总录制时长限制；这些参数统一在
+YAML 中配置。
+
 3. 执行运行脚本将自动安装依赖并部署
 ```shell
 # 需要提前安装 python3.12，此处不做介绍

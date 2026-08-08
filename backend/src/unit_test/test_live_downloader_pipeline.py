@@ -2,9 +2,10 @@ from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 import tempfile
-from threading import Barrier, Thread
+from threading import Barrier, Event, Thread
 from time import sleep
 import unittest
+from unittest import mock
 from urllib.error import ContentTooShortError
 from requests import exceptions
 
@@ -176,6 +177,13 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
     downloader._actived_task_number = 2
 
     self.assertTrue(downloader.is_exceed_max_download_task())
+
+  def test_unified_config_documents_hls_supervision_defaults(self):
+    config = live_config()
+    live_values = config["platform"]["douyin"]["live"]
+
+    self.assertEqual(30, live_values.get("hls_stall_timeout"))
+    self.assertEqual(5, live_values.get("hls_terminate_grace"))
 
   def test_zero_thread_limit_means_unlimited(self):
     config = live_config()
@@ -678,6 +686,9 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
     config["download"]["test_mode"] = False
     config["download"]["tick_naming"] = False
     config["download"]["max_retry"] = 2
+    config["platform"]["douyin"]["live"]["max_timeout"] = 7
+    config["platform"]["douyin"]["live"]["hls_stall_timeout"] = 41
+    config["platform"]["douyin"]["live"]["hls_terminate_grace"] = 2.5
     recorded = []
 
     class RecordingHlsRecorder:
@@ -724,7 +735,23 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
       url,
     )
     self.assertEqual(expected_path, output_path)
-    self.assertEqual(2, kwargs["max_retry"])
+    self.assertEqual(
+      {
+        "max_retry": 2,
+        "io_timeout": 7,
+        "stall_timeout": 41,
+        "terminate_grace": 2.5,
+      },
+      {
+        name: kwargs.get(name)
+        for name in (
+          "max_retry",
+          "io_timeout",
+          "stall_timeout",
+          "terminate_grace",
+        )
+      },
+    )
     self.assertEqual(downloader._actived_task_number, 0)
 
   def test_hls_stream_preserves_existing_recording_with_unique_name(self):
@@ -775,6 +802,60 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
     self.assertEqual(
       [stream_directory / "re_0_stream-test.ts"],
       recorded_paths,
+    )
+
+  def test_hls_stream_uses_backward_compatible_supervision_defaults(self):
+    config = live_config()
+    config["download"]["test_mode"] = False
+    config["download"]["tick_naming"] = False
+    config["platform"]["douyin"]["live"]["max_timeout"] = 12
+    live_config_values = config["platform"]["douyin"]["live"]
+    live_config_values.pop("hls_stall_timeout", None)
+    live_config_values.pop("hls_terminate_grace", None)
+    recorded_kwargs = []
+
+    class RecordingHlsRecorder:
+      def record(self, url, output_path, **kwargs):
+        recorded_kwargs.append(kwargs)
+        return output_path
+
+    with tempfile.TemporaryDirectory() as temporary_directory:
+      config["download"]["save_path"] = temporary_directory
+      downloader = live_module.DouyinLiveDownloader(config)
+      downloader.hls_recorder = RecordingHlsRecorder()
+      downloader.download_live_stream(
+        "https://v.douyin.com/example/",
+        {
+          "summary": {
+            "stream_url": "https://stream.example.test/index.m3u8",
+            "stream_name": "stream-test.ts",
+            "stream_protocol": "hls",
+            "directory_name": "Test_Host",
+            "nickname": "Test Host",
+          },
+          "external_info": {
+            "data": {"room": {"owner_user_id": "owner-1"}}
+          },
+        },
+      )
+
+    self.assertEqual(1, len(recorded_kwargs))
+    self.assertEqual(
+      {
+        "max_retry": config["download"]["max_retry"],
+        "io_timeout": 12,
+        "stall_timeout": 36,
+        "terminate_grace": 5,
+      },
+      {
+        name: recorded_kwargs[0].get(name)
+        for name in (
+          "max_retry",
+          "io_timeout",
+          "stall_timeout",
+          "terminate_grace",
+        )
+      },
     )
 
   def test_concurrent_hls_streams_reserve_distinct_output_paths(self):
@@ -902,9 +983,17 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
 
   def test_hls_failure_propagates_and_releases_task_slot(self):
     expected_error = HlsDownloadError("sanitized HLS failure")
+    reserved_paths = []
+    partial_paths = []
 
     class FailingRecorder:
       def record(self, url, output_path, **kwargs):
+        reserved_paths.append(output_path)
+        partial_path = output_path.with_name(
+          "{}.attempt-1.partial.ts".format(output_path.stem)
+        )
+        partial_path.write_bytes(b"preserved-partial")
+        partial_paths.append(partial_path)
         raise expected_error
 
     config = live_config()
@@ -931,8 +1020,72 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
           },
         )
 
+      self.assertEqual(1, len(reserved_paths))
+      self.assertFalse(reserved_paths[0].exists())
+      self.assertEqual(1, len(partial_paths))
+      self.assertEqual(b"preserved-partial", partial_paths[0].read_bytes())
+
     self.assertIs(expected_error, raised.exception)
     self.assertEqual(0, downloader._actived_task_number)
+
+  def test_hls_cleanup_error_does_not_mask_recorder_error_or_leak_slot(self):
+    for cleanup_failure in ("stat", "unlink"):
+      with self.subTest(cleanup_failure=cleanup_failure):
+        expected_error = HlsDownloadError(
+          "sanitized recorder failure {}".format(cleanup_failure)
+        )
+        reserved_path = [None]
+        real_stat = Path.stat
+        real_unlink = Path.unlink
+
+        class FailingRecorder:
+          def record(self, url, output_path, **kwargs):
+            reserved_path[0] = output_path
+            raise expected_error
+
+        def controlled_stat(path, *args, **kwargs):
+          if cleanup_failure == "stat" and path == reserved_path[0]:
+            raise OSError("reserved output stat failed")
+          return real_stat(path, *args, **kwargs)
+
+        def controlled_unlink(path, *args, **kwargs):
+          if cleanup_failure == "unlink" and path == reserved_path[0]:
+            raise PermissionError("reserved output unlink failed")
+          return real_unlink(path, *args, **kwargs)
+
+        config = live_config()
+        config["download"]["test_mode"] = False
+        config["download"]["tick_naming"] = False
+        with tempfile.TemporaryDirectory() as temporary_directory:
+          config["download"]["save_path"] = temporary_directory
+          downloader = live_module.DouyinLiveDownloader(config)
+          downloader.hls_recorder = FailingRecorder()
+          caught = None
+          with (
+            mock.patch.object(Path, "stat", new=controlled_stat),
+            mock.patch.object(Path, "unlink", new=controlled_unlink),
+          ):
+            try:
+              downloader.download_live_stream(
+                "https://v.douyin.com/example/",
+                {
+                  "summary": {
+                    "stream_url": "https://stream.example.test/index.m3u8",
+                    "stream_name": "stream-test.ts",
+                    "stream_protocol": "hls",
+                    "directory_name": "Test_Host",
+                    "nickname": "Test Host",
+                  },
+                  "external_info": {
+                    "data": {"room": {"owner_user_id": "owner-1"}}
+                  },
+                },
+              )
+            except BaseException as exc:
+              caught = exc
+
+          self.assertIs(expected_error, caught)
+          self.assertEqual(0, downloader._actived_task_number)
 
   def test_missing_ffmpeg_does_not_leave_reserved_output(self):
     config = live_config()
@@ -1151,6 +1304,76 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
 
     self.assertFalse(waiting_download.is_alive())
     self.assertFalse(completion.is_alive())
+
+  def test_failed_hls_download_releases_single_slot_to_waiting_download(self):
+    config = live_config()
+    config["download"]["max_threads"] = 1
+    config["download"]["test_mode"] = False
+    config["download"]["tick_naming"] = False
+    first_entered = Event()
+    release_first = Event()
+    second_entered = Event()
+    recorder_calls = []
+    errors = []
+    expected_error = HlsDownloadError("bounded first HLS failure")
+
+    class HandoffRecorder:
+      def record(self, url, output_path, **kwargs):
+        call_number = len(recorder_calls) + 1
+        recorder_calls.append(call_number)
+        if call_number == 1:
+          first_entered.set()
+          if not release_first.wait(timeout=1):
+            raise AssertionError("first recorder call was not released")
+          raise expected_error
+        second_entered.set()
+        output_path.write_bytes(b"second-complete")
+        return output_path
+
+    def build():
+      return {
+        "summary": {
+          "stream_url": "https://stream.example.test/index.m3u8",
+          "stream_name": "stream-test.ts",
+          "stream_protocol": "hls",
+          "directory_name": "Test_Host",
+          "nickname": "Test Host",
+        },
+        "external_info": {
+          "data": {"room": {"owner_user_id": "owner-1"}}
+        },
+      }
+
+    with tempfile.TemporaryDirectory() as temporary_directory:
+      config["download"]["save_path"] = temporary_directory
+      downloader = live_module.DouyinLiveDownloader(config)
+      downloader.hls_recorder = HandoffRecorder()
+
+      def download():
+        try:
+          downloader.download_live_stream(
+            "https://v.douyin.com/example/",
+            build(),
+          )
+        except Exception as exc:
+          errors.append(exc)
+
+      first = Thread(target=download, daemon=True)
+      second = Thread(target=download, daemon=True)
+      first.start()
+      self.assertTrue(first_entered.wait(timeout=1))
+      second.start()
+      self.assertFalse(second_entered.wait(timeout=0.1))
+      release_first.set()
+      first.join(timeout=2)
+      second.join(timeout=2)
+
+      self.assertFalse(first.is_alive())
+      self.assertFalse(second.is_alive())
+      self.assertTrue(second_entered.is_set())
+      self.assertEqual([expected_error], errors)
+      self.assertEqual([1, 2], recorder_calls)
+      self.assertEqual(0, downloader._actived_task_number)
 
   def test_share_request_failure_is_not_masked_by_unbound_response(self):
     config = live_config()

@@ -34,10 +34,16 @@ class ConfigLoadingTest(unittest.TestCase):
     BaseConfig._BaseConfig__initialized = False
     BaseConfig._BaseConfig__config = {}
 
-  def test_default_config_path_points_to_project_config(self):
-    expected_path = Path(__file__).resolve().parents[3] / "config" / "config.yml"
+  def test_default_config_paths_point_to_canonical_project_files(self):
+    project_root = Path(__file__).resolve().parents[3]
+    expected_path = project_root / "config" / "config.yml"
+    expected_example_path = project_root / "docs" / "design" / "config.yml.example"
 
     self.assertEqual(config_module.CONFIG_PATH, expected_path)
+    self.assertEqual(
+      getattr(config_module, "CONFIG_EXAMPLE_PATH", None),
+      expected_example_path,
+    )
 
   def test_load_config_returns_nested_yaml_mapping(self):
     with tempfile.TemporaryDirectory() as temp_directory:
@@ -119,16 +125,92 @@ class ConfigLoadingTest(unittest.TestCase):
       with self.assertRaisesRegex(ValueError, "path"):
         get_config("server.port")
 
-  def test_load_config_rejects_a_missing_required_section(self):
+  def test_load_config_reports_missing_contract_paths_without_actual_values(self):
     with tempfile.TemporaryDirectory() as temp_directory:
       config_path = Path(temp_directory) / "config.yml"
       config = unified_config()
-      del config["platform"]["douyin"]["post"]
+      del config["database"]["host"]
+      del config["platform"]["douyin"]["live"]["hls_stall_timeout"]
+      config["actual_only_secret"] = "do-not-expose-this-value"
       self.write_config(config_path, config)
       config_module.CONFIG_PATH = config_path
 
-      with self.assertRaisesRegex(RuntimeError, r"\$\.platform\.douyin\.post"):
+      with self.assertRaises(RuntimeError) as error:
         load_config()
+
+    message = str(error.exception)
+    database_path = "$.database.host"
+    live_path = "$.platform.douyin.live.hls_stall_timeout"
+    self.assertIn(database_path, message)
+    self.assertIn(live_path, message)
+    self.assertLess(message.index(database_path), message.index(live_path))
+    self.assertNotIn("do-not-expose-this-value", message)
+
+  def test_load_config_retains_actual_only_top_level_and_nested_keys(self):
+    with tempfile.TemporaryDirectory() as temp_directory:
+      config_path = Path(temp_directory) / "config.yml"
+      config = unified_config()
+      config["actual_only"] = {"feature_enabled": False}
+      config["platform"]["douyin"]["live"]["actual_only_timeout"] = 0
+      self.write_config(config_path, config)
+      config_module.CONFIG_PATH = config_path
+
+      loaded_config = load_config()
+
+    self.assertEqual(
+      loaded_config["actual_only"],
+      {"feature_enabled": False},
+    )
+    self.assertEqual(
+      loaded_config["platform"]["douyin"]["live"]["actual_only_timeout"],
+      0,
+    )
+
+  def test_load_config_accepts_existing_null_leaves(self):
+    with tempfile.TemporaryDirectory() as temp_directory:
+      config_path = Path(temp_directory) / "config.yml"
+      config = unified_config()
+      self.assertIsNone(config["platform"]["douyin"]["login"]["msToken"])
+      self.assertIsNone(config["platform"]["douyin"]["live"]["params"]["room_id"])
+      self.write_config(config_path, config)
+      config_module.CONFIG_PATH = config_path
+
+      loaded_config = load_config()
+
+    self.assertIsNone(loaded_config["platform"]["douyin"]["login"]["msToken"])
+    self.assertIsNone(
+      loaded_config["platform"]["douyin"]["live"]["params"]["room_id"]
+    )
+
+  def test_load_config_rejects_scalar_in_place_of_required_mapping(self):
+    with tempfile.TemporaryDirectory() as temp_directory:
+      config_path = Path(temp_directory) / "config.yml"
+      config = unified_config()
+      config["platform"]["douyin"]["live"] = "not-a-mapping"
+      self.write_config(config_path, config)
+      config_module.CONFIG_PATH = config_path
+
+      with self.assertRaisesRegex(RuntimeError, r"\$\.platform\.douyin\.live"):
+        load_config()
+
+  def test_failed_first_load_can_retry_after_actual_file_is_corrected(self):
+    with tempfile.TemporaryDirectory() as temp_directory:
+      config_path = Path(temp_directory) / "config.yml"
+      incomplete_config = unified_config()
+      del incomplete_config["database"]["host"]
+      self.write_config(config_path, incomplete_config)
+      config_module.CONFIG_PATH = config_path
+
+      with self.assertRaisesRegex(RuntimeError, r"\$\.database\.host"):
+        load_config()
+
+      complete_config = unified_config()
+      complete_config["server"]["port"] = 5102
+      self.write_config(config_path, complete_config)
+
+      loaded_config = load_config()
+
+    self.assertEqual(loaded_config["server"]["port"], 5102)
 
   def test_load_config_rejects_non_mapping_yaml(self):
     with tempfile.TemporaryDirectory() as temp_directory:
@@ -139,7 +221,7 @@ class ConfigLoadingTest(unittest.TestCase):
       with self.assertRaisesRegex(RuntimeError, str(config_path)):
         load_config()
 
-  def test_concurrent_first_load_reads_config_once(self):
+  def test_concurrent_first_load_reads_actual_and_example_once_each(self):
     load_barrier = threading.Barrier(2)
     load_calls = []
     load_calls_lock = threading.Lock()
@@ -165,7 +247,13 @@ class ConfigLoadingTest(unittest.TestCase):
       config_module.load_yml = original_load_yml
 
     self.assertTrue(all(not thread.is_alive() for thread in threads))
-    self.assertEqual(len(load_calls), 1)
+    self.assertEqual(
+      load_calls,
+      [
+        config_module.CONFIG_PATH,
+        Path(__file__).resolve().parents[3] / "docs" / "design" / "config.yml.example",
+      ],
+    )
 
 
 if __name__ == "__main__":

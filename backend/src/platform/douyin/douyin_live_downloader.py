@@ -26,7 +26,7 @@ from backend.src.platform.douyin.douyin_header              import DouyinShareHe
 from backend.src.platform.douyin.douyin_live_config         import DouyinLiveConfig
 from backend.src.platform.douyin.douyin_login               import DouyinLogin
 from backend.src.platform.douyin.douyin_live_external_info  import LiveExternal
-from backend.src.platform.douyin.hls_recorder               import FfmpegUnavailable, HlsRecorder
+from backend.src.platform.douyin.hls_recorder               import HlsRecorder
 from backend.src.platform.douyin.douyin_api                 import DouyinApi
 from backend.src.database.table.share_url                   import DouyinShareUrlTable
 from backend.src.database.table.table_import                import import_douyin_live_info_to_database
@@ -137,6 +137,16 @@ class DouyinLiveDownloader(Downloader):
         if protocol == "hls":
           output_path = self._reserve_hls_output_path(save_path, file_name)
           get_logger().info("HLS output reserved: {}".format(output_path))
+          stall_timeout = self.config.get_config_dict_attr(
+            "$.platform.douyin.live.hls_stall_timeout"
+          )
+          if stall_timeout is None:
+            stall_timeout = max(30, timeout * 3)
+          terminate_grace = self.config.get_config_dict_attr(
+            "$.platform.douyin.live.hls_terminate_grace"
+          )
+          if terminate_grace is None:
+            terminate_grace = 5
           try:
             self.hls_recorder.record(
               url,
@@ -144,9 +154,16 @@ class DouyinLiveDownloader(Downloader):
               headers=headers,
               proxies=proxies,
               max_retry=self.config.get_config_dict_attr("$.download.max_retry"),
+              io_timeout=timeout,
+              stall_timeout=stall_timeout,
+              terminate_grace=terminate_grace,
             )
-          except (FfmpegUnavailable, TypeError, ValueError):
-            output_path.unlink(missing_ok=True)
+          except BaseException:
+            try:
+              if output_path.stat().st_size == 0:
+                output_path.unlink()
+            except BaseException:
+              pass
             raise
         else:
           self.auto_down(
@@ -936,6 +953,13 @@ def get_live_downloader():
       if downloader is None:
         downloader = DouyinLiveDownloader()
   return downloader
+
+
+def cancel_live_downloads() -> None:
+  with _downloader_lock:
+    existing_downloader = downloader
+    if existing_downloader is not None:
+      existing_downloader.hls_recorder.cancel_all()
 
 
 def download_single_live(url):
