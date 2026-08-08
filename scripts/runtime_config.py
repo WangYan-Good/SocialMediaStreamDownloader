@@ -9,21 +9,18 @@ import yaml
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+  sys.path.insert(0, str(PROJECT_ROOT))
+
+from backend.src.library.config_contract import (
+  ConfigContractError,
+  validate_config_contract,
+)
+
+
 CANONICAL_CONFIG_PATH = PROJECT_ROOT / "config" / "config.yml"
+CONFIG_EXAMPLE_PATH = PROJECT_ROOT / "docs" / "design" / "config.yml.example"
 CONFIG_ERROR = "config/config.yml is missing or invalid"
-REQUIRED_TOP_LEVEL_MAPPINGS = (
-  "database", "download", "log", "server", "migrate", "platform",
-)
-REQUIRED_DOUYIN_MAPPINGS = (
-  "download", "api", "headers", "login", "post", "live",
-)
-
-
-def _require_mapping(source: dict, key: str, path: str) -> dict:
-  value = source.get(key)
-  if not isinstance(value, dict):
-    raise ValueError(f"{path} must be a mapping")
-  return value
 
 
 def _require_non_empty_string(source: dict, key: str, path: str) -> str:
@@ -103,14 +100,8 @@ def run_container_entrypoint(
 
 
 def validate_runtime_config(config: dict) -> dict:
-  if not isinstance(config, dict):
-    raise ValueError("Config root must be a mapping")
-  for section in REQUIRED_TOP_LEVEL_MAPPINGS:
-    _require_mapping(config, section, f"$.{section}")
-  platform = _require_mapping(config, "platform", "$.platform")
-  douyin = _require_mapping(platform, "douyin", "$.platform.douyin")
-  for section in REQUIRED_DOUYIN_MAPPINGS:
-    _require_mapping(douyin, section, f"$.platform.douyin.{section}")
+  reference = yaml.safe_load(CONFIG_EXAMPLE_PATH.read_text(encoding="utf-8"))
+  validate_config_contract(reference, config)
 
   server = config["server"]
   _require_non_empty_string(server, "host", "$.server.host")
@@ -200,6 +191,9 @@ def main(argv=None, config_path: Path = CANONICAL_CONFIG_PATH) -> int:
       write_compose_environment(config, output_path)
     elif command == "server-port":
       print(config["server"]["port"])
+  except ConfigContractError as error:
+    print(f"{CONFIG_ERROR}: {', '.join(error.issues)}", file=sys.stderr)
+    return 1
   except Exception:
     print(CONFIG_ERROR, file=sys.stderr)
     return 1

@@ -19,7 +19,7 @@ SocialMediaStreamDownloader（SMSD）用于处理社交媒体分享链接，完�
 - 接入层：Flask + 前端页面
 - 业务层：平台分发器、平台处理器、下载器
 - 基础层：配置、登录、请求头、日志、抽象基类
-- 数据层：MySQL + 数据表封装
+- 数据层：MySQL + 现有数据表封装 + SQLAlchemy/Alembic schema 管理
 - 运行层：Shell 启动脚本 / Docker Compose
 
 ```mermaid
@@ -91,6 +91,14 @@ flowchart LR
 	- 表实例注册与状态管理
 - backend/src/database/table/
 	- 按表封装读写逻辑（分享链接、直播信息、用户信息等）
+- backend/src/database/orm/
+	- 以 SQLAlchemy Declarative Models 描述 12 张生产受管表
+- backend/src/database/migration/
+	- 保存不可变 Alembic revision；基线为 `0001_initial_schema`
+- backend/src/database/migration_service.py / migration_cli.py
+	- 提供严格 schema check、status、stamp、upgrade、downgrade 与 revision 命令
+- backend/src/database/schema_guard.py
+	- 服务启动时只检查版本和结构，不执行自动迁移；控制运行时写入状态
 
 数据库与 schema 细节见：
 
@@ -117,6 +125,10 @@ flowchart LR
 
 当 `download.test_mode` 为 `true` 时，以上链路、数据库行为、目录准备和任务调度保持不变，
 仅在最底层跳过直播流数据传输，不写入直播流文件。该模式仍会访问网络和数据库。
+
+数据库 guard 有四种状态：`ready`、`unavailable`、`blocked`、`disabled`。只有 `ready`
+允许持久化写入；数据库不可用、未纳管或 schema 漂移不会中止直播网络与下载链路。旧表类的
+SELECT 仍可使用，但运行服务不再通过 `CREATE TABLE IF NOT EXISTS` 自动修复缺表。
 
 ## 5. 并发模型
 
@@ -149,12 +161,13 @@ flowchart LR
 1. 在 `backend/src/platform/xhs/` 新建 handler、api、downloader。
 2. 在 `platform_dispatcher.py` 注册事件名与处理函数映射。
 3. 在唯一的 `config/config.yml` 中增加对应平台 section，并同步脱敏示例。
-4. 如需落库，新增表封装与初始化 SQL。
+4. 如需落库，先修改 ORM Model，再生成并人工审查 Alembic revision；业务 CRUD 表封装按需同步。
 
 约束建议：
 
 - 平台处理器只做“识别与分发”，重逻辑放到 downloader。
 - downloader 通过 base 抽象统一生命周期，避免平台实现分裂。
+- `Base.metadata` 与已提交的 Alembic revisions 是后续 schema 变更的唯一管理路径。
 
 ## 8. 已知问题与技术债
 

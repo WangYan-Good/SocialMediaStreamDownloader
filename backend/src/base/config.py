@@ -15,25 +15,13 @@ from pathlib import Path
 
 ##<<Third-part>>
 from backend.src.library.baselib     import load_yml
+from backend.src.library.config_contract import validate_config_contract
 
 ##
 ## config file path
 ##
 CONFIG_PATH = Path(__file__).resolve().parents[3] / "config" / "config.yml"
-
-REQUIRED_TOP_LEVEL_SECTIONS = (
-  "database", "download", "log", "server", "migrate", "platform",
-)
-REQUIRED_DOUYIN_SECTIONS = (
-  "download", "api", "headers", "login", "post", "live",
-)
-
-
-def _require_mapping(source: dict, key: str, path: str) -> dict:
-  value = source.get(key)
-  if not isinstance(value, dict):
-    raise ValueError(f"{path} must be a mapping")
-  return value
+CONFIG_EXAMPLE_PATH = Path(__file__).resolve().parents[3] / "docs" / "design" / "config.yml.example"
 
 ##
 ## Defination sbstract class
@@ -100,27 +88,15 @@ class BaseConfig():
 
   def __init_config(self):
     '''
-    Load the active config.
+    Load the active config after checking it against the canonical example.
     '''
     try:
       config = load_yml(CONFIG_PATH)
-      if not isinstance(config, dict):
-        raise ValueError("Config root must be a mapping")
-      self.__validate_config(config)
+      config_example = load_yml(CONFIG_EXAMPLE_PATH)
+      validate_config_contract(config_example, config)
       self.__config = config
     except Exception as e:
       raise RuntimeError(f"Failed to load config file '{CONFIG_PATH}': {str(e)}") from e
-
-  ##
-  ## validate required configuration mappings
-  ##
-  def __validate_config(self, config: dict) -> None:
-    for section in REQUIRED_TOP_LEVEL_SECTIONS:
-      _require_mapping(config, section, f"$.{section}")
-    platform = _require_mapping(config, "platform", "$.platform")
-    douyin = _require_mapping(platform, "douyin", "$.platform.douyin")
-    for section in REQUIRED_DOUYIN_SECTIONS:
-      _require_mapping(douyin, section, f"$.platform.douyin.{section}")
 
   ##
   ## get config dict

@@ -1,4 +1,5 @@
 import contextlib
+from copy import deepcopy
 import importlib.util
 import io
 import json
@@ -20,6 +21,8 @@ from backend.src.unit_test.config_fixture import unified_config
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 RUNTIME_CONFIG_SCRIPT = PROJECT_ROOT / "scripts" / "runtime_config.py"
+CONFIG_CONTRACT_MODULE = PROJECT_ROOT / "backend" / "src" / "library" / "config_contract.py"
+CONFIG_EXAMPLE_PATH = PROJECT_ROOT / "docs" / "design" / "config.yml.example"
 RUN_DOCKER_SCRIPT = PROJECT_ROOT / "run-docker.sh"
 RUN_SERVER_SCRIPT = PROJECT_ROOT / "run-server.sh"
 COMPOSE_FILE = PROJECT_ROOT / "docker-compose.yml"
@@ -37,6 +40,28 @@ class RuntimeConfigDeliveryTest(unittest.TestCase):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+  def copy_runtime_artifacts(self, project: Path) -> None:
+    artifacts = (
+      (RUNTIME_CONFIG_SCRIPT, project / "scripts" / "runtime_config.py"),
+      (
+        CONFIG_CONTRACT_MODULE,
+        project / "backend" / "src" / "library" / "config_contract.py",
+      ),
+      (
+        CONFIG_EXAMPLE_PATH,
+        project / "docs" / "design" / "config.yml.example",
+      ),
+    )
+    for source, target in artifacts:
+      target.parent.mkdir(parents=True, exist_ok=True)
+      shutil.copy2(source, target)
+
+  def config_without_contract_fields(self) -> dict:
+    config = deepcopy(unified_config())
+    del config["database"]["host"]
+    del config["platform"]["douyin"]["live"]["hls_stall_timeout"]
+    return config
 
   def compose_config(self):
     config = unified_config()
@@ -71,6 +96,117 @@ class RuntimeConfigDeliveryTest(unittest.TestCase):
         "SMSD_DB_PASSWORD='db-pass-for-test'",
       ],
     )
+
+  def test_runtime_validation_reports_missing_fields_in_canonical_order(self):
+    runtime_config = self.load_runtime_config_module()
+
+    with self.assertRaises(runtime_config.ConfigContractError) as raised:
+      runtime_config.validate_runtime_config(self.config_without_contract_fields())
+
+    self.assertEqual(
+      (
+        "$.database.host",
+        "$.platform.douyin.live.hls_stall_timeout",
+      ),
+      raised.exception.issues,
+    )
+
+  def test_runtime_validation_allows_actual_only_keys_and_null_leaves(self):
+    runtime_config = self.load_runtime_config_module()
+    config = self.compose_config()
+    config["extra_top_level"] = "allowed"
+    config["platform"]["douyin"]["extra_nested"] = "allowed"
+    config["platform"]["douyin"]["login"]["msToken"] = None
+
+    self.assertIs(config, runtime_config.validate_runtime_config(config))
+
+  def test_cli_validate_reports_every_missing_path_without_secret_values(self):
+    runtime_config = self.load_runtime_config_module()
+    secret_marker = "CLI_CONTRACT_SECRET_MUST_NOT_PRINT"
+    config = self.config_without_contract_fields()
+    config["database"]["password"] = secret_marker
+
+    with tempfile.TemporaryDirectory() as temp_directory:
+      config_path = Path(temp_directory) / "config.yml"
+      config_path.write_text(
+        yaml.safe_dump(config, sort_keys=False), encoding="utf-8"
+      )
+      stdout = io.StringIO()
+      stderr = io.StringIO()
+      with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+        status = runtime_config.main(["validate"], config_path=config_path)
+
+    visible_output = stdout.getvalue() + stderr.getvalue()
+    self.assertEqual(status, 1)
+    self.assertIn("config/config.yml is missing or invalid", visible_output)
+    self.assertIn("$.database.host", visible_output)
+    self.assertIn(
+      "$.platform.douyin.live.hls_stall_timeout", visible_output
+    )
+    self.assertNotIn(secret_marker, visible_output)
+
+  def test_cli_server_port_rejects_missing_deep_field_without_output(self):
+    runtime_config = self.load_runtime_config_module()
+    config = self.config_without_contract_fields()
+
+    with tempfile.TemporaryDirectory() as temp_directory:
+      config_path = Path(temp_directory) / "config.yml"
+      config_path.write_text(
+        yaml.safe_dump(config, sort_keys=False), encoding="utf-8"
+      )
+      stdout = io.StringIO()
+      stderr = io.StringIO()
+      with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+        status = runtime_config.main(["server-port"], config_path=config_path)
+
+    self.assertEqual(status, 1)
+    self.assertEqual("", stdout.getvalue())
+    self.assertIn("$.platform.douyin.live.hls_stall_timeout", stderr.getvalue())
+
+  def test_compose_env_rejects_missing_contract_field_without_creating_target(self):
+    runtime_config = self.load_runtime_config_module()
+    config = self.config_without_contract_fields()
+
+    with tempfile.TemporaryDirectory() as temp_directory:
+      config_path = Path(temp_directory) / "config.yml"
+      output_path = Path(temp_directory) / "compose.env"
+      config_path.write_text(
+        yaml.safe_dump(config, sort_keys=False), encoding="utf-8"
+      )
+      with contextlib.redirect_stderr(io.StringIO()):
+        status = runtime_config.main(
+          ["compose-env", str(output_path)], config_path=config_path
+        )
+
+      self.assertEqual(status, 1)
+      self.assertFalse(output_path.exists())
+
+  def test_container_staging_rejects_missing_contract_field_without_replacing_target(self):
+    runtime_config = self.load_runtime_config_module()
+    config = self.config_without_contract_fields()
+
+    with tempfile.TemporaryDirectory() as temp_directory:
+      temporary_root = Path(temp_directory)
+      source_path = temporary_root / "source.yml"
+      target_path = temporary_root / "config" / "config.yml"
+      target_path.parent.mkdir()
+      source_path.write_text(
+        yaml.safe_dump(config, sort_keys=False), encoding="utf-8"
+      )
+      target_path.write_text("existing canonical configuration", encoding="utf-8")
+
+      with self.assertRaises(runtime_config.ConfigContractError):
+        runtime_config.stage_container_config(
+          source_path,
+          target_path,
+          os.getuid(),
+          os.getgid(),
+        )
+
+      self.assertEqual(
+        "existing canonical configuration",
+        target_path.read_text(encoding="utf-8"),
+      )
 
   def test_invalid_yaml_fails_without_echoing_configuration_values(self):
     runtime_config = self.load_runtime_config_module()
@@ -109,7 +245,7 @@ class RuntimeConfigDeliveryTest(unittest.TestCase):
       for directory in (scripts, config_directory, fake_bin, temp_files):
         directory.mkdir(parents=True, exist_ok=True)
 
-      shutil.copy2(RUNTIME_CONFIG_SCRIPT, scripts / "runtime_config.py")
+      self.copy_runtime_artifacts(project)
       shutil.copy2(RUN_DOCKER_SCRIPT, project / "run-docker.sh")
       (project / "docker-compose.yml").write_text(
         "services:\n  app:\n    image: scratch\n",
@@ -361,10 +497,9 @@ Path(os.environ["FAKE_DOCKER_RECORD"]).write_text(
     secret_marker = "LOCAL_STARTUP_MUST_NOT_PRINT"
     with tempfile.TemporaryDirectory() as temp_directory:
       project = Path(temp_directory) / "project"
-      (project / "scripts").mkdir(parents=True)
-      (project / "config").mkdir()
+      (project / "config").mkdir(parents=True)
       shutil.copy2(RUN_SERVER_SCRIPT, project / "run-server.sh")
-      shutil.copy2(RUNTIME_CONFIG_SCRIPT, project / "scripts/runtime_config.py")
+      self.copy_runtime_artifacts(project)
       (project / "config" / "config.yml").write_text(
         f"database:\n  password: {secret_marker}\nserver: [invalid\n",
         encoding="utf-8",
@@ -389,10 +524,9 @@ Path(os.environ["FAKE_DOCKER_RECORD"]).write_text(
   def test_local_startup_check_uses_yaml_even_when_env_disagrees(self):
     with tempfile.TemporaryDirectory() as temp_directory:
       project = Path(temp_directory) / "project"
-      (project / "scripts").mkdir(parents=True)
-      (project / "config").mkdir()
+      (project / "config").mkdir(parents=True)
       shutil.copy2(RUN_SERVER_SCRIPT, project / "run-server.sh")
-      shutil.copy2(RUNTIME_CONFIG_SCRIPT, project / "scripts/runtime_config.py")
+      self.copy_runtime_artifacts(project)
       (project / "config" / "config.yml").write_text(
         yaml.safe_dump(self.compose_config(), sort_keys=False),
         encoding="utf-8",

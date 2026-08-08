@@ -1,4 +1,20 @@
-## 一、现状分析
+# 数据库 Schema
+
+> 当前生产受管 schema 以 `backend/src/database/orm/models/` 和
+> `backend/src/database/migration/versions/` 为准。本文后续的大字段设计说明保留作结构背景，
+> 不再作为运行时自动建表来源。
+
+当前 Alembic 基线 `0001_initial_schema` 管理 12 张表：
+
+- 基础表：`share_url`、`favorite_owner`、`live_record`
+- 主实体表：`room_base`、`room_owner_v2`、`user`
+- 扩展表：`room_stats`、`room_admin_user_id`、`room_admin_user_open_id`、
+  `room_deco`、`fans_group_admin_user_id`、`fans_group_admin_user_open_id`
+
+字段、类型、unsigned、默认值、主键顺序、索引、约束、引擎、字符集和排序规则均由 ORM
+元数据严格校验。未受管表只产生警告，不会被自动删除。生产运行时不自动建表或迁移。
+
+## 一、历史结构分析
 
 ### 1.1 数据结构概览
 
@@ -69,7 +85,7 @@ external_info.data.room
 │ 6. room_stream                          - 流信息表                   │
 └──────────────────────────────────────────────────────────────────────┘
 
-**总计：21 张表** (vs 原方案 120+ 张，减少 83%)
+**当前 Alembic 受管总计：12 张表。** 下方 21 张表是早期规划数字，不代表当前迁移边界。
 
 **表分类统计：**
 - 基础表：3 张 (share_url, favorite_owner, live_record)

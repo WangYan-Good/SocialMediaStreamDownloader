@@ -26,6 +26,15 @@ from backend.src.database.table.room_base                             import   R
 from backend.src.database.table.room_owner                            import   RoomOwnerV2Table
 from backend.src.database.table.user                                  import   UserTable
 
+
+def require_managed_table(db: SocialMediaStreamDataBase, table_name: str) -> None:
+  if db.is_table_exist(table_name) is False:
+    raise RuntimeError(
+      "managed table {} is missing; run the database migration command".format(
+        table_name
+      )
+    )
+
 def import_douyin_live_record_to_database(db:SocialMediaStreamDataBase, data:dict) -> None:
   ##
   ## LiveRecordTable
@@ -35,8 +44,7 @@ def import_douyin_live_record_to_database(db:SocialMediaStreamDataBase, data:dic
     ##
     ## create the table if not exist
     ##
-    if db.is_table_exist(live_record_table.get_name()) is False:
-      live_record_table.create()
+    require_managed_table(db, live_record_table.get_name())
     live_record_table_tuple = {key:None for key in live_record_table.get_tuple()}
 
     now             = dat.fromtimestamp(get_dict_attr(data, "$.extra.now")/1000.0)
@@ -76,8 +84,7 @@ def import_douyin_room_stats_to_database(db:SocialMediaStreamDataBase, data:dict
     ##
     ## create the table if not exist
     ##
-    if db.is_table_exist(room_stats_table.get_name()) is False:
-      room_stats_table.create()
+    require_managed_table(db, room_stats_table.get_name())
     room_stats_table_tuple = {key:None for key in room_stats_table.get_tuple()}
     
     DOUYIN_PLATFORM = "douyin"
@@ -127,8 +134,7 @@ def import_douyin_room_admin_user_id_to_database(db:SocialMediaStreamDataBase, d
     ##
     ## create the table if not exist
     ##
-    if db.is_table_exist(room_admin_user_id_table.get_name()) is False:
-      room_admin_user_id_table.create()
+    require_managed_table(db, room_admin_user_id_table.get_name())
     room_admin_user_id_table_tuple = {key:None for key in room_admin_user_id_table.get_tuple()}
 
     room_id = get_dict_attr(data, "$.data.room.id")
@@ -163,8 +169,7 @@ def import_douyin_room_admin_user_open_id_to_database(db:SocialMediaStreamDataBa
     ##
     ## create table if not exist
     ##
-    if db.is_table_exist(room_admin_user_open_id_table.get_name()) is False:
-      room_admin_user_open_id_table.create()
+    require_managed_table(db, room_admin_user_open_id_table.get_name())
     room_admin_user_open_id_table_tuple = {key:None for key in room_admin_user_open_id_table.get_tuple()}
 
     room_id = get_dict_attr(data, "$.data.room.id")
@@ -211,8 +216,7 @@ def import_douyin_room_deco_to_database(db:SocialMediaStreamDataBase, data:dict)
           ##
           ## create the table if not exist
           ##
-          if db.is_table_exist(room_deco_table.get_name()) is False:
-            room_deco_table.create()
+          require_managed_table(db, room_deco_table.get_name())
           room_deco_table_tuple = {key:None for key in room_deco_table.get_tuple()}
 
           set_dict_attr(room_deco_table_tuple, "$.platform",                             DOUYIN_PLATFORM)
@@ -265,8 +269,7 @@ def import_douyin_fans_group_admin_user_id_to_database(db:SocialMediaStreamDataB
     ##
     ## create the table if not exist
     ##
-    if db.is_table_exist(fans_group_admin_user_id_table.get_name()) is False:
-      fans_group_admin_user_id_table.create()
+    require_managed_table(db, fans_group_admin_user_id_table.get_name())
     fans_group_admin_user_id_table_tuple = {key:None for key in fans_group_admin_user_id_table.get_tuple()}
 
     room_id = get_dict_attr(data, "$.data.room.id")
@@ -302,8 +305,7 @@ def import_douyin_fans_group_admin_user_open_id_to_database(db:SocialMediaStream
     ##
     ## create the table if not exist
     ##
-    if db.is_table_exist(fans_group_admin_user_open_id_table.get_name()) is False:
-      fans_group_admin_user_open_id_table.create()
+    require_managed_table(db, fans_group_admin_user_open_id_table.get_name())
     fans_group_admin_user_open_id_table_tuple = {key:None for key in fans_group_admin_user_open_id_table.get_tuple()}
 
     room_id = get_dict_attr(data, "$.data.room.id")
@@ -339,8 +341,7 @@ def import_douyin_room_base_to_database(db:SocialMediaStreamDataBase, data:dict)
     ##
     ## create the table if not exist
     ##
-    if db.is_table_exist(room_base_table.get_name()) is False:
-      room_base_table.create()
+    require_managed_table(db, room_base_table.get_name())
     room_base_table_tuple = {key:None for key in room_base_table.get_tuple()}
 
     id                               = get_dict_attr(data, "$.data.room.id")
@@ -743,8 +744,7 @@ def import_douyin_room_owner_v2_to_database(db:SocialMediaStreamDataBase, data:d
     ##
     ## create the table if not exist
     ##
-    if db.is_table_exist(room_owner_v2_table.get_name()) is False:
-      room_owner_v2_table.create()
+    require_managed_table(db, room_owner_v2_table.get_name())
     room_owner_v2_table_tuple = {key:None for key in room_owner_v2_table.get_tuple()}
 
     owner_data = get_dict_attr(data, "$.data.room.owner")
@@ -1003,8 +1003,7 @@ def import_douyin_user_to_database(db:SocialMediaStreamDataBase, data:dict) -> N
     ##
     ## create the table if not exist
     ##
-    if db.is_table_exist(user_table.get_name()) is False:
-      user_table.create()
+    require_managed_table(db, user_table.get_name())
     user_table_tuple = {key:None for key in user_table.get_tuple()}
 
     user_data = get_dict_attr(data, "$.data.user")

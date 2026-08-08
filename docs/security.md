@@ -12,6 +12,9 @@
 - 缺失或非法配置会阻止本地与容器启动，错误只说明配置无效，不回显配置值。
 - `download.test_mode` 不是安全隔离开关：它只跳过直播流数据传输，仍会访问平台网络接口
   和已启用的数据库。
+- Alembic 不使用包含凭据的 `alembic.ini` 或 `sqlalchemy.url`；迁移 Engine 仅从统一 YAML
+  在进程内构造，CLI 输出不会显示完整 URL 或密码。
+- 服务启动只执行只读版本/schema 检查，不自动 `upgrade`、`stamp`、建表或删表。
 
 ## 初始化
 
@@ -30,6 +33,18 @@ chmod 600 config/config.yml
 - 定期轮换数据库密码、Cookie、Token 等凭据。
 - 不在日志、测试 fixture、Issue、聊天记录或截图中粘贴真实值。
 - `docs/design/config.yml.example` 只能保留脱敏占位符。
+
+## 迁移安全
+
+- 已有数据库必须先执行只读 `check`；只有严格兼容且尚未版本化时，`stamp` 才会写版本表。
+- `upgrade`、`downgrade` 和生成的 revision 必须人工审查；任何可能删除或改写数据的迁移前
+  必须完成可恢复备份。未版本化但已有受管表的数据库禁止直接 `upgrade`；非临时库降级
+  必须用实际库名确认。任何会执行基线 downgrade 的目标（含 `base`、`-1` 等等价形式）
+  只允许显式 override 且严格命名的临时迁移测试库，配置库名不能自动获得临时库身份。
+- 真实 MySQL 集成测试只能创建匹配
+  `^smsd_migration_test_[0-9a-f]{12}$` 的随机数据库，且在 `finally` 中删除；正式数据库名
+  不能进入测试库删除逻辑。
+- 非受管表只报告 warning，Alembic 自动生成、升级和降级均不得删除它们。
 
 ## 历史凭据
 

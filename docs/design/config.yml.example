@@ -260,3 +260,5 @@ platform:
         msToken: null
         X-Bogus: null
       max_timeout: 10
+      hls_stall_timeout: 30
+      hls_terminate_grace: 5

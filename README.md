@@ -36,6 +36,16 @@ chmod 600 config/config.yml
 状态判断、流地址提取、数据库读写、目录准备和任务调度与正常模式保持一致，因此测试模式
 仍会访问网络和数据库，也不能作为离线或沙箱模式使用。
 
+直播流始终优先选择 FLV；所有 FLV 清晰度均无可用地址时，才按 `hls_clarity` 自动回退
+HLS，并通过 ffmpeg stream-copy 保存为 `.ts` 文件。Docker 镜像已经安装 ffmpeg；直接在
+宿主机运行时必须保证 `ffmpeg` 可执行文件位于 `PATH`。测试模式不会启动 ffmpeg，因此
+不要求宿主机安装该程序。
+
+HLS 的短暂网络中断由 ffmpeg 有界重连处理：`max_timeout` 限制单次网络 I/O 等待，
+`hls_stall_timeout` 限制无输出进展时长，`hls_terminate_grace` 是 TERM 后的退出宽限，
+`max_retry` 是首次尝试后的进程重启次数。健康直播没有总录制时长限制；这些参数统一在
+YAML 中配置。
+
 3. 执行运行脚本将自动安装依赖并部署
 ```shell
 # 需要提前安装 python3.12，此处不做介绍
@@ -44,6 +54,42 @@ chmod 600 config/config.yml
 
 4. 使用 `config/config.yml` 中的 `server.port` 打开网页，在输入框添加分享链接即可下载
 ![web-UI](./docs/media/web-ui.PNG)
+
+## 数据库结构迁移
+
+数据库启用时，先显式确认 schema 状态；服务启动不会自动建表或执行迁移：
+
+```shell
+python -m backend.src.database.migration_cli status
+python -m backend.src.database.migration_cli check
+```
+
+新数据库使用：
+
+```shell
+python -m backend.src.database.migration_cli upgrade
+```
+
+已有数据库必须先通过 `check`，备份并人工复核后，才可纳入当前基线：
+
+```shell
+python -m backend.src.database.migration_cli stamp
+```
+
+其余显式命令为：
+
+```shell
+python -m backend.src.database.migration_cli downgrade REVISION --confirm-database DATABASE_NAME
+python -m backend.src.database.migration_cli revision "change description"
+```
+
+`stamp` 只写 Alembic 版本，不执行建表或 `ALTER`，但只有 12 张受管表的严格结构校验
+全部通过时才会执行。`upgrade` 会拒绝含受管表但尚未版本化的数据库，已有库必须走
+`check + stamp`。非临时库执行 `downgrade` 必须用实际库名进行显式确认；基线
+revision 的任何降级路径（包括 `base`、`-1` 等等价写法）只允许通过显式数据库名 override
+创建且严格命名的临时迁移测试库。所有降级操作前必须备份并人工审查 revision。
+运行时状态为 `ready` 时才允许持久化写入；`unavailable` 或 `blocked` 不阻断 live 网络请求
+和流下载，但会跳过数据库写入。
 
 ## 方式二：Docker Compose
 
@@ -66,6 +112,7 @@ chmod 600 config/config.yml
 
 - 保持 `config/config.yml` 权限最小化，并定期轮换数据库密码、Cookie 和 Token。
 - 不要将真实配置复制进镜像、日志、Issue 或测试 fixture。
+- Alembic 配置不保存数据库 URL；迁移命令只从统一 YAML 在内存中构造连接。
 - 仓库历史中曾暴露的凭据需要在外部完成轮换；本项目不会自动重写 Git 历史。
 
 # ⚠️ 免责声明\(Disclaimers\)

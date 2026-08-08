@@ -12,6 +12,7 @@ from typing    import ClassVar, Dict, Type
 ## <<Third-Part>>
 from backend.src.database.social_media_stream_database       import SocialMediaStreamDataBase
 from backend.src.library.loglib                              import get_logger
+from backend.src.database.schema_guard                       import require_database_write_ready, require_runtime_schema_mutation_allowed
 
 class SocialMediaStreamDataTable(ABC):
 ##
@@ -229,6 +230,7 @@ class SocialMediaStreamDataTable(ABC):
     Returns:
       bool: 表是否成功创建并验证
     """
+    require_runtime_schema_mutation_allowed()
     table_name = self.get_name()
     
     ##
@@ -296,6 +298,7 @@ class SocialMediaStreamDataTable(ABC):
     Returns:
       bool: 表是否成功删除
     """
+    require_runtime_schema_mutation_allowed()
     table_name = self.get_name()
     
     ##
@@ -375,6 +378,7 @@ class SocialMediaStreamDataTable(ABC):
     Raises:
       ValueError: 参数错误或重复记录策略不支持
     """
+    require_database_write_ready()
     ##
     ## check if the record is valid
     ##
@@ -486,6 +490,7 @@ class SocialMediaStreamDataTable(ABC):
     Returns:
       删除的记录数量
     """
+    require_database_write_ready()
     if not isinstance(conditions, dict) or not conditions:
       raise ValueError("Conditions must be a non-empty dictionary")
 
@@ -548,6 +553,7 @@ class SocialMediaStreamDataTable(ABC):
     Returns:
       更新的记录数量
     """
+    require_database_write_ready()
     ##
     ## 参数验证
     ##

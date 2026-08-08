@@ -5,8 +5,11 @@ import tempfile
 from threading import Barrier, Lock, Thread
 from time import sleep
 import unittest
+from unittest.mock import Mock, patch
 
 from backend.src.library.baselib import load_yml
+from backend.src.database.migration_service import DatabaseUnavailable, MigrationStatus
+from backend.src.database.schema_guard import DatabaseSchemaGuard, install_schema_guard
 from backend.src.unit_test.config_fixture import unified_config
 
 
@@ -15,6 +18,45 @@ CONFIG_EXAMPLE_PATH = PROJECT_ROOT / "docs" / "design" / "config.yml.example"
 
 
 class LiveDownloaderConstructionTest(unittest.TestCase):
+  def tearDown(self):
+    install_schema_guard(None)
+
+  def test_database_recovers_before_later_persistence(self):
+    module = importlib.import_module(
+      "backend.src.platform.douyin.douyin_live_downloader"
+    )
+    config = load_yml(CONFIG_EXAMPLE_PATH)
+    config["database"]["enable"] = True
+    states = [
+      DatabaseUnavailable("offline"),
+      MigrationStatus(
+        current="0001_initial_schema",
+        heads=("0001_initial_schema",),
+        relation="ready",
+        schema_compatible=True,
+      ),
+    ]
+
+    def probe():
+      value = states.pop(0)
+      if isinstance(value, Exception):
+        raise value
+      return value
+
+    install_schema_guard(DatabaseSchemaGuard(probe=probe, retry_seconds=0))
+    original_database = module.DouyinShareUrlTable
+
+    class RecordingDatabase:
+      pass
+
+    module.DouyinShareUrlTable = lambda **unused: RecordingDatabase()
+    try:
+      downloader = module.DouyinLiveDownloader(config)
+      self.assertIsNone(downloader.database)
+      self.assertIsInstance(downloader._database_if_ready(), RecordingDatabase)
+    finally:
+      module.DouyinShareUrlTable = original_database
+
   def test_import_does_not_construct_downloader(self):
     module = importlib.import_module(
       "backend.src.platform.douyin.douyin_live_downloader"
@@ -142,6 +184,61 @@ class LiveDownloaderConstructionTest(unittest.TestCase):
       module.DouyinShareUrlTable = original_database
 
     self.assertIsNone(downloader.database)
+
+  def test_database_read_reconnect_respects_retry_window(self):
+    module = importlib.import_module(
+      "backend.src.platform.douyin.douyin_live_downloader"
+    )
+    config = load_yml(CONFIG_EXAMPLE_PATH)
+    config["database"]["enable"] = True
+    original_database = module.DouyinShareUrlTable
+    attempts = []
+
+    def fail_database(*args, **kwargs):
+      attempts.append(kwargs)
+      raise RuntimeError("database unavailable")
+
+    module.DouyinShareUrlTable = fail_database
+    try:
+      downloader = module.DouyinLiveDownloader(config)
+      self.assertEqual(1, len(attempts))
+      downloader._database_clock = lambda: 100.0
+      downloader._database_retry_at = 101.0
+
+      self.assertIsNone(downloader._database_for_read())
+      self.assertIsNone(downloader._database_for_read())
+      self.assertEqual(1, len(attempts))
+
+      downloader._database_clock = lambda: 102.0
+      self.assertIsNone(downloader._database_for_read())
+      self.assertEqual(2, len(attempts))
+    finally:
+      module.DouyinShareUrlTable = original_database
+
+  def test_standalone_score_entrypoint_initializes_schema_guard_first(self):
+    module = importlib.import_module(
+      "backend.src.platform.douyin.douyin_live_downloader"
+    )
+    config = {"database": {"enable": True}}
+    calls = []
+
+    with (
+      patch.object(module, "load_config", return_value=config, create=True),
+      patch.object(
+        module,
+        "initialize_schema_guard",
+        side_effect=lambda value: calls.append(("guard", value)),
+        create=True,
+      ),
+      patch.object(
+        module,
+        "download_live_stream_by_score",
+        side_effect=lambda: calls.append(("download", None)),
+      ),
+    ):
+      module.run_score_download_entrypoint()
+
+    self.assertEqual([("guard", config), ("download", None)], calls)
 
 
 if __name__ == "__main__":
