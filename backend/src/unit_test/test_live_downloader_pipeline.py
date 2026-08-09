@@ -681,6 +681,45 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
       live_module.request = original_request
       live_module.urlretrieve = original_urlretrieve
 
+  def test_http_stream_timeout_preserves_downloaded_content_as_target_file(self):
+    original_request = live_module.request
+
+    class InterruptedStreamResponse:
+      headers = {}
+
+      def raise_for_status(self):
+        return None
+
+      def iter_content(self, chunk_size):
+        yield b"downloaded-before-timeout"
+        raise exceptions.ReadTimeout("live stream read timed out")
+
+      def close(self):
+        return None
+
+    live_module.request = lambda *args, **kwargs: InterruptedStreamResponse()
+    try:
+      config = live_config()
+      config["download"]["max_retry"] = 0
+      downloader = live_module.DouyinLiveDownloader(config)
+      with tempfile.TemporaryDirectory() as temporary_directory:
+        with self.assertRaises(exceptions.ReadTimeout):
+          downloader.auto_down(
+            "https://stream.example.test/live.flv",
+            temporary_directory,
+            "stream.flv",
+            0,
+          )
+
+        downloaded_path = Path(temporary_directory) / "stream.flv"
+        self.assertTrue(downloaded_path.is_file())
+        self.assertEqual(
+          b"downloaded-before-timeout",
+          downloaded_path.read_bytes(),
+        )
+    finally:
+      live_module.request = original_request
+
   def test_hls_stream_uses_recorder_instead_of_flv_transport(self):
     config = live_config()
     config["download"]["test_mode"] = False
