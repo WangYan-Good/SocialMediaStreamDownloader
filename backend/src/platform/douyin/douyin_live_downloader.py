@@ -885,7 +885,6 @@ class DouyinLiveDownloader(Downloader):
     proxies: dict = None,
     timeout: int = 10,
   ):
-    temporary_file = None
     response = None
     try:
         file_name = fp + "/" + fn
@@ -893,8 +892,6 @@ class DouyinLiveDownloader(Downloader):
         while os.path.exists(file_name):
            file_name = fp + "/" + "re_" + str(duplicate_index) + "_" + fn
            duplicate_index += 1
-        temporary_file = file_name + ".part"
-
         if urlparse(url).scheme in ("http", "https"):
           response = request(
             method="GET",
@@ -906,7 +903,7 @@ class DouyinLiveDownloader(Downloader):
           )
           response.raise_for_status()
           written_size = 0
-          with open(temporary_file, "wb") as output:
+          with open(file_name, "wb") as output:
             for chunk in response.iter_content(chunk_size=1024 * 1024):
               if not chunk:
                 continue
@@ -917,12 +914,8 @@ class DouyinLiveDownloader(Downloader):
           if content_length is not None and written_size < int(content_length):
             raise ContentTooShortError("incomplete live stream", written_size)
         else:
-          urlretrieve(url, temporary_file)
-
-        os.replace(temporary_file, file_name)
+          urlretrieve(url, file_name)
     except (ContentTooShortError, exceptions.RequestException, TimeoutError):
-        if temporary_file is not None and os.path.exists(temporary_file):
-          os.remove(temporary_file)
         max_retry = self.config.get_config_dict_attr("$.download.max_retry")
         if retry_times >= max_retry:
           raise
