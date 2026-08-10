@@ -37,8 +37,13 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
                                       directory_name    VARCHAR(100) DEFAULT NULL,
                                       user_status       VARCHAR(100) DEFAULT NULL,
                                       actived_count     INT UNSIGNED NOT NULL DEFAULT 0,
+                                      last_live_status  TINYINT UNSIGNED DEFAULT NULL,
+                                      last_checked_at   TIMESTAMP(3)  DEFAULT NULL,
+                                      last_room_id      VARCHAR(200) DEFAULT NULL,
                                       PRIMARY KEY (owner_user_id),
-                                      INDEX idx_nickname (nickname)
+                                      INDEX idx_nickname (nickname),
+                                      INDEX idx_share_url_last_checked_at (last_checked_at),
+                                      INDEX idx_share_url_actived_count (actived_count)
                                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
                                   '''.format(__DOUYIN_SHARE_URL_TABLE_NAME)
   __SQL_DROP_SHARE_URL_TABLE      = '''
@@ -404,6 +409,47 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       get_logger().info("increment actived count succeed!")
     except Exception as e:
       get_logger().error("increment actived count failed {}".format(e))
+
+  ##
+  ## record the most recently observed live status for an owner
+  ##
+  def update_live_status_cache(
+    self,
+    owner_user_id:str,
+    last_live_status:int = None,
+    last_checked_at = None,
+    last_room_id:str = None,
+  ) -> None:
+    """Store the newest known live status for one owner.
+
+    These columns are a cache that lets the history list filter and sort without
+    aggregating the snapshot tables.  They are never the authority on whether an
+    owner is broadcasting right now; only a fresh probe answers that.
+    """
+    self.require_write_ready()
+
+    if owner_user_id is None or str(owner_user_id).strip() == "":
+      raise KeyError("owner_user_id is required")
+
+    sql = '''
+          UPDATE share_url
+          SET last_live_status = %s,
+              last_checked_at  = %s,
+              last_room_id     = %s
+          WHERE owner_user_id = %s
+          '''
+    with self.get_connection() as connector:
+      with connector.cursor() as cursor:
+        cursor.execute(
+          sql,
+          (
+            None if last_live_status is None else int(last_live_status),
+            last_checked_at,
+            None if last_room_id is None else str(last_room_id),
+            str(owner_user_id),
+          ),
+        )
+        connector.commit()
 
   ##
   ## get douyin platform favorite owner live url
