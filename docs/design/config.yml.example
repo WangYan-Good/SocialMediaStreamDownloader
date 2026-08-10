@@ -16,6 +16,11 @@ download:
   listening: false
   tick_naming: true
   user_login: false
+history:
+  # Maximum rows returned by one download-history page.  The live-status probe
+  # runs against exactly one page, so this also caps how many real requests a
+  # single "check live status" action can issue.
+  page_size_limit: 10
 log:
   log_enable: true
   log_level: INFO
@@ -83,7 +88,7 @@ platform:
     headers:
       share_live_url:
         accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
-        accept-encoding: gzip, deflate, br, zstd
+        accept-encoding: gzip, deflate
         accept-language: en-US,en;q=0.9
         cookie: null
         priority: u=0, i
@@ -99,7 +104,7 @@ platform:
           like Gecko) Chrome/127.0.0.0 Safari/537.36
       live_room_info:
         accept: application/json, text/plain, */*
-        accept-encoding: gzip, deflate, br, zstd
+        accept-encoding: gzip, deflate
         accept-language: en-US,en;q=0.9
         cookie: null
         priority: u=1, i
@@ -114,7 +119,7 @@ platform:
           like Gecko) Chrome/126.0.0.0 Safari/537.36
       post_info:
         accept: application/json, text/plain, */*
-        accept-encoding: gzip, deflate, br, zstd
+        accept-encoding: gzip, deflate
         accept-language: en-US,en;q=0.9
         cookie: null
         priority: u=1, i
@@ -129,7 +134,7 @@ platform:
           like Gecko) Chrome/127.0.0.0 Safari/537.36
       share_live_url_no_login:
         accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
-        accept-encoding: gzip, deflate, br, zstd
+        accept-encoding: gzip, deflate
         accept-language: en-US,en;q=0.9,zh;q=0.8
         cookie: null
         priority: u=0, i
@@ -145,7 +150,7 @@ platform:
           (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 Edg/128.0.0.0 '
       live_room_info_no_login:
         accept: application/json, text/plain, */*
-        accept-encoding: gzip, deflate, br, zstd
+        accept-encoding: gzip, deflate
         accept-language: en-US,en;q=0.9,zh;q=0.8
         cookie: null
         priority: u=1, i
@@ -160,7 +165,7 @@ platform:
         content-type: application/json; charset=utf-8
       post_info_no_login:
         accept: application/json, text/plain, */*
-        accept-encoding: gzip, deflate, br, zstd
+        accept-encoding: gzip, deflate
         accept-language: en-US,en;q=0.9
         Agw-Js-Conv: str
         cookie: null
@@ -262,3 +267,14 @@ platform:
       max_timeout: 10
       hls_stall_timeout: 30
       hls_terminate_grace: 5
+      probe:
+        # Live-status probing only. A probe resolves the share url and reads the
+        # live room info; it never downloads a stream.
+        max_batch_size: 10
+        # Probe workers run on their own pool. Never share the download executor:
+        # that one has a single worker and a probe burst would stall recordings.
+        concurrency: 3
+        # Reuse a cached status instead of re-probing an owner within this window.
+        cache_ttl_seconds: 60
+        # How long a finished batch stays readable before it is evicted.
+        batch_retention_seconds: 600

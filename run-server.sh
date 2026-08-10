@@ -197,12 +197,31 @@ fi
 # ============================================
 # 5. 检查端口占用
 # ============================================
-if command -v lsof &> /dev/null; then
-    if lsof -i ":$SERVER_PORT" &> /dev/null; then
-        log_error "统一配置指定的服务端口已被占用"
-        log_error "请关闭占用进程或修改 config/config.yml"
-        exit 1
+# 直接尝试绑定来判断端口是否可用，不依赖 lsof。
+# 依赖 lsof 时，未安装该命令的机器会静默跳过整段检查，服务随后 bind 失败退出，
+# 而错误又被丢弃，表现为「脚本说启动了，但访问到的还是旧进程」。
+# 探测端使用与 werkzeug 相同的 SO_REUSEADDR，避免把 TIME_WAIT 误判为占用。
+if ! python - "$SERVER_PORT" <<'PYEOF'
+import socket
+import sys
+
+probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+try:
+    probe.bind(("0.0.0.0", int(sys.argv[1])))
+except OSError:
+    sys.exit(1)
+finally:
+    probe.close()
+PYEOF
+then
+    log_error "统一配置指定的服务端口 $SERVER_PORT 已被占用"
+    if command -v ss &> /dev/null; then
+        OCCUPANT=$(ss -ltnp 2>/dev/null | grep ":$SERVER_PORT " || true)
+        [[ -n "$OCCUPANT" ]] && log_error "占用者: $OCCUPANT"
     fi
+    log_error "请关闭占用进程或修改 config/config.yml"
+    exit 1
 fi
 
 # ============================================
@@ -227,7 +246,15 @@ fi
 log_info "启动服务..."
 log_info "日志由应用模块自行管理"
 
-nohup python ./server.py >/dev/null 2>&1 &
+# 启动阶段的 stdout/stderr 必须留痕：应用日志模块要在配置加载之后才接管，
+# 早于它的失败（端口占用、配置错误、导入失败）只会出现在这里。
+STARTUP_LOG="$PROJECT_DIR/logs/server-startup.log"
+mkdir -p "$(dirname "$STARTUP_LOG")"
+{
+    echo "===== $(date '+%Y-%m-%d %H:%M:%S') 启动 ====="
+} >> "$STARTUP_LOG"
+
+nohup python ./server.py >>"$STARTUP_LOG" 2>&1 &
 SERVER_PID=$!
 
 # 保存 PID
@@ -241,6 +268,9 @@ if kill -0 $SERVER_PID 2>/dev/null; then
     log_info "服务启动成功 (PID: $SERVER_PID)"
     log_info "停止服务: kill $SERVER_PID"
 else
-    log_error "服务启动失败，请检查应用日志模块输出"
+    log_error "服务启动失败"
+    log_error "启动日志: $STARTUP_LOG"
+    tail -n 20 "$STARTUP_LOG" >&2
+    rm -f "$PID_FILE"
     exit 1
 fi

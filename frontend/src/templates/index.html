@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{% from 'content/history/owner_list.html' import owner_history %}
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -8,6 +9,7 @@
     <link rel="stylesheet" href="../static/css/index.css">
     <link rel="stylesheet" href="../static/css/precentage.css">
     <link rel="stylesheet" href="../static/css/style.css">
+    <link rel="stylesheet" href="../static/css/history.css">
 </head>
 <body>
     <!-- 页面头部 -->
@@ -122,11 +124,15 @@
                         <span class="percentage" id="percentageValue">0%</span>
                     </div>
                     <p id="status" class="status">准备就绪</p>
+
+                    <!-- 历史主播（精简版）：搜索 → 检查直播状态 → 立即下载 -->
+                    <h2>历史主播</h2>
+                    {{ owner_history('compact') }}
                 </div>
             </section>
             <section id="history-content" class="content-section">
-                <!-- 历史内容 -->
-                 <p>History</p>
+                <!-- 历史内容（完整版）：全部筛选器 + 可展开场次 -->
+                {{ owner_history('full') }}
             </section>
             <section id="log-content" class="content-section">
                 <!-- 下载日志内容 -->
@@ -153,5 +159,6 @@
     <script src="../static/js/clipboard.js"></script>
     <script src="../static/js/submit.js"></script>
     <script src="../static/js/favorite_scoring.js"></script>
+    <script src="../static/js/owner_history.js"></script>
 </body>
 </html>

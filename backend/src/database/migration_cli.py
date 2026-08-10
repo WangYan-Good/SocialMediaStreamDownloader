@@ -24,7 +24,9 @@ def build_parser() -> argparse.ArgumentParser:
   subparsers = parser.add_subparsers(dest="command", required=True)
   subparsers.add_parser("status")
   subparsers.add_parser("check")
-  subparsers.add_parser("stamp")
+  stamp = subparsers.add_parser("stamp")
+  stamp.add_argument("--revision")
+  stamp.add_argument("--confirm-database")
   subparsers.add_parser("upgrade")
   downgrade = subparsers.add_parser("downgrade")
   downgrade.add_argument("revision")
@@ -53,7 +55,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("managed schema is compatible")
       return EXIT_OK if report.is_compatible else EXIT_SCHEMA_MISMATCH
     if arguments.command == "stamp":
-      service.stamp()
+      service.stamp(
+        arguments.revision,
+        confirm_database=arguments.confirm_database,
+      )
     elif arguments.command == "upgrade":
       service.upgrade("head")
     elif arguments.command == "downgrade":

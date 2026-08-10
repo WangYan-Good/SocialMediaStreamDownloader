@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import Index, String, text
@@ -18,6 +19,8 @@ class ShareUrlModel(Base):
   __tablename__ = "share_url"
   __table_args__ = (
     Index("idx_nickname", "nickname"),
+    Index("idx_share_url_last_checked_at", "last_checked_at"),
+    Index("idx_share_url_actived_count", "actived_count"),
     MYSQL_TABLE_OPTIONS,
   )
 
@@ -33,6 +36,17 @@ class ShareUrlModel(Base):
     nullable=False,
     server_default=text("0"),
   )
+
+  ##
+  ## Cache of the most recent known live status for this owner.  These columns are
+  ## never the authority on whether an owner is broadcasting right now; only a live
+  ## probe answers that.  They exist so the download-history list can filter and
+  ## sort without aggregating the snapshot tables, and so the UI can show a
+  ## "last seen live" hint before any probe runs.
+  ##
+  last_live_status: Mapped[Optional[int]] = mapped_column(mysql.TINYINT(unsigned=True))
+  last_checked_at: Mapped[Optional[datetime]] = mapped_column(mysql.TIMESTAMP(fsp=3))
+  last_room_id: Mapped[Optional[str]] = mapped_column(String(200))
 
 
 class FavoriteOwnerModel(Base):

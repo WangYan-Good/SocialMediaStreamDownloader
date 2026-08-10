@@ -1,0 +1,92 @@
+{#
+  Download-history owner list.
+
+  variant="full"    完整版：全部筛选器 + 全部列 + 可展开场次（History 页）
+  variant="compact" 精简版：搜索 + 状态 + 操作（Download 页）
+
+  两种形态共用 owner_history.js 与 history.css，靠 data-variant 区分。
+#}
+{% macro owner_history(variant='full') %}
+<div class="owner-history" data-variant="{{ variant }}">
+
+  <!-- 筛选器 -->
+  <div class="owner-history-filters">
+    <input type="search"
+           class="oh-filter oh-keyword"
+           data-filter="q"
+           placeholder="搜索昵称">
+
+    <select class="oh-filter" data-filter="last_live_within">
+      <option value="">上次见到在播：不限</option>
+      <option value="1h">最近 1 小时</option>
+      <option value="24h">最近 24 小时</option>
+      <option value="7d">最近 7 天</option>
+      <option value="30d">最近 30 天</option>
+      <option value="never">从未见到在播</option>
+    </select>
+
+    {% if variant == 'full' %}
+    <label class="oh-checkbox">
+      <input type="checkbox" class="oh-filter" data-filter="favorite"> 只看收藏
+    </label>
+
+    <input type="number" min="0" max="100" class="oh-filter oh-score"
+           data-filter="score_min" placeholder="评分 ≥">
+    <input type="number" min="0" max="100" class="oh-filter oh-score"
+           data-filter="score_max" placeholder="评分 ≤">
+
+    <select class="oh-filter" data-filter="user_status">
+      <option value="">用户状态：不限</option>
+      <option value="正常">正常</option>
+      <option value="已注销">已注销</option>
+    </select>
+    {% endif %}
+
+    <select class="oh-filter" data-filter="sort">
+      <option value="last_checked_at">按上次见到在播</option>
+      <option value="actived_count">按下载次数</option>
+      <option value="score">按评分</option>
+      <option value="nickname">按昵称</option>
+    </select>
+
+    <select class="oh-filter" data-filter="order">
+      <option value="desc">降序</option>
+      <option value="asc">升序（最久未下载 / 下载最少）</option>
+    </select>
+
+    <button type="button" class="oh-probe-button">检查直播状态</button>
+  </div>
+
+  <p class="oh-hint">
+    列表状态来自最近一次记录，不代表此刻。点「检查直播状态」会对本页发真实请求。
+  </p>
+
+  <!-- 列表 -->
+  <table class="owner-history-table">
+    <thead>
+      <tr>
+        <th class="oh-col-select"><input type="checkbox" class="oh-select-all"></th>
+        <th>昵称</th>
+        {% if variant == 'full' %}
+        <th>评分</th>
+        <th>下载次数</th>
+        <th>上次见到在播</th>
+        {% endif %}
+        <th>直播状态</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody class="oh-rows"></tbody>
+  </table>
+
+  <p class="oh-empty" hidden>没有符合条件的记录</p>
+  <p class="oh-status">准备就绪</p>
+
+  <!-- 分页 -->
+  <div class="owner-history-pager">
+    <button type="button" class="oh-prev">上一页</button>
+    <span class="oh-page-info"></span>
+    <button type="button" class="oh-next">下一页</button>
+  </div>
+</div>
+{% endmacro %}

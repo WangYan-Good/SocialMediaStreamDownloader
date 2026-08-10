@@ -1,0 +1,214 @@
+import unittest
+
+from requests import exceptions
+
+from backend.src.library.baselib import get_dict_attr
+from backend.src.platform.douyin.douyin_api import DouyinApi
+from backend.src.platform.douyin.douyin_live_external_info import LiveExternal, observed_at
+from backend.src.platform.douyin.douyin_live_prober import DouyinLiveProber
+from backend.src.unit_test.config_fixture import unified_config
+
+
+class FakeConfig:
+  def __init__(self, source):
+    self._source = source
+
+  def get_config_dict_attr(self, path):
+    return get_dict_attr(self._source, path)
+
+
+class FakeResponse:
+  def __init__(self, url="https://live.douyin.com/douyin/webcast/reflow/123?sec_user_id=user",
+               status_code=200, payload=None):
+    self.url = url
+    self.status_code = status_code
+    self._payload = payload
+
+  def raise_for_status(self):
+    return None
+
+  def json(self):
+    return self._payload
+
+
+def living_payload(room_status=2):
+  return {
+    "status_code": 0,
+    "extra": {"now": 1786000000000},
+    "data": {
+      "room": {
+        "id": "room-1",
+        "status": room_status,
+        "title": "标题",
+        "owner_user_id": 42,
+        "owner": {"nickname": "主播", "sec_uid": "sec", "status": 1},
+      }
+    },
+  }
+
+
+class FakeContext:
+  """Minimal collaborator exposing the primitives the prober calls back into."""
+
+  def __init__(self, responses, params=None, raise_on_live=None):
+    source = unified_config()
+    self.config = FakeConfig(source)
+    self.API = DouyinApi(get_dict_attr(source, "$.platform.douyin.api"))
+    self.live_external_info = LiveExternal()
+    self._responses = list(responses)
+    self._params = params if params is not None else {"room_id": "123"}
+    self._raise_on_live = raise_on_live
+    self.pauses = 0
+    self.requests = 0
+
+  def query_url(self, method, url, params, timeout, headers):
+    self.requests += 1
+    if self._raise_on_live is not None and self.requests == 2:
+      raise self._raise_on_live
+    outcome = self._responses.pop(0)
+    if isinstance(outcome, Exception):
+      raise outcome
+    return outcome
+
+  def pause(self):
+    self.pauses += 1
+
+  def construct_live_params_no_login(self, share_info, header):
+    return self._params
+
+
+class ObservedAtTest(unittest.TestCase):
+  def test_the_payload_timestamp_is_used_when_present(self):
+    self.assertEqual(1786000000.0, observed_at(living_payload()).timestamp())
+
+  def test_a_missing_or_unusable_timestamp_falls_back_to_the_clock(self):
+    self.assertIsNotNone(observed_at({}))
+    self.assertIsNotNone(observed_at({"extra": {"now": "not-a-number"}}))
+
+
+class LiveProberSuccessTest(unittest.TestCase):
+  def test_a_broadcasting_room_is_reported_with_its_details(self):
+    context = FakeContext([FakeResponse(), FakeResponse(payload=living_payload(2))])
+
+    result = DouyinLiveProber(context).probe("https://v.douyin.com/example/")
+
+    self.assertTrue(result.ok)
+    self.assertTrue(result.is_living)
+    self.assertEqual(2, result.room_status)
+    self.assertEqual("room-1", result.room_id)
+    self.assertEqual("42", result.owner_user_id)
+    self.assertEqual("主播", result.nickname)
+    self.assertEqual("标题", result.title)
+    self.assertIsNotNone(result.checked_at)
+    self.assertIsNotNone(result.response)
+
+  def test_a_finished_room_still_succeeds_but_is_not_living(self):
+    context = FakeContext([FakeResponse(), FakeResponse(payload=living_payload(4))])
+
+    result = DouyinLiveProber(context).probe("https://v.douyin.com/example/")
+
+    self.assertTrue(result.ok)
+    self.assertFalse(result.is_living)
+
+  def test_both_platform_requests_are_spaced_by_a_pause(self):
+    context = FakeContext([FakeResponse(), FakeResponse(payload=living_payload(2))])
+
+    DouyinLiveProber(context).probe("https://v.douyin.com/example/")
+
+    self.assertEqual(2, context.requests)
+    self.assertEqual(2, context.pauses)
+
+
+class LiveProberFailureTest(unittest.TestCase):
+  def test_a_share_url_timeout_ends_the_probe_without_raising(self):
+    context = FakeContext([exceptions.ReadTimeout()])
+
+    result = DouyinLiveProber(context).probe("https://v.douyin.com/example/")
+
+    self.assertFalse(result.ok)
+    self.assertEqual("请求超时", result.error)
+
+  def test_a_share_url_failure_is_reported_rather_than_raised(self):
+    context = FakeContext([RuntimeError("network unavailable")])
+
+    result = DouyinLiveProber(context).probe("https://v.douyin.com/example/")
+
+    self.assertFalse(result.ok)
+    self.assertEqual("分享链接请求失败", result.error)
+
+  def test_a_non_200_live_response_is_reported(self):
+    context = FakeContext([FakeResponse(), FakeResponse(status_code=403)])
+
+    result = DouyinLiveProber(context).probe("https://v.douyin.com/example/")
+
+    self.assertFalse(result.ok)
+    self.assertEqual("直播信息请求失败", result.error)
+
+  def test_an_unknown_rejection_code_is_surfaced_verbatim(self):
+    payload = living_payload()
+    payload["status_code"] = 4003
+    context = FakeContext([FakeResponse(), FakeResponse(payload=payload)])
+
+    result = DouyinLiveProber(context).probe("https://v.douyin.com/example/")
+
+    self.assertFalse(result.ok)
+    ##
+    ## An unmapped code must still reach the operator rather than collapse into a
+    ## generic message.
+    ##
+    self.assertIn("4003", result.error)
+
+  def test_a_known_rejection_code_gets_its_own_wording(self):
+    payload = living_payload()
+    payload["status_code"] = 10033
+    payload["data"] = {
+      "message": "forbidden",
+      "prompts": "Server upgrading. Please try again.",
+    }
+    context = FakeContext([FakeResponse(), FakeResponse(payload=payload)])
+
+    result = DouyinLiveProber(context).probe("https://v.douyin.com/example/")
+
+    self.assertFalse(result.ok)
+    self.assertIn("10033", result.error)
+    self.assertIn("稍后重试", result.error)
+
+  def test_a_rejection_with_an_unreadable_body_still_reports_its_code(self):
+    class UnreadableResponse(FakeResponse):
+      def __init__(self):
+        super().__init__(status_code=200)
+        self._calls = 0
+
+      def json(self):
+        ##
+        ## get_status reads the code first; the explanation lookup then fails.
+        ##
+        self._calls += 1
+        if self._calls == 1:
+          return {"status_code": 10033}
+        raise ValueError("body is not decodable")
+
+    context = FakeContext([FakeResponse(), UnreadableResponse()])
+
+    result = DouyinLiveProber(context).probe("https://v.douyin.com/example/")
+
+    self.assertFalse(result.ok)
+    self.assertIn("10033", result.error)
+
+  def test_an_unexpected_live_request_error_still_propagates(self):
+    context = FakeContext([FakeResponse()], raise_on_live=MemoryError("boom"))
+
+    with self.assertRaises(MemoryError):
+      DouyinLiveProber(context).probe("https://v.douyin.com/example/")
+
+  def test_a_missing_url_is_a_programming_error(self):
+    with self.assertRaises(ValueError):
+      DouyinLiveProber(FakeContext([])).probe(None)
+
+  def test_a_missing_context_is_rejected(self):
+    with self.assertRaises(ValueError):
+      DouyinLiveProber(None)
+
+
+if __name__ == "__main__":
+  unittest.main()

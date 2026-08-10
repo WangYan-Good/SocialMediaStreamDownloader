@@ -119,7 +119,11 @@ class MigrationServiceTest(unittest.TestCase):
     unversioned.stamp()
 
     alembic_config, target = commands.stamp.call_args.args
-    self.assertEqual("0001_initial_schema", target)
+    ##
+    ## stamp records the single head, whatever it currently is; hardcoding a
+    ## revision here would break on every new migration.
+    ##
+    self.assertEqual(unversioned._heads()[0], target)
     self.assertIs(engine, alembic_config.attributes["engine"])
     self.assertTrue(engine.disposed)
 

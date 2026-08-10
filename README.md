@@ -5,6 +5,7 @@
 本项目是一个社交媒体音视频流下载器，目前提供：
 
 - [x] 抖音直播下载
+- [x] 下载历史筛选 + 直播状态检查
 
 # 💻 程序界面\(Screenshot\)
 
@@ -55,6 +56,22 @@ YAML 中配置。
 4. 使用 `config/config.yml` 中的 `server.port` 打开网页，在输入框添加分享链接即可下载
 ![web-UI](./docs/media/web-ui.PNG)
 
+## 下载历史筛选与直播状态检查
+
+Download 与 History 两个页面共用同一个历史主播列表（Download 页是精简版）。
+筛选和判定是分开的两件事：
+
+1. **筛选**只读数据库，不发任何平台请求。可按昵称、收藏与评分区间、用户状态、
+   「上次见到在播」时间窗筛选，并按评分 / 下载次数 / 上次见到在播排序。
+   升序即「下载次数最少」与「最久未下载」。每页上限由 `history.page_size_limit` 控制。
+2. **判定**只来自点击「检查直播状态」后发出的真实请求，且只针对当前这一页。
+   一次探测约 5-12 秒，因此并发与批量都受 `platform.douyin.live.probe` 约束。
+   探测到正在直播的行会出现「立即下载」，走既有的下载入口。
+
+`share_url` 上的 `last_live_status` / `last_checked_at` / `last_room_id` 是探测结果的
+缓存，用来支撑筛选排序和「上次见到：3 天前」这类提示，**不代表此刻是否在播**。
+数据库关闭或不可用时，历史列表返回 503 并在界面上说明，直播下载本身不受影响。
+
 ## 数据库结构迁移
 
 数据库启用时，先显式确认 schema 状态；服务启动不会自动建表或执行迁移：
@@ -83,9 +100,23 @@ python -m backend.src.database.migration_cli downgrade REVISION --confirm-databa
 python -m backend.src.database.migration_cli revision "change description"
 ```
 
-`stamp` 只写 Alembic 版本，不执行建表或 `ALTER`，但只有 12 张受管表的严格结构校验
-全部通过时才会执行。`upgrade` 会拒绝含受管表但尚未版本化的数据库，已有库必须走
-`check + stamp`。非临时库执行 `downgrade` 必须用实际库名进行显式确认；基线
+`stamp` 只写 Alembic 版本，不执行建表或 `ALTER`。不带参数时它记录当前 head，且只有
+12 张受管表的严格结构校验全部通过时才会执行——因此记录下来的版本不可能说谎。
+
+如果已有数据库停留在更早的版本（例如它匹配基线，但仓库里已经有了后续迁移），
+`check` 会列出缺失的列而拒绝 `stamp`。这时用显式版本把它纳入对应的那一版，
+再正常 `upgrade` 补齐后续迁移：
+
+```shell
+python -m backend.src.database.migration_cli stamp \
+  --revision 0001_initial_schema --confirm-database DATABASE_NAME
+python -m backend.src.database.migration_cli upgrade
+```
+
+指定非 head 版本时无法用当前 ORM 元数据校验，因此它是一次显式的人工判断，
+必须像 `downgrade` 一样回填真实库名确认。执行前请务必备份。
+
+`upgrade` 会拒绝含受管表但尚未版本化的数据库，已有库必须先走 `check + stamp`。非临时库执行 `downgrade` 必须用实际库名进行显式确认；基线
 revision 的任何降级路径（包括 `base`、`-1` 等等价写法）只允许通过显式数据库名 override
 创建且严格命名的临时迁移测试库。所有降级操作前必须备份并人工审查 revision。
 运行时状态为 `ready` 时才允许持久化写入；`unavailable` 或 `blocked` 不阻断 live 网络请求

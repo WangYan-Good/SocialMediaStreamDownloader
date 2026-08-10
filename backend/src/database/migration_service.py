@@ -213,18 +213,48 @@ class MigrationService:
         schema_compatible=report.is_compatible,
       )
 
-  def stamp(self) -> None:
+  def stamp(
+    self,
+    revision: str | None = None,
+    *,
+    confirm_database: str | None = None,
+  ) -> None:
+    """Record an existing database's revision without running any DDL.
+
+    Stamping the head is validated: the managed schema must already match the ORM
+    metadata, so the recorded revision cannot be a lie.
+
+    Stamping an *older* revision cannot be validated that way, because the schema
+    comparison only knows the current metadata.  A pre-baseline database that
+    predates later migrations still needs a way in, so an explicit older target is
+    accepted as an operator assertion and guarded exactly like ``downgrade``: the
+    real database name must be repeated back.  The follow-up ``upgrade`` then
+    applies the remaining revisions normally.
+    """
+    heads = self._heads()
+    if len(heads) != 1:
+      raise RevisionStateError("stamp requires exactly one migration head")
+    target = heads[0] if revision is None or not revision.strip() else revision.strip()
+
+    if target not in {item.revision for item in self._scripts().walk_revisions()}:
+      raise RevisionStateError("stamp requires a known revision")
+
+    if target != heads[0]:
+      database_name = self._configured_database_name()
+      if confirm_database != database_name:
+        raise RevisionStateError(
+          "stamping a non-head revision requires exact --confirm-database confirmation"
+        )
+
     with self._engine() as engine:
-      report = self.compare_schema(engine)
-      if not report.is_compatible:
-        raise SchemaMismatchError(report)
-      heads = self._heads()
-      if len(heads) != 1:
-        raise RevisionStateError("stamp requires exactly one migration head")
+      if target == heads[0]:
+        report = self.compare_schema(engine)
+        if not report.is_compatible:
+          raise SchemaMismatchError(report)
       if self._current_revisions(engine):
         raise RevisionStateError("database is already versioned")
       try:
-        self.commands.stamp(self._alembic_config(engine), heads[0])
+        self.commands.stamp(self._alembic_config(engine), target)
       except SQLAlchemyError:
         raise
       except Exception as exc:

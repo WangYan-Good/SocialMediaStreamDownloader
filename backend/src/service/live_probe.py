@@ -1,0 +1,294 @@
+##>> Test
+import os
+import sys
+sys.path.append(os.getcwd())
+##<< Test
+
+## <<Base>>
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta
+from time import monotonic
+from uuid import uuid4
+
+## <<Third-Part>>
+from backend.src.library.loglib import get_logger
+
+
+##
+## Per-owner probe states reported to the UI.
+##
+STATE_PENDING = "pending"
+STATE_RUNNING = "running"
+STATE_LIVING = "living"
+STATE_OFFLINE = "offline"
+STATE_ERROR = "error"
+
+##
+## room.status 2 means the room is broadcasting.
+##
+ROOM_STATUS_LIVING = 2
+
+
+class ProbeBatchError(ValueError):
+  """Raised when a probe batch cannot be accepted as requested."""
+
+
+class ProbeBatchStore:
+  """In-memory store of probe batches, evicted after a retention window.
+
+  Batches live in this process only.  That is sufficient for the single-process
+  server this project ships, and the interface is deliberately narrow so a shared
+  backend can replace it without touching callers.
+  """
+
+  def __init__(self, retention_seconds: float = 600.0, clock=monotonic) -> None:
+    self._retention_seconds = retention_seconds
+    self._clock = clock
+    self._lock = threading.Lock()
+    self._batches = dict()
+
+  def _evict_expired(self) -> None:
+    ##
+    ## Caller must hold the lock.
+    ##
+    deadline = self._clock() - self._retention_seconds
+    expired = [
+      batch_id
+      for batch_id, batch in self._batches.items()
+      if batch["created_at"] < deadline
+    ]
+    for batch_id in expired:
+      del self._batches[batch_id]
+
+  def create(self, items: list) -> str:
+    batch_id = uuid4().hex
+    with self._lock:
+      self._evict_expired()
+      self._batches[batch_id] = {
+        "created_at": self._clock(),
+        "items": {item["owner_user_id"]: item for item in items},
+      }
+    return batch_id
+
+  def update(self, batch_id: str, owner_user_id: str, **fields) -> None:
+    with self._lock:
+      batch = self._batches.get(batch_id)
+      if batch is None:
+        return
+      item = batch["items"].get(owner_user_id)
+      if item is None:
+        return
+      item.update(fields)
+
+  def snapshot(self, batch_id: str):
+    """Return a detached copy of one batch, or None when it is unknown."""
+    with self._lock:
+      self._evict_expired()
+      batch = self._batches.get(batch_id)
+      if batch is None:
+        return None
+      items = [dict(item) for item in batch["items"].values()]
+    return {
+      "batch_id": batch_id,
+      "done": all(
+        item["state"] not in (STATE_PENDING, STATE_RUNNING) for item in items
+      ),
+      "items": items,
+    }
+
+
+class LiveProbeService:
+  """Probes a small set of owners for their current live status.
+
+  One probe is two platform requests separated by deliberate delays, so a batch is
+  bounded on both sides: ``max_batch_size`` caps how many owners one action may
+  touch, and ``concurrency`` caps how many run at once.  The pool is private on
+  purpose - the download executor has a single worker and sharing it would let a
+  probe burst stall an in-flight recording.
+  """
+
+##
+## >>============================= private method =============================>>
+##
+  def __init__(
+    self,
+    prober,
+    owner_lookup,
+    status_writer=None,
+    max_batch_size: int = 10,
+    concurrency: int = 3,
+    cache_ttl_seconds: float = 60.0,
+    store=None,
+    executor=None,
+    clock=datetime.now,
+  ) -> None:
+    if prober is None:
+      raise ValueError("prober is required")
+    if owner_lookup is None:
+      raise ValueError("owner_lookup is required")
+    if max_batch_size < 1:
+      raise ValueError("max_batch_size must be at least 1")
+    if concurrency < 1:
+      raise ValueError("concurrency must be at least 1")
+
+    self._prober = prober
+    self._owner_lookup = owner_lookup
+    self._status_writer = status_writer
+    self._max_batch_size = max_batch_size
+    self._cache_ttl = timedelta(seconds=cache_ttl_seconds)
+    self._clock = clock
+    self._store = store if store is not None else ProbeBatchStore()
+    self._executor = executor if executor is not None else ThreadPoolExecutor(
+      max_workers=concurrency,
+      thread_name_prefix="live-probe",
+    )
+
+  def _cached_state(self, row: dict):
+    """Return a cached state for ``row`` when it was probed recently enough."""
+    checked_at = row.get("last_checked_at")
+    if checked_at is None:
+      return None
+    if self._clock() - checked_at > self._cache_ttl:
+      return None
+    status = row.get("last_live_status")
+    return {
+      "state": STATE_LIVING if status == ROOM_STATUS_LIVING else STATE_OFFLINE,
+      "room_id": row.get("last_room_id"),
+      "checked_at": checked_at,
+      "cached": True,
+    }
+
+  def _record(self, owner_user_id: str, result) -> None:
+    if self._status_writer is None:
+      return
+    try:
+      self._status_writer(
+        owner_user_id,
+        result.room_status,
+        result.checked_at,
+        result.room_id,
+      )
+    except Exception as e:
+      ##
+      ## Persisting the cache is a convenience; a failure here must not turn a
+      ## successful probe into a failed one.
+      ##
+      get_logger().warning("live status cache write failed: {}".format(e))
+
+  def _run_one(self, batch_id: str, owner_user_id: str, share_url: str) -> None:
+    self._store.update(batch_id, owner_user_id, state=STATE_RUNNING)
+    try:
+      result = self._prober.probe(share_url)
+    except Exception as e:
+      get_logger().error("live probe crashed for {}: {}".format(owner_user_id, e))
+      self._store.update(
+        batch_id, owner_user_id, state=STATE_ERROR, message="探测失败"
+      )
+      return
+
+    if result.ok is not True:
+      self._store.update(
+        batch_id,
+        owner_user_id,
+        state=STATE_ERROR,
+        message=result.error or "探测失败",
+      )
+      return
+
+    self._record(owner_user_id, result)
+    self._store.update(
+      batch_id,
+      owner_user_id,
+      state=STATE_LIVING if result.is_living else STATE_OFFLINE,
+      room_id=result.room_id,
+      title=result.title,
+      nickname=result.nickname or None,
+      checked_at=result.checked_at,
+      cached=False,
+      message=None,
+    )
+
+##
+## >>============================= sub class method =============================>>
+##
+  def submit(self, owner_user_ids) -> str:
+    """Accept a batch of owners to probe and return its identifier.
+
+    Owners already probed inside the cache window are resolved immediately and
+    never reach the network.
+    """
+    identifiers = list()
+    for candidate in owner_user_ids or ():
+      text = str(candidate).strip()
+      if text and text not in identifiers:
+        identifiers.append(text)
+
+    if not identifiers:
+      raise ProbeBatchError("owner_user_ids must not be empty")
+    if len(identifiers) > self._max_batch_size:
+      raise ProbeBatchError(
+        "a probe batch accepts at most {} owners".format(self._max_batch_size)
+      )
+
+    owners = self._owner_lookup(identifiers)
+
+    items = list()
+    scheduled = list()
+    for owner_user_id in identifiers:
+      row = owners.get(owner_user_id)
+      if row is None:
+        items.append(
+          {
+            "owner_user_id": owner_user_id,
+            "state": STATE_ERROR,
+            "message": "历史记录中没有该主播",
+          }
+        )
+        continue
+
+      share_url = row.get("live_share_url")
+      if not share_url:
+        items.append(
+          {
+            "owner_user_id": owner_user_id,
+            "state": STATE_ERROR,
+            "nickname": row.get("nickname"),
+            "message": "该主播没有可用的直播分享链接",
+          }
+        )
+        continue
+
+      cached = self._cached_state(row)
+      if cached is not None:
+        items.append(
+          {
+            "owner_user_id": owner_user_id,
+            "nickname": row.get("nickname"),
+            "live_share_url": share_url,
+            **cached,
+          }
+        )
+        continue
+
+      items.append(
+        {
+          "owner_user_id": owner_user_id,
+          "state": STATE_PENDING,
+          "nickname": row.get("nickname"),
+          "live_share_url": share_url,
+          "cached": False,
+        }
+      )
+      scheduled.append((owner_user_id, share_url))
+
+    batch_id = self._store.create(items)
+    for owner_user_id, share_url in scheduled:
+      self._executor.submit(self._run_one, batch_id, owner_user_id, share_url)
+    return batch_id
+
+  def snapshot(self, batch_id: str):
+    return self._store.snapshot(batch_id)
+
+  def shutdown(self, wait: bool = False) -> None:
+    self._executor.shutdown(wait=wait)

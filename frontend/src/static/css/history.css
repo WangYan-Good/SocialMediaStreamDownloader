@@ -1,0 +1,148 @@
+/************************************************************************ 下载历史列表 ************************************************************************/
+/* 容器 */
+.owner-history {
+    width: 100%;                    /* 宽度: 100% */
+    margin-top: 10px;               /* 上边距: 10 px */
+}
+
+/* 筛选器区域 */
+.owner-history-filters {
+    display: flex;                  /* 布局方式: 弹性 */
+    flex-wrap: wrap;                /* 换行: 允许 */
+    gap: 8px;                       /* 间距: 8 px */
+    align-items: center;            /* 垂直对齐: 居中 */
+    margin-bottom: 8px;             /* 下边距: 8 px */
+}
+
+/* 筛选控件 */
+.owner-history-filters .oh-filter {
+    padding: 6px 8px;               /* 内边距: 6 px 8 px */
+    border: 1px solid #ccc;         /* 边框: 1 px 实线 */
+    border-radius: 4px;             /* 圆角边框: 4 px */
+    outline: none;                  /* 移除焦点边框 */
+    font-size: 14px;                /* 字体大小: 14 px */
+}
+
+/* 昵称搜索框 */
+.owner-history-filters .oh-keyword {
+    min-width: 160px;               /* 最小宽度: 160 px */
+}
+
+/* 评分输入框 */
+.owner-history-filters .oh-score {
+    width: 90px;                    /* 宽度: 90 px */
+}
+
+/* 复选框标签 */
+.owner-history-filters .oh-checkbox {
+    font-size: 14px;                /* 字体大小: 14 px */
+    color: #333;                    /* 颜色: #333 */
+}
+
+/* 复选框自身不需要边框样式 */
+.owner-history-filters .oh-checkbox .oh-filter {
+    border: none;                   /* 边框: 无 */
+    padding: 0;                     /* 内边距: 0 */
+}
+
+/* 提示文案 */
+.owner-history .oh-hint {
+    margin: 0 0 8px 0;              /* 外边距: 下 8 px */
+    color: #888;                    /* 颜色: #888 */
+    font-size: 12px;                /* 字体大小: 12 px */
+}
+
+/* 列表 */
+.owner-history-table {
+    width: 100%;                    /* 宽度: 100% */
+    border-collapse: collapse;      /* 边框合并 */
+    font-size: 14px;                /* 字体大小: 14 px */
+}
+
+/* 表头与单元格 */
+.owner-history-table th,
+.owner-history-table td {
+    padding: 8px 6px;               /* 内边距: 8 px 6 px */
+    border-bottom: 1px solid #eee;  /* 下边框: 1 px 实线 */
+    text-align: left;               /* 文字对齐: 左 */
+}
+
+/* 表头 */
+.owner-history-table th {
+    background-color: #f0f0f0;      /* 背景颜色: #f0f0f0 */
+    font-weight: normal;            /* 字重: 正常 */
+    color: #555;                    /* 颜色: #555 */
+}
+
+/* 勾选列 */
+.owner-history-table .oh-col-select {
+    width: 32px;                    /* 宽度: 32 px */
+}
+
+/* 可展开的昵称单元格 */
+.owner-history-table .oh-expandable {
+    cursor: pointer;                /* 鼠标指针: 手型 */
+    color: #2a6ebb;                 /* 颜色: 蓝 */
+}
+
+/* 直播状态: 正在直播 */
+.owner-history-table .oh-state-living {
+    color: #c0392b;                 /* 颜色: 红 */
+}
+
+/* 直播状态: 未开播 */
+.owner-history-table .oh-state-offline {
+    color: #777;                    /* 颜色: 灰 */
+}
+
+/* 直播状态: 查询失败 */
+.owner-history-table .oh-state-error {
+    color: #b7791f;                 /* 颜色: 琥珀 */
+}
+
+/* 直播状态: 排队中/检查中 */
+.owner-history-table .oh-state-pending,
+.owner-history-table .oh-state-running {
+    color: #888;                    /* 颜色: #888 */
+    font-style: italic;             /* 斜体 */
+}
+
+/* 展开的场次行 */
+.owner-history-table .oh-sessions td {
+    background-color: #fafafa;      /* 背景颜色: #fafafa */
+    color: #555;                    /* 颜色: #555 */
+    font-size: 13px;                /* 字体大小: 13 px */
+}
+
+/* 场次列表 */
+.owner-history-table .oh-sessions ul {
+    margin: 0;                      /* 外边距: 0 */
+    padding-left: 18px;             /* 左内边距: 18 px */
+}
+
+/* 空结果提示 */
+.owner-history .oh-empty {
+    margin: 12px 0;                 /* 外边距: 上下 12 px */
+    color: #888;                    /* 颜色: #888 */
+}
+
+/* 状态行 */
+.owner-history .oh-status {
+    margin-top: 8px;                /* 上边距: 8 px */
+    color: #666;                    /* 颜色: #666 */
+    font-style: italic;             /* 斜体 */
+}
+
+/* 分页 */
+.owner-history-pager {
+    display: flex;                  /* 布局方式: 弹性 */
+    gap: 8px;                       /* 间距: 8 px */
+    align-items: center;            /* 垂直对齐: 居中 */
+    margin-top: 8px;                /* 上边距: 8 px */
+}
+
+/* 分页信息 */
+.owner-history-pager .oh-page-info {
+    color: #666;                    /* 颜色: #666 */
+    font-size: 13px;                /* 字体大小: 13 px */
+}
