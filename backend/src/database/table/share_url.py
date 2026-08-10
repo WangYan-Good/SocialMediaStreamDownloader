@@ -27,28 +27,11 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
   __DOUYIN_SHARE_URL_TABLE_NAME   = 'share_url'
   __DOUYIN_SHARE_URL_TABLE_HEADER = ['owner_user_id', 'sec_user_id', 'nickname', 'post_share_url', 'live_share_url', 'directory_name', 'user_status', 'actived_count']
   __DOUYIN_SHARE_URL_TABLE_TUPLE  = {item:None for item in __DOUYIN_SHARE_URL_TABLE_HEADER}
-  __SQL_CREATE_SHARE_URL_TABLE    = '''
-                                    CREATE TABLE IF NOT EXISTS {} (
-                                      owner_user_id     VARCHAR(200) NOT NULL,
-                                      sec_user_id       VARCHAR(200) DEFAULT NULL,
-                                      nickname          VARCHAR(50)  DEFAULT NULL,
-                                      post_share_url    VARCHAR(100) DEFAULT NULL,
-                                      live_share_url    VARCHAR(100) DEFAULT NULL,
-                                      directory_name    VARCHAR(100) DEFAULT NULL,
-                                      user_status       VARCHAR(100) DEFAULT NULL,
-                                      actived_count     INT UNSIGNED NOT NULL DEFAULT 0,
-                                      last_live_status  TINYINT UNSIGNED DEFAULT NULL,
-                                      last_checked_at   TIMESTAMP(3)  DEFAULT NULL,
-                                      last_room_id      VARCHAR(200) DEFAULT NULL,
-                                      PRIMARY KEY (owner_user_id),
-                                      INDEX idx_nickname (nickname),
-                                      INDEX idx_share_url_last_checked_at (last_checked_at),
-                                      INDEX idx_share_url_actived_count (actived_count)
-                                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-                                  '''.format(__DOUYIN_SHARE_URL_TABLE_NAME)
-  __SQL_DROP_SHARE_URL_TABLE      = '''
-                                    DROP TABLE IF EXISTS {};
-                                  '''.format(__DOUYIN_SHARE_URL_TABLE_NAME)
+  ##
+  ## 此处曾并存一份 CREATE TABLE / DROP TABLE 的 DDL。它无人引用，却构成
+  ## 第二份 schema 定义：每次改表都得记得同步它，漏掉就与 Alembic 漂移。
+  ## 受管 schema 由 backend/src/database/orm/models 与 migration/versions
+  ## 单独负责，运行时也不再自动建表，因此这份副本已删除。
 ##
 ## >>============================= private method =============================>>
 ##
