@@ -5,6 +5,7 @@ sys.path.append(os.getcwd())
 ##<< Test
 
 ##<<Base>>
+import re
 import threading
 from contextlib import contextmanager
 from typing     import Iterator
@@ -22,6 +23,28 @@ from backend.src.database.schema_guard import (
   require_database_write_ready,
   require_runtime_schema_mutation_allowed,
 )
+
+##
+## MySQL 标识符的安全字符集：字母、数字、下划线、美元符号。
+## 受管表名全部落在此范围内，超出即视为调用方传错。
+##
+_SAFE_IDENTIFIER = re.compile(r"^[0-9a-zA-Z_$]+$")
+
+
+def quote_identifier(identifier) -> str:
+  """把表名或列名转成可安全拼接的反引号形式。
+
+  标识符不能用 %s 占位符传递，只能拼接，所以在拼接前先限定字符集，
+  再加倍内部的反引号并包裹。两道措施缺一不可：只加引号不校验，仍可
+  被换行或控制字符干扰；只校验不加引号，则保留字会让语句解析失败。
+  """
+  if identifier is None:
+    raise ValueError("identifier is required")
+  text = str(identifier)
+  if not _SAFE_IDENTIFIER.match(text):
+    raise ValueError("unsafe SQL identifier: {!r}".format(text))
+  return "`{}`".format(text.replace("`", "``"))
+
 
 class SocialMediaStreamDataBase():
 ##
@@ -258,8 +281,13 @@ class SocialMediaStreamDataBase():
   def drop_db_table(self, table_name:str) -> None:
     require_runtime_schema_mutation_allowed()
     require_database_write_ready()
+    ##
+    ## 表名无法用占位符传递，只能拼接，因此先限定字符集再加反引号包裹。
+    ## 这是一条 DROP TABLE，拼错的代价是删掉计划之外的对象。
+    ##
+    quoted_table_name = quote_identifier(table_name)
     try:
-      sql = '''DROP TABLE IF EXISTS {};'''.format(table_name)
+      sql = '''DROP TABLE IF EXISTS {};'''.format(quoted_table_name)
       with self.get_connection() as conn:
         with conn.cursor() as cursor:
           cursor.execute(sql)
