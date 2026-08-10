@@ -8,8 +8,10 @@ sys.path.append(os.getcwd())
 from requests import request
 
 ## <<Third-Part>>
-from backend.src.library.baselib                        import get_dict_attr
+from backend.src.library.baselib                        import get_dict_attr, set_dict_attr
 from backend.src.platform.douyin.douyin_api             import DouyinApi
+from backend.src.platform.douyin.douyin_aweme_downloader import download_multiple_aweme
+from backend.src.platform.douyin.douyin_aweme_url       import classify_aweme_url
 from backend.src.platform.douyin.douyin_live_downloader import download_multiple_live
 from backend.src.library.loglib                         import get_logger
 
@@ -83,9 +85,10 @@ def douyin_handler(token:dict):
   if token is None:
     get_logger().error("invalid url list")
     raise ValueError
-  
-  live_token_list = list()
-  
+
+  live_token_list  = list()
+  aweme_token_list = list()
+
   ##
   ## token["url"]: str
   ## token["score"]: int
@@ -97,30 +100,68 @@ def douyin_handler(token:dict):
   ##
   ## query url
   ##
+  ## The share link is followed once, here, and both branches below read the
+  ## resolved url.  Neither classification costs an extra request.
+  ##
   response = request('GET', url)
   if response.status_code != 200:
     get_logger().error("request failed")
     return
 
   ##
-  ## compare the user with the api
+  ## sort the resolved url into a live room or a single post
   ##
   try:
     if is_douyin_live_url(response.url):
       live_token_list.append(token)
+    elif classify_aweme_url(response.url) is not None:
+      ##
+      ## Hand the resolved url and id down with the token.  The share link was
+      ## already followed above, and a short link carries no id of its own, so
+      ## without this the post path would have to spend a second request
+      ## rediscovering what is already known here.
+      ##
+      aweme_token = token.copy()
+      set_dict_attr(aweme_token, "$.resolved_url", response.url)
+      set_dict_attr(aweme_token, "$.aweme_id", classify_aweme_url(response.url))
+      aweme_token_list.append(aweme_token)
+    else:
+      ##
+      ## user home pages and anything unrecognised land here.  This used to be a
+      ## silent drop, which left "I pasted a link and nothing happened" with no
+      ## trace to follow.
+      ##
+      get_logger().warning(
+        "no douyin handler for resolved url {} (from {})".format(
+          response.url,
+          url,
+        )
+      )
+      return
   except Exception as e:
     get_logger().error("{}".format(e))
     return
-  
+
   ##
   ## start multiple thread to download living
   ##
-  try:
-    download_multiple_live(live_token_list)
-  except Exception as e:
-    get_logger().error("download multiple live failed! {}".format(e))
-    return
-  
+  if live_token_list:
+    try:
+      download_multiple_live(live_token_list)
+    except Exception as e:
+      get_logger().error("download multiple live failed! {}".format(e))
+      return
+
+  ##
+  ## submit single posts to the post pool
+  ##
+  if aweme_token_list:
+    try:
+      download_multiple_aweme(aweme_token_list)
+    except Exception as e:
+      get_logger().error("download multiple aweme failed! {}".format(e))
+      return
+
   return
 
 ##

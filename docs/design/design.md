@@ -92,9 +92,9 @@ flowchart LR
 - backend/src/database/table/
 	- 按表封装读写逻辑（分享链接、直播信息、用户信息等）
 - backend/src/database/orm/
-	- 以 SQLAlchemy Declarative Models 描述 12 张生产受管表
+	- 以 SQLAlchemy Declarative Models 描述 13 张生产受管表
 - backend/src/database/migration/
-	- 保存不可变 Alembic revision；基线为 `0001_initial_schema`
+	- 保存不可变 Alembic revision；基线为 `0001_initial_schema`，head 为 `0003_aweme_record`
 - backend/src/database/migration_service.py / migration_cli.py
 	- 提供严格 schema check、status、stamp、upgrade、downgrade 与 revision 命令
 - backend/src/database/schema_guard.py

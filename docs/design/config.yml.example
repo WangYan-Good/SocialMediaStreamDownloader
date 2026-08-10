@@ -278,3 +278,24 @@ platform:
         cache_ttl_seconds: 60
         # How long a finished batch stays readable before it is evicted.
         batch_retention_seconds: 600
+    aweme:
+      # Single-post download.  One share url resolves to one aweme; the post's
+      # media files are then fetched one by one.  Unrelated to the live path.
+      max_timeout: 10
+      # Concurrency *between* posts.  Post workers run on their own pool: never
+      # share the live download executor or the probe pool, or a burst of pasted
+      # links would stall recordings.  Files inside one post stay sequential.
+      concurrency: 3
+      # Fall back to parsing the share page HTML when the detail API fails.
+      # Signed API calls without a login are not reliably available, so this is
+      # what keeps the feature usable; turning it off makes the API the only path.
+      html_fallback: true
+      # Skip an aweme_id whose every planned file was already saved.
+      skip_downloaded: true
+      media:
+        # Disabling one of these drops it from the planned media list, which also
+        # lowers the media_count recorded for the post.
+        video: true
+        images: true
+        music: true
+        cover: true

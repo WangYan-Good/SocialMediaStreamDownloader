@@ -5,6 +5,10 @@ from sqlalchemy.dialects import mysql
 
 
 CORE_TABLES = frozenset({"share_url", "favorite_owner", "live_record"})
+##
+## Post downloads record one row per post; the live tables cover live sessions.
+##
+POST_TABLES = frozenset({"aweme_record"})
 PRIMARY_ENTITY_TABLES = frozenset({"room_base", "room_owner_v2", "user"})
 ROOM_EXTENSION_TABLES = frozenset(
   {
@@ -176,9 +180,94 @@ class OrmModelTest(unittest.TestCase):
       str(table.c.updated_at.server_default.arg),
     )
 
+  def test_aweme_record_schema(self):
+    models = load_models()
+    table = models.Base.metadata.tables["aweme_record"]
+
+    self.assertEqual(
+      [
+        "platform",
+        "aweme_id",
+        "owner_user_id",
+        "sec_user_id",
+        "aweme_type",
+        "desc",
+        "create_time",
+        "downloaded_at",
+        "media_count",
+        "saved_count",
+        "save_dir",
+        "source",
+      ],
+      [column.name for column in table.columns],
+    )
+
+  def test_aweme_record_primary_key_is_the_dedup_key(self):
+    """Re-submitting a link must find the existing row, not add a second one."""
+    models = load_models()
+    table = models.Base.metadata.tables["aweme_record"]
+
+    self.assertEqual(
+      ["platform", "aweme_id"],
+      [column.name for column in table.primary_key],
+    )
+
+  def test_aweme_record_owner_id_matches_share_url_so_no_cast_is_needed(self):
+    """share_url.owner_user_id is VARCHAR(200); a mismatch would force a CAST.
+
+    The 0002 migration documents what casting between VARCHAR and BIGINT costs
+    on this data, so the two owner columns have to agree.
+    """
+    models = load_models()
+    aweme = models.Base.metadata.tables["aweme_record"]
+    share_url = models.Base.metadata.tables["share_url"]
+
+    self.assertEqual(
+      str(share_url.c.owner_user_id.type),
+      str(aweme.c.owner_user_id.type),
+    )
+
+  def test_aweme_record_counts_are_unsigned_and_required(self):
+    models = load_models()
+    table = models.Base.metadata.tables["aweme_record"]
+
+    for name in ("media_count", "saved_count"):
+      with self.subTest(column=name):
+        column = table.c[name]
+        self.assertTrue(column.type.unsigned)
+        self.assertFalse(column.nullable)
+
+  def test_aweme_record_indexes_back_the_expected_lookups(self):
+    models = load_models()
+    table = models.Base.metadata.tables["aweme_record"]
+
+    self.assertEqual(
+      {
+        "idx_aweme_record_owner_user_id",
+        "idx_aweme_record_downloaded_at",
+      },
+      {index.name for index in table.indexes},
+    )
+
+  def test_aweme_record_uses_the_shared_mysql_table_options(self):
+    models = load_models()
+    table = models.Base.metadata.tables["aweme_record"]
+
+    self.assertEqual("InnoDB", table.dialect_options["mysql"]["engine"])
+    self.assertEqual("utf8mb4", table.dialect_options["mysql"]["charset"])
+    self.assertEqual(
+      "utf8mb4_0900_ai_ci",
+      table.dialect_options["mysql"]["collate"],
+    )
+
   def test_managed_table_set_is_complete(self):
     models = load_models()
-    expected = CORE_TABLES | PRIMARY_ENTITY_TABLES | ROOM_EXTENSION_TABLES
+    expected = (
+      CORE_TABLES
+      | POST_TABLES
+      | PRIMARY_ENTITY_TABLES
+      | ROOM_EXTENSION_TABLES
+    )
 
     self.assertEqual(expected, models.MANAGED_TABLE_NAMES)
     self.assertEqual(expected, frozenset(models.Base.metadata.tables))

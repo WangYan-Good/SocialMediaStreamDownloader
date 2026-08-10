@@ -52,6 +52,7 @@ class UnifiedConfigSchemaTest(unittest.TestCase):
       "login",
       "post",
       "live",
+      "aweme",
     }.issubset(douyin_config))
 
     self.assertNotIn("stream_url", douyin_config["live"])

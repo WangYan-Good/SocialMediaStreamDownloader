@@ -318,6 +318,46 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       raise e
 
   ##
+  ## count how many distinct owners are filed under one folder name
+  ##
+  def count_owners_using_directory_name(self, directory_name:str) -> int:
+    '''
+    Douyin does not require nicknames to be unique, so several accounts really do
+    share one.  Measured on this database: 39 folder names cover more than one
+    owner, four of them cover three.  Anything above 1 means the folder cannot
+    identify its owner, and the caller adds a discriminator.
+
+    directory_name is not indexed, so this is a scan; at a few thousand rows that
+    is cheaper than the migration an index would cost.
+    '''
+    if not directory_name:
+      return 0
+    try:
+      ##
+      ## Blank owner ids are excluded.  A payload that omits the owner id used to
+      ## produce a row keyed on the empty string, and counting that as an owner
+      ## made a folder look shared when only one real account used it - which
+      ## suppressed the discriminator entirely.
+      ##
+      sql = '''
+              SELECT COUNT(DISTINCT owner_user_id) AS owners
+              FROM share_url
+              WHERE directory_name = %s
+                AND owner_user_id IS NOT NULL
+                AND owner_user_id <> '';
+            '''
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql, (directory_name,))
+          result = cursor.fetchall()
+      if len(result) == 0:
+        return 0
+      return int(result[0].get("owners") or 0)
+    except Exception as e:
+      get_logger().error("count owners for directory {} failed {}".format(directory_name, e))
+      raise e
+
+  ##
   ## get the owner nickname from database
   ##
   def get_owner_nickname_by_live_share_url(self, live_share_url:str) -> str:

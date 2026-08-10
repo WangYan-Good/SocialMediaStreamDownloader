@@ -9,6 +9,7 @@ from unittest import mock
 from urllib.error import ContentTooShortError
 from requests import exceptions
 
+from backend.src.base import file_fetcher as fetcher_module
 from backend.src.library.baselib import load_yml
 from backend.src.platform.douyin import douyin_live_downloader as live_module
 from backend.src.platform.douyin import douyin_api as api_module
@@ -557,6 +558,9 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
           database_calls.append(owner_user_id)
           return False
 
+        def count_owners_using_directory_name(self, directory_name):
+          return 1
+
       downloader.database = RecordingDatabase()
       build = {
         "summary": {
@@ -616,8 +620,13 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
       self.assertEqual(downloaded_path.read_bytes(), b"live-stream-bytes")
 
   def test_http_stream_write_uses_configured_headers(self):
-    original_request = live_module.request
-    original_urlretrieve = live_module.urlretrieve
+    ##
+    ## the file transport lives in file_fetcher, so that is where the stream
+    ## request has to be intercepted; live_module.request still serves the
+    ## share-url and live-info calls
+    ##
+    original_request = fetcher_module.request
+    original_urlretrieve = fetcher_module.urlretrieve
 
     class StreamResponse:
       headers = {"Content-Length": "22"}
@@ -642,8 +651,8 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
     def reject_urlretrieve(*args, **kwargs):
       raise AssertionError("HTTP streams must use the requests transport")
 
-    live_module.request = stream_request
-    live_module.urlretrieve = reject_urlretrieve
+    fetcher_module.request = stream_request
+    fetcher_module.urlretrieve = reject_urlretrieve
     try:
       config = live_config()
       config["download"]["test_mode"] = False
@@ -678,11 +687,11 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
           b"http-live-stream-bytes",
         )
     finally:
-      live_module.request = original_request
-      live_module.urlretrieve = original_urlretrieve
+      fetcher_module.request = original_request
+      fetcher_module.urlretrieve = original_urlretrieve
 
   def test_http_stream_timeout_preserves_downloaded_content_as_target_file(self):
-    original_request = live_module.request
+    original_request = fetcher_module.request
 
     class InterruptedStreamResponse:
       headers = {}
@@ -697,7 +706,7 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
       def close(self):
         return None
 
-    live_module.request = lambda *args, **kwargs: InterruptedStreamResponse()
+    fetcher_module.request = lambda *args, **kwargs: InterruptedStreamResponse()
     try:
       config = live_config()
       config["download"]["max_retry"] = 0
@@ -718,7 +727,7 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
           downloaded_path.read_bytes(),
         )
     finally:
-      live_module.request = original_request
+      fetcher_module.request = original_request
 
   def test_hls_stream_uses_recorder_instead_of_flv_transport(self):
     config = live_config()
@@ -1222,7 +1231,7 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
     config = live_config()
     config["download"]["max_retry"] = 2
     downloader = live_module.DouyinLiveDownloader(config)
-    original_urlretrieve = live_module.urlretrieve
+    original_urlretrieve = fetcher_module.urlretrieve
     attempts = []
 
     def fail_download(url, file_name):
@@ -1231,7 +1240,7 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
         raise AssertionError("download exceeded configured retry count")
       raise ContentTooShortError("incomplete stream", b"")
 
-    live_module.urlretrieve = fail_download
+    fetcher_module.urlretrieve = fail_download
     try:
       with self.assertRaises(ContentTooShortError):
         downloader.auto_down(
@@ -1241,7 +1250,7 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
           0,
         )
     finally:
-      live_module.urlretrieve = original_urlretrieve
+      fetcher_module.urlretrieve = original_urlretrieve
 
     self.assertEqual(len(attempts), 3)
 
@@ -1249,14 +1258,14 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
     config = live_config()
     config["download"]["max_retry"] = 1
     downloader = live_module.DouyinLiveDownloader(config)
-    original_urlretrieve = live_module.urlretrieve
+    original_urlretrieve = fetcher_module.urlretrieve
     attempts = []
 
     def timeout_download(url, file_name):
       attempts.append((url, file_name))
       raise TimeoutError("stream timed out")
 
-    live_module.urlretrieve = timeout_download
+    fetcher_module.urlretrieve = timeout_download
     try:
       with self.assertRaises(TimeoutError):
         downloader.auto_down(
@@ -1266,8 +1275,41 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
           0,
         )
     finally:
-      live_module.urlretrieve = original_urlretrieve
+      fetcher_module.urlretrieve = original_urlretrieve
 
+    self.assertEqual(len(attempts), 2)
+
+  def test_auto_down_spends_only_the_remaining_retry_budget(self):
+    """A caller that already burned attempts gets the rest of the budget.
+
+    ``retry_times`` used to drive a recursive call; the fetcher counts retries
+    internally now, so the wrapper has to subtract what was already spent.
+    """
+    config = live_config()
+    config["download"]["max_retry"] = 3
+    downloader = live_module.DouyinLiveDownloader(config)
+    original_urlretrieve = fetcher_module.urlretrieve
+    attempts = []
+
+    def timeout_download(url, file_name):
+      attempts.append((url, file_name))
+      raise TimeoutError("stream timed out")
+
+    fetcher_module.urlretrieve = timeout_download
+    try:
+      with self.assertRaises(TimeoutError):
+        downloader.auto_down(
+          "file:///tmp/live.flv",
+          "/tmp",
+          "live.flv",
+          2,
+        )
+    finally:
+      fetcher_module.urlretrieve = original_urlretrieve
+
+    ##
+    ## budget 3 minus 2 already spent leaves 1 retry, so 2 attempts here
+    ##
     self.assertEqual(len(attempts), 2)
 
   def test_download_failure_is_propagated_and_releases_task_slot(self):
@@ -1487,6 +1529,129 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
       live_module.downloader = original_downloader
 
     self.assertEqual(received, [{"url": "https://example.test/live"}])
+
+
+class LiveOwnerDirectoryTest(unittest.TestCase):
+  """The live path files recordings under the same folder policy as posts.
+
+  Douyin allows duplicate nicknames, so a folder named after one cannot identify
+  its owner; on this database 39 folder names already cover several owners each.
+  Existing recordings are deliberately not moved - only new ones are separated.
+  """
+
+  class DirectoryDatabase:
+    def __init__(self, recorded=None, owners=1, failure=None):
+      self.recorded = recorded
+      self.owners = owners
+      self.failure = failure
+      self.counted = []
+
+    def is_owner_user_id_record_exist(self, owner_user_id):
+      return self.recorded is not None
+
+    def get_directory_name_by_owner_user_id(self, owner_user_id):
+      return self.recorded
+
+    def count_owners_using_directory_name(self, directory_name):
+      self.counted.append(directory_name)
+      if self.failure is not None:
+        raise self.failure
+      return self.owners
+
+  def _record_into(self, database, directory_name="Test_Host"):
+    config = live_config()
+    config["download"]["test_mode"] = True
+    config["download"]["tick_naming"] = False
+
+    with tempfile.TemporaryDirectory() as temporary_directory:
+      save_path = Path(temporary_directory) / "downloads"
+      config["download"]["save_path"] = str(save_path)
+      downloader = live_module.DouyinLiveDownloader(config)
+      downloader.database = database
+      downloader.download_live_stream(
+        "https://v.douyin.com/example/",
+        {
+          "summary": {
+            "stream_url": "https://stream.example.test/live.flv",
+            "stream_name": "live.flv",
+            "directory_name": directory_name,
+            "nickname": "Test Host",
+          },
+          "external_info": {
+            "data": {"room": {"owner_user_id": "owner-1"}}
+          },
+        },
+      )
+      created = [
+        path.name
+        for path in (save_path / "douyin" / "live").iterdir()
+        if path.is_dir()
+      ]
+      return created
+
+  def test_a_shared_folder_name_gains_the_owner_id(self):
+    database = self.DirectoryDatabase(owners=2)
+
+    created = self._record_into(database)
+
+    self.assertEqual(created, ["Test_Host_owner-1"])
+    self.assertEqual(database.counted, ["Test_Host"])
+
+  def test_a_folder_used_by_one_owner_is_left_alone(self):
+    created = self._record_into(self.DirectoryDatabase(owners=1))
+
+    self.assertEqual(created, ["Test_Host"])
+
+  def test_the_recorded_folder_still_wins_over_the_current_nickname(self):
+    created = self._record_into(
+      self.DirectoryDatabase(recorded="Recorded_Host", owners=1)
+    )
+
+    self.assertEqual(created, ["Recorded_Host"])
+
+  def test_the_discriminator_applies_on_top_of_the_recorded_folder(self):
+    database = self.DirectoryDatabase(recorded="Recorded_Host", owners=3)
+
+    created = self._record_into(database)
+
+    self.assertEqual(created, ["Recorded_Host_owner-1"])
+    self.assertEqual(database.counted, ["Recorded_Host"])
+
+  def test_a_failing_count_falls_back_to_the_nickname(self):
+    """A database problem must not stop a recording, only cost the correction."""
+    created = self._record_into(
+      self.DirectoryDatabase(failure=RuntimeError("gone"))
+    )
+
+    self.assertEqual(created, ["Test_Host"])
+
+  def test_no_database_falls_back_to_the_nickname(self):
+    config = live_config()
+    config["download"]["test_mode"] = True
+    config["download"]["tick_naming"] = False
+    config["database"]["enable"] = False
+
+    with tempfile.TemporaryDirectory() as temporary_directory:
+      save_path = Path(temporary_directory) / "downloads"
+      config["download"]["save_path"] = str(save_path)
+      downloader = live_module.DouyinLiveDownloader(config)
+      downloader.database = None
+      downloader.download_live_stream(
+        "https://v.douyin.com/example/",
+        {
+          "summary": {
+            "stream_url": "https://stream.example.test/live.flv",
+            "stream_name": "live.flv",
+            "directory_name": "Test_Host",
+            "nickname": "Test Host",
+          },
+          "external_info": {
+            "data": {"room": {"owner_user_id": "owner-1"}}
+          },
+        },
+      )
+
+      self.assertTrue((save_path / "douyin" / "live" / "Test_Host").is_dir())
 
 
 if __name__ == "__main__":
