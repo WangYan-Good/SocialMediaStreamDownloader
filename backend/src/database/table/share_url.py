@@ -101,11 +101,11 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       ##
       sql = '''SELECT owner_user_id, nickname, live_share_url, user_status
               FROM   share_url
-              WHERE  owner_user_id = "{}";
-            '''.format(record.get("owner_user_id"))
+              WHERE  owner_user_id = %s;
+            '''
       with self.get_connection() as connector:
         with connector.cursor() as cursor:
-          cursor.execute(sql)
+          cursor.execute(sql, (record.get("owner_user_id"),))
           result = cursor.fetchall()
           if len(result) != 0:
             ##
@@ -146,10 +146,18 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
               if different:
                 update_sql = '''
                               UPDATE share_url
-                              SET nickname = "{}", live_share_url = "{}", user_status = "{}"
-                              WHERE owner_user_id = "{}";
-                              '''.format(df_result_record.get("nickname"), df_result_record.get("live_share_url"), df_result_record.get("user_status"), df_result_record.get("owner_user_id"))
-                cursor.execute(update_sql)
+                              SET nickname = %s, live_share_url = %s, user_status = %s
+                              WHERE owner_user_id = %s;
+                              '''
+                cursor.execute(
+                  update_sql,
+                  (
+                    df_result_record.get("nickname"),
+                    df_result_record.get("live_share_url"),
+                    df_result_record.get("user_status"),
+                    df_result_record.get("owner_user_id"),
+                  ),
+                )
                 connector.commit()
                 get_logger().info("update {} success".format([item for item in df_result_record.values()]))
           else:
@@ -158,17 +166,21 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
             ## next: insert it into database
             ##
             insert_sql = '''
-                          INSERT INTO share_url (owner_user_id, sec_user_id, nickname, post_share_url, live_share_url, directory_name, user_status) VALUES (
-                            "{}",
-                            "{}",
-                            "{}",
-                            '{}',
-                            "{}",
-                            "{}",
-                            "{}"
-                          );
-                         '''.format(record.get("owner_user_id"), record.get("sec_user_id"), record.get("nickname"), record.get("post_share_url"), record.get("live_share_url"), record.get("directory_name"), record.get("user_status"))
-            cursor.execute(insert_sql)
+                          INSERT INTO share_url (owner_user_id, sec_user_id, nickname, post_share_url, live_share_url, directory_name, user_status)
+                          VALUES (%s, %s, %s, %s, %s, %s, %s);
+                         '''
+            cursor.execute(
+              insert_sql,
+              (
+                record.get("owner_user_id"),
+                record.get("sec_user_id"),
+                record.get("nickname"),
+                record.get("post_share_url"),
+                record.get("live_share_url"),
+                record.get("directory_name"),
+                record.get("user_status"),
+              ),
+            )
             connector.commit()
             get_logger().info("insert record {} success".format([item for item in record.values()]))
     except Exception as e:
@@ -192,11 +204,11 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       ##
       sql = '''SELECT owner_user_id, live_share_url
               FROM   share_url
-              WHERE  owner_user_id = "{}";
-            '''.format(record.get("owner_user_id"))
+              WHERE  owner_user_id = %s;
+            '''
       with self.get_connection() as connector:
         with connector.cursor() as cursor:
-          cursor.execute(sql)
+          cursor.execute(sql, (record.get("owner_user_id"),))
           result = cursor.fetchall()
           if len(result) != 0:
             ##
@@ -210,10 +222,13 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
               if db_record.get("live_share_url") is None:
                 update_sql = '''
                               UPDATE share_url
-                              SET live_share_url = "{}"
-                              WHERE owner_user_id = "{}";
-                              '''.format(record.get("live_share_url"), db_record.get("owner_user_id"))
-                cursor.execute(update_sql)
+                              SET live_share_url = %s
+                              WHERE owner_user_id = %s;
+                              '''
+                cursor.execute(
+                  update_sql,
+                  (record.get("live_share_url"), db_record.get("owner_user_id")),
+                )
                 connector.commit()
                 get_logger().info("update owner_user_id:{} live_share_url:{} success".format(db_record.get("owner_user_id"), record["live_share_url"]))
           else:
@@ -223,17 +238,21 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
             ## actived_count: default 0, uncessary to insert
             ##
             insert_sql = '''
-                          INSERT INTO share_url (owner_user_id, sec_user_id, nickname, post_share_url, live_share_url, directory_name, user_status) VALUES (
-                            "{}",
-                            "{}",
-                            "{}",
-                            '{}',
-                            "{}",
-                            "{}",
-                            "{}"
-                          );
-                         '''.format(record.get("owner_user_id"), record.get("sec_user_id"), record.get("nickname"), record.get("post_share_url"), record.get("live_share_url"), record.get("directory_name"), record.get("user_status"))
-            cursor.execute(insert_sql)
+                          INSERT INTO share_url (owner_user_id, sec_user_id, nickname, post_share_url, live_share_url, directory_name, user_status)
+                          VALUES (%s, %s, %s, %s, %s, %s, %s);
+                         '''
+            cursor.execute(
+              insert_sql,
+              (
+                record.get("owner_user_id"),
+                record.get("sec_user_id"),
+                record.get("nickname"),
+                record.get("post_share_url"),
+                record.get("live_share_url"),
+                record.get("directory_name"),
+                record.get("user_status"),
+              ),
+            )
             connector.commit()
             get_logger().info("insert record {} success".format([item for item in record.values()]))
     except Exception as e:
@@ -248,14 +267,14 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       sql = '''
               SELECT live_share_url 
               FROM share_url
-              WHERE live_share_url = "{}";
-            '''.format(live_share_url)
+              WHERE live_share_url = %s;
+            '''
       ##
       ## execute sql & receive result
       ##
       with self.get_connection() as connector:
         with connector.cursor() as cursor:
-          cursor.execute(sql)
+          cursor.execute(sql, (live_share_url,))
           result = cursor.fetchall()
       if len(result) != 0:
         return True
@@ -273,14 +292,14 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       sql = '''
               SELECT directory_name
               FROM share_url
-              WHERE live_share_url = "{}";
-            '''.format(live_share_url)
+              WHERE live_share_url = %s;
+            '''
       ##
       ## execute sql & receive result
       ##
       with self.get_connection() as connector:
         with connector.cursor() as cursor:
-          cursor.execute(sql)
+          cursor.execute(sql, (live_share_url,))
           result = cursor.fetchall()
       if len(result) != 0:
         return result[0].get("directory_name")
@@ -298,14 +317,14 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       sql = '''
               SELECT directory_name
               FROM share_url
-              WHERE owner_user_id = "{}";
-            '''.format(owner_user_id)
+              WHERE owner_user_id = %s;
+            '''
       ##
       ## execute sql & receive result
       ##
       with self.get_connection() as connector:
         with connector.cursor() as cursor:
-          cursor.execute(sql)
+          cursor.execute(sql, (owner_user_id,))
           result = cursor.fetchall()
       if len(result) != 0:
         return result[0].get("directory_name")
@@ -323,14 +342,14 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       sql = '''
               SELECT nickname
               FROM share_url
-              WHERE live_share_url = "{}";
-            '''.format(live_share_url)
+              WHERE live_share_url = %s;
+            '''
       ##
       ## execute sql & receive result
       ##
       with self.get_connection() as connector:
         with connector.cursor() as cursor:
-          cursor.execute(sql)
+          cursor.execute(sql, (live_share_url,))
           result = cursor.fetchall()
       if len(result) != 0:
         return result[0].get("nickname")
@@ -348,14 +367,14 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       sql = '''
               SELECT owner_user_id 
               FROM share_url
-              WHERE owner_user_id = "{}";
-            '''.format(owner_user_id)
+              WHERE owner_user_id = %s;
+            '''
       ##
       ## execute sql & receive result
       ##
       with self.get_connection() as connector:
         with connector.cursor() as cursor:
-          cursor.execute(sql)
+          cursor.execute(sql, (owner_user_id,))
           result = cursor.fetchall()
       if len(result) != 0:
         return True
@@ -502,15 +521,15 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
     sql = '''
           select owner_user_id
           from favorite_owner 
-          where owner_user_id = "{}"
-          and platform = "{}"
-          '''.format(owner_user_id, platform)
+          where owner_user_id = %s
+          and platform = %s
+          '''
     ##
     ## execute sql & receive result
     ##
     with self.get_connection() as connector:
       with connector.cursor() as cursor:
-        cursor.execute(sql)
+        cursor.execute(sql, (owner_user_id, platform))
         result = cursor.fetchall()
     if len(result) != 0:
       return True
@@ -524,14 +543,14 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
     self.require_write_ready()
     sql = '''
           insert into favorite_owner (owner_user_id, platform, score)
-          values ("{}", "{}", {})
-          '''.format(owner_user_id, platform, score)
+          values (%s, %s, %s)
+          '''
     ##
     ## execute sql & commit
     ##
     with self.get_connection() as connector:
       with connector.cursor() as cursor:
-        cursor.execute(sql)
+        cursor.execute(sql, (owner_user_id, platform, score))
         connector.commit()
     return True
 
@@ -542,15 +561,15 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
     sql = '''
           select score
           from favorite_owner 
-          where owner_user_id = "{}"
-          and platform = "{}"
-          '''.format(owner_user_id, platform)
+          where owner_user_id = %s
+          and platform = %s
+          '''
     ##
     ## execute sql & receive result
     ##
     with self.get_connection() as connector:
       with connector.cursor() as cursor:
-        cursor.execute(sql)
+        cursor.execute(sql, (owner_user_id, platform))
         result = cursor.fetchall()
     if len(result) != 0:
       return result[0].get("score")
@@ -564,15 +583,15 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
     self.require_write_ready()
     sql = '''
           update favorite_owner
-          set score = {}
-          where owner_user_id = "{}"
-          and platform = "{}"
-          '''.format(score, owner_user_id, platform)
+          set score = %s
+          where owner_user_id = %s
+          and platform = %s
+          '''
     ##
     ## execute sql & commit
     ##
     with self.get_connection() as connector:
       with connector.cursor() as cursor:
-        cursor.execute(sql)
+        cursor.execute(sql, (score, owner_user_id, platform))
         connector.commit()
     return True
