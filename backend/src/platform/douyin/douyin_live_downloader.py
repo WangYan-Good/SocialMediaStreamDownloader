@@ -9,10 +9,7 @@ from re import compile
 from random import randint
 from time import monotonic, sleep
 from pathlib import Path
-from requests import request, exceptions
-from urllib.parse import urlparse, parse_qs
-from urllib.error import ContentTooShortError
-from urllib.request import urlretrieve
+from requests import request
 from threading import Lock
 from datetime import datetime
 
@@ -22,11 +19,13 @@ import yaml as yml
 ## <<Third-Part>>
 from backend.src.library.baselib                            import set_dict_attr, get_dict_attr, output_dict, save_dict_as_file
 from backend.src.base.downloader                            import Downloader
+from backend.src.base.file_fetcher                          import ON_EXISTS_UNIQUE, fetch_file
 from backend.src.platform.douyin.douyin_header              import DouyinShareHeader, DouyinLiveInfoHeader
 from backend.src.platform.douyin.douyin_live_config         import DouyinLiveConfig
 from backend.src.platform.douyin.douyin_login               import DouyinLogin
 from backend.src.platform.douyin.douyin_live_external_info  import LiveExternal, observed_at
 from backend.src.platform.douyin.douyin_live_prober         import DouyinLiveProber
+from backend.src.platform.douyin.douyin_owner_directory      import choose_owner_directory
 from backend.src.platform.douyin.hls_recorder               import HlsRecorder
 from backend.src.platform.douyin.douyin_api                 import DouyinApi
 from backend.src.database.table.share_url                   import DouyinShareUrlTable
@@ -650,25 +649,48 @@ class DouyinLiveDownloader(Downloader):
       raise ValueError
     
     ##
-    ## if database is enable, then get the directory name from database
+    ## Resolve the owner folder.  The naming policy is shared with the post path -
+    ## see douyin_owner_directory for what it corrects and why - so this only
+    ## fetches the two inputs it needs and keeps the existing fallback: a database
+    ## problem must not stop a recording, it just costs the correction.
     ##
-    directory_name = get_dict_attr(params, "$.summary.directory_name")
+    nickname_directory = get_dict_attr(params, "$.summary.directory_name")
+    directory_name = choose_owner_directory(nickname_directory)
     database = self._database_for_read()
     if database is not None:
+      owner_user_id = get_dict_attr(
+        params,
+        "$.external_info.data.room.owner_user_id",
+      )
       try:
-        owner_user_id = get_dict_attr(
-          params,
-          "$.external_info.data.room.owner_user_id",
-        )
+        recorded = None
         if database.is_owner_user_id_record_exist(owner_user_id) is True:
-          directory_name = database.get_directory_name_by_owner_user_id(
-            owner_user_id
+          recorded = database.get_directory_name_by_owner_user_id(owner_user_id)
+        owners = database.count_owners_using_directory_name(
+          recorded or nickname_directory
+        )
+        directory_name = choose_owner_directory(
+          nickname_directory,
+          recorded_directory=recorded,
+          owner_user_id=owner_user_id,
+          owner_count=owners,
+        )
+        if directory_name != nickname_directory:
+          get_logger().info(
+            "owner {} records under {} rather than {} (recorded={}, owners={})".format(
+              owner_user_id,
+              directory_name,
+              nickname_directory,
+              recorded,
+              owners,
+            )
           )
       except Exception as e:
         get_logger().warning(
           "database directory lookup failed, use live nickname: {}".format(e)
         )
         self._mark_database_unavailable()
+        directory_name = choose_owner_directory(nickname_directory)
     save_dir    = self.config.get_config_dict_attr("$.download.save_path")+"/douyin/" + self.config.get_config_dict_attr("$.platform.douyin.download.type") + "/" + directory_name
     
     ##
@@ -721,52 +743,23 @@ class DouyinLiveDownloader(Downloader):
     proxies: dict = None,
     timeout: int = 10,
   ):
-    response = None
-    try:
-        file_name = fp + "/" + fn
-        duplicate_index = 0
-        while os.path.exists(file_name):
-           file_name = fp + "/" + "re_" + str(duplicate_index) + "_" + fn
-           duplicate_index += 1
-        if urlparse(url).scheme in ("http", "https"):
-          response = request(
-            method="GET",
-            url=url,
-            headers=headers,
-            proxies=proxies,
-            timeout=timeout,
-            stream=True,
-          )
-          response.raise_for_status()
-          written_size = 0
-          with open(file_name, "wb") as output:
-            for chunk in response.iter_content(chunk_size=1024 * 1024):
-              if not chunk:
-                continue
-              output.write(chunk)
-              written_size += len(chunk)
+    """Fetch a live stream file, keeping every session as its own file.
 
-          content_length = response.headers.get("Content-Length")
-          if content_length is not None and written_size < int(content_length):
-            raise ContentTooShortError("incomplete live stream", written_size)
-        else:
-          urlretrieve(url, file_name)
-    except (ContentTooShortError, exceptions.RequestException, TimeoutError):
-        max_retry = self.config.get_config_dict_attr("$.download.max_retry")
-        if retry_times >= max_retry:
-          raise
-        return self.auto_down(
-          url,
-          fp,
-          fn,
-          retry_times + 1,
-          headers=headers,
-          proxies=proxies,
-          timeout=timeout,
-        )
-    finally:
-      if response is not None and hasattr(response, "close"):
-        response.close()
+    ``retry_times`` is how many attempts the caller has already spent, so the
+    remaining budget is what is left of ``$.download.max_retry``.
+    """
+    max_retry = self.config.get_config_dict_attr("$.download.max_retry")
+    remaining_retry = max(0, max_retry - retry_times)
+    return fetch_file(
+      url,
+      fp,
+      fn,
+      headers=headers,
+      proxies=proxies,
+      timeout=timeout,
+      max_retry=remaining_retry,
+      on_exists=ON_EXISTS_UNIQUE,
+    )
 
 ##
 ## >>================================ public method ===============================>>

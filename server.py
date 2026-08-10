@@ -20,6 +20,7 @@ from backend.src.library.loglib    import get_logger
 from backend.src.library.configlib import load_config
 from backend.src.base.log import LoggerManager
 from backend.src.database.schema_guard import initialize_schema_guard
+from backend.src.platform.douyin.douyin_aweme_downloader import shutdown_aweme_downloads
 from backend.src.platform.douyin.douyin_live_downloader import cancel_live_downloads
 from backend.src.platform.platform_dispatcher import PlatformDispatcher
 from backend.src.web.history_routes import build_history_blueprint
@@ -244,6 +245,18 @@ def run_server(config: dict = None):
     except BaseException:
       try:
         get_logger().error("live download cancellation failed during shutdown")
+      except BaseException:
+        pass
+    ##
+    ## Post downloads run on their own pool, so stopping recordings does not stop
+    ## them.  Queued posts are dropped; a file mid-transfer is discarded rather
+    ## than left truncated on disk.
+    ##
+    try:
+      shutdown_aweme_downloads()
+    except BaseException:
+      try:
+        get_logger().error("post download shutdown failed during shutdown")
       except BaseException:
         pass
 

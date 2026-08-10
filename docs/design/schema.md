@@ -4,12 +4,19 @@
 > `backend/src/database/migration/versions/` 为准。本文后续的大字段设计说明保留作结构背景，
 > 不再作为运行时自动建表来源。
 
-当前 Alembic 基线 `0001_initial_schema` 管理 12 张表：
+当前受管 13 张表。基线 `0001_initial_schema` 建立其中 12 张，`0003_aweme_record`
+追加 `aweme_record`：
 
 - 基础表：`share_url`、`favorite_owner`、`live_record`
+- 作品表：`aweme_record`
 - 主实体表：`room_base`、`room_owner_v2`、`user`
 - 扩展表：`room_stats`、`room_admin_user_id`、`room_admin_user_open_id`、
   `room_deco`、`fans_group_admin_user_id`、`fans_group_admin_user_open_id`
+
+`aweme_record` 一个作品一行，主键 `(platform, aweme_id)` 即去重键。作者信息不在这张表里，
+它写进 `share_url.post_share_url`，因此一个主播无论下载多少作品都只占 `share_url` 一行。
+`media_count` 是本次按 `platform.douyin.aweme.media` 开关**计划**下载的文件数，不是作品
+客观拥有的文件数；`saved_count` 是实际成功数，两者不等即为部分下载。
 
 字段、类型、unsigned、默认值、主键顺序、索引、约束、引擎、字符集和排序规则均由 ORM
 元数据严格校验。未受管表只产生警告，不会被自动删除。生产运行时不自动建表或迁移。
@@ -85,7 +92,8 @@ external_info.data.room
 │ 6. room_stream                          - 流信息表                   │
 └──────────────────────────────────────────────────────────────────────┘
 
-**当前 Alembic 受管总计：12 张表。** 下方 21 张表是早期规划数字，不代表当前迁移边界。
+**当前 Alembic 受管总计：13 张表**（基线 12 张 + `0003_aweme_record`）。下方 21 张表是
+早期规划数字，不代表当前迁移边界。
 
 **表分类统计：**
 - 基础表：3 张 (share_url, favorite_owner, live_record)

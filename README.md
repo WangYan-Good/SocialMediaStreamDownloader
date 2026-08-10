@@ -5,6 +5,7 @@
 本项目是一个社交媒体音视频流下载器，目前提供：
 
 - [x] 抖音直播下载
+- [x] 抖音单作品下载（视频 / 图集 / 原声 / 封面）
 - [x] 下载历史筛选 + 直播状态检查
 
 # 💻 程序界面\(Screenshot\)
@@ -56,6 +57,42 @@ YAML 中配置。
 4. 使用 `config/config.yml` 中的 `server.port` 打开网页，在输入框添加分享链接即可下载
 ![web-UI](./docs/media/web-ui.PNG)
 
+## 单作品下载
+
+**用法与直播完全相同** —— 同一个输入框，粘贴作品分享链接即可，不需要选类型。后端跟随
+分享链接的跳转，按落地地址分流：直播间走直播链路，`/video/`、`/note/`、
+`/share/video/`、`discover?modal_id=` 走作品链路。识别不出来的链接会记一条 warning 后丢弃。
+
+一个作品会取回**四类文件**（各自可在 `platform.douyin.aweme.media` 下单独关闭）：
+无水印视频、图集各图、原声、封面。
+
+**存放结构：每个作品一个目录。**
+
+```
+{download.save_path}/douyin/aweme/{主播目录}/{发布时间}_{aweme_id}/
+    20260701081200_7657271784144009946.mp4
+    20260701081200_7657271784144009946_music.mp3
+    20260701081200_7657271784144009946_cover.jpg
+```
+
+一个视频作品本身就产出 3 个文件，平铺会把多个作品的碎片混在一起，所以按作品归档。
+
+**文件名不含作品文案**：文案可被作者修改、长度无上限，放进文件名会让「已下载」判定失效。
+文案保存在 `aweme_record.desc`。
+
+**不会重复下载。** 唯一性由五层保证：文件名里的 `aweme_id` 按 `_` 边界匹配；每类文件有
+稳定尾（`.mp4` / `_music.mp3` / `_cover.jpg` / `_NN.jpg`）；主播改名时沿用数据库里记录的
+原目录；不同账号同昵称时目录追加 `owner_user_id`（抖音不要求昵称唯一）；同一作品并发提交时
+串行处理。判定**以磁盘上的文件为准**，因此数据库关闭、记录被删、平台某次响应少给一个文件，
+都不会导致重复下载或永久漏文件。
+
+作品之间的并发由 `platform.douyin.aweme.concurrency` 控制（默认 3），使用独立线程池 ——
+不与直播下载、不与直播状态探测共享，避免相互阻塞。同一作品内的多个文件串行下载。
+
+无登录时抖音的签名接口可用性不可控，因此 `POST_DETAIL` 失败后会回落解析分享页内嵌的
+JSON（`platform.douyin.aweme.html_fallback`，默认开启）。作品已删除、设为私密或仅粉丝可见
+属于正常结果，只记 info 日志，不重试、不写库。
+
 ## 下载历史筛选与直播状态检查
 
 Download 与 History 两个页面共用同一个历史主播列表（Download 页是精简版）。
@@ -101,7 +138,7 @@ python -m backend.src.database.migration_cli revision "change description"
 ```
 
 `stamp` 只写 Alembic 版本，不执行建表或 `ALTER`。不带参数时它记录当前 head，且只有
-12 张受管表的严格结构校验全部通过时才会执行——因此记录下来的版本不可能说谎。
+全部受管表的严格结构校验通过时才会执行——因此记录下来的版本不可能说谎。
 
 如果已有数据库停留在更早的版本（例如它匹配基线，但仓库里已经有了后续迁移），
 `check` 会列出缺失的列而拒绝 `stamp`。这时用显式版本把它纳入对应的那一版，
@@ -121,6 +158,82 @@ revision 的任何降级路径（包括 `base`、`-1` 等等价写法）只允�
 创建且严格命名的临时迁移测试库。所有降级操作前必须备份并人工审查 revision。
 运行时状态为 `ready` 时才允许持久化写入；`unavailable` 或 `blocked` 不阻断 live 网络请求
 和流下载，但会跳过数据库写入。
+
+### 升级到作品下载版本（`0003_aweme_record`）
+
+本次新增受管表 `aweme_record`，受管表从 12 张变为 13 张，head 为 `0003_aweme_record`。
+**升级顺序必须是先补配置、再发代码、最后跑迁移**，理由见下。
+
+**第 1 步：补配置**（不做这一步服务起不来）
+
+`config/config.yml` 需要新增 `platform.douyin.aweme` 配置块，内容照 `docs/design/config.yml.example`
+抄。配置契约要求 example 里的每个键都在实际配置中存在，缺键会让服务在启动时直接失败，
+而不是降级运行。**每个实例各有一份配置，都要补**。
+
+**第 2 步：确认数据库当前状态**（只读，不改任何东西）
+
+```shell
+python -m backend.src.database.migration_cli status
+python -m backend.src.database.migration_cli check
+```
+
+按 `status` 的输出选择第 3 步：
+
+| `status` 输出 | 含义 | 做法 |
+|---|---|---|
+| `state=ready current=0002_...` | 已版本化且在上一版 | 直接 `upgrade`（情形 A） |
+| `state=ready current=0003_aweme_record` | 已经是最新 | 无需操作 |
+| `state=unversioned` | 有受管表但没有 Alembic 版本记录 | 先纳入基线再升（情形 B） |
+| 空库 | 全新数据库 | 直接 `upgrade`（情形 A） |
+
+**情形 A：直接升级**
+
+```shell
+python -m backend.src.database.migration_cli upgrade
+```
+
+**情形 B：未版本化的已有数据库**
+
+`upgrade` 会拒绝这种库。先备份，再用显式版本纳入它实际所处的那一版，然后正常 `upgrade`
+补齐后续迁移：
+
+```shell
+# 0. 先备份
+mysqldump -u USER -p DATABASE_NAME > DATABASE_NAME-backup-$(date +%F).sql
+
+# 1. 纳入基线。check 若报缺少 0002 的列（last_live_status /
+#    last_checked_at / last_room_id），说明这个库停在 0001，用显式版本纳入
+python -m backend.src.database.migration_cli stamp \
+  --revision 0001_initial_schema --confirm-database DATABASE_NAME
+
+# 2. 补齐 0002 与 0003
+python -m backend.src.database.migration_cli upgrade
+```
+
+`0002` 含一次 backfill；其 docstring 记录了原始 JOIN 写法在 7,538 行 `share_url` ×
+29,679 行 `room_base` 上耗时 17.9 分钟，改为 Python 侧聚合后降到数秒。`0003` 是纯建表，
+无 backfill。
+
+**第 3 步：确认结果**
+
+```shell
+python -m backend.src.database.migration_cli status   # 期望 state=ready current=0003_aweme_record
+python -m backend.src.database.migration_cli check    # 期望 managed schema is compatible
+```
+
+**回滚**
+
+```shell
+python -m backend.src.database.migration_cli downgrade \
+  0002_share_url_live_status_cache --confirm-database DATABASE_NAME
+```
+
+`0003` 的 downgrade 会删除 `aweme_record` 整张表及其两个索引，作品下载记录随之丢失
+（磁盘上的文件不受影响）。执行前必须备份。
+
+**不升级会怎样**：作品下载的文件照样下载，但 schema guard 判定为 `blocked`，
+所有数据库写入被跳过 —— `aweme_record` 不会有记录，History 页也会返回 503。
+去重不依赖数据库（以磁盘上的文件为准），因此重复提交同一链接仍然不会重复下载。
 
 ## 方式二：Docker Compose
 
