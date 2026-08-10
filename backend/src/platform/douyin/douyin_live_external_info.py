@@ -1,5 +1,6 @@
 ##<<Base>>
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import PurePosixPath
 import re
 from typing import Literal
@@ -10,6 +11,24 @@ from urllib.parse import urlparse
 ##<<Third-part>>
 from backend.src.base.json import JSON
 from backend.src.library.baselib import get_dict_attr
+
+
+##
+## Observation time carried by a live info payload.
+##
+## room_base rows are keyed on this timestamp, so reusing it keeps the share_url
+## live status cache aligned with the snapshot imported alongside it.  Payloads
+## missing or carrying an unusable value fall back to the local clock, because a
+## slightly imprecise observation time is still better than none.
+##
+def observed_at(live_response_dict: dict) -> datetime:
+  epoch_milliseconds = get_dict_attr(live_response_dict, "$.extra.now")
+  if epoch_milliseconds is None:
+    return datetime.now()
+  try:
+    return datetime.fromtimestamp(float(epoch_milliseconds) / 1000.0)
+  except (TypeError, ValueError, OSError, OverflowError):
+    return datetime.now()
 
 ##
 ## Live stream file name

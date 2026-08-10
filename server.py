@@ -22,6 +22,7 @@ from backend.src.base.log import LoggerManager
 from backend.src.database.schema_guard import initialize_schema_guard
 from backend.src.platform.douyin.douyin_live_downloader import cancel_live_downloads
 from backend.src.platform.platform_dispatcher import PlatformDispatcher
+from backend.src.web.history_routes import build_history_blueprint
 
 def _server_options(config: dict) -> dict:
   server = config.get("server")
@@ -191,6 +192,11 @@ def _new_flask_app(
   @configured_app.route('/', methods=['GET'])
   def index():
       return render_template('index.html')
+
+  ##
+  ## download history browsing and live status probing
+  ##
+  configured_app.register_blueprint(build_history_blueprint())
 
   return configured_app
 

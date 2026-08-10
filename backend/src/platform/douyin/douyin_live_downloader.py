@@ -25,7 +25,8 @@ from backend.src.base.downloader                            import Downloader
 from backend.src.platform.douyin.douyin_header              import DouyinShareHeader, DouyinLiveInfoHeader
 from backend.src.platform.douyin.douyin_live_config         import DouyinLiveConfig
 from backend.src.platform.douyin.douyin_login               import DouyinLogin
-from backend.src.platform.douyin.douyin_live_external_info  import LiveExternal
+from backend.src.platform.douyin.douyin_live_external_info  import LiveExternal, observed_at
+from backend.src.platform.douyin.douyin_live_prober         import DouyinLiveProber
 from backend.src.platform.douyin.hls_recorder               import HlsRecorder
 from backend.src.platform.douyin.douyin_api                 import DouyinApi
 from backend.src.database.table.share_url                   import DouyinShareUrlTable
@@ -229,6 +230,7 @@ class DouyinLiveDownloader(Downloader):
       self.API                  = DouyinApi(self.config.get_config_dict_attr("$.platform.douyin.api"))
       self.live_external_info   = LiveExternal()
       self.live_douyin_listener = DouyinLiveListener()
+      self.prober               = DouyinLiveProber(self)
       self._lock                = Lock()
       
       self._database_if_ready()
@@ -274,217 +276,31 @@ class DouyinLiveDownloader(Downloader):
     ##
     build                = dict()
     summary              = dict()
-    response_result      = dict()
-    live_response_dict   = dict()
-    header               = dict()
     stream_url           = str()
     stream_name          = str()
 
     ##
-    ##<<========================== query share url ==========================>>
+    ##<<=================== resolve share url and read status ==================>>
     ##
-    try:
-      set_dict_attr(summary, "$.share_url", url)
-      if self.config.get_config_dict_attr("$.server.debug_mode") is True:
-        get_logger().info("Share url: {}".format(url))
-      ##
-      ## construct header for query share url
-      ##
-      share_header = DouyinShareHeader(
-        self.config.get_config_dict_attr("$.platform.douyin.headers")
-      )
-      share_header.init_share_live_header(
-        self.config.get_config_dict_attr("$.download.user_login")
-      )
-
-      ##
-      ## construct header for query share url
-      ##
-      for k,v in share_header.to_dict().items():
-        set_dict_attr(header, "$."+k, v)
-
-      ##
-      ## query
-      ##
-      response = self.query_url(
-                        method="get", 
-                        url=url, 
-                        params=None, 
-                        timeout=self.config.get_config_dict_attr("$.platform.douyin.live.max_timeout"),
-                        headers=header
-                        )
-      ##
-      ## WA: random delay between 1.5s - 4.5s
-      ##
-      sleep(randint(15, 45) * 0.1)
-      response.raise_for_status()
-    except TimeoutError:
-      get_logger().error("Timeout, please try again later! {}".format(url))
-      return None
-    except exceptions.ReadTimeout:
-      get_logger().error("Read timeout, please try again later! {}".format(url))
-      return None
-    except UnboundLocalError:
-      get_logger().error("UnboundLocalError, please check the code! {}".format(url))
-      return None
-    except Exception as e:
-      status_code = getattr(locals().get("response"), "status_code", "unavailable")
-      get_logger().error("Query share url failed! \tstatus:{} \tERROR:{}".format(status_code, e))
+    ## The probe owns both platform requests and the live status check.  Expected
+    ## failures (timeout, non-200, forbidden payload) come back as an
+    ## unsuccessful result and end this run exactly like the inline handling did;
+    ## unexpected ones still propagate.
+    ##
+    probe = self.prober.probe(url)
+    if probe.ok is not True:
       return None
 
-    try:
-      ##
-      ## Transform parse result to dict
-      ##
-      parse_result = urlparse(response.url)
-      set_dict_attr(response_result, "$.url", response.url)
-      set_dict_attr(response_result, "$.scheme", parse_result.scheme)
-      set_dict_attr(response_result, "$.netloc", parse_result.netloc)
-      set_dict_attr(response_result, "$.path", parse_result.path)
-      set_dict_attr(response_result, "$.params", parse_result.params)
-      set_dict_attr(response_result, "$.fragment", parse_result.fragment)
+    live_response        = probe.response
+    live_response_dict   = probe.payload
+    room_status          = probe.room_status
+    header               = probe.headers
 
-      ##
-      ## parse url query
-      ##
-      url_query = str(parse_qs(parse_result.query)).replace("\\", "")
-      set_dict_attr(response_result, "$.query", yml.safe_load(url_query))
-      set_dict_attr(build, "$.share_info", response_result.copy())
-    ##
-    ##<<========================== query live info ==========================>>
-    ##
-      params = dict()
-      api    = str()
-      header.clear()
-      if self.config.get_config_dict_attr("$.download.user_login") is True:
-        pass
-      else:
-        params = self.construct_live_params_no_login(
-          response_result,
-          share_header,
-        )
-        set_dict_attr(build, "$.live_payload", params)
-    except Exception as e:
-      get_logger().error("Parse share live url failed! {} {}".format(e, url))
-      return
-    
-    ##
-    ## construct api url
-    ##
-    api = self.API.get_config_dict_attr("$.LIVE_INFO_ROOM_ID")
-
-    ##
-    ## try receive live stream
-    ##
-    try:
-      ##
-      ## construct header for query live info
-      ##
-      live_header = DouyinLiveInfoHeader(
-        self.config.get_config_dict_attr("$.platform.douyin.headers")
-      )
-      live_header.init_header(
-        self.config.get_config_dict_attr("$.download.user_login")
-      )
-      header = live_header.update_header(
-        self.config.get_config_dict_attr("$.download.user_login"),
-        header,
-      )
-      
-      ##
-      ## output debug information
-      ##
-      if self.config.get_config_dict_attr("$.server.debug_mode") is True:
-        get_logger().info("Url query response:")
-        output_dict(params)
-        output_dict(header)
-        get_logger().info(api)
-
-      ##
-      ## request for live stream
-      ##
-      live_response = request (
-          method="GET", 
-          url=api,
-          params=params,
-          timeout=self.config.get_config_dict_attr("$.platform.douyin.live.max_timeout"),
-          headers=header
-          )
-      if live_response.status_code != 200:
-        raise exceptions.HTTPError
-    except exceptions.HTTPError:
-      get_logger().error("Query live response failed! {}".format(live_response.status_code))
-      return None
-    except TimeoutError:
-      get_logger().error("Timeout, please try again later! {}".format(url))
-      return None
-    except exceptions.ReadTimeout:
-      get_logger().error("Read timeout, please try again later! {}".format(url))
-      return None
-    except Exception as e:
-      get_logger().error("Query live response failed! {}".format(e))
-      raise e
-    
-    ##
-    ## WA: delay random
-    ##
-    sleep(randint(15, 45) * 0.1)
-
-    ##
-    ## output debug information
-    ##
-    if self.config.get_config_dict_attr("$.server.debug_mode") is True:
-      get_logger().info("Live external information:")
-      get_logger().info("Live external response received")
-
-    ##
-    ## transform response to json format
-    ##
-    try:
-      live_response.raise_for_status()
-
-      ##
-      ## check live status
-      ##
-      if self.live_external_info.get_status(live_response) != 0:
-        if self.config.get_config_dict_attr("$.server.debug_mode") is True:
-          get_logger().error("non-except live status: {}".format(self.live_external_info.get_status(live_response)))
-        raise exceptions.HTTPError
-      
-      ##
-      ## initialize live nickname
-      ##
-      live_response_dict = live_response.json()
-      set_dict_attr(summary, "$.nickname", self.live_external_info.get_raw_nickname(live_response))
-      set_dict_attr(summary, "$.directory_name", self.live_external_info.get_nickname(live_response))
-
-      ##
-      ## live room status
-      ## 2: live
-      ## 4: end
-      ##
-      room_status = self.live_external_info.get_room_status(live_response)
-      if room_status != 2:
-        get_logger().info("当前 {0} 直播已结束".format(self.live_external_info.get_raw_nickname(live_response)))
-      else:
-        get_logger().info("当前 {0} 正在直播...".format(self.live_external_info.get_raw_nickname(live_response)))
-    except exceptions.HTTPError:
-      get_logger().error("forbidden, please try via other way {}".format(url))
-      ##
-      ## TODO save external information
-      ##
-
-      ##
-      ## TODO store information into database
-      ##
-      
-      ##
-      ## TODO handle the case when status_code != 0
-      ##
-      return None
-    except Exception as e:
-      get_logger().error("Transformation response to json failed {}".format(e))
-      raise e
+    set_dict_attr(build,   "$.share_info",     probe.share_info)
+    set_dict_attr(build,   "$.live_payload",   probe.live_payload)
+    set_dict_attr(summary, "$.share_url",      url)
+    set_dict_attr(summary, "$.nickname",       probe.nickname)
+    set_dict_attr(summary, "$.directory_name", probe.directory_name)
     
     try:
       ##
@@ -634,6 +450,17 @@ class DouyinLiveDownloader(Downloader):
         self.database.increment_live_actived_count(owner_user_id)
     else:
       self.database.insert_live_share_url_record(record_tuple)
+
+    ##
+    ## keep the history list's live status cache aligned with the snapshot that
+    ## was just imported, reusing the payload timestamp room_base is keyed on
+    ##
+    self.database.update_live_status_cache(
+      owner_user_id=owner_user_id,
+      last_live_status=room_status,
+      last_checked_at=observed_at(live_response_dict),
+      last_room_id=get_dict_attr(live_response_dict, "$.data.room.id"),
+    )
 
     favorite = get_dict_attr(token, "$.favorite")
     score = get_dict_attr(token, "$.score")
@@ -797,6 +624,15 @@ class DouyinLiveDownloader(Downloader):
 
   def query_url (self, method, url, params, timeout, headers):
     return request(method=method, url=url, params=params, timeout=timeout, headers=headers)
+
+  def pause(self):
+    """Random 1.5s-4.5s gap between two platform requests.
+
+    Kept here, next to ``query_url``, so both network primitives live in one
+    module.  The probe sequence calls back into these rather than importing
+    ``request``/``sleep`` itself.
+    """
+    sleep(randint(15, 45) * 0.1)
 
   def download_live_stream(self, url: str, params: dict = None, headers=None):
     

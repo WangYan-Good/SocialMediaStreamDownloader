@@ -53,9 +53,13 @@ class AlembicEnvironmentTest(unittest.TestCase):
     config = self.load_factory()(unified_config())
     scripts = ScriptDirectory.from_config(config)
 
-    self.assertEqual("0001_initial_schema", scripts.get_current_head())
-    revision = scripts.get_revision("0001_initial_schema")
-    self.assertIsNone(revision.down_revision)
+    self.assertEqual(
+      "0002_share_url_live_status_cache", scripts.get_current_head()
+    )
+    baseline = scripts.get_revision("0001_initial_schema")
+    self.assertIsNone(baseline.down_revision)
+    live_status_cache = scripts.get_revision("0002_share_url_live_status_cache")
+    self.assertEqual("0001_initial_schema", live_status_cache.down_revision)
 
   def test_baseline_is_an_explicit_immutable_snapshot(self):
     config = self.load_factory()(unified_config())

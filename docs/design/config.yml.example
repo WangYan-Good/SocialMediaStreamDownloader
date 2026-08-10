@@ -16,6 +16,11 @@ download:
   listening: false
   tick_naming: true
   user_login: false
+history:
+  # Maximum rows returned by one download-history page.  The live-status probe
+  # runs against exactly one page, so this also caps how many real requests a
+  # single "check live status" action can issue.
+  page_size_limit: 10
 log:
   log_enable: true
   log_level: INFO
@@ -262,3 +267,14 @@ platform:
       max_timeout: 10
       hls_stall_timeout: 30
       hls_terminate_grace: 5
+      probe:
+        # Live-status probing only. A probe resolves the share url and reads the
+        # live room info; it never downloads a stream.
+        max_batch_size: 10
+        # Probe workers run on their own pool. Never share the download executor:
+        # that one has a single worker and a probe burst would stall recordings.
+        concurrency: 3
+        # Reuse a cached status instead of re-probing an owner within this window.
+        cache_ttl_seconds: 60
+        # How long a finished batch stays readable before it is evicted.
+        batch_retention_seconds: 600

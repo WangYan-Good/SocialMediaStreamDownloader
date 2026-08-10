@@ -6,6 +6,7 @@ import unittest
 
 from alembic import command
 from alembic.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from sqlalchemy import inspect
 
 from backend.src.database.migration_service import (
@@ -68,6 +69,27 @@ def current_revision(engine):
     return MigrationContext.configure(connection).get_current_revision()
 
 
+def _scripts(config):
+  return ScriptDirectory.from_config(make_alembic_config(config))
+
+
+def head_revision(config):
+  """The single migration head, derived rather than hardcoded.
+
+  Pinning a literal revision here would make every new migration fail these
+  tests for the wrong reason.
+  """
+  return _scripts(config).get_current_head()
+
+
+def steps_to_baseline(config):
+  """Relative downgrade target that would remove the baseline itself.
+
+  Expressed as a count so it keeps reaching the baseline as migrations are added.
+  """
+  return "-{}".format(len(list(_scripts(config).walk_revisions())))
+
+
 class OrmMigrationIntegrationTest(unittest.TestCase):
   @classmethod
   def setUpClass(cls):
@@ -83,7 +105,7 @@ class OrmMigrationIntegrationTest(unittest.TestCase):
             "CREATE TABLE legacy_v1_probe (id INT PRIMARY KEY) ENGINE=InnoDB"
           )
         service.upgrade("head")
-        self.assertEqual("0001_initial_schema", current_revision(engine))
+        self.assertEqual(head_revision(self.config), current_revision(engine))
         report = service.check()
         self.assertTrue(report.is_compatible, report.format_text())
         self.assertEqual(
@@ -123,6 +145,58 @@ class OrmMigrationIntegrationTest(unittest.TestCase):
       finally:
         engine.dispose()
 
+  def test_live_status_cache_is_backfilled_from_the_newest_snapshot(self):
+    with disposable_database(self.config) as database_name:
+      service = MigrationService(self.config, database_name=database_name)
+      engine = create_schema_engine(self.config, database_name)
+      try:
+        service.upgrade("0001_initial_schema")
+
+        with engine.begin() as connection:
+          for owner_user_id, nickname in (
+            ("101", "多快照主播"),
+            ("102", "无快照主播"),
+          ):
+            connection.exec_driver_sql(
+              "INSERT INTO share_url (owner_user_id, nickname) VALUES (%s, %s)",
+              (owner_user_id, nickname),
+            )
+          ##
+          ## Two snapshots for owner 101; only the newest one may win.  The older
+          ## row also carries a different status so a wrong pick is visible.
+          ##
+          for snapshot_at, room_id, status in (
+            ("2026-08-01 10:00:00.000", "room-old", 4),
+            ("2026-08-09 10:00:00.000", "room-new", 2),
+          ):
+            connection.exec_driver_sql(
+              "INSERT INTO room_base (`now`, id, start_time, status, owner_user_id) "
+              "VALUES (%s, %s, %s, %s, %s)",
+              (snapshot_at, room_id, 0, status, 101),
+            )
+
+        service.upgrade("head")
+
+        with engine.connect() as connection:
+          rows = connection.exec_driver_sql(
+            "SELECT owner_user_id, last_live_status, last_room_id, last_checked_at "
+            "FROM share_url ORDER BY owner_user_id"
+          ).mappings().all()
+
+        self.assertEqual(2, rows[0]["last_live_status"])
+        self.assertEqual("room-new", rows[0]["last_room_id"])
+        self.assertIsNotNone(rows[0]["last_checked_at"])
+        ##
+        ## An owner without any snapshot stays unknown rather than being guessed.
+        ##
+        self.assertIsNone(rows[1]["last_live_status"])
+        self.assertIsNone(rows[1]["last_room_id"])
+        self.assertIsNone(rows[1]["last_checked_at"])
+
+        self.assertTrue(service.check().is_compatible)
+      finally:
+        engine.dispose()
+
   def test_configured_database_cannot_downgrade_baseline_through_relative_target(self):
     with disposable_database(self.config) as database_name:
       configured = deepcopy(self.config)
@@ -133,9 +207,11 @@ class OrmMigrationIntegrationTest(unittest.TestCase):
         service.upgrade("head")
 
         with self.assertRaisesRegex(RevisionStateError, "disposable"):
-          service.downgrade("-1", confirm_database=database_name)
+          service.downgrade(
+            steps_to_baseline(configured), confirm_database=database_name
+          )
 
-        self.assertEqual("0001_initial_schema", current_revision(engine))
+        self.assertEqual(head_revision(configured), current_revision(engine))
         self.assertTrue(MANAGED_TABLE_NAMES.issubset(inspect(engine).get_table_names()))
       finally:
         engine.dispose()
@@ -189,7 +265,7 @@ class OrmMigrationIntegrationTest(unittest.TestCase):
         self.assertTrue(report.is_compatible, report.format_text())
         service.stamp()
 
-        self.assertEqual("0001_initial_schema", current_revision(engine))
+        self.assertEqual(head_revision(self.config), current_revision(engine))
         after_tables = set(inspect(engine).get_table_names()) - {"alembic_version"}
         self.assertEqual(before_tables, after_tables)
         with engine.connect() as connection:

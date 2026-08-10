@@ -46,14 +46,33 @@ class OrmModelTest(unittest.TestCase):
         "directory_name",
         "user_status",
         "actived_count",
+        "last_live_status",
+        "last_checked_at",
+        "last_room_id",
       ],
       list(table.columns.keys()),
     )
     self.assertEqual(["owner_user_id"], [item.name for item in table.primary_key])
-    self.assertEqual(["idx_nickname"], [item.name for item in table.indexes])
+    self.assertEqual(
+      [
+        "idx_nickname",
+        "idx_share_url_actived_count",
+        "idx_share_url_last_checked_at",
+      ],
+      sorted(item.name for item in table.indexes),
+    )
     self.assertIsInstance(table.c.actived_count.type, mysql.INTEGER)
     self.assertTrue(table.c.actived_count.type.unsigned)
     self.assertEqual("0", str(table.c.actived_count.server_default.arg))
+
+    self.assertIsInstance(table.c.last_live_status.type, mysql.TINYINT)
+    self.assertTrue(table.c.last_live_status.type.unsigned)
+    self.assertTrue(table.c.last_live_status.nullable)
+    self.assertIsInstance(table.c.last_checked_at.type, mysql.TIMESTAMP)
+    self.assertEqual(3, table.c.last_checked_at.type.fsp)
+    self.assertTrue(table.c.last_checked_at.nullable)
+    self.assertEqual(200, table.c.last_room_id.type.length)
+    self.assertTrue(table.c.last_room_id.nullable)
 
   def test_favorite_owner_uses_the_existing_composite_key(self):
     models = load_models()
