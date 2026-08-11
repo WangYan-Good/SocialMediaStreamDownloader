@@ -91,6 +91,39 @@ class DouyinAwemeRecordTable(SocialMediaStreamDataBase):
       )
       raise e
 
+  def find_aweme_records(self, aweme_ids, platform: str = "douyin") -> dict:
+    """Return ``{aweme_id: row}`` for the ids that have a record.
+
+    One round trip for a whole page.  Marking nineteen list rows by calling
+    ``find_aweme_record`` per row would be nineteen queries to answer one screen.
+    """
+    keys = [str(value).strip() for value in aweme_ids if str(value).strip()]
+    if not keys:
+      return {}
+    ##
+    ## Placeholders only - the values stay bound.  The count is what varies, so
+    ## the string being built carries no data.
+    ##
+    placeholders = ", ".join(["%s"] * len(keys))
+    sql = (
+      "SELECT platform, aweme_id, media_count, saved_count, save_dir, "
+      "downloaded_at FROM aweme_record WHERE platform = %s AND aweme_id IN ("
+      + placeholders
+      + ");"
+    )
+    try:
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql, tuple([platform] + keys))
+          return {
+            row.get("aweme_id"): row
+            for row in cursor.fetchall()
+            if row.get("aweme_id") is not None
+          }
+    except Exception as e:
+      get_logger().error("bulk aweme record lookup failed {}".format(e))
+      raise e
+
   def find_owner_directory_name(self, owner_user_id: str):
     """Return the folder already in use for this owner, or ``None``.
 
@@ -237,6 +270,14 @@ class DouyinAwemeRecordTable(SocialMediaStreamDataBase):
     if owner_user_id is None or not str(owner_user_id).strip():
       raise KeyError("owner_user_id is required")
 
+    ##
+    ## directory_name takes the stored value first, unlike every other column
+    ## updated here.  The folder is where this owner's files already are, often
+    ## put there by the live path long ago, so a rename must not move it - the
+    ## nickname column is what tracks renames.  Written the other way round, the
+    ## first post of a batch files correctly and then overwrites the record with
+    ## today's nickname, sending every later post to a different folder.
+    ##
     sql = '''INSERT INTO share_url
                (owner_user_id, sec_user_id, nickname, post_share_url,
                 directory_name, user_status)
@@ -245,7 +286,7 @@ class DouyinAwemeRecordTable(SocialMediaStreamDataBase):
                sec_user_id    = COALESCE(VALUES(sec_user_id), sec_user_id),
                nickname       = COALESCE(VALUES(nickname), nickname),
                post_share_url = COALESCE(VALUES(post_share_url), post_share_url),
-               directory_name = COALESCE(VALUES(directory_name), directory_name);
+               directory_name = COALESCE(directory_name, VALUES(directory_name));
           '''
     try:
       with self.get_connection() as connector:

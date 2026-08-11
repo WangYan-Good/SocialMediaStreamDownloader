@@ -19,6 +19,7 @@ from backend.src.unit_test.config_fixture import unified_config
 AWEME_ID = "7123456789012345678"
 CREATE_TIME = 1712484087
 POST_URL = "https://www.douyin.com/video/" + AWEME_ID
+OWNER_SEC_UID = "MS4wLjABAAAAGZkW5n1EHZD_TFyQ-QiaISBPemtKFxVVdhLSeoXhh-U"
 
 
 def video_payload(**overrides):
@@ -446,6 +447,193 @@ class WritableNameTest(AwemeDownloaderTestCase):
           self.assertTrue(target.is_file())
 
 
+class DownloadDetailTest(AwemeDownloaderTestCase):
+  """The entry point for a caller that already holds the post object.
+
+  The owner browse path lists posts through USER_POST, whose items are the same
+  shape POST_DETAIL returns, so it downloads a whole page without resolving
+  anything.
+  """
+
+  def test_an_already_resolved_post_is_downloaded_without_resolving(self):
+    with tempfile.TemporaryDirectory() as directory:
+      downloader, detail = self.build(save_path=directory)
+      ##
+      ## a resolver that would fail if it were consulted
+      ##
+      downloader.resolver = StubResolver(
+        AwemeResolution(ok=False, reason="must not be called")
+      )
+
+      result = downloader.download_detail(detail, POST_URL)
+
+      self.assertTrue(result.ok)
+      self.assertEqual(result.saved_count, detail.media_count)
+      self.assertEqual(len(self.fetched), detail.media_count)
+      self.assertEqual(downloader.resolver.calls, [])
+
+  def test_a_long_profile_url_is_not_recorded(self):
+    """The column holds the share link, and a long url is not one.
+
+    ``https://www.douyin.com/user/<sec_user_id>`` can be rebuilt at any time from
+    the ``sec_user_id`` sitting in the same row, so storing it keeps nothing that
+    was not already there.  The short share link is the opposite: its code is
+    opaque and issued by douyin, so if it is not kept it cannot be recovered -
+    and it is the form that behaves like a real share when handed back.
+    """
+    with tempfile.TemporaryDirectory() as directory:
+      database = RecordingDatabase()
+      downloader, detail = self.build(save_path=directory, database=database)
+      profile_url = "https://www.douyin.com/user/" + OWNER_SEC_UID
+
+      downloader.download_detail(detail, profile_url)
+
+      self.assertIsNone(database.owners[0]["post_share_url"])
+
+  def test_a_long_profile_url_is_not_recorded_even_when_declared(self):
+    """Declaring it an owner's does not make a long url a share link."""
+    with tempfile.TemporaryDirectory() as directory:
+      database = RecordingDatabase()
+      downloader, detail = self.build(save_path=directory, database=database)
+      profile_url = "https://www.douyin.com/user/" + OWNER_SEC_UID
+
+      downloader.download_detail(detail, profile_url, owner_share_url=profile_url)
+
+      self.assertIsNone(database.owners[0]["post_share_url"])
+
+  def test_a_post_link_is_not_recorded_as_the_owners_profile(self):
+    """A post link is not a profile link and must not take that column.
+
+    Writing one there would overwrite a profile link that was already correct,
+    and leave the column meaning two different things with no way to tell.
+    """
+    with tempfile.TemporaryDirectory() as directory:
+      database = RecordingDatabase()
+      downloader, detail = self.build(save_path=directory, database=database)
+
+      downloader.download_detail(detail, "https://www.douyin.com/video/" + AWEME_ID)
+
+      self.assertIsNone(database.owners[0]["post_share_url"])
+
+  def test_an_unresolved_share_link_is_not_recorded_either(self):
+    """A v.douyin.com link could be either kind; it is not evidence of a profile."""
+    with tempfile.TemporaryDirectory() as directory:
+      database = RecordingDatabase()
+      downloader, detail = self.build(save_path=directory, database=database)
+
+      downloader.download_detail(detail, "https://v.douyin.com/MqjfOkWSeG8/")
+
+      self.assertIsNone(database.owners[0]["post_share_url"])
+
+  def test_run_and_download_detail_produce_the_same_result(self):
+    with tempfile.TemporaryDirectory() as directory:
+      first, detail = self.build(save_path=directory)
+      by_run = first.run({"url": POST_URL})
+
+      second, _ = self.build(save_path=directory)
+      by_detail = second.download_detail(detail, POST_URL)
+
+      self.assertEqual(by_run.aweme_id, by_detail.aweme_id)
+      self.assertEqual(by_run.save_dir, by_detail.save_dir)
+      self.assertEqual(by_run.media_count, by_detail.media_count)
+      ##
+      ## the second call finds the first call's files, so it skips
+      ##
+      self.assertTrue(by_detail.skipped)
+
+
+class PostNoteTest(AwemeDownloaderTestCase):
+  """The caption lives beside the media, because it cannot live in the name.
+
+  A folder called 20260701081200_7657271784144009946 tells a person nothing, and
+  captions are barred from names: an author can edit one, which would rename the
+  files and make the "already downloaded" check miss them.
+  """
+
+  def test_the_note_carries_the_caption_first(self):
+    with tempfile.TemporaryDirectory() as directory:
+      downloader, detail = self.build(
+        payload=video_payload(desc="小鸟都粘我，你什么时候来粘我？"),
+        save_path=directory,
+      )
+
+      result = downloader.run({"url": POST_URL})
+      note = Path(result.save_dir) / "info.txt"
+
+      self.assertTrue(note.is_file())
+      body = note.read_text(encoding="utf-8")
+      self.assertTrue(body.startswith("小鸟都粘我，你什么时候来粘我？"))
+      self.assertIn(AWEME_ID, body)
+      self.assertIn("视频", body)
+
+  def test_a_post_without_a_caption_still_gets_a_note(self):
+    with tempfile.TemporaryDirectory() as directory:
+      downloader, _ = self.build(payload=video_payload(desc=""), save_path=directory)
+
+      result = downloader.run({"url": POST_URL})
+      body = (Path(result.save_dir) / "info.txt").read_text(encoding="utf-8")
+
+      self.assertIn("（无文案）", body)
+
+  def test_an_image_post_note_says_so(self):
+    with tempfile.TemporaryDirectory() as directory:
+      downloader, _ = self.build(payload=image_payload(3), save_path=directory)
+
+      result = downloader.run({"url": POST_URL})
+      body = (Path(result.save_dir) / "info.txt").read_text(encoding="utf-8")
+
+      self.assertIn("图集", body)
+
+  def test_a_folder_downloaded_before_notes_existed_gains_one(self):
+    """This is the incremental case: nothing to fetch, but the note is missing."""
+    with tempfile.TemporaryDirectory() as directory:
+      downloader, detail = self.build(save_path=directory)
+      save_dir = downloader.build_save_dir(detail)
+      save_dir.mkdir(parents=True, exist_ok=True)
+      for item in detail.media:
+        (save_dir / item.file_name).write_bytes(b"already here")
+
+      result = downloader.run({"url": POST_URL})
+
+      self.assertTrue(result.skipped)
+      self.assertEqual(self.fetched, [])
+      self.assertTrue((save_dir / "info.txt").is_file())
+
+  def test_an_edited_caption_updates_the_note(self):
+    with tempfile.TemporaryDirectory() as directory:
+      first, _ = self.build(payload=video_payload(desc="原来的文案"),
+                            save_path=directory)
+      result = first.run({"url": POST_URL})
+
+      second, _ = self.build(payload=video_payload(desc="改过的文案"),
+                             save_path=directory)
+      second.run({"url": POST_URL})
+
+      body = (Path(result.save_dir) / "info.txt").read_text(encoding="utf-8")
+      self.assertTrue(body.startswith("改过的文案"))
+
+  def test_the_note_is_not_mistaken_for_a_media_file(self):
+    """It must not satisfy any media item's identity check."""
+    with tempfile.TemporaryDirectory() as directory:
+      downloader, detail = self.build(save_path=directory)
+      downloader.run({"url": POST_URL})
+      self.fetched.clear()
+
+      again, _ = self.build(save_path=directory)
+      result = again.run({"url": POST_URL})
+
+      self.assertTrue(result.skipped)
+      self.assertEqual(result.saved_count, detail.media_count)
+
+  def test_test_mode_writes_no_note(self):
+    with tempfile.TemporaryDirectory() as directory:
+      downloader, detail = self.build(save_path=directory, test_mode=True)
+
+      result = downloader.run({"url": POST_URL})
+
+      self.assertFalse((Path(result.save_dir) / "info.txt").exists())
+
+
 class UnresolvableLinkTest(AwemeDownloaderTestCase):
   def test_an_unresolved_link_is_reported_without_fetching(self):
     downloader, _ = self.build()
@@ -573,7 +761,7 @@ class DedupTest(AwemeDownloaderTestCase):
 
 
 class PersistenceTest(AwemeDownloaderTestCase):
-  def test_the_owner_row_records_the_post_share_url(self):
+  def test_the_owner_row_records_identity_but_not_a_post_link(self):
     with tempfile.TemporaryDirectory() as directory:
       database = RecordingDatabase()
       downloader, detail = self.build(save_path=directory, database=database)
@@ -583,13 +771,56 @@ class PersistenceTest(AwemeDownloaderTestCase):
       self.assertEqual(len(database.owners), 1)
       owner = database.owners[0]
       self.assertEqual(owner["owner_user_id"], detail.owner_user_id)
-      self.assertEqual(owner["post_share_url"], POST_URL)
       self.assertEqual(owner["directory_name"], detail.directory_name)
+      ##
+      ## POST_URL is a post link, so it is not the owner's profile link
+      ##
+      self.assertIsNone(owner["post_share_url"])
       ##
       ## live_share_url and actived_count belong to the live path
       ##
       self.assertNotIn("live_share_url", owner)
       self.assertNotIn("actived_count", owner)
+
+  def test_the_owner_share_link_is_recorded_when_the_browse_path_supplies_it(self):
+    """The pasted profile link is stored verbatim, short form and all.
+
+    ``live_share_url`` holds exactly this shape - 1785 rows of
+    ``https://v.douyin.com/<code>/`` and not one long url - and reading a link
+    back out to re-download has to give douyin the form it expects.
+
+    It cannot be recognised from the string: an owner share link and a post
+    share link are both ``v.douyin.com/<code>/``.  Only the caller knows which
+    one it followed, so only the caller may declare it.
+    """
+    owner_link = "https://v.douyin.com/Gv2snnrMBCs/"
+    with tempfile.TemporaryDirectory() as directory:
+      database = RecordingDatabase()
+      downloader, detail = self.build(save_path=directory, database=database)
+
+      downloader.download_detail(detail, POST_URL, owner_share_url=owner_link)
+
+      self.assertEqual(database.owners[0]["post_share_url"], owner_link)
+
+  def test_a_post_link_is_still_never_written_into_the_owner_column(self):
+    """Without that declaration nothing is assumed - the old guard stands."""
+    with tempfile.TemporaryDirectory() as directory:
+      database = RecordingDatabase()
+      downloader, detail = self.build(save_path=directory, database=database)
+
+      downloader.download_detail(detail, "https://v.douyin.com/aPostLink/")
+
+      self.assertIsNone(database.owners[0]["post_share_url"])
+
+  def test_a_blank_owner_share_link_records_nothing(self):
+    """An empty string must not overwrite a link already on the row."""
+    with tempfile.TemporaryDirectory() as directory:
+      database = RecordingDatabase()
+      downloader, detail = self.build(save_path=directory, database=database)
+
+      downloader.download_detail(detail, POST_URL, owner_share_url="")
+
+      self.assertIsNone(database.owners[0]["post_share_url"])
 
   def test_the_record_captures_counts_source_and_directory(self):
     with tempfile.TemporaryDirectory() as directory:

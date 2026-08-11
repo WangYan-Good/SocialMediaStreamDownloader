@@ -1,6 +1,8 @@
 ##<<Base>>
 import os
 from pathlib import Path
+from random import uniform
+from time import sleep
 from urllib.error import ContentTooShortError
 from urllib.parse import urlparse
 from urllib.request import urlretrieve
@@ -37,6 +39,76 @@ ON_EXISTS_OVERWRITE = "overwrite"
 _ON_EXISTS_CHOICES = (ON_EXISTS_UNIQUE, ON_EXISTS_SKIP, ON_EXISTS_OVERWRITE)
 
 DEFAULT_CHUNK_SIZE = 1024 * 1024
+
+##
+## Retry pacing.  An immediate retry re-sends into the same window that just
+## refused the request, so a single rejection becomes four requests inside a few
+## hundred milliseconds -- the CDN reads that as more load, not less.
+##
+## The wait doubles per attempt and carries equal jitter (half fixed, half
+## random) so that concurrent downloads, which fail together, do not come back
+## together.
+##
+DEFAULT_RETRY_BACKOFF = 1.0
+DEFAULT_RETRY_BACKOFF_MAX = 30.0
+
+##
+## 429 is not a transport hiccup, it is the server naming the problem: the
+## caller is going too fast.  Pacing it on the transport schedule is what turned
+## one refusal into four requests, so it gets a wider window of its own, and
+## when the response carries ``Retry-After`` that number wins outright -- capped
+## only so a rate limit cannot park a download indefinitely.
+##
+RATE_LIMIT_STATUS = 429
+DEFAULT_RATE_LIMIT_BACKOFF = 5.0
+RETRY_AFTER_MAX = 60.0
+
+
+def _jittered(window: float) -> float:
+  """Half the window fixed, half random, so parallel workers spread out."""
+  return window / 2 + uniform(0, window / 2)
+
+
+def _is_rate_limited(error) -> bool:
+  response = getattr(error, "response", None)
+  return getattr(response, "status_code", None) == RATE_LIMIT_STATUS
+
+
+def _retry_after_seconds(error):
+  """Seconds demanded by ``Retry-After``, or ``None`` if it says nothing usable.
+
+  The header may also hold an HTTP date.  We do not read that form: falling back
+  to the rate-limit window is already the safe answer, and a date we misparse
+  would be worse than one we ignore.
+  """
+  response = getattr(error, "response", None)
+  headers = getattr(response, "headers", None) or {}
+  raw = headers.get("Retry-After")
+  if raw is None:
+    return None
+  try:
+    return max(0.0, float(str(raw).strip()))
+  except (TypeError, ValueError):
+    return None
+
+
+def _retry_delay(
+  error,
+  attempt: int,
+  backoff: float,
+  backoff_max: float,
+  rate_limit_backoff: float,
+) -> float:
+  """Seconds to wait before ``attempt``, doubling per attempt with jitter."""
+  if _is_rate_limited(error):
+    demanded = _retry_after_seconds(error)
+    if demanded is not None:
+      ##
+      ## jittered upward, never below what was asked for
+      ##
+      return min(demanded, RETRY_AFTER_MAX) + uniform(0, 1.0)
+    return _jittered(min(rate_limit_backoff * (2 ** (attempt - 1)), backoff_max))
+  return _jittered(min(backoff * (2 ** (attempt - 1)), backoff_max))
 
 
 def _unique_path(directory: Path, file_name: str) -> Path:
@@ -122,6 +194,9 @@ def fetch_file(
   on_exists: str = ON_EXISTS_UNIQUE,
   keep_partial: bool = True,
   chunk_size: int = DEFAULT_CHUNK_SIZE,
+  retry_backoff: float = DEFAULT_RETRY_BACKOFF,
+  retry_backoff_max: float = DEFAULT_RETRY_BACKOFF_MAX,
+  rate_limit_backoff: float = DEFAULT_RATE_LIMIT_BACKOFF,
 ):
   """Fetch ``url`` into ``save_path/file_name`` and return the path written.
 
@@ -140,6 +215,12 @@ def fetch_file(
   - Post download discards it.  There the file name encodes the aweme id, so a
     truncated file would later read as a completed download and suppress the
     retry that would have finished it.
+
+  Retries are paced: ``retry_backoff`` doubles per attempt up to
+  ``retry_backoff_max``, and a rate-limited response waits on the wider
+  ``rate_limit_backoff`` schedule instead, or on ``Retry-After`` when the server
+  sends one.  Tests replace this module's ``sleep`` to keep the wait off the
+  clock.
   """
   if on_exists not in _ON_EXISTS_CHOICES:
     raise ValueError(
@@ -170,16 +251,26 @@ def fetch_file(
       else:
         urlretrieve(url, str(target))
       return target
-    except RETRYABLE:
+    except RETRYABLE as e:
       if not keep_partial:
         _discard_partial(target)
       if attempt >= max_retry:
         raise
       attempt += 1
+      delay = _retry_delay(
+        e,
+        attempt,
+        retry_backoff,
+        retry_backoff_max,
+        rate_limit_backoff,
+      )
       get_logger().warning(
-        "download attempt {} of {} failed, retrying: {}".format(
+        "download attempt {} of {} failed{}, retrying in {:.1f}s: {}".format(
           attempt,
           max_retry + 1,
+          " (rate limited)" if _is_rate_limited(e) else "",
+          delay,
           url,
         )
       )
+      sleep(delay)

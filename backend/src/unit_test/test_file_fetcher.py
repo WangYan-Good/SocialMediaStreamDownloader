@@ -128,6 +128,18 @@ class FileFetcherOnExistsTest(unittest.TestCase):
 
 
 class FileFetcherRetryTest(unittest.TestCase):
+  ##
+  ## These assert retry counts, not pacing, so the backoff is silenced: leaving
+  ## it in would make the suite sleep through every retry it exercises.
+  ##
+  def setUp(self):
+    self._original_sleep = fetcher_module.sleep
+    self.slept = []
+    fetcher_module.sleep = self.slept.append
+
+  def tearDown(self):
+    fetcher_module.sleep = self._original_sleep
+
   def test_short_content_is_retried_then_raised(self):
     attempts = []
 
@@ -280,6 +292,216 @@ class FileFetcherRetryTest(unittest.TestCase):
         fetcher_module.request = original_request
 
       self.assertTrue(all(response.closed for response in created))
+
+
+class FileFetcherBackoffTest(unittest.TestCase):
+  """Retries must wait, and the wait must grow.
+
+  A retry that fires immediately re-sends into the very window the server just
+  refused, which is how a single rejection turns into four requests in 300ms.
+  """
+
+  def _failing_fetch(self, directory, max_retry, **kwargs):
+    """Run a fetch that always fails, returning the waits it asked for."""
+    slept = []
+    attempts = []
+
+    def fake_request(**request_kwargs):
+      attempts.append(request_kwargs["url"])
+      raise exceptions.ConnectionError("refused")
+
+    original_request = fetcher_module.request
+    original_sleep = fetcher_module.sleep
+    fetcher_module.request = fake_request
+    fetcher_module.sleep = slept.append
+    try:
+      with self.assertRaises(exceptions.ConnectionError):
+        fetch_file(
+          "https://example.test/file.bin",
+          directory,
+          "file.bin",
+          max_retry=max_retry,
+          **kwargs
+        )
+    finally:
+      fetcher_module.request = original_request
+      fetcher_module.sleep = original_sleep
+    return slept, attempts
+
+  def test_each_retry_waits_longer_than_the_one_before(self):
+    with tempfile.TemporaryDirectory() as directory:
+      slept, attempts = self._failing_fetch(directory, 3, retry_backoff=1.0)
+
+      self.assertEqual(len(attempts), 4)
+      ##
+      ## one wait per retry, none before the first attempt
+      ##
+      self.assertEqual(len(slept), 3)
+      ##
+      ## equal jitter: each wait lands in [d/2, d] for d = 1, 2, 4
+      ##
+      self.assertGreaterEqual(slept[0], 0.5)
+      self.assertLessEqual(slept[0], 1.0)
+      self.assertGreaterEqual(slept[1], 1.0)
+      self.assertLessEqual(slept[1], 2.0)
+      self.assertGreaterEqual(slept[2], 2.0)
+      self.assertLessEqual(slept[2], 4.0)
+
+  def test_no_wait_after_the_final_attempt(self):
+    """The budget is spent, so sleeping only delays the report."""
+    with tempfile.TemporaryDirectory() as directory:
+      slept, attempts = self._failing_fetch(directory, 0, retry_backoff=1.0)
+
+      self.assertEqual(len(attempts), 1)
+      self.assertEqual(slept, [])
+
+  def test_backoff_is_capped(self):
+    with tempfile.TemporaryDirectory() as directory:
+      slept, _ = self._failing_fetch(
+        directory,
+        6,
+        retry_backoff=1.0,
+        retry_backoff_max=3.0,
+      )
+
+      self.assertEqual(len(slept), 6)
+      for wait in slept:
+        self.assertLessEqual(wait, 3.0)
+      ##
+      ## the cap is reached, not merely approached
+      ##
+      self.assertGreaterEqual(max(slept), 1.5)
+
+  def test_jitter_keeps_parallel_workers_from_retrying_in_lockstep(self):
+    """Three concurrent downloads must not re-send at the same instant."""
+    with tempfile.TemporaryDirectory() as directory:
+      first_waits = [
+        self._failing_fetch(directory, 1, retry_backoff=8.0)[0][0]
+        for _ in range(12)
+      ]
+
+      self.assertGreater(len(set(first_waits)), 1)
+
+
+class RateLimitedResponse(FakeResponse):
+  """A CDN response that refuses the request with 429 Too Many Requests."""
+
+  def __init__(self, retry_after=None):
+    super().__init__([])
+    self.status_code = 429
+    if retry_after is not None:
+      self.headers["Retry-After"] = str(retry_after)
+
+  def raise_for_status(self):
+    raise exceptions.HTTPError(
+      "429 Client Error: Too Many Requests",
+      response=self,
+    )
+
+
+class FileFetcherRateLimitTest(unittest.TestCase):
+  """429 is an instruction, not a transport hiccup.
+
+  It says the caller is going too fast, so it has to be paced differently from
+  a dropped connection -- and when the server names its own interval, that
+  number wins over any interval we invented.
+  """
+
+  def _rate_limited_fetch(self, directory, retry_after=None, **kwargs):
+    slept = []
+
+    def fake_request(**request_kwargs):
+      return RateLimitedResponse(retry_after=retry_after)
+
+    original_request = fetcher_module.request
+    original_sleep = fetcher_module.sleep
+    fetcher_module.request = fake_request
+    fetcher_module.sleep = slept.append
+    try:
+      with self.assertRaises(exceptions.HTTPError):
+        fetch_file(
+          "https://example.test/file.bin",
+          directory,
+          "file.bin",
+          max_retry=1,
+          **kwargs
+        )
+    finally:
+      fetcher_module.request = original_request
+      fetcher_module.sleep = original_sleep
+    return slept
+
+  def _transport_failure_wait(self, directory, **kwargs):
+    slept = []
+
+    def fake_request(**request_kwargs):
+      raise exceptions.ConnectionError("refused")
+
+    original_request = fetcher_module.request
+    original_sleep = fetcher_module.sleep
+    fetcher_module.request = fake_request
+    fetcher_module.sleep = slept.append
+    try:
+      with self.assertRaises(exceptions.ConnectionError):
+        fetch_file(
+          "https://example.test/other.bin",
+          directory,
+          "other.bin",
+          max_retry=1,
+          **kwargs
+        )
+    finally:
+      fetcher_module.request = original_request
+      fetcher_module.sleep = original_sleep
+    return slept[0]
+
+  def test_retry_after_header_is_honoured(self):
+    with tempfile.TemporaryDirectory() as directory:
+      slept = self._rate_limited_fetch(directory, retry_after=7)
+
+      self.assertEqual(len(slept), 1)
+      ##
+      ## never come back before the server said to
+      ##
+      self.assertGreaterEqual(slept[0], 7.0)
+      self.assertLessEqual(slept[0], 8.0)
+
+  def test_rate_limit_waits_longer_than_a_transport_failure(self):
+    """Retrying a 429 on the transport schedule is what amplified the limit."""
+    with tempfile.TemporaryDirectory() as directory:
+      rate_limited = self._rate_limited_fetch(directory, retry_backoff=1.0)[0]
+      transport = self._transport_failure_wait(directory, retry_backoff=1.0)
+
+      self.assertGreater(rate_limited, transport)
+      ##
+      ## half of the 5s rate-limit window is the floor
+      ##
+      self.assertGreaterEqual(rate_limited, 2.5)
+
+  def test_an_absurd_retry_after_is_clamped_to_the_ceiling(self):
+    """A rate limit must not park a download for an hour.
+
+    The header is still respected as far as the ceiling allows -- clamped, not
+    discarded, so an hour becomes the longest wait we permit rather than the
+    shortest one we would have chosen anyway.
+    """
+    with tempfile.TemporaryDirectory() as directory:
+      slept = self._rate_limited_fetch(directory, retry_after=3600)
+
+      self.assertGreaterEqual(slept[0], 60.0)
+      self.assertLessEqual(slept[0], 61.0)
+
+  def test_unparseable_retry_after_falls_back_to_the_rate_limit_wait(self):
+    """``Retry-After`` may be an HTTP date; we still have to pace ourselves."""
+    with tempfile.TemporaryDirectory() as directory:
+      slept = self._rate_limited_fetch(
+        directory,
+        retry_after="Wed, 21 Oct 2026 07:28:00 GMT",
+      )
+
+      self.assertEqual(len(slept), 1)
+      self.assertGreaterEqual(slept[0], 2.5)
+      self.assertLessEqual(slept[0], 5.0)
 
 
 class FileFetcherDirectoryTest(unittest.TestCase):

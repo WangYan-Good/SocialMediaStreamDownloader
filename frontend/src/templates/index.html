@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 {% from 'content/history/owner_list.html' import owner_history %}
+{% from 'content/posts/owner_posts.html' import owner_posts %}
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -10,6 +11,7 @@
     <link rel="stylesheet" href="../static/css/precentage.css">
     <link rel="stylesheet" href="../static/css/style.css">
     <link rel="stylesheet" href="../static/css/history.css">
+    <link rel="stylesheet" href="../static/css/posts.css">
 </head>
 <body>
     <!-- 页面头部 -->
@@ -40,6 +42,7 @@
         <!-- 锚点目标，用于:target选择器 -->
         <div id="download"></div>
         <div id="history"></div>
+        <div id="posts"></div>
         <div id="log"></div>
         <div id="setting"></div>
 
@@ -67,6 +70,14 @@
                             <span class="sidebar-menu-icon">🕒</span>
                             <span class="sidebar-menu-text">History</span>
                             <div class="tooltip">History</div>
+                        </a>
+                    </div>
+                    <div class="sidebar-menu-item">
+                        <!-- 主播作品浏览 -->
+                        <a href="#posts" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">🎬</span>
+                            <span class="sidebar-menu-text">Posts</span>
+                            <div class="tooltip">Posts</div>
                         </a>
                     </div>
                     <div class="sidebar-menu-item">
@@ -134,6 +145,11 @@
                 <!-- 历史内容（完整版）：全部筛选器 + 可展开场次 -->
                 {{ owner_history('full') }}
             </section>
+            <section id="posts-content" class="content-section">
+                <!-- 主播作品：贴主页链接 → 详情 + 作品列表 → 勾选或一键下载 -->
+                <h1>主播作品</h1>
+                {{ owner_posts() }}
+            </section>
             <section id="log-content" class="content-section">
                 <!-- 下载日志内容 -->
                  <p>Log</p>
@@ -160,5 +176,6 @@
     <script src="../static/js/submit.js"></script>
     <script src="../static/js/favorite_scoring.js"></script>
     <script src="../static/js/owner_history.js"></script>
+    <script src="../static/js/owner_posts.js"></script>
 </body>
 </html>

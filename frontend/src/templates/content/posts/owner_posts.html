@@ -1,0 +1,73 @@
+{#
+  Owner browse: paste a profile share link, see the owner and their posts, then
+  download the ones you want or all of them.
+
+  Uses owner_posts.js and posts.css.  Post payloads stay on the server; this page
+  only ever sends aweme ids back.
+#}
+{% macro owner_posts() %}
+<div class="owner-posts">
+
+  <!-- 主页链接输入 -->
+  <div class="op-entry">
+    <input type="search"
+           class="op-url"
+           placeholder="粘贴主播主页分享链接（长按复制「查看TA的更多作品」）">
+    <button type="button" class="op-read">读取</button>
+  </div>
+
+  <p class="op-status">粘贴主播主页分享链接后点「读取」</p>
+
+  <!-- 主播详情卡片 -->
+  <div class="op-owner-card" hidden>
+    <img class="op-avatar" alt="" loading="lazy">
+    <div class="op-owner-text">
+      <div class="op-owner-name">
+        <span class="op-nickname"></span>
+        <span class="op-unique-id"></span>
+      </div>
+      <div class="op-signature"></div>
+      <div class="op-owner-stats">
+        <span>粉丝 <b class="op-follower"></b></span>
+        <span>关注 <b class="op-following"></b></span>
+        <span>作品 <b class="op-aweme-count"></b></span>
+        <span>获赞 <b class="op-favorited"></b></span>
+      </div>
+      <div class="op-credential" hidden></div>
+      <div class="op-owner-message" hidden></div>
+    </div>
+  </div>
+
+  <!-- 工具条 -->
+  <div class="op-toolbar" hidden>
+    <label class="op-select-all-label">
+      <input type="checkbox" class="op-select-all"> 全选本页
+    </label>
+    <span class="op-selection-info">已选 0 个</span>
+    <button type="button" class="op-download-selected" disabled>下载所选</button>
+    <button type="button" class="op-download-all">一键下载全部</button>
+    <span class="op-job-status"></span>
+  </div>
+
+  <!-- 作品列表 -->
+  <table class="op-table" hidden>
+    <thead>
+      <tr>
+        <th class="op-col-select"></th>
+        <th class="op-col-cover">封面</th>
+        <th class="op-col-desc">文案</th>
+        <th class="op-col-time">发布时间</th>
+        <th class="op-col-stats">互动</th>
+        <th class="op-col-state">状态</th>
+      </tr>
+    </thead>
+    <tbody class="op-rows"></tbody>
+  </table>
+
+  <!-- 加载更多 -->
+  <div class="op-pager" hidden>
+    <button type="button" class="op-load-more">加载更多</button>
+    <span class="op-page-info"></span>
+  </div>
+</div>
+{% endmacro %}

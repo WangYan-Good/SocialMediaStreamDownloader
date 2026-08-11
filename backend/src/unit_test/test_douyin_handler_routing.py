@@ -19,6 +19,7 @@ class RoutingTestCase(unittest.TestCase):
     self.live_batches = []
     self.aweme_batches = []
     self.warnings = []
+    self.errors = []
     self.requested = []
 
     self._original_request = handler_module.request
@@ -48,7 +49,7 @@ class RoutingTestCase(unittest.TestCase):
     return None
 
   def error(self, message):
-    return None
+    self.errors.append(message)
 
   def resolve_to(self, resolved_url, status_code=200):
     def fake_request(method, url, *args, **kwargs):
@@ -74,6 +75,45 @@ class LiveRoutingTest(RoutingTestCase):
     handler_module.douyin_handler({"url": "https://v.douyin.com/abc/"})
 
     self.assertEqual(len(self.requested), 1)
+
+
+class RefusedFinalPageTest(RoutingTestCase):
+  """The status of the final page does not decide whether the link is usable.
+
+  Only ``response.url`` is read here; the body is never touched.  Douyin answers
+  a share link opened outside the app with 444 after redirecting correctly, so
+  a real image-post link resolved to ``/note/<id>`` and was then thrown away by
+  a ``!= 200`` check:
+
+    https://v.douyin.com/Gv2snnrMBCs/
+      -> 302 -> 302 -> https://www.douyin.com/note/7672710351788455034  (444)
+  """
+
+  def test_a_post_is_downloaded_even_when_the_final_page_is_refused(self):
+    self.resolve_to("https://www.douyin.com/note/" + AWEME_ID, status_code=444)
+
+    handler_module.douyin_handler({"url": "https://v.douyin.com/abc/"})
+
+    self.assertEqual(len(self.aweme_batches), 1)
+    self.assertEqual(self.aweme_batches[0][0]["aweme_id"], AWEME_ID)
+
+  def test_a_live_room_survives_a_refused_final_page_too(self):
+    self.resolve_to("https://live.douyin.com/123456", status_code=444)
+
+    handler_module.douyin_handler({"url": "https://v.douyin.com/abc/"})
+
+    self.assertEqual(len(self.live_batches), 1)
+
+  def test_an_unresolvable_link_is_reported_with_its_status(self):
+    """When the url really is unusable, the status is the evidence to keep."""
+    self.resolve_to("https://v.douyin.com/abc/", status_code=444)
+
+    handler_module.douyin_handler({"url": "https://v.douyin.com/abc/"})
+
+    self.assertEqual(self.aweme_batches, [])
+    self.assertEqual(len(self.warnings), 1)
+    self.assertIn("444", self.warnings[0])
+    self.assertIn("https://v.douyin.com/abc/", self.warnings[0])
 
 
 class AwemeRoutingTest(RoutingTestCase):
@@ -156,13 +196,20 @@ class UnhandledUrlTest(RoutingTestCase):
     self.assertIn("MS4wLjABAAAAqGTe", self.warnings[0])
     self.assertIn("https://v.douyin.com/short/", self.warnings[0])
 
-  def test_a_failed_request_stops_before_classification(self):
-    self.resolve_to("https://www.douyin.com/video/" + AWEME_ID, status_code=503)
+  def test_a_failed_request_that_resolved_nowhere_stops(self):
+    """A bad status only stops the link when the url is unusable as well.
+
+    This used to assert that any non-200 stops, which is what dropped image
+    posts: douyin answers their resolved page with 444 while the redirect chain
+    identified the post correctly.  See ``RefusedFinalPageTest``.
+    """
+    self.resolve_to("https://www.douyin.com/user/MS4wLjABAAAAqGTe", 503)
 
     handler_module.douyin_handler({"url": "https://v.douyin.com/abc/"})
 
     self.assertEqual(self.live_batches, [])
     self.assertEqual(self.aweme_batches, [])
+    self.assertIn("503", self.warnings[0])
 
   def test_a_token_without_a_url_is_dropped(self):
     self.resolve_to("https://www.douyin.com/video/" + AWEME_ID)

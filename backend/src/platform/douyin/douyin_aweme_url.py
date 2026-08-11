@@ -2,6 +2,13 @@
 import re
 from urllib.parse import parse_qs, urlparse
 
+##<<Third-part>>
+from backend.src.platform.douyin.douyin_url_hosts import (
+  is_content_host,
+  is_live_host,
+  is_short_link_host,
+)
+
 ##
 ## A share link is resolved by following its redirect first; what arrives here is
 ## the *resolved* url.  These are the forms a single post lands on.
@@ -27,48 +34,9 @@ _MODAL_PATHS = ("/discover", "/search", "/root/search")
 _MODAL_QUERY_KEY = "modal_id"
 
 ##
-## Hosts that serve post pages.  An allow list rather than a shape check: the
-## dispatcher routes on ``'douyin' in netloc``, so a host like
-## ``douyin.com.example.test`` reaches this module, and matching on the path
-## alone would hand it to the post pipeline.
+## Host classification is shared with the other url classifiers - see
+## douyin_url_hosts for why the allow list lives in exactly one place.
 ##
-_POST_DOMAINS = ("douyin.com", "iesdouyin.com")
-
-##
-## Live rooms are handled by the live path.  These hosts sit inside the domains
-## above, so they have to be named explicitly.
-##
-_LIVE_HOSTS = ("live.douyin.com", "webcast.amemv.com")
-
-##
-## The short share form.  It is a douyin.com subdomain like any other, but it
-## carries no post id: it only redirects, so it has to be followed before any
-## verdict is possible.
-##
-_SHORT_LINK_HOSTS = ("v.douyin.com",)
-
-
-def _hostname(netloc: str) -> str:
-  ##
-  ## drop credentials and port
-  ##
-  host = netloc.lower().rsplit("@", 1)[-1]
-  return host.split(":")[0].rstrip(".")
-
-
-def _matches(host: str, domain: str) -> bool:
-  return host == domain or host.endswith("." + domain)
-
-
-def _is_live_host(netloc: str) -> bool:
-  host = _hostname(netloc)
-  return any(_matches(host, live_host) for live_host in _LIVE_HOSTS)
-
-
-def _is_post_host(netloc: str) -> bool:
-  host = _hostname(netloc)
-  return any(_matches(host, domain) for domain in _POST_DOMAINS)
-
 
 def classify_aweme_url(url: str):
   """Return the aweme id ``url`` points at, or ``None`` if it points elsewhere.
@@ -85,7 +53,7 @@ def classify_aweme_url(url: str):
     return None
 
   parsed = urlparse(url.strip())
-  if not _is_post_host(parsed.netloc) or _is_live_host(parsed.netloc):
+  if not is_content_host(parsed.netloc) or is_live_host(parsed.netloc):
     return None
 
   path = parsed.path or ""
@@ -124,5 +92,4 @@ def needs_resolution(url: str) -> bool:
     return False
   if classify_aweme_url(url) is not None:
     return False
-  host = _hostname(urlparse(url.strip()).netloc)
-  return any(_matches(host, short) for short in _SHORT_LINK_HOSTS)
+  return is_short_link_host(urlparse(url.strip()).netloc)

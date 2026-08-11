@@ -162,8 +162,64 @@ def _enabled(switches, key: str) -> bool:
   return switches.get(key, DEFAULT_MEDIA_SWITCHES.get(key, True)) is True
 
 
-def _video_item(payload, aweme_id, tick):
-  url = _first_http_url(get_dict_attr(payload, "$.video.play_addr.url_list"))
+##
+## Quality selection for the video.
+##
+## ``play_addr`` cannot be trusted to be the best on offer, and its own metadata
+## does not describe what it serves: measured on one post it reported 1080x1920
+## while the bytes that arrived were the 576x1024 encoding.  ``bit_rate`` is the
+## real ladder - the same post carried a 2160x3840 entry.
+##
+## The rungs are not ordered, and their ``gear_name`` does not rank them: the 4K
+## entry on that post was called ``adapt_lowest_4_1``.  Only the measured pixel
+## count and bit rate can order them.
+##
+VIDEO_QUALITY_HIGHEST = "highest"
+VIDEO_QUALITY_DEFAULT = "default"
+
+
+def _encoding_rank(entry):
+  address = entry.get("play_addr") if isinstance(entry, dict) else None
+  address = address if isinstance(address, dict) else {}
+  width = address.get("width")
+  height = address.get("height")
+  pixels = (
+    width * height
+    if isinstance(width, int) and isinstance(height, int)
+    else 0
+  )
+  rate = entry.get("bit_rate") if isinstance(entry, dict) else 0
+  return (pixels, rate if isinstance(rate, int) else 0)
+
+
+def _highest_video_url(payload):
+  """Return the url of the largest encoding, or ``None`` if none is usable."""
+  entries = get_dict_attr(payload, "$.video.bit_rate")
+  if not isinstance(entries, (list, tuple)):
+    return None
+  best_url = None
+  best_rank = (0, 0)
+  for entry in entries:
+    if not isinstance(entry, dict):
+      continue
+    url = _first_http_url(
+      get_dict_attr(entry, "$.play_addr.url_list")
+    )
+    if url is None:
+      continue
+    rank = _encoding_rank(entry)
+    if rank > best_rank:
+      best_rank = rank
+      best_url = url
+  return best_url
+
+
+def _video_item(payload, aweme_id, tick, quality=VIDEO_QUALITY_HIGHEST):
+  url = None
+  if quality != VIDEO_QUALITY_DEFAULT:
+    url = _highest_video_url(payload)
+  if url is None:
+    url = _first_http_url(get_dict_attr(payload, "$.video.play_addr.url_list"))
   if url is None:
     return None
   return MediaItem(
@@ -260,7 +316,8 @@ def detect_aweme_type(payload) -> str:
   return AWEME_TYPE_VIDEO
 
 
-def build_media(payload, aweme_type, aweme_id, tick, switches):
+def build_media(payload, aweme_type, aweme_id, tick, switches,
+                quality=VIDEO_QUALITY_HIGHEST):
   """Return the media files to fetch, in download order."""
   items = []
   if aweme_type == AWEME_TYPE_IMAGE:
@@ -268,7 +325,7 @@ def build_media(payload, aweme_type, aweme_id, tick, switches):
       items.extend(_image_items(payload, aweme_id, tick))
   else:
     if _enabled(switches, MEDIA_VIDEO):
-      video = _video_item(payload, aweme_id, tick)
+      video = _video_item(payload, aweme_id, tick, quality=quality)
       if video is not None:
         items.append(video)
 
@@ -290,6 +347,7 @@ def build_aweme_detail(
   aweme_id: str = None,
   switches: dict = None,
   source: str = SOURCE_API,
+  quality: str = VIDEO_QUALITY_HIGHEST,
 ) -> AwemeDetail:
   """Turn a platform post payload into the structure the downloader consumes.
 
@@ -332,6 +390,7 @@ def build_aweme_detail(
     resolved_id,
     tick,
     switches,
+    quality=quality,
   )
   if not media:
     raise AwemeUnavailable(

@@ -323,6 +323,7 @@ class DouyinAwemeResolver:
       )
 
     switches = self.config.media_switches
+    quality = self.config.video_quality
 
     api_error = None
     try:
@@ -331,6 +332,7 @@ class DouyinAwemeResolver:
         payload,
         aweme_id=resolved_id,
         switches=switches,
+        quality=quality,
         source=SOURCE_API,
       )
       return AwemeResolution(ok=True, aweme_id=resolved_id, detail=detail)
@@ -365,6 +367,7 @@ class DouyinAwemeResolver:
         payload,
         aweme_id=resolved_id,
         switches=switches,
+        quality=quality,
         source=SOURCE_HTML,
       )
       return AwemeResolution(
