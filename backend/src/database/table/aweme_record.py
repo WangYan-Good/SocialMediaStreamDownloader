@@ -270,6 +270,14 @@ class DouyinAwemeRecordTable(SocialMediaStreamDataBase):
     if owner_user_id is None or not str(owner_user_id).strip():
       raise KeyError("owner_user_id is required")
 
+    ##
+    ## directory_name takes the stored value first, unlike every other column
+    ## updated here.  The folder is where this owner's files already are, often
+    ## put there by the live path long ago, so a rename must not move it - the
+    ## nickname column is what tracks renames.  Written the other way round, the
+    ## first post of a batch files correctly and then overwrites the record with
+    ## today's nickname, sending every later post to a different folder.
+    ##
     sql = '''INSERT INTO share_url
                (owner_user_id, sec_user_id, nickname, post_share_url,
                 directory_name, user_status)
@@ -278,7 +286,7 @@ class DouyinAwemeRecordTable(SocialMediaStreamDataBase):
                sec_user_id    = COALESCE(VALUES(sec_user_id), sec_user_id),
                nickname       = COALESCE(VALUES(nickname), nickname),
                post_share_url = COALESCE(VALUES(post_share_url), post_share_url),
-               directory_name = COALESCE(VALUES(directory_name), directory_name);
+               directory_name = COALESCE(directory_name, VALUES(directory_name));
           '''
     try:
       with self.get_connection() as connector:
