@@ -52,6 +52,20 @@ class LiveStreamResponse:
 
 
 class LiveDownloaderPipelineTest(unittest.TestCase):
+  ##
+  ## The retry tests below assert how many attempts are made, not how they are
+  ## paced.  Left alone they would spend the real backoff -- several seconds of
+  ## sleeping to prove a count -- so the wait is recorded instead of taken.
+  ##
+  def setUp(self):
+    self._original_sleep = fetcher_module.sleep
+    self.slept = []
+    fetcher_module.sleep = self.slept.append
+    self.addCleanup(self._restore_sleep)
+
+  def _restore_sleep(self):
+    fetcher_module.sleep = self._original_sleep
+
   def _run_live_pipeline_with_stream_urls(
     self,
     flv_urls,
@@ -1253,6 +1267,10 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
       fetcher_module.urlretrieve = original_urlretrieve
 
     self.assertEqual(len(attempts), 3)
+    ##
+    ## the live path paces its retries too: three attempts means two waits
+    ##
+    self.assertEqual(len(self.slept), 2)
 
   def test_stream_timeout_uses_configured_retry_limit(self):
     config = live_config()
