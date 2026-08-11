@@ -312,7 +312,15 @@ class PostDownloadJobService:
       return
 
     try:
-      result = self.downloader.download_detail(detail, share_url or "")
+      ##
+      ## Declared as the owner's, which only this path can do: it was given a
+      ## profile link to browse, and a short link says nothing about itself.
+      ##
+      result = self.downloader.download_detail(
+        detail,
+        share_url or "",
+        owner_share_url=share_url or None,
+      )
     except Exception as e:
       get_logger().warning("post {} failed: {}".format(aweme_id, e))
       self.store.update_item(

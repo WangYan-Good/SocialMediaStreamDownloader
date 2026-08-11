@@ -27,7 +27,7 @@ from backend.src.platform.douyin.douyin_aweme_external_info import naming_tick
 from backend.src.platform.douyin.douyin_owner_directory import (
   choose_owner_directory,
 )
-from backend.src.platform.douyin.douyin_owner_url import classify_owner_url
+from backend.src.platform.douyin.douyin_url_hosts import host_of, is_short_link_host
 from backend.src.platform.douyin.douyin_aweme_resolver import DouyinAwemeResolver
 from backend.src.platform.douyin.douyin_header import DouyinPostInfoHeader
 from backend.src.platform.douyin.douyin_login import DouyinLogin
@@ -40,6 +40,20 @@ PLATFORM = "douyin"
 ## $.platform.douyin.download.type, whose value is "live" process-wide.
 ##
 AWEME_PATH_SEGMENT = "aweme"
+
+
+def _owner_share_link(url: str):
+  """Return ``url`` if it is an owner's share link, else ``None``.
+
+  Two conditions, and both are needed.  It has to be the short form, because a
+  long profile url is rebuildable from ``sec_user_id`` and is not what douyin
+  expects handed back.  And it has to have been declared an owner's by the
+  caller, because an owner's share link and a post's are the same shape and
+  nothing in the string separates them - only the path that followed it knows.
+  """
+  if not url or not isinstance(url, str):
+    return None
+  return url if is_short_link_host(host_of(url)) else None
 
 
 class PostLocks:
@@ -199,13 +213,23 @@ class DouyinAwemeDownloader(Downloader):
 
     return self.download_detail(resolution.detail, url)
 
-  def download_detail(self, detail, share_url: str) -> AwemeDownloadResult:
+  def download_detail(
+    self,
+    detail,
+    share_url: str,
+    owner_share_url: str = None,
+  ) -> AwemeDownloadResult:
     """Download one already-resolved post.
 
     Split out from ``run`` so a caller that already holds the post object can skip
     resolving it.  The owner browse path lists posts through ``USER_POST``, whose
     items are the same shape ``POST_DETAIL`` returns - so downloading a page of
     posts costs no per-post requests at all.
+
+    ``owner_share_url`` is the profile link the browse path was given, passed
+    down only by a caller that knows the link is an owner's.  It cannot be told
+    from a post link by looking - both are ``v.douyin.com/<code>/`` - so it is
+    declared rather than detected.
     """
     save_dir = self.build_save_dir(detail)
 
@@ -229,7 +253,7 @@ class DouyinAwemeDownloader(Downloader):
       ##
       if not self.config.test_mode:
         write_post_note(save_dir, detail)
-      self._persist(detail, share_url, save_dir, saved_count)
+      self._persist(detail, share_url, save_dir, saved_count, owner_share_url)
 
     if fetched_count == 0 and saved_count == detail.media_count:
       get_logger().info(
@@ -465,7 +489,14 @@ class DouyinAwemeDownloader(Downloader):
 ##
 ## >>============================= persistence =============================>>
 ##
-  def _persist(self, detail, url: str, save_dir: Path, saved_count: int):
+  def _persist(
+    self,
+    detail,
+    url: str,
+    save_dir: Path,
+    saved_count: int,
+    owner_share_url: str = None,
+  ):
     database = self._database_if_ready()
     if database is None:
       return
@@ -483,16 +514,25 @@ class DouyinAwemeDownloader(Downloader):
         ## belong there, and writing one overwrites a profile link that was
         ## already correct.
         ##
-        ## So the url is recorded only when it really is a profile link, and it is
-        ## never derived from anything: the only valid source is a profile link
-        ## the user actually pasted.  A post link yields None, which the upsert's
-        ## COALESCE turns into "leave whatever is there alone".
+        ## Exactly one shape goes in: the owner's *share* link, short form, stored
+        ## as pasted.  Anything else yields None, which the upsert's COALESCE
+        ## turns into "leave whatever is there alone".
+        ##
+        ## Not a long profile url.  ``douyin.com/user/<sec_user_id>`` can be
+        ## rebuilt from the sec_user_id in this same row, so keeping it stores
+        ## nothing new.  The short code cannot be rebuilt - douyin issues it and
+        ## it is opaque - and it is the form that behaves like a real share when
+        ## handed back, which is the point of keeping it at all.
+        ##
+        ## Not a post's share link either, though it is the same shape.  Nothing
+        ## in the string tells the two apart, so the only evidence is the caller:
+        ## the browse path declares what it was given, and no other path may.
         ##
         database.upsert_post_owner({
           "owner_user_id": detail.owner_user_id,
           "sec_user_id": detail.sec_user_id,
           "nickname": detail.nickname,
-          "post_share_url": url if classify_owner_url(url) else None,
+          "post_share_url": _owner_share_link(owner_share_url),
           "directory_name": detail.directory_name,
         })
       else:

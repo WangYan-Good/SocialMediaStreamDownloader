@@ -472,11 +472,14 @@ class DownloadDetailTest(AwemeDownloaderTestCase):
       self.assertEqual(len(self.fetched), detail.media_count)
       self.assertEqual(downloader.resolver.calls, [])
 
-  def test_a_profile_link_is_recorded_for_the_owner(self):
-    """share_url.post_share_url holds the owner's profile link.
+  def test_a_long_profile_url_is_not_recorded(self):
+    """The column holds the share link, and a long url is not one.
 
-    The owner browse path hands one down, so it lands in the column that pairs
-    with live_share_url - one row per owner, two ways in.
+    ``https://www.douyin.com/user/<sec_user_id>`` can be rebuilt at any time from
+    the ``sec_user_id`` sitting in the same row, so storing it keeps nothing that
+    was not already there.  The short share link is the opposite: its code is
+    opaque and issued by douyin, so if it is not kept it cannot be recovered -
+    and it is the form that behaves like a real share when handed back.
     """
     with tempfile.TemporaryDirectory() as directory:
       database = RecordingDatabase()
@@ -485,7 +488,18 @@ class DownloadDetailTest(AwemeDownloaderTestCase):
 
       downloader.download_detail(detail, profile_url)
 
-      self.assertEqual(database.owners[0]["post_share_url"], profile_url)
+      self.assertIsNone(database.owners[0]["post_share_url"])
+
+  def test_a_long_profile_url_is_not_recorded_even_when_declared(self):
+    """Declaring it an owner's does not make a long url a share link."""
+    with tempfile.TemporaryDirectory() as directory:
+      database = RecordingDatabase()
+      downloader, detail = self.build(save_path=directory, database=database)
+      profile_url = "https://www.douyin.com/user/" + OWNER_SEC_UID
+
+      downloader.download_detail(detail, profile_url, owner_share_url=profile_url)
+
+      self.assertIsNone(database.owners[0]["post_share_url"])
 
   def test_a_post_link_is_not_recorded_as_the_owners_profile(self):
     """A post link is not a profile link and must not take that column.
@@ -767,6 +781,46 @@ class PersistenceTest(AwemeDownloaderTestCase):
       ##
       self.assertNotIn("live_share_url", owner)
       self.assertNotIn("actived_count", owner)
+
+  def test_the_owner_share_link_is_recorded_when_the_browse_path_supplies_it(self):
+    """The pasted profile link is stored verbatim, short form and all.
+
+    ``live_share_url`` holds exactly this shape - 1785 rows of
+    ``https://v.douyin.com/<code>/`` and not one long url - and reading a link
+    back out to re-download has to give douyin the form it expects.
+
+    It cannot be recognised from the string: an owner share link and a post
+    share link are both ``v.douyin.com/<code>/``.  Only the caller knows which
+    one it followed, so only the caller may declare it.
+    """
+    owner_link = "https://v.douyin.com/Gv2snnrMBCs/"
+    with tempfile.TemporaryDirectory() as directory:
+      database = RecordingDatabase()
+      downloader, detail = self.build(save_path=directory, database=database)
+
+      downloader.download_detail(detail, POST_URL, owner_share_url=owner_link)
+
+      self.assertEqual(database.owners[0]["post_share_url"], owner_link)
+
+  def test_a_post_link_is_still_never_written_into_the_owner_column(self):
+    """Without that declaration nothing is assumed - the old guard stands."""
+    with tempfile.TemporaryDirectory() as directory:
+      database = RecordingDatabase()
+      downloader, detail = self.build(save_path=directory, database=database)
+
+      downloader.download_detail(detail, "https://v.douyin.com/aPostLink/")
+
+      self.assertIsNone(database.owners[0]["post_share_url"])
+
+  def test_a_blank_owner_share_link_records_nothing(self):
+    """An empty string must not overwrite a link already on the row."""
+    with tempfile.TemporaryDirectory() as directory:
+      database = RecordingDatabase()
+      downloader, detail = self.build(save_path=directory, database=database)
+
+      downloader.download_detail(detail, POST_URL, owner_share_url="")
+
+      self.assertIsNone(database.owners[0]["post_share_url"])
 
   def test_the_record_captures_counts_source_and_directory(self):
     with tempfile.TemporaryDirectory() as directory:

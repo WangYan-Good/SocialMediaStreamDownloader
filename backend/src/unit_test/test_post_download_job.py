@@ -66,6 +66,7 @@ class StubDownloader:
   def __init__(self, switches=None, failures=None, skips=(), owner_dir="/tmp/owner"):
     self.config = self.Config(switches or SWITCHES)
     self.calls = []
+    self.owner_links = []
     self.failures = failures or {}
     self.skips = set(skips)
     self.owner_dir = owner_dir
@@ -79,8 +80,9 @@ class StubDownloader:
   def media_proxies(self):
     return {"http": None, "https": None}
 
-  def download_detail(self, detail, share_url):
+  def download_detail(self, detail, share_url, owner_share_url=None):
     self.calls.append((detail.aweme_id, share_url))
+    self.owner_links.append(owner_share_url)
     if detail.aweme_id in self.failures:
       raise self.failures[detail.aweme_id]
     return AwemeDownloadResult(
@@ -269,6 +271,31 @@ class SelectedDownloadTest(OfflineTestCase):
     service.start_selected(["1"], share_url="https://v.douyin.com/abc/")
 
     self.assertEqual(downloader.calls[0][1], "https://v.douyin.com/abc/")
+
+  def test_the_share_url_is_declared_to_be_an_owners(self):
+    """This path only ever holds a profile link, and only it can say so.
+
+    A short link gives nothing away - an owner's and a post's look the same -
+    so unless this caller declares it, the link cannot be recorded at all.
+    """
+    downloader = StubDownloader()
+    cache = PayloadCache()
+    cache.remember([post_item("1")])
+    service = build_service(downloader=downloader, cache=cache)
+
+    service.start_selected(["1"], share_url="https://v.douyin.com/abc/")
+
+    self.assertEqual(downloader.owner_links[0], "https://v.douyin.com/abc/")
+
+  def test_no_share_url_declares_nothing(self):
+    downloader = StubDownloader()
+    cache = PayloadCache()
+    cache.remember([post_item("1")])
+    service = build_service(downloader=downloader, cache=cache)
+
+    service.start_selected(["1"])
+
+    self.assertIsNone(downloader.owner_links[0])
 
   def test_saved_and_planned_counts_are_recorded(self):
     cache = PayloadCache()
