@@ -103,10 +103,18 @@ def douyin_handler(token:dict):
   ## The share link is followed once, here, and both branches below read the
   ## resolved url.  Neither classification costs an extra request.
   ##
+  ##
+  ## The status of that last hop is deliberately not a gate.  Only ``response.url``
+  ## is read below - the body is never touched - and redirects have already been
+  ## followed by the time we get here, so the link is resolved whatever the final
+  ## page answers.  Douyin serves a share link opened outside the app with 444
+  ## after redirecting perfectly well, which a ``!= 200`` check turned into
+  ## "pasted a link, nothing downloaded" for every image post shared that way.
+  ##
+  ## A link that genuinely leads nowhere still stops below, where the resolved url
+  ## fails to classify and is reported together with this status.
+  ##
   response = request('GET', url)
-  if response.status_code != 200:
-    get_logger().error("request failed")
-    return
 
   ##
   ## sort the resolved url into a live room or a single post
@@ -132,9 +140,10 @@ def douyin_handler(token:dict):
       ## trace to follow.
       ##
       get_logger().warning(
-        "no douyin handler for resolved url {} (from {})".format(
+        "no douyin handler for resolved url {} (from {}, status {})".format(
           response.url,
           url,
+          response.status_code,
         )
       )
       return
