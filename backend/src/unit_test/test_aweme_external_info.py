@@ -133,6 +133,121 @@ class VideoPostMediaTest(unittest.TestCase):
     self.assertEqual(detail.media[0].url, "https://v.example.test/second.mp4")
 
 
+def bit_rate_entry(gear, quality, rate, width, height, url):
+  return {
+    "gear_name": gear,
+    "quality_type": quality,
+    "bit_rate": rate,
+    "play_addr": {
+      "width": width,
+      "height": height,
+      "url_list": [url],
+    },
+  }
+
+
+##
+## The ladder measured on a real post: the 4K rung is called "adapt_lowest_4_1",
+## and play_addr reported 1080x1920 while serving the 576x1024 bytes.
+##
+MEASURED_LADDER = [
+  bit_rate_entry("adapt_lowest_4_1", 72, 3438172, 2160, 3840, "https://v/4k.mp4"),
+  bit_rate_entry("normal_1080_0", 1, 2194559, 1080, 1920, "https://v/1080.mp4"),
+  bit_rate_entry("adapt_lowest_1440", 7, 2119361, 1440, 2560, "https://v/1440.mp4"),
+  bit_rate_entry("low_540_0", 292, 1498560, 576, 1024, "https://v/540.mp4"),
+]
+
+
+class VideoQualityTest(unittest.TestCase):
+  """The largest encoding is chosen by measurement, never by name.
+
+  play_addr is not the best on offer and its metadata does not describe what it
+  serves, so the bit_rate ladder is what gets ranked.
+  """
+
+  def _payload(self, ladder=None, play_addr_url="https://v/play_addr.mp4"):
+    payload = video_payload()
+    payload["video"]["play_addr"] = {
+      "width": 1080, "height": 1920, "url_list": [play_addr_url],
+    }
+    if ladder is not None:
+      payload["video"]["bit_rate"] = ladder
+    return payload
+
+  def test_the_largest_encoding_wins(self):
+    detail = build_aweme_detail(self._payload(MEASURED_LADDER))
+
+    self.assertEqual(detail.media[0].url, "https://v/4k.mp4")
+
+  def test_gear_name_does_not_rank_the_ladder(self):
+    """The 4K rung is named "adapt_lowest_4_1"; sorting by name picks wrong."""
+    detail = build_aweme_detail(self._payload(MEASURED_LADDER))
+
+    self.assertNotEqual(detail.media[0].url, "https://v/540.mp4")
+    self.assertEqual(detail.media[0].url, "https://v/4k.mp4")
+
+  def test_play_addr_is_not_trusted_when_a_ladder_exists(self):
+    detail = build_aweme_detail(self._payload(MEASURED_LADDER))
+
+    self.assertNotEqual(detail.media[0].url, "https://v/play_addr.mp4")
+
+  def test_bit_rate_breaks_a_tie_on_pixels(self):
+    ladder = [
+      bit_rate_entry("a", 1, 1000000, 1080, 1920, "https://v/low.mp4"),
+      bit_rate_entry("b", 2, 2000000, 1080, 1920, "https://v/high.mp4"),
+    ]
+
+    detail = build_aweme_detail(self._payload(ladder))
+
+    self.assertEqual(detail.media[0].url, "https://v/high.mp4")
+
+  def test_the_default_setting_takes_play_addr(self):
+    detail = build_aweme_detail(
+      self._payload(MEASURED_LADDER),
+      quality="default",
+    )
+
+    self.assertEqual(detail.media[0].url, "https://v/play_addr.mp4")
+
+  def test_play_addr_is_the_fallback_when_there_is_no_ladder(self):
+    detail = build_aweme_detail(self._payload(ladder=None))
+
+    self.assertEqual(detail.media[0].url, "https://v/play_addr.mp4")
+
+  def test_an_empty_ladder_falls_back(self):
+    detail = build_aweme_detail(self._payload([]))
+
+    self.assertEqual(detail.media[0].url, "https://v/play_addr.mp4")
+
+  def test_unusable_rungs_are_skipped(self):
+    ladder = [
+      {"gear_name": "broken"},
+      bit_rate_entry("no-url", 1, 9999999, 4096, 4096, ""),
+      bit_rate_entry("good", 1, 100, 720, 1280, "https://v/720.mp4"),
+    ]
+
+    detail = build_aweme_detail(self._payload(ladder))
+
+    self.assertEqual(detail.media[0].url, "https://v/720.mp4")
+
+  def test_a_ladder_without_dimensions_still_ranks_by_bit_rate(self):
+    ladder = [
+      {"bit_rate": 100, "play_addr": {"url_list": ["https://v/a.mp4"]}},
+      {"bit_rate": 900, "play_addr": {"url_list": ["https://v/b.mp4"]}},
+    ]
+
+    detail = build_aweme_detail(self._payload(ladder))
+
+    self.assertEqual(detail.media[0].url, "https://v/b.mp4")
+
+  def test_quality_does_not_affect_cover_or_music(self):
+    detail = build_aweme_detail(self._payload(MEASURED_LADDER))
+    kinds = {item.kind: item.url for item in detail.media}
+
+    self.assertEqual(kinds[MEDIA_COVER], "https://p.example.test/cover.jpeg")
+    self.assertEqual(kinds[MEDIA_MUSIC], "https://m.example.test/song.mp3")
+
+
 class ImagePostMediaTest(unittest.TestCase):
   def test_image_post_yields_one_item_per_image(self):
     detail = build_aweme_detail(image_payload(image_count=3))

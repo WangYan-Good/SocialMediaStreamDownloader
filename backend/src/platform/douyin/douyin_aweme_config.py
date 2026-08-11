@@ -59,6 +59,7 @@ class DouyinAwemeConfig:
     self._require_mapping("$.platform.douyin.post")
     self._require_mapping("$.platform.douyin.aweme")
     self._require_mapping("$.platform.douyin.aweme.media")
+    self._require_mapping("$.platform.douyin.owner")
 
   def _require_mapping(self, attr: str) -> dict:
     value = get_dict_attr(self.__config, attr)
@@ -116,9 +117,42 @@ class DouyinAwemeConfig:
     ) is True
 
   @property
+  def video_quality(self) -> str:
+    """Which encoding of a video to save; see the config comment."""
+    value = self.get_config_dict_attr("$.platform.douyin.aweme.video_quality")
+    return value if isinstance(value, str) and value.strip() else "highest"
+
+  @property
   def media_switches(self) -> dict:
     return deepcopy(
       self.get_config_dict_attr("$.platform.douyin.aweme.media")
+    )
+
+##
+## >>============================= owner settings =============================>>
+##
+  @property
+  def owner_max_timeout(self):
+    return self.get_config_dict_attr("$.platform.douyin.owner.max_timeout")
+
+  @property
+  def owner_page_size(self) -> int:
+    return self.get_config_dict_attr("$.platform.douyin.owner.page_size")
+
+  @property
+  def owner_max_pages(self) -> int:
+    return self.get_config_dict_attr("$.platform.douyin.owner.max_pages")
+
+  @property
+  def payload_retention_seconds(self):
+    return self.get_config_dict_attr(
+      "$.platform.douyin.owner.payload_retention_seconds"
+    )
+
+  @property
+  def job_retention_seconds(self):
+    return self.get_config_dict_attr(
+      "$.platform.douyin.owner.job_retention_seconds"
     )
 
   @property

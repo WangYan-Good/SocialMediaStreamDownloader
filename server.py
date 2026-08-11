@@ -24,6 +24,7 @@ from backend.src.platform.douyin.douyin_aweme_downloader import shutdown_aweme_d
 from backend.src.platform.douyin.douyin_live_downloader import cancel_live_downloads
 from backend.src.platform.platform_dispatcher import PlatformDispatcher
 from backend.src.web.history_routes import build_history_blueprint
+from backend.src.web.owner_routes import build_owner_blueprint
 
 def _server_options(config: dict) -> dict:
   server = config.get("server")
@@ -198,6 +199,11 @@ def _new_flask_app(
   ## download history browsing and live status probing
   ##
   configured_app.register_blueprint(build_history_blueprint())
+
+  ##
+  ## owner profile browsing and post batch download
+  ##
+  configured_app.register_blueprint(build_owner_blueprint())
 
   return configured_app
 

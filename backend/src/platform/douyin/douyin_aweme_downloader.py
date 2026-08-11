@@ -22,10 +22,12 @@ from backend.src.database.table.aweme_record import DouyinAwemeRecordTable
 from backend.src.library.baselib import get_dict_attr
 from backend.src.library.loglib import get_logger
 from backend.src.platform.douyin.douyin_aweme_config import DouyinAwemeConfig
+from backend.src.platform.douyin.douyin_archive_notes import write_post_note
 from backend.src.platform.douyin.douyin_aweme_external_info import naming_tick
 from backend.src.platform.douyin.douyin_owner_directory import (
   choose_owner_directory,
 )
+from backend.src.platform.douyin.douyin_owner_url import classify_owner_url
 from backend.src.platform.douyin.douyin_aweme_resolver import DouyinAwemeResolver
 from backend.src.platform.douyin.douyin_header import DouyinPostInfoHeader
 from backend.src.platform.douyin.douyin_login import DouyinLogin
@@ -195,7 +197,16 @@ class DouyinAwemeDownloader(Downloader):
         reason=resolution.reason,
       )
 
-    detail = resolution.detail
+    return self.download_detail(resolution.detail, url)
+
+  def download_detail(self, detail, share_url: str) -> AwemeDownloadResult:
+    """Download one already-resolved post.
+
+    Split out from ``run`` so a caller that already holds the post object can skip
+    resolving it.  The owner browse path lists posts through ``USER_POST``, whose
+    items are the same shape ``POST_DETAIL`` returns - so downloading a page of
+    posts costs no per-post requests at all.
+    """
     save_dir = self.build_save_dir(detail)
 
     ##
@@ -210,7 +221,15 @@ class DouyinAwemeDownloader(Downloader):
     ##
     with self.post_locks.hold(detail.aweme_id):
       saved_count, fetched_count = self._fetch_media(detail, save_dir)
-      self._persist(detail, url, save_dir, saved_count)
+      ##
+      ## Written every run, not only the first.  A folder downloaded before notes
+      ## existed gets one added, and an edited caption is picked up - both without
+      ## a platform request.  Deliberately outside the "nothing to fetch" check
+      ## below, or an already-complete post would never gain its note.
+      ##
+      if not self.config.test_mode:
+        write_post_note(save_dir, detail)
+      self._persist(detail, share_url, save_dir, saved_count)
 
     if fetched_count == 0 and saved_count == detail.media_count:
       get_logger().info(
@@ -308,12 +327,22 @@ class DouyinAwemeDownloader(Downloader):
     The folder is named ``{publish tick}_{aweme_id}``, both stable, so a re-run
     lands in the same place.
     """
+    tick = naming_tick(detail.create_time)
+    return self.build_owner_dir(detail) / "_".join(
+      part for part in (tick, detail.aweme_id) if part
+    )
+
+  def build_owner_dir(self, detail) -> Path:
+    """Return the owner-level folder that this post's folder sits in.
+
+    Separated from ``build_save_dir`` because the owner's own card is written
+    here, one level above the individual posts.
+    """
     base = Path(self.config.save_path) / PLATFORM / AWEME_PATH_SEGMENT
     directory_name = self.resolve_directory_name(detail)
     if self.config.folderize and directory_name:
       base = base / directory_name
-    tick = naming_tick(detail.create_time)
-    return base / "_".join(part for part in (tick, detail.aweme_id) if part)
+    return base
 
   @staticmethod
   def existing_file_names(save_dir) -> list:
@@ -448,11 +477,22 @@ class DouyinAwemeDownloader(Downloader):
       ## The aweme_record below is still written; it is keyed on the post.
       ##
       if detail.owner_user_id:
+        ##
+        ## share_url.post_share_url holds the owner's *profile* link, paired with
+        ## live_share_url - one row per owner, two ways in.  A post link does not
+        ## belong there, and writing one overwrites a profile link that was
+        ## already correct.
+        ##
+        ## So the url is recorded only when it really is a profile link, and it is
+        ## never derived from anything: the only valid source is a profile link
+        ## the user actually pasted.  A post link yields None, which the upsert's
+        ## COALESCE turns into "leave whatever is there alone".
+        ##
         database.upsert_post_owner({
           "owner_user_id": detail.owner_user_id,
           "sec_user_id": detail.sec_user_id,
           "nickname": detail.nickname,
-          "post_share_url": url,
+          "post_share_url": url if classify_owner_url(url) else None,
           "directory_name": detail.directory_name,
         })
       else:

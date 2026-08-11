@@ -292,6 +292,17 @@ platform:
       html_fallback: true
       # Skip an aweme_id whose every planned file was already saved.
       skip_downloaded: true
+      # Which encoding of a video to save.
+      #
+      #   highest - the largest entry in video.bit_rate, ranked by measured pixel
+      #             count then bit rate.  Do not rank by gear_name: the 2160x3840
+      #             entry on a measured post was called "adapt_lowest_4_1".
+      #   default - whatever video.play_addr serves.  Smaller, but its metadata
+      #             lies: it reported 1080x1920 while serving 576x1024.
+      #
+      # Highest roughly doubles the size of a video (2.8MB -> 6.5MB on the post
+      # this was measured against).
+      video_quality: highest
       media:
         # Disabling one of these drops it from the planned media list, which also
         # lowers the media_count recorded for the post.
@@ -299,3 +310,21 @@ platform:
         images: true
         music: true
         cover: true
+    owner:
+      # Browsing one owner's profile and post list.
+      #
+      # Both endpoints here require a *valid login cookie* in
+      # headers.post_info.cookie - without one they answer HTTP 200 with an empty
+      # body, which reads like "this owner has no posts" rather than "log in
+      # again".  The program reports that case explicitly; see douyin_session.
+      max_timeout: 15
+      # How many posts to ask for per page.  Douyin returns 18-19 regardless, so
+      # this is the request, not a guarantee.
+      page_size: 18
+      # Cap on how many pages "download everything" will walk.  0 means no cap.
+      max_pages: 0
+      # How long fetched post payloads stay available for a later download
+      # request to reference by aweme_id.
+      payload_retention_seconds: 1800
+      # How long a finished download job stays readable.
+      job_retention_seconds: 600
