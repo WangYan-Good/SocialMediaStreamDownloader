@@ -487,8 +487,28 @@ class DouyinLiveDownloader(Downloader):
       self._database_clock() + self._database_retry_seconds
     )
 
-  def _person_directory(self, owner_user_id: str):
-    """Return the folder this owner's person files under, or ``None``.
+  def _identity_count(self, directory_name) -> int:
+    """How many distinct identities file under ``directory_name``.
+
+    Answers 1 when it cannot be known: an unknown count must not invent a
+    collision that would append a discriminator nobody asked for.
+    """
+    if not directory_name:
+      return 1
+    database = self._person_database_for_read()
+    if database is None:
+      return 1
+    try:
+      return max(
+        1,
+        database.count_identities_using_directory_name(directory_name),
+      )
+    except Exception as e:
+      get_logger().warning("identity count failed, assume unique: {}".format(e))
+      return 1
+
+  def _person_folder(self, owner_user_id: str):
+    """Return this owner's person folder and discriminating id, or ``None``.
 
     Every failure answers ``None``.  A recording is the thing that cannot be
     repeated - the stream is live now - so nothing about who this owner is may
@@ -500,7 +520,7 @@ class DouyinLiveDownloader(Downloader):
     if database is None:
       return None
     try:
-      return database.find_person_directory_name(owner_user_id)
+      return database.find_person_folder(owner_user_id)
     except Exception as e:
       get_logger().warning(
         "person directory lookup failed, use the owner's own: {}".format(e)
@@ -704,10 +724,14 @@ class DouyinLiveDownloader(Downloader):
     ## person has nothing to do with whether share_url is readable, and the
     ## recordings have to land beside that person's posts either way.
     ##
-    person_directory = self._person_directory(owner_user_id)
+    person = self._person_folder(owner_user_id)
+    person_directory = person["directory_name"] if person else None
+    person_owner = person["main_owner_user_id"] if person else None
     directory_name = choose_owner_directory(
       nickname_directory,
       person_directory=person_directory,
+      person_owner_user_id=person_owner,
+      owner_count=self._identity_count(person_directory),
     )
     database = self._database_for_read()
     if database is not None:
@@ -715,8 +739,15 @@ class DouyinLiveDownloader(Downloader):
         recorded = None
         if database.is_owner_user_id_record_exist(owner_user_id) is True:
           recorded = database.get_directory_name_by_owner_user_id(owner_user_id)
-        owners = database.count_owners_using_directory_name(
-          recorded or nickname_directory
+        ##
+        ## A marked owner is counted by identity, so the person's own accounts -
+        ## which all record the same folder - do not read as a collision.
+        ##
+        owners = (
+          self._identity_count(person_directory) if person_directory
+          else database.count_owners_using_directory_name(
+            recorded or nickname_directory
+          )
         )
         directory_name = choose_owner_directory(
           nickname_directory,
@@ -724,6 +755,7 @@ class DouyinLiveDownloader(Downloader):
           owner_user_id=owner_user_id,
           owner_count=owners,
           person_directory=person_directory,
+          person_owner_user_id=person_owner,
         )
         if directory_name != nickname_directory:
           get_logger().info(
@@ -743,6 +775,7 @@ class DouyinLiveDownloader(Downloader):
         directory_name = choose_owner_directory(
           nickname_directory,
           person_directory=person_directory,
+          person_owner_user_id=person_owner,
         )
     save_dir    = self.config.get_config_dict_attr("$.download.save_path")+"/douyin/" + self.config.get_config_dict_attr("$.platform.douyin.download.type") + "/" + directory_name
     

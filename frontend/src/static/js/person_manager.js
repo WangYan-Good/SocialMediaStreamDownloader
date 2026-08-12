@@ -38,12 +38,12 @@
     this.people = root.querySelector('.pm-people');
     this.status = root.querySelector('.pm-status');
     this.newName = root.querySelector('.pm-new-name');
-    this.newDirectory = root.querySelector('.pm-new-directory');
     this.attachPanel = root.querySelector('.pm-attach');
     this.attachPersonName = root.querySelector('.pm-attach-person');
     this.searchInput = root.querySelector('.pm-search');
     this.roleSelect = root.querySelector('.pm-role');
     this.results = root.querySelector('.pm-results');
+    this.linkInput = root.querySelector('.pm-link');
     this.collabPanel = root.querySelector('.pm-collab');
     this.collabPersonName = root.querySelector('.pm-collab-person');
     this.subjectSelect = root.querySelector('.pm-subject');
@@ -55,6 +55,8 @@
         .addEventListener('click', this.createPerson.bind(this));
     root.querySelector('.pm-search-button')
         .addEventListener('click', this.searchAccounts.bind(this));
+    root.querySelector('.pm-link-button')
+        .addEventListener('click', this.attachByLink.bind(this));
     root.querySelector('.pm-attach-close')
         .addEventListener('click', this.closeAttach.bind(this));
     root.querySelector('.pm-collab-close')
@@ -102,7 +104,9 @@
     head.appendChild(element(
       'span',
       'pm-person-directory',
-      person.directory_name ? '目录：' + person.directory_name : '未设归并目录'
+      person.directory_name
+        ? '目录：' + person.directory_name + '（来自主号）'
+        : '还没有主号，落盘目录未定'
     ));
     head.appendChild(element(
       'span',
@@ -117,16 +121,6 @@
     attach.addEventListener('click', function () { self.openAttach(person); });
     actions.appendChild(attach);
 
-    var rename = element('button', 'pm-action', '改目录');
-    rename.addEventListener('click', function () {
-      var next = window.prompt('归并目录名', person.directory_name || '');
-      if (next === null) { return; }
-      request('PATCH', '/api/person/' + person.person_id,
-              { directory_name: next.trim() })
-        .then(function () { return self.refresh(); })
-        .catch(function (error) { self.say('修改失败：' + error.message); });
-    });
-    actions.appendChild(rename);
 
     var remove = element('button', 'pm-action pm-danger', '删除');
     remove.addEventListener('click', function () {
@@ -266,13 +260,9 @@
       this.say('先填一个名字');
       return;
     }
-    request('POST', '/api/person', {
-      display_name: name,
-      directory_name: (this.newDirectory.value || '').trim()
-    })
+    request('POST', '/api/person', { display_name: name })
       .then(function () {
         self.newName.value = '';
-        self.newDirectory.value = '';
         return self.refresh();
       })
       .catch(function (error) { self.say('创建失败：' + error.message); });
@@ -283,6 +273,7 @@
     this.attachPersonName.textContent = person.display_name;
     this.results.innerHTML = '';
     this.searchInput.value = '';
+    this.linkInput.value = '';
     this.attachPanel.hidden = false;
     this.searchInput.focus();
   };
@@ -290,6 +281,32 @@
   PersonManager.prototype.closeAttach = function () {
     this.attachingTo = null;
     this.attachPanel.hidden = true;
+  };
+
+  /*
+   * 按链接挂载：从没下载过、也从没直播过的主播在 share_url 里没有行，搜不到，
+   * 而目录在首次下载一开始就定死了。这条路让标记可以发生在下载之前。
+   */
+  PersonManager.prototype.attachByLink = function () {
+    var self = this;
+    if (!this.attachingTo) { return; }
+    var url = (this.linkInput.value || '').trim();
+    if (!url) {
+      this.say('先粘一条主播主页分享链接');
+      return;
+    }
+    this.say('解析链接中…');
+    request('POST', '/api/person/account/by-link', {
+      url: url,
+      person_id: this.attachingTo.person_id,
+      role: this.roleSelect.value
+    })
+      .then(function (data) {
+        self.linkInput.value = '';
+        self.say('已挂载 ' + (data.nickname || data.owner_user_id));
+        return self.refresh();
+      })
+      .catch(function (error) { self.say('挂载失败：' + error.message); });
   };
 
   PersonManager.prototype.searchAccounts = function () {

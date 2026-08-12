@@ -315,27 +315,47 @@ class DouyinAwemeDownloader(Downloader):
     ## belongs to a marked person has nothing to do with whether aweme_record is
     ## readable, and a person folder still applies when that lookup is skipped.
     ##
-    person_directory = self._person_directory(detail.owner_user_id)
+    person = self._person_folder(detail.owner_user_id)
+    person_directory = person["directory_name"] if person else None
+    person_owner = person["main_owner_user_id"] if person else None
 
     database = self._database_for_read()
     if database is None or not detail.owner_user_id:
-      return choose_owner_directory(fallback, person_directory=person_directory)
+      return choose_owner_directory(
+        fallback,
+        person_directory=person_directory,
+        person_owner_user_id=person_owner,
+        owner_count=self._identity_count(person_directory),
+      )
     try:
       recorded = database.find_owner_directory_name(detail.owner_user_id)
-      owners = database.count_owners_using_directory_name(recorded or fallback)
+      ##
+      ## A marked account is counted by identity, so that its person's own
+      ## accounts - which all record the same folder - do not look like a
+      ## collision with each other.
+      ##
+      owners = (
+        self._identity_count(person_directory) if person_directory
+        else database.count_owners_using_directory_name(recorded or fallback)
+      )
     except Exception as e:
       get_logger().warning(
         "database directory lookup failed, use post nickname: {}".format(e)
       )
       self._mark_database_unavailable()
-      return choose_owner_directory(fallback, person_directory=person_directory)
+      return choose_owner_directory(
+        fallback,
+        person_directory=person_directory,
+        person_owner_user_id=person_owner,
+      )
 
     resolved = choose_owner_directory(
       fallback,
       recorded_directory=recorded,
       owner_user_id=detail.owner_user_id,
       owner_count=owners,
-      person_directory=self._person_directory(detail.owner_user_id),
+      person_directory=person_directory,
+      person_owner_user_id=person_owner,
     )
     if resolved != fallback:
       get_logger().info(
@@ -349,8 +369,25 @@ class DouyinAwemeDownloader(Downloader):
       )
     return resolved
 
-  def _person_directory(self, owner_user_id: str):
-    """Return the folder this account's person files under, or ``None``.
+  def _identity_count(self, directory_name) -> int:
+    """How many distinct identities file under ``directory_name``.
+
+    Answers 1 when it cannot be known: an unknown count must not invent a
+    collision that would append a discriminator nobody asked for.
+    """
+    if not directory_name:
+      return 1
+    database = self._person_database_for_read()
+    if database is None:
+      return 1
+    try:
+      return max(1, database.count_identities_using_directory_name(directory_name))
+    except Exception as e:
+      get_logger().warning("identity count failed, assume unique: {}".format(e))
+      return 1
+
+  def _person_folder(self, owner_user_id: str):
+    """Return this account's person folder and discriminating id, or ``None``.
 
     Every failure answers ``None``: no person table, no marking, or a database
     that will not answer.  Whose account this is, is extra information about a
@@ -363,7 +400,7 @@ class DouyinAwemeDownloader(Downloader):
     if database is None:
       return None
     try:
-      return database.find_person_directory_name(owner_user_id)
+      return database.find_person_folder(owner_user_id)
     except Exception as e:
       get_logger().warning(
         "person directory lookup failed, use the account's own: {}".format(e)

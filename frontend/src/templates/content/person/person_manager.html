@@ -13,7 +13,6 @@
   <!-- 建人 -->
   <div class="pm-create">
     <input type="text" class="pm-new-name" placeholder="人物名字，例如「张三」">
-    <input type="text" class="pm-new-directory" placeholder="归并目录名（选填，留空则各账号仍用自己的目录）">
     <button type="button" class="pm-create-button">新建人物</button>
   </div>
 
@@ -40,10 +39,16 @@
       <span>为 <b class="pm-attach-person"></b> 挂载账号</span>
       <button type="button" class="pm-attach-close">关闭</button>
     </div>
+    <!-- 粘链接：从没下载过、也从没直播过的主播只能走这条路 -->
+    <div class="pm-search-row">
+      <input type="search" class="pm-link" placeholder="粘贴主播主页分享链接（整段分享文字也行）——下载前就能标记">
+      <button type="button" class="pm-link-button">按链接挂载</button>
+    </div>
+
     <div class="pm-search-row">
       <input type="search" class="pm-search" placeholder="按昵称或账号 ID 搜索（共一千八百多个账号，只能搜）">
       <select class="pm-role">
-        <option value="main">主号</option>
+        <option value="main">主号（其目录即全员落盘目录）</option>
         <option value="alt">小号</option>
         <option value="matrix">矩阵号</option>
       </select>

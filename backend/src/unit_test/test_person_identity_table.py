@@ -115,18 +115,38 @@ class AttachAccountTest(unittest.TestCase):
 
 
 class PersonDirectoryLookupTest(unittest.TestCase):
-  """B2 的落盘归并依赖这一个查询。"""
+  """落盘归并依赖这一个查询。
 
-  def test_an_attached_account_reports_its_persons_directory(self):
-    table, cursor = build_table(rows=[{"directory_name": "合并目录"}])
+  目录的唯一事实来源是**主账号**在 share_url 里记录的目录，person 自己不持有
+  目录：一个 person 存在就意味着有主账号，再复制一份目录只会多一个可能与它
+  不一致的地方。
+  """
 
-    found = table.find_person_directory_name("owner-1")
+  def test_a_sub_account_reports_the_main_accounts_directory(self):
+    table, cursor = build_table(rows=[{"directory_name": "主播甲"}])
 
-    self.assertEqual(found, "合并目录")
+    found = table.find_person_directory_name("sub-1")
+
+    self.assertEqual(found, "主播甲")
     sql, params = cursor.calls[0]
-    self.assertIn("person_account", sql)
-    self.assertIn("person", sql)
-    self.assertEqual(params, ("douyin", "owner-1"))
+    ##
+    ## 两次 person_account 自连接：一次定位这个账号，一次定位同一个人的主账号
+    ##
+    self.assertEqual(2, sql.count("person_account"))
+    self.assertIn("role", sql)
+    self.assertEqual(params, ("douyin", "sub-1"))
+
+  def test_the_main_account_reports_its_own_directory(self):
+    """主账号解析到自己，与没有 person 时的结果相同。"""
+    table, _ = build_table(rows=[{"directory_name": "主播甲"}])
+
+    self.assertEqual(table.find_person_directory_name("main-1"), "主播甲")
+
+  def test_a_person_without_a_main_account_reports_nothing(self):
+    """没有主账号就没有权威目录，回落到账号自己的记录。"""
+    table, _ = build_table(rows=[])
+
+    self.assertIsNone(table.find_person_directory_name("sub-1"))
 
   def test_an_unattached_account_reports_nothing(self):
     """没挂人的账号必须与今天行为一致，这是整个功能的零影响保证。"""
@@ -170,12 +190,16 @@ class PersonCrudTest(unittest.TestCase):
   def test_creating_a_person_returns_the_new_id(self):
     table, cursor = build_table()
 
-    person_id = table.create_person("张三", directory_name="张三_合并")
+    person_id = table.create_person("张三")
 
     self.assertEqual(person_id, cursor.lastrowid)
     sql, params = cursor.calls[0]
     self.assertIn("INSERT INTO person", sql)
-    self.assertEqual(params, ("张三", "张三_合并", None))
+    ##
+    ## 不问目录：它来自之后被标为主号的那个账号
+    ##
+    self.assertNotIn("directory_name", sql)
+    self.assertEqual(params, ("张三", None))
 
   def test_a_person_needs_a_name(self):
     table, cursor = build_table()
@@ -186,7 +210,7 @@ class PersonCrudTest(unittest.TestCase):
     self.assertEqual(cursor.calls, [])
 
   def test_updating_a_person_leaves_unmentioned_fields_alone(self):
-    """只改目录时不该把备注抹掉。
+    """只改名字时不该把备注抹掉。
 
     用固定语句 + COALESCE 而非拼 SET 子句：未指定的字段传 None，COALESCE
     保留原值。这样运行时不构造 SQL 文本，符合本库「只有标识符能被插值」的
@@ -194,11 +218,12 @@ class PersonCrudTest(unittest.TestCase):
     """
     table, cursor = build_table()
 
-    table.update_person(3, directory_name="新目录")
+    table.update_person(3, display_name="新名字")
 
     sql, params = cursor.calls[0]
     self.assertIn("note = COALESCE(%s, note)", sql)
-    self.assertEqual(params, (None, "新目录", None, 3))
+    self.assertNotIn("directory_name", sql)
+    self.assertEqual(params, ("新名字", None, 3))
 
   def test_updating_nothing_touches_no_sql(self):
     table, cursor = build_table()
@@ -280,9 +305,6 @@ class AccountSearchTest(unittest.TestCase):
     self.assertEqual(table.search_accounts("   "), [])
     self.assertEqual(cursor.calls, [])
 
-if __name__ == "__main__":
-  unittest.main()
-
 
 class PersonAggregationTest(unittest.TestCase):
   """按人聚合：一个人名下所有账号的作品与录播一起看。"""
@@ -360,3 +382,150 @@ class PhotographerSearchTest(unittest.TestCase):
     self.assertIn("person_account", sql)
     self.assertIn("aweme_record", sql)
     self.assertEqual(params[:1], (2,))
+
+
+class AccountIdentitySeedTest(unittest.TestCase):
+  """标记一个还没下载过的主播时，顺便留一行身份记录。
+
+  否则人物页只能把这个账号显示成一串 owner_user_id——share_url 里还没有它。
+  身份是明确表态的产物，与「浏览了一下」不同，所以这一行是有依据的。
+  """
+
+  def test_only_identity_columns_are_written(self):
+    table, cursor = build_table()
+
+    table.upsert_account_identity("acc-9", "sec-9", "主播甲")
+
+    sql, params = cursor.calls[0]
+    self.assertIn("INSERT INTO share_url", sql)
+    self.assertEqual(params, ("acc-9", "sec-9", "主播甲"))
+    ##
+    ## 这四列各有其主：目录归 person 与下载链路，两个 share_url 归各自的
+    ## 链路，计数归直播。身份录入一列都不许碰。
+    ##
+    for owned_elsewhere in (
+      "directory_name",
+      "post_share_url",
+      "live_share_url",
+      "actived_count",
+    ):
+      self.assertNotIn(owned_elsewhere, sql)
+
+  def test_an_existing_row_keeps_what_it_has(self):
+    """已有主播被标记时，昵称可以更新，但不得抹掉任何既有值。"""
+    table, cursor = build_table()
+
+    table.upsert_account_identity("acc-9", None, None)
+
+    sql, _ = cursor.calls[0]
+    self.assertIn("COALESCE(VALUES(sec_user_id), sec_user_id)", sql)
+    self.assertIn("COALESCE(VALUES(nickname), nickname)", sql)
+
+  def test_a_missing_owner_id_is_rejected(self):
+    """owner_user_id 是主键，空值会造出一行谁也匹配不上的记录。"""
+    table, cursor = build_table()
+
+    with self.assertRaises(ValueError):
+      table.upsert_account_identity("   ", "sec-9", "主播甲")
+
+    self.assertEqual(cursor.calls, [])
+
+
+
+class AlignToMainAccountTest(unittest.TestCase):
+  """子账号自己记录的目录也要与主账号一致。
+
+  不这样做，库里会写着「甲小号目录」而文件实际落在「主播甲」下——两处说法不同，
+  以后谁读到哪一处都可能是错的。落盘用主账号的目录，记录也就该是它。
+  """
+
+  def test_sub_accounts_take_the_main_accounts_folder(self):
+    table, cursor = build_table()
+
+    table.align_accounts_to_main(3)
+
+    sql, params = cursor.calls[0]
+    self.assertIn("UPDATE share_url", sql)
+    self.assertIn("role", sql)
+    self.assertEqual(params, ("douyin", 3))
+
+  def test_the_main_accounts_own_row_is_left_alone(self):
+    """它就是那个事实来源，不该被自己覆盖。"""
+    table, cursor = build_table()
+
+    table.align_accounts_to_main(3)
+
+    sql, _ = cursor.calls[0]
+    self.assertIn("<>", sql)
+
+  def test_a_main_account_without_a_folder_changes_nothing(self):
+    """主账号自己都还没有目录时，不能把子账号的清空。"""
+    table, cursor = build_table()
+
+    table.align_accounts_to_main(3)
+
+    sql, _ = cursor.calls[0]
+    self.assertIn("IS NOT NULL", sql)
+
+
+class IdentityAwareCountTest(unittest.TestCase):
+  """消歧要按身份组计数：一个 person 算一组，未标记的账号各算一组。
+
+  对齐之后，同一个 person 的多个账号在 share_url 里记着同一个目录名。若仍按
+  账号数计，一个人自己就把计数顶到 2，于是被当成撞名而各自加后缀——归并当场
+  失效。而两个真正不同的人同名时，计数必须仍然大于 1。
+  """
+
+  def test_one_person_with_many_accounts_counts_once(self):
+    table, cursor = build_table(rows=[{"identity_count": 1}])
+
+    self.assertEqual(1, table.count_identities_using_directory_name("主播甲"))
+    sql, params = cursor.calls[0]
+    self.assertIn("COUNT(DISTINCT", sql)
+    self.assertIn("person_account", sql)
+    self.assertEqual(params, ("douyin", "主播甲"))
+
+  def test_two_people_sharing_a_name_count_twice(self):
+    table, _ = build_table(rows=[{"identity_count": 2}])
+
+    self.assertEqual(2, table.count_identities_using_directory_name("主播甲"))
+
+  def test_a_name_nobody_uses_counts_zero(self):
+    table, _ = build_table(rows=[])
+
+    self.assertEqual(0, table.count_identities_using_directory_name("主播甲"))
+
+  def test_a_blank_name_is_not_queried(self):
+    table, cursor = build_table()
+
+    self.assertEqual(0, table.count_identities_using_directory_name("  "))
+    self.assertEqual(cursor.calls, [])
+
+
+class PersonFolderTest(unittest.TestCase):
+  """落盘既要目录名，也要主账号 id 作为消歧后缀。"""
+
+  def test_the_main_accounts_folder_and_id_are_returned_together(self):
+    table, _ = build_table(
+      rows=[{"directory_name": "主播甲", "owner_user_id": "main-1"}]
+    )
+
+    found = table.find_person_folder("sub-1")
+
+    self.assertEqual(found["directory_name"], "主播甲")
+    self.assertEqual(found["main_owner_user_id"], "main-1")
+
+  def test_an_unmarked_account_returns_nothing(self):
+    table, _ = build_table(rows=[])
+
+    self.assertIsNone(table.find_person_folder("nobody"))
+
+  def test_a_main_account_without_a_folder_returns_nothing(self):
+    table, _ = build_table(
+      rows=[{"directory_name": "   ", "owner_user_id": "main-1"}]
+    )
+
+    self.assertIsNone(table.find_person_folder("sub-1"))
+
+if __name__ == "__main__":
+  unittest.main()

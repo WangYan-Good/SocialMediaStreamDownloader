@@ -19,6 +19,7 @@ class StubTable:
     self.detached = []
     self.collaborations = []
     self.removed_collaborations = []
+    self.aligned = []
 
   def _guard(self):
     if self.failure is not None:
@@ -32,9 +33,9 @@ class StubTable:
     self._guard()
     return self.accounts
 
-  def create_person(self, display_name, directory_name=None, note=None):
+  def create_person(self, display_name, note=None):
     self._guard()
-    self.created.append((display_name, directory_name, note))
+    self.created.append((display_name, note))
     return 11
 
   def update_person(self, person_id, **fields):
@@ -50,6 +51,10 @@ class StubTable:
     if role not in ("main", "alt", "matrix"):
       raise UnknownRole("bad role")
     self.attached.append((platform, owner_user_id, person_id, role))
+
+  def align_accounts_to_main(self, person_id):
+    self._guard()
+    self.aligned.append(person_id)
 
   def detach_account(self, platform, owner_user_id):
     self._guard()
@@ -112,17 +117,20 @@ class CreatePersonRouteTest(RouteTestCase):
     response = self.post(
       client,
       "/api/person",
-      {"display_name": "张三", "directory_name": "张三_合并"},
+      {"display_name": "张三"},
     )
 
     self.assertEqual(response.status_code, 200)
     self.assertEqual(self.body(response)["data"]["person_id"], 11)
-    self.assertEqual(table.created, [("张三", "张三_合并", None)])
+    ##
+    ## 不接收目录：它是主账号的，随第一个被标为主号的账号而来
+    ##
+    self.assertEqual(table.created, [("张三", None)])
 
   def test_a_missing_name_is_rejected(self):
     client, table = self.build_client()
 
-    response = self.post(client, "/api/person", {"directory_name": "x"})
+    response = self.post(client, "/api/person", {"note": "x"})
 
     self.assertEqual(response.status_code, 400)
     self.assertEqual(table.created, [])
@@ -270,6 +278,155 @@ class PersonDetailRouteTest(RouteTestCase):
     client, _ = self.build_client(self.DetailTable(failure=RuntimeError("x")))
 
     self.assertEqual(client.get("/api/person/3/detail").status_code, 502)
+
+
+class AttachByLinkTest(RouteTestCase):
+  """从没直播过的主播，也要能在下载之前标记。
+
+  直播分享短链会在下载判断之前就写入 share_url，所以那类主播本来就搜得到。
+  但只有主页链接、从没开过播的主播不会有行——而目录在下载一开始就定死了，
+  于是首批文件必然落在昵称目录。粘链接挂载补的正是这一段：解析出账号身份
+  直接挂载，不要求它已经在库里（person_account 本就没有指向 share_url 的
+  外键）。
+  """
+
+  class Resolved:
+    def __init__(self, uid="acc-9", nickname="主播甲", sec="MS4wLjABAAAA"):
+      self.uid = uid
+      self.nickname = nickname
+      self.sec_user_id = sec
+
+  class SeedingTable(StubTable):
+    def __init__(self, **kwargs):
+      super().__init__(**kwargs)
+      self.identities = []
+
+    def upsert_account_identity(self, owner_user_id, sec_user_id=None,
+                                nickname=None):
+      self._guard()
+      self.identities.append((owner_user_id, sec_user_id, nickname))
+
+  def build_link_client(self, resolver=None, detail=None, table=None):
+    table = table if table is not None else self.SeedingTable()
+    runtime = PersonRuntime(table_factory=lambda: table)
+    runtime.resolve_owner = resolver or (lambda url: "MS4wLjABAAAA")
+    runtime.owner_detail = detail or (lambda sec: AttachByLinkTest.Resolved())
+    app = Flask(__name__)
+    app.register_blueprint(build_person_blueprint(runtime))
+    return app.test_client(), table
+
+  def test_a_never_downloaded_owner_can_be_marked(self):
+    client, table = self.build_link_client()
+
+    response = self.post(client, "/api/person/account/by-link", {
+      "url": "https://v.douyin.com/abc/", "person_id": 3, "role": "main",
+    })
+
+    self.assertEqual(response.status_code, 200)
+    self.assertEqual(table.attached, [("douyin", "acc-9", 3, "main")])
+    self.assertEqual(self.body(response)["data"]["nickname"], "主播甲")
+
+  def test_the_identity_is_recorded_so_the_page_can_name_the_account(self):
+    client, table = self.build_link_client()
+
+    self.post(client, "/api/person/account/by-link", {
+      "url": "https://v.douyin.com/abc/", "person_id": 3, "role": "main",
+    })
+
+    self.assertEqual(table.identities, [("acc-9", "MS4wLjABAAAA", "主播甲")])
+
+  def test_the_identity_is_recorded_before_the_attachment(self):
+    """反过来会先造出一条指向未知账号的归属记录。"""
+    order = []
+    table = self.SeedingTable()
+    table.upsert_account_identity = lambda *a, **k: order.append("identity")
+    table.attach_account = lambda *a, **k: order.append("attach")
+    client, _ = self.build_link_client(table=table)
+
+    self.post(client, "/api/person/account/by-link", {
+      "url": "https://v.douyin.com/abc/", "person_id": 3, "role": "main",
+    })
+
+    self.assertEqual(order, ["identity", "attach"])
+
+  def test_whole_share_text_is_accepted(self):
+    """抖音复制给你的是一整段文字，不是纯链接。"""
+    client, table = self.build_link_client()
+
+    response = self.post(client, "/api/person/account/by-link", {
+      "url": "0.58 复制打开抖音 https://v.douyin.com/abc/ 08/01",
+      "person_id": 3,
+      "role": "alt",
+    })
+
+    self.assertEqual(response.status_code, 200)
+    self.assertEqual(len(table.attached), 1)
+
+  def test_a_link_that_resolves_to_nothing_is_a_field_error(self):
+    client, table = self.build_link_client(resolver=lambda url: None)
+
+    response = self.post(client, "/api/person/account/by-link", {
+      "url": "https://v.douyin.com/abc/", "person_id": 3, "role": "main",
+    })
+
+    self.assertEqual(response.status_code, 400)
+    self.assertEqual(table.attached, [])
+
+  def test_an_owner_without_a_uid_cannot_be_attached(self):
+    """person_account 按 owner_user_id 键，空 id 会造出谁也匹配不上的行。"""
+    client, table = self.build_link_client(
+      detail=lambda sec: AttachByLinkTest.Resolved(uid="")
+    )
+
+    response = self.post(client, "/api/person/account/by-link", {
+      "url": "https://v.douyin.com/abc/", "person_id": 3, "role": "main",
+    })
+
+    self.assertEqual(response.status_code, 502)
+    self.assertEqual(table.attached, [])
+
+  def test_an_unknown_role_is_still_a_field_error(self):
+    client, table = self.build_link_client()
+
+    response = self.post(client, "/api/person/account/by-link", {
+      "url": "https://v.douyin.com/abc/", "person_id": 3, "role": "boss",
+    })
+
+    self.assertEqual(response.status_code, 400)
+    self.assertEqual(table.attached, [])
+
+
+class AlignAfterAttachTest(RouteTestCase):
+  """挂载之后必须把子账号那一列对齐到主账号。
+
+  落盘用的是主账号的目录；子账号自己那一行若还写着别的名字，库里就有两种说法，
+  读到哪一种都可能是错的。
+  """
+
+  def test_attaching_by_search_aligns(self):
+    client, table = self.build_client()
+
+    self.post(client, "/api/person/account", {
+      "owner_user_id": "acc-1", "person_id": 3, "role": "alt",
+    })
+
+    self.assertEqual(table.aligned, [3])
+
+  def test_attaching_by_link_aligns(self):
+    inner = AttachByLinkTest.SeedingTable()
+    inner.aligned = []
+    inner.align_accounts_to_main = lambda pid: inner.aligned.append(pid)
+    runtime = PersonRuntime(table_factory=lambda: inner)
+    runtime.resolve_owner = lambda url: "MS4wLjABAAAA"
+    runtime.owner_detail = lambda sec: AttachByLinkTest.Resolved()
+    app = Flask(__name__)
+    app.register_blueprint(build_person_blueprint(runtime))
+
+    self.post(app.test_client(), "/api/person/account/by-link", {
+      "url": "https://v.douyin.com/abc/", "person_id": 5, "role": "main",
+    })
+
+    self.assertEqual(inner.aligned, [5])
 
 if __name__ == "__main__":
   unittest.main()

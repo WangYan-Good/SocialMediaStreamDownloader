@@ -209,3 +209,23 @@
   font-size: 14px;
   flex: 1 1 auto;
 }
+
+.pm-link {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.pm-link-button {
+  padding: 6px 12px;
+  border: 1px solid #888;
+  border-radius: 4px;
+  background: #f6f6f6;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.pm-link-button:hover { background: #ececec; }

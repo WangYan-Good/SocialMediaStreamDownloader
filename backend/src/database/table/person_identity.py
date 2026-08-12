@@ -28,18 +28,17 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
 ##
 ## >>============================= people =============================>>
 ##
-  def create_person(
-    self,
-    display_name: str,
-    directory_name: str = None,
-    note: str = None,
-  ) -> int:
-    """Create a person and return the new id."""
+  def create_person(self, display_name: str, note: str = None) -> int:
+    """Create a person and return the new id.
+
+    No folder is asked for: it comes from whichever account is later marked as
+    the main one.
+    """
     if not isinstance(display_name, str) or not display_name.strip():
       raise ValueError("display_name is required")
 
-    sql = '''INSERT INTO person (display_name, directory_name, note)
-             VALUES (%s, %s, %s);
+    sql = '''INSERT INTO person (display_name, note)
+             VALUES (%s, %s);
           '''
     self.require_write_ready()
     try:
@@ -47,7 +46,7 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
         with connector.cursor() as cursor:
           cursor.execute(
             sql,
-            (display_name.strip(), directory_name, note),
+            (display_name.strip(), note),
           )
           new_id = cursor.lastrowid
           connector.commit()
@@ -60,7 +59,6 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
     self,
     person_id: int,
     display_name: str = None,
-    directory_name: str = None,
     note: str = None,
   ) -> None:
     """Update only the fields that were named.
@@ -68,7 +66,7 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
     Renaming a folder must not blank a note that nobody mentioned, so unnamed
     fields are left out of the statement rather than written as ``None``.
     """
-    if display_name is None and directory_name is None and note is None:
+    if display_name is None and note is None:
       return
 
     ##
@@ -80,9 +78,8 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
     ## way, so the two stay recognisable as one idiom.
     ##
     sql = '''UPDATE person
-             SET display_name   = COALESCE(%s, display_name),
-                 directory_name = COALESCE(%s, directory_name),
-                 note           = COALESCE(%s, note)
+             SET display_name = COALESCE(%s, display_name),
+                 note         = COALESCE(%s, note)
              WHERE person_id = %s;
           '''
     self.require_write_ready()
@@ -91,7 +88,7 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
         with connector.cursor() as cursor:
           cursor.execute(
             sql,
-            (display_name, directory_name, note, person_id),
+            (display_name, note, person_id),
           )
           connector.commit()
     except Exception as e:
@@ -122,11 +119,21 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
     A LEFT JOIN so somebody created a moment ago, before any account was
     attached, still appears - that is the ordinary order of the operation.
     """
-    sql = '''SELECT p.person_id, p.display_name, p.directory_name, p.note,
-                    COUNT(pa.owner_user_id) AS account_count
+    ##
+    ## directory_name is reported, not stored: it is the main account's, shown so
+    ## the page can say where this person's files go without inventing a field.
+    ##
+    sql = '''SELECT p.person_id, p.display_name, p.note,
+                    COUNT(pa.owner_user_id) AS account_count,
+                    MAX(m.directory_name) AS directory_name
              FROM person AS p
              LEFT JOIN person_account AS pa ON pa.person_id = p.person_id
-             GROUP BY p.person_id, p.display_name, p.directory_name, p.note
+             LEFT JOIN person_account AS main_account
+               ON main_account.person_id = p.person_id
+              AND main_account.role = 'main'
+             LEFT JOIN share_url AS m
+               ON m.owner_user_id = main_account.owner_user_id
+             GROUP BY p.person_id, p.display_name, p.note
              ORDER BY p.display_name;
           '''
     try:
@@ -192,6 +199,48 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
 ##
 ## >>============================= accounts =============================>>
 ##
+  def upsert_account_identity(
+    self,
+    owner_user_id: str,
+    sec_user_id: str = None,
+    nickname: str = None,
+  ) -> None:
+    """Record who an account is, without claiming anything else about it.
+
+    Marking an owner who has never been downloaded would otherwise leave the
+    person page showing a bare ``owner_user_id``: ``share_url`` has no row for
+    them yet, because only a download creates one.  Marking is a deliberate
+    statement of interest - unlike merely browsing - so an identity row for
+    somebody just marked is earned.
+
+    Identity columns only.  ``directory_name`` belongs to the person and the
+    download paths, the two share urls each belong to their own path, and
+    ``actived_count`` belongs to the live path; a row created here leaves every
+    one of them to whoever owns it.  ``directory_name`` in particular stays
+    empty on purpose - the first download fills it through its own COALESCE, and
+    the person's folder wins over it regardless.
+    """
+    if not isinstance(owner_user_id, str) or not owner_user_id.strip():
+      raise ValueError("owner_user_id is required")
+
+    sql = '''INSERT INTO share_url (owner_user_id, sec_user_id, nickname)
+             VALUES (%s, %s, %s)
+             ON DUPLICATE KEY UPDATE
+               sec_user_id = COALESCE(VALUES(sec_user_id), sec_user_id),
+               nickname    = COALESCE(VALUES(nickname), nickname);
+          '''
+    self.require_write_ready()
+    try:
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql, (owner_user_id.strip(), sec_user_id, nickname))
+          connector.commit()
+    except Exception as e:
+      get_logger().error(
+        "record identity for {} failed: {}".format(owner_user_id, e)
+      )
+      raise e
+
   def attach_account(
     self,
     platform: str,
@@ -233,6 +282,123 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
       )
       raise e
 
+  def find_person_folder(self, owner_user_id: str, platform: str = PLATFORM):
+    """Return this account's person folder and the id that discriminates it.
+
+    ``{"directory_name": ..., "main_owner_user_id": ...}`` or ``None``.
+
+    Both come from the main account: the folder because that is where the
+    person's files live, and the id because a folder shared by two different
+    people has to be split, and every account of one person must land on the
+    same side of that split.
+    """
+    sql = '''SELECT s.directory_name, s.owner_user_id
+             FROM person_account AS mine
+             JOIN person_account AS main_account
+               ON main_account.person_id = mine.person_id
+              AND main_account.role = 'main'
+             JOIN share_url AS s
+               ON s.owner_user_id = main_account.owner_user_id
+             WHERE mine.platform = %s AND mine.owner_user_id = %s
+             LIMIT 1;
+          '''
+    try:
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql, (platform, owner_user_id))
+          row = cursor.fetchone()
+    except Exception as e:
+      get_logger().error(
+        "look up person folder for {} failed: {}".format(owner_user_id, e)
+      )
+      raise e
+
+    if not row:
+      return None
+    directory = row.get("directory_name")
+    if not isinstance(directory, str) or not directory.strip():
+      return None
+    return {
+      "directory_name": directory,
+      "main_owner_user_id": row.get("owner_user_id"),
+    }
+
+  def count_identities_using_directory_name(
+    self,
+    directory_name: str,
+    platform: str = PLATFORM,
+  ) -> int:
+    """How many distinct identities file under this folder name.
+
+    An identity is a person, or an account nobody marked.  Counting accounts
+    instead would let one person's own accounts look like a collision: they all
+    record the same folder after alignment, so a single person would count as
+    two and their accounts would be split apart by the discriminator meant to
+    separate strangers.
+    """
+    if not isinstance(directory_name, str) or not directory_name.strip():
+      return 0
+
+    sql = '''SELECT COUNT(DISTINCT
+                      COALESCE(CAST(pa.person_id AS CHAR), s.owner_user_id)
+                    ) AS identity_count
+             FROM share_url AS s
+             LEFT JOIN person_account AS pa
+               ON pa.owner_user_id = s.owner_user_id AND pa.platform = %s
+             WHERE s.directory_name = %s;
+          '''
+    try:
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql, (platform, directory_name))
+          row = cursor.fetchone()
+    except Exception as e:
+      get_logger().error(
+        "count identities using {} failed: {}".format(directory_name, e)
+      )
+      raise e
+    if not row:
+      return 0
+    return int(row.get("identity_count") or 0)
+
+  def align_accounts_to_main(self, person_id: int) -> None:
+    """Point this person's other accounts at the main account's folder.
+
+    Their downloads already land there - the resolver reads the main account's
+    folder for every account of the person - so leaving each sub-account's own
+    row saying something else would give the database two answers to the same
+    question, and whoever read the wrong one would be wrong.
+
+    The main account's own row is the fact being copied, so it is excluded; and
+    a main account that has no folder yet copies nothing, rather than blanking
+    what the sub-accounts already had.
+    """
+    sql = '''UPDATE share_url AS s
+             JOIN person_account AS sub
+               ON sub.owner_user_id = s.owner_user_id AND sub.platform = %s
+             JOIN person_account AS main_account
+               ON main_account.person_id = sub.person_id
+              AND main_account.role = 'main'
+             JOIN share_url AS m
+               ON m.owner_user_id = main_account.owner_user_id
+             SET s.directory_name = m.directory_name
+             WHERE sub.person_id = %s
+               AND sub.role <> 'main'
+               AND m.directory_name IS NOT NULL
+               AND TRIM(m.directory_name) <> '';
+          '''
+    self.require_write_ready()
+    try:
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql, (PLATFORM, person_id))
+          connector.commit()
+    except Exception as e:
+      get_logger().error(
+        "align accounts of person {} failed: {}".format(person_id, e)
+      )
+      raise e
+
   def detach_account(self, platform: str, owner_user_id: str) -> None:
     """Unmark an account.
 
@@ -264,15 +430,25 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
   ):
     """Return the folder this account's person files under, or ``None``.
 
-    ``None`` covers all three ways there is no answer - the account is not
-    marked, its person has no folder recorded, or that folder is blank - because
-    the caller does the same thing in every one of them: fall back to what it
-    did before people existed.
+    The answer is the **main account's** recorded folder.  A person does not
+    carry a folder of their own: if a person exists then one of their accounts
+    is the main one, and its ``share_url.directory_name`` is already the fact of
+    where that person's files live.  A second copy on ``person`` would only be
+    somewhere for the two to disagree.
+
+    ``None`` covers every way there is no answer - the account is not marked,
+    the person has no main account, the main account has no row or no recorded
+    folder - because the caller does the same thing in all of them: fall back to
+    what it did before people existed.
     """
-    sql = '''SELECT p.directory_name
-             FROM person_account AS pa
-             JOIN person AS p ON p.person_id = pa.person_id
-             WHERE pa.platform = %s AND pa.owner_user_id = %s
+    sql = '''SELECT s.directory_name
+             FROM person_account AS mine
+             JOIN person_account AS main_account
+               ON main_account.person_id = mine.person_id
+              AND main_account.role = 'main'
+             JOIN share_url AS s
+               ON s.owner_user_id = main_account.owner_user_id
+             WHERE mine.platform = %s AND mine.owner_user_id = %s
              LIMIT 1;
           '''
     try:

@@ -1,6 +1,7 @@
 import unittest
 
 from backend.src.platform.douyin.douyin_owner_directory import (
+  safe_directory_name,
   MAX_DIRECTORY_NAME_BYTES,
   choose_owner_directory,
   fit_directory_name,
@@ -208,3 +209,137 @@ class PersonDirectoryTest(unittest.TestCase):
     chosen = choose_owner_directory("昵称", person_directory=long_name)
 
     self.assertLessEqual(len(chosen.encode("utf-8")), 255)
+
+
+class SafeDirectoryNameTest(unittest.TestCase):
+  """人物目录是手输的，必须和昵称走同一套净化规则。
+
+  昵称在成为路径之前会过 sanitize_text，人物目录原先直接进 Path：输入 a/b 会
+  悄悄建出嵌套目录，输入 ../../.. 会写到媒体根目录之外，输入 . 会让所有作品
+  平铺进公共根。同一条规则必须覆盖两者。
+  """
+
+  def test_a_path_separator_cannot_create_a_nested_folder(self):
+    self.assertNotIn("/", safe_directory_name("a/b"))
+
+  def test_a_parent_reference_cannot_escape_the_media_root(self):
+    chosen = safe_directory_name("../../../tmp/escape")
+
+    self.assertNotIn("/", chosen)
+    self.assertNotIn("..", chosen)
+
+  def test_a_lone_dot_does_not_collapse_into_the_parent(self):
+    self.assertNotIn(".", safe_directory_name("."))
+
+  def test_chinese_letters_digits_and_hash_survive(self):
+    self.assertEqual("张三abc123#", safe_directory_name("张三abc123#"))
+
+  def test_the_byte_limit_still_applies(self):
+    self.assertLessEqual(len(safe_directory_name("长" * 200).encode("utf-8")), 255)
+
+  def test_nothing_usable_yields_nothing(self):
+    self.assertEqual("", safe_directory_name("   "))
+    self.assertEqual("", safe_directory_name(None))
+
+
+class PersonDirectoryIsSanitisedTest(unittest.TestCase):
+  """净化必须发生在选目录这一步，手输的值不能绕过它。"""
+
+  def test_a_dangerous_person_directory_is_neutralised(self):
+    chosen = choose_owner_directory("昵称", person_directory="../../../tmp/x")
+
+    self.assertNotIn("/", chosen)
+    self.assertNotIn("..", chosen)
+
+  def test_a_person_directory_that_sanitises_to_nothing_falls_through(self):
+    """净化后什么都不剩，就该退回账号自己的目录，而不是落到空目录。"""
+    chosen = choose_owner_directory(
+      "昵称",
+      recorded_directory="记录目录",
+      person_directory="///",
+    )
+
+    self.assertEqual("记录目录", chosen)
+
+
+class PersonCollisionTest(unittest.TestCase):
+  """消歧要区分的是人，不是账号。
+
+  同一个 person 的账号必须落进同一个目录，所以不能按账号加后缀；但两个不同
+  的 person 恰好同名时，仍然要被分开——否则两个人的文件混在一处，而这正是
+  消歧规则当初存在的理由。
+  """
+
+  def test_one_persons_accounts_share_a_folder_without_a_suffix(self):
+    first = choose_owner_directory(
+      "昵称A",
+      person_directory="主播甲",
+      person_owner_user_id="main-1",
+      owner_count=1,
+    )
+    second = choose_owner_directory(
+      "昵称B",
+      person_directory="主播甲",
+      person_owner_user_id="main-1",
+      owner_count=1,
+    )
+
+    self.assertEqual("主播甲", first)
+    self.assertEqual(first, second)
+
+  def test_two_different_people_sharing_a_name_are_separated(self):
+    one = choose_owner_directory(
+      "昵称",
+      person_directory="主播甲",
+      person_owner_user_id="main-1",
+      owner_count=2,
+    )
+    other = choose_owner_directory(
+      "昵称",
+      person_directory="主播甲",
+      person_owner_user_id="main-9",
+      owner_count=2,
+    )
+
+    self.assertNotEqual(one, other)
+    self.assertTrue(one.endswith("_main-1"))
+    self.assertTrue(other.endswith("_main-9"))
+
+  def test_the_suffix_is_the_main_account_not_the_account_downloading(self):
+    """否则同一个人的两个账号会各自带上自己的 id 而重新分家。"""
+    main_side = choose_owner_directory(
+      "昵称",
+      owner_user_id="main-1",
+      person_directory="主播甲",
+      person_owner_user_id="main-1",
+      owner_count=2,
+    )
+    sub_side = choose_owner_directory(
+      "昵称",
+      owner_user_id="sub-1",
+      person_directory="主播甲",
+      person_owner_user_id="main-1",
+      owner_count=2,
+    )
+
+    self.assertEqual(main_side, sub_side)
+    self.assertTrue(sub_side.endswith("_main-1"))
+
+  def test_a_person_without_a_main_id_cannot_be_discriminated(self):
+    """没有主账号 id 就加不出后缀，宁可不加也不能加错。"""
+    self.assertEqual(
+      "主播甲",
+      choose_owner_directory("昵称", person_directory="主播甲", owner_count=3),
+    )
+
+  def test_unmarked_accounts_keep_the_old_rule(self):
+    """没有 person 的账号，消歧行为与今天逐字相同。"""
+    self.assertEqual(
+      "记录目录_acc-1",
+      choose_owner_directory(
+        "昵称",
+        recorded_directory="记录目录",
+        owner_user_id="acc-1",
+        owner_count=2,
+      ),
+    )

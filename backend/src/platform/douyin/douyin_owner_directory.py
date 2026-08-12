@@ -1,4 +1,5 @@
 ##<<Base>>
+import re
 ##
 ## Owner folder naming, shared by the live and post paths.
 ##
@@ -25,6 +26,33 @@
 ##
 MAX_DIRECTORY_NAME_BYTES = 255
 
+##
+## Which characters may appear in a folder name.  An allow list, matching the one
+## nicknames already pass through on their way to disk: everything outside CJK,
+## letters, digits and ``#`` becomes an underscore.
+##
+## A person's folder is typed by hand, and a typed name reaches the filesystem
+## the same way a nickname does.  Without this it reached it *unchecked*: "a/b"
+## quietly nested a folder, "." collapsed into the parent so every post landed in
+## the shared root, and "../.." wrote outside the media root entirely.
+##
+_ILLEGAL_IN_A_NAME = re.compile(r"[^一-龥a-zA-Z0-9#]")
+
+
+def safe_directory_name(name, suffix: str = "") -> str:
+  """Return ``name`` as a single folder name that is safe to join onto a path.
+
+  Sanitised first, then held within the byte limit, so the result is always one
+  path component and never a traversal.  Returns ``""`` when nothing usable is
+  left - the caller then falls back to whatever it would have used anyway.
+  """
+  if not isinstance(name, str) or not name.strip():
+    return ""
+  cleaned = _ILLEGAL_IN_A_NAME.sub("_", name).strip("_")
+  if not cleaned:
+    return ""
+  return fit_directory_name(cleaned, suffix)
+
 
 def fit_directory_name(name: str, suffix: str = "") -> str:
   """Hold a folder name within the per-component byte limit.
@@ -50,6 +78,7 @@ def choose_owner_directory(
   owner_user_id: str = None,
   owner_count: int = 1,
   person_directory: str = None,
+  person_owner_user_id: str = None,
 ) -> str:
   """Return the folder name to use for one owner.
 
@@ -63,20 +92,33 @@ def choose_owner_directory(
   whoever was downloaded first, so the layout on disk does not depend on download
   order.
 
-  ``person_directory`` is the folder a marked person files under, and it wins
-  outright - it is the only one of the three a human named on purpose.  An
-  account nobody marked passes ``None`` here and the result is unchanged.
+  ``person_directory`` is the folder a marked person files under, taken from
+  their main account, and it wins outright.  ``person_owner_user_id`` is that
+  main account's id, used as the discriminator so every account of one person
+  gets the same one.  An account nobody marked passes ``None`` for both and the
+  result is unchanged.
   """
   ##
-  ## Taken before the discriminator, and returned without it.  The suffix
-  ## disambiguates *accounts* that would otherwise collide; applied to a person
-  ## folder it would give the same person's two accounts
-  ## ``name_<account A>`` and ``name_<account B>`` - splitting apart exactly what
-  ## marking them was meant to join.  A folder someone named on purpose needs no
-  ## disambiguation.
+  ## A marked person is discriminated as a *person*, not as an account.  The
+  ## suffix is their main account's id, the same for every account they hold, so
+  ## their accounts stay together - keyed on each account's own id they would
+  ## get ``name_<account A>`` and ``name_<account B>``, splitting apart exactly
+  ## what marking them was meant to join.
   ##
-  if isinstance(person_directory, str) and person_directory.strip():
-    return fit_directory_name(person_directory)
+  ## The suffix is still applied when the name is shared, because two different
+  ## people who happen to have picked the same name must not end up filing into
+  ## one folder - that collision is what the rule exists for.  ``owner_count``
+  ## therefore has to count *identities* here: one per person, one per unmarked
+  ## account.
+  ##
+  chosen_person = safe_directory_name(person_directory)
+  if chosen_person:
+    if owner_count > 1 and person_owner_user_id:
+      return safe_directory_name(
+        person_directory,
+        "_" + str(person_owner_user_id),
+      )
+    return chosen_person
 
   chosen = recorded_directory or nickname_directory or ""
   if not chosen:
