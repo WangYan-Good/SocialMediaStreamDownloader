@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from backend.src.platform.douyin import douyin_post_downloader as post_module
 from backend.src.platform.douyin.douyin_api import DouyinApi
+from backend.src.platform.douyin.douyin_aweme_config import DouyinAwemeConfig
 from backend.src.platform.douyin.douyin_header import DouyinPostInfoHeader
 from backend.src.platform.douyin.douyin_login import DouyinLogin
 from backend.src.unit_test.config_fixture import unified_config
@@ -129,3 +130,52 @@ class PostDownloaderConfigTest(unittest.TestCase):
     self.assertIsNone(result)
     self.assertEqual(downloader.config.share_url, share_url)
     self.assertNotIn("share_url", config["platform"]["douyin"]["post"])
+
+
+class OwnerDownloadConcurrencyTest(unittest.TestCase):
+  """并行数必须落在 [1, page_size]，任何脏值都退回串行。
+
+  串行是这个配置项要改变的行为，不是它应当引入的风险：读不懂的值宁可慢，
+  也不要让一个手滑的配置把并发放大到不可控。
+  """
+
+  def concurrency_for(self, **owner_overrides):
+    config = unified_config()
+    config["platform"]["douyin"]["owner"].update(owner_overrides)
+    return DouyinAwemeConfig(config).owner_download_concurrency
+
+  def test_the_default_is_serial(self):
+    config = unified_config()
+    config["platform"]["douyin"]["owner"].pop("download_concurrency", None)
+
+    self.assertEqual(DouyinAwemeConfig(config).owner_download_concurrency, 1)
+
+  def test_a_configured_value_is_used(self):
+    self.assertEqual(self.concurrency_for(download_concurrency=6), 6)
+
+  def test_it_never_exceeds_one_page(self):
+    ##
+    ## 一次只翻一页，超出一页的并行没有作品可跑
+    ##
+    self.assertEqual(
+      self.concurrency_for(page_size=18, download_concurrency=999), 18
+    )
+
+  def test_zero_and_negative_fall_back_to_serial(self):
+    self.assertEqual(self.concurrency_for(download_concurrency=0), 1)
+    self.assertEqual(self.concurrency_for(download_concurrency=-4), 1)
+
+  def test_a_non_integer_falls_back_to_serial(self):
+    self.assertEqual(self.concurrency_for(download_concurrency="8"), 1)
+    self.assertEqual(self.concurrency_for(download_concurrency=2.5), 1)
+
+  def test_a_boolean_is_not_an_integer_here(self):
+    ##
+    ## bool 是 int 的子类，不挡住会让 True 读成并行 1、False 读成 0
+    ##
+    self.assertEqual(self.concurrency_for(download_concurrency=True), 1)
+
+  def test_an_unusable_page_size_forces_serial(self):
+    self.assertEqual(
+      self.concurrency_for(page_size=0, download_concurrency=8), 1
+    )

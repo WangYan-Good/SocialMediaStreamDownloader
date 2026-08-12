@@ -321,6 +321,17 @@ platform:
       # How many posts to ask for per page.  Douyin returns 18-19 regardless, so
       # this is the request, not a guarantee.
       page_size: 18
+      # How many posts a batch download fetches at once, across the whole
+      # process - not per job.  1 downloads them one at a time, which is the
+      # behaviour this setting was added to change rather than the one it
+      # risks, so it is the default.  Capped at page_size: the walk yields
+      # posts a page at a time, so beyond that there is nothing to run.
+      #
+      # Not to be confused with aweme.concurrency above, which limits how many
+      # download *jobs* run at once.  This one limits posts.
+      #
+      # Read once when the pool is built, so a change needs a restart.
+      download_concurrency: 1
       # Cap on how many pages "download everything" will walk.  0 means no cap.
       max_pages: 0
       # How long fetched post payloads stay available for a later download
