@@ -7,6 +7,12 @@ from backend.src.database.table.person_identity import UnknownRole
 from backend.src.web.person_routes import PersonRuntime, build_person_blueprint
 
 
+##
+## 真实长度的 sec_uid：分类器要求它符合平台格式，短的会被正确拒绝
+##
+SEC_UID = "MS4wLjABAAAAz5gVpriut-_sF81x172gu_GrJoeaqaXlT8S0U2wXI93qj5IodEakZpVQGpyl_dG3"
+
+
 class StubTable:
   def __init__(self, persons=(), accounts=(), failure=None):
     self.persons = list(persons)
@@ -306,11 +312,30 @@ class AttachByLinkTest(RouteTestCase):
       self._guard()
       self.identities.append((owner_user_id, sec_user_id, nickname))
 
-  def build_link_client(self, resolver=None, detail=None, table=None):
+  IDENTITY = {
+    "owner_user_id": "acc-9",
+    "sec_user_id": "MS4wLjABAAAA",
+    "nickname": "主播甲",
+  }
+
+  def build_link_client(self, resolver=None, detail=None, table=None,
+                        identity=None):
     table = table if table is not None else self.SeedingTable()
     runtime = PersonRuntime(table_factory=lambda: table)
-    runtime.resolve_owner = resolver or (lambda url: "MS4wLjABAAAA")
-    runtime.owner_detail = detail or (lambda sec: AttachByLinkTest.Resolved())
+    if resolver is not None:
+      runtime.resolve_owner_identity = lambda url: (
+        None if resolver(url) is None else dict(self.IDENTITY)
+      )
+    elif detail is not None:
+      runtime.resolve_owner_identity = lambda url: {
+        "owner_user_id": (detail(None).uid or ""),
+        "sec_user_id": "MS4wLjABAAAA",
+        "nickname": "主播甲",
+      }
+    else:
+      runtime.resolve_owner_identity = lambda url: (
+        dict(identity) if identity is not None else dict(self.IDENTITY)
+      )
     app = Flask(__name__)
     app.register_blueprint(build_person_blueprint(runtime))
     return app.test_client(), table
@@ -417,8 +442,7 @@ class AlignAfterAttachTest(RouteTestCase):
     inner.aligned = []
     inner.align_accounts_to_main = lambda pid: inner.aligned.append(pid)
     runtime = PersonRuntime(table_factory=lambda: inner)
-    runtime.resolve_owner = lambda url: "MS4wLjABAAAA"
-    runtime.owner_detail = lambda sec: AttachByLinkTest.Resolved()
+    runtime.resolve_owner_identity = lambda url: dict(AttachByLinkTest.IDENTITY)
     app = Flask(__name__)
     app.register_blueprint(build_person_blueprint(runtime))
 
@@ -459,6 +483,91 @@ class OwnerRuntimeWiringTest(unittest.TestCase):
     owner = runtime.owner_runtime()
 
     self.assertTrue(callable(owner._config_loader))
+
+
+class AnyShareLinkIdentifiesTheOwnerTest(unittest.TestCase):
+  """主页、作品、直播三种分享链接都指向同一件事：一个主播。
+
+  三者都该能用来标记，否则「我手上有这个人的链接」和「我能标记这个人」之间
+  就多出一道没有道理的门槛。
+
+  身份一律以 owner_user_id 为准。短链本身绝不能当身份：同一个作品的分享短链
+  每次可能都不一样，拿它匹配会把同一个东西当成两个。
+  """
+
+  class Detail:
+    owner_user_id = "acc-post"
+    sec_user_id = "sec-post"
+    nickname = "作品作者"
+
+  class Resolution:
+    ok = True
+    detail = None
+
+  class Probe:
+    owner_user_id = "acc-live"
+    sec_user_id = "sec-live"
+    nickname = "直播主播"
+
+  class Owner:
+    uid = "acc-profile"
+    sec_user_id = "sec-profile"
+    nickname = "主页主播"
+
+  def runtime_resolving_to(self, resolved_url):
+    runtime = PersonRuntime(config={"database": {"enable": False}})
+    runtime.owner_runtime = lambda: type(
+      "Stub", (), {"follow_share_link": staticmethod(lambda url: resolved_url)}
+    )()
+    return runtime
+
+  def test_a_profile_link_identifies_the_owner(self):
+    runtime = self.runtime_resolving_to(
+      "https://www.iesdouyin.com/share/user/" + SEC_UID
+    )
+    runtime.owner_detail = lambda sec: self.Owner()
+
+    identity = runtime.resolve_owner_identity("https://v.douyin.com/a/")
+
+    self.assertEqual(identity["owner_user_id"], "acc-profile")
+
+  def test_a_post_link_identifies_its_author(self):
+    runtime = self.runtime_resolving_to(
+      "https://www.douyin.com/note/7672710351788455034"
+    )
+    resolution = self.Resolution()
+    resolution.detail = self.Detail()
+    runtime._identity_from_post = lambda url, aweme_id: {
+      "owner_user_id": resolution.detail.owner_user_id,
+      "sec_user_id": resolution.detail.sec_user_id,
+      "nickname": resolution.detail.nickname,
+    }
+
+    identity = runtime.resolve_owner_identity("https://v.douyin.com/b/")
+
+    self.assertEqual(identity["owner_user_id"], "acc-post")
+
+  def test_a_live_link_identifies_the_room_owner(self):
+    runtime = self.runtime_resolving_to("https://live.douyin.com/123456")
+    runtime._identity_from_live = lambda url: {
+      "owner_user_id": self.Probe.owner_user_id,
+      "sec_user_id": self.Probe.sec_user_id,
+      "nickname": self.Probe.nickname,
+    }
+
+    identity = runtime.resolve_owner_identity("https://v.douyin.com/c/")
+
+    self.assertEqual(identity["owner_user_id"], "acc-live")
+
+  def test_a_link_leading_nowhere_identifies_nobody(self):
+    runtime = self.runtime_resolving_to("https://example.test/nothing")
+
+    self.assertIsNone(runtime.resolve_owner_identity("https://v.douyin.com/d/"))
+
+  def test_an_unfollowable_link_identifies_nobody(self):
+    runtime = self.runtime_resolving_to(None)
+
+    self.assertIsNone(runtime.resolve_owner_identity("   "))
 
 if __name__ == "__main__":
   unittest.main()

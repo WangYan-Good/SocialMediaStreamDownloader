@@ -71,6 +71,88 @@ class PersonRuntime:
     """Turn pasted share text into a ``sec_user_id``."""
     return self.owner_runtime().resolve_owner(url)
 
+  def resolve_owner_identity(self, url: str):
+    """Identify the owner behind any share link, or return ``None``.
+
+    A share link names an owner whichever kind it is - their profile, one of
+    their posts, or their live room - so all three are accepted.  The link is
+    followed once and the resolved url decides how the owner is read out of it.
+
+    The answer is always keyed on ``owner_user_id``.  The link itself is never
+    an identity: douyin issues different short links for the same post, so
+    matching on one would treat the same thing as two.
+    """
+    resolved = self.owner_runtime().follow_share_link(url)
+    if not resolved:
+      return None
+
+    from backend.src.platform.douyin.douyin_owner_url import classify_owner_url
+
+    sec_user_id = classify_owner_url(resolved)
+    if sec_user_id is not None:
+      owner = self.owner_detail(sec_user_id)
+      return {
+        "owner_user_id": (getattr(owner, "uid", "") or "").strip(),
+        "sec_user_id": getattr(owner, "sec_user_id", None) or sec_user_id,
+        "nickname": getattr(owner, "nickname", None),
+      }
+
+    from backend.src.platform.douyin.douyin_aweme_url import classify_aweme_url
+
+    aweme_id = classify_aweme_url(resolved)
+    if aweme_id is not None:
+      return self._identity_from_post(resolved, aweme_id)
+
+    from backend.src.platform.douyin.douyin_url_hosts import (
+      host_of,
+      is_live_host,
+    )
+
+    if is_live_host(host_of(resolved)):
+      return self._identity_from_live(resolved)
+    return None
+
+  def _identity_from_post(self, url: str, aweme_id: str):
+    """Read the owner out of a post.
+
+    The post payload already carries the author's id, sec id and nickname, so
+    resolving the post answers the whole question - no second request for the
+    profile.
+    """
+    from backend.src.platform.douyin.douyin_aweme_downloader import (
+      get_aweme_downloader,
+    )
+
+    resolution = get_aweme_downloader().resolver.resolve(url, aweme_id=aweme_id)
+    if not getattr(resolution, "ok", False) or resolution.detail is None:
+      return None
+    detail = resolution.detail
+    return {
+      "owner_user_id": (getattr(detail, "owner_user_id", "") or "").strip(),
+      "sec_user_id": getattr(detail, "sec_user_id", None),
+      "nickname": getattr(detail, "nickname", None),
+    }
+
+  def _identity_from_live(self, url: str):
+    """Read the owner out of a live room, open or not.
+
+    The probe reports the room's owner either way, so a marked owner does not
+    have to be streaming at the moment you mark them.
+    """
+    from backend.src.platform.douyin.douyin_live_downloader import (
+      get_live_downloader,
+    )
+
+    probe = get_live_downloader().prober.probe(url)
+    owner_user_id = (getattr(probe, "owner_user_id", "") or "").strip()
+    if not owner_user_id:
+      return None
+    return {
+      "owner_user_id": owner_user_id,
+      "sec_user_id": getattr(probe, "sec_user_id", None),
+      "nickname": getattr(probe, "nickname", None),
+    }
+
   def owner_detail(self, sec_user_id: str):
     """Fetch the owner's profile, which is where ``uid`` comes from."""
     from backend.src.platform.douyin.douyin_owner_detail import (
@@ -305,20 +387,14 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
       )
 
     try:
-      sec_user_id = runtime.resolve_owner(url)
+      identity = runtime.resolve_owner_identity(url)
     except Exception as e:
       get_logger().error("resolve owner link failed: {}".format(e))
       return _error("无法解析该链接，请稍后重试", 502)
-    if not sec_user_id:
-      return _error("请粘贴主播主页分享链接", 400)
+    if identity is None:
+      return _error("这条链接指向不了任何主播，请检查后重试", 400)
 
-    try:
-      owner = runtime.owner_detail(sec_user_id)
-    except Exception as e:
-      get_logger().error("owner detail failed: {}".format(e))
-      return _error("读取主播详情失败，请稍后重试", 502)
-
-    owner_user_id = (getattr(owner, "uid", "") or "").strip()
+    owner_user_id = (identity.get("owner_user_id") or "").strip()
     if not owner_user_id:
       ##
       ## person_account is keyed on the account id.  A blank one would create a
@@ -327,7 +403,7 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
       ##
       return _error("该主播没有可用的账号 id，无法挂载", 502)
 
-    nickname = getattr(owner, "nickname", None)
+    nickname = identity.get("nickname")
     try:
       ##
       ## Identity first: attaching an account the rest of the program has never
@@ -336,7 +412,7 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
       ##
       runtime.table().upsert_account_identity(
         owner_user_id,
-        getattr(owner, "sec_user_id", None) or sec_user_id,
+        identity.get("sec_user_id"),
         nickname,
       )
       runtime.table().attach_account(PLATFORM, owner_user_id, person_id, role)
