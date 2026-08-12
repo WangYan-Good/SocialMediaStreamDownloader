@@ -195,12 +195,21 @@ class OwnerRuntime:
     - so the link is pulled out first.  The browser does this too; doing it here
     as well means the api does not depend on the browser having done it.
     """
+    return classify_owner_url(self.follow_share_link(url) or "")
+
+  def follow_share_link(self, url: str):
+    """Return the url a share link leads to, following it at most once.
+
+    Split out from ``resolve_owner`` because a share link identifies an owner
+    whichever kind it is - profile, post or live room - and each kind is read
+    from the resolved url differently.  Following it is the step they share, and
+    it costs a request, so it happens once here rather than once per attempt.
+    """
     url = extract_url(url) or url
-    sec_user_id = classify_owner_url(url)
-    if sec_user_id is not None:
-      return sec_user_id
-    if not needs_resolution(url):
+    if not url:
       return None
+    if not needs_resolution(url):
+      return url
     header = DouyinShareHeader(
       get_dict_attr(self.settings(), "$.platform.douyin.headers")
     )
@@ -217,9 +226,12 @@ class OwnerRuntime:
       timeout=get_dict_attr(self.settings(), "$.platform.douyin.owner.max_timeout"),
       proxies=self.api().proxies(),
     )
-    if response.status_code != 200:
-      return None
-    return classify_owner_url(response.url)
+    ##
+    ## The status is not a gate: only response.url is read, redirects have
+    ## already been followed, and douyin answers a share link opened outside the
+    ## app with 444 after resolving it perfectly well.
+    ##
+    return response.url
 
   def records_for(self, aweme_ids) -> dict:
     """Look up which of these posts are already downloaded.
