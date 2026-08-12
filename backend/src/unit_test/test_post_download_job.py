@@ -176,13 +176,22 @@ class OfflineTestCase(unittest.TestCase):
     self.addCleanup(lambda: setattr(job_module, "fetch_file", original))
 
 
-def build_service(downloader=None, api=None, cache=None, store=None):
+def build_service(
+  downloader=None,
+  api=None,
+  cache=None,
+  store=None,
+  post_pool=None,
+  post_concurrency=1,
+):
   return PostDownloadJobService(
     downloader=downloader if downloader is not None else StubDownloader(),
     api=api,
     store=store if store is not None else JobStore(),
     cache=cache if cache is not None else PayloadCache(),
     media_switches=SWITCHES,
+    post_pool=post_pool,
+    post_concurrency=post_concurrency,
   )
 
 
@@ -516,3 +525,137 @@ class OwnerCardTest(OfflineTestCase):
 
 if __name__ == "__main__":
   unittest.main()
+
+
+class ParallelDownloadTest(OfflineTestCase):
+  """Posts may run in parallel, bounded by the configured count.
+
+  The bound is global rather than per job: 429 from the image CDN is a
+  cumulative quota, so a peak that multiplies with the number of jobs would
+  burn it faster and fail every job at once.
+  """
+
+  def build_counting_downloader(self):
+    from threading import Lock
+
+    class CountingDownloader(StubDownloader):
+      def __init__(self):
+        super().__init__()
+        self._guard = Lock()
+        self.running = 0
+        self.peak = 0
+
+      def download_detail(self, detail, share_url, owner_share_url=None):
+        with self._guard:
+          self.running += 1
+          self.peak = max(self.peak, self.running)
+        try:
+          return super().download_detail(detail, share_url, owner_share_url)
+        finally:
+          with self._guard:
+            self.running -= 1
+
+    return CountingDownloader()
+
+  def test_the_default_stays_serial(self):
+    downloader = self.build_counting_downloader()
+    cache = PayloadCache()
+    cache.remember([post_item(str(index)) for index in range(6)])
+    service = build_service(downloader=downloader, cache=cache)
+
+    service.start_selected([str(index) for index in range(6)])
+
+    self.assertEqual(downloader.peak, 1)
+    self.assertEqual(len(downloader.calls), 6)
+
+  def test_posts_run_in_parallel_up_to_the_configured_count(self):
+    from concurrent.futures import ThreadPoolExecutor
+
+    downloader = self.build_counting_downloader()
+    cache = PayloadCache()
+    cache.remember([post_item(str(index)) for index in range(12)])
+    pool = ThreadPoolExecutor(max_workers=4)
+    try:
+      service = build_service(
+        downloader=downloader,
+        cache=cache,
+        post_pool=pool,
+        post_concurrency=3,
+      )
+
+      service.start_selected([str(index) for index in range(12)])
+    finally:
+      pool.shutdown(wait=True)
+
+    self.assertLessEqual(downloader.peak, 3)
+    self.assertEqual(len(downloader.calls), 12)
+
+  def test_every_selected_post_is_downloaded_exactly_once(self):
+    from concurrent.futures import ThreadPoolExecutor
+
+    downloader = self.build_counting_downloader()
+    cache = PayloadCache()
+    cache.remember([post_item(str(index)) for index in range(10)])
+    pool = ThreadPoolExecutor(max_workers=4)
+    try:
+      service = build_service(
+        downloader=downloader,
+        cache=cache,
+        post_pool=pool,
+        post_concurrency=4,
+      )
+
+      service.start_selected([str(index) for index in range(10)])
+    finally:
+      pool.shutdown(wait=True)
+
+    downloaded = sorted(int(call[0]) for call in downloader.calls)
+    self.assertEqual(downloaded, list(range(10)))
+
+  def test_the_job_is_only_done_once_every_post_finished(self):
+    from concurrent.futures import ThreadPoolExecutor
+
+    downloader = self.build_counting_downloader()
+    cache = PayloadCache()
+    cache.remember([post_item(str(index)) for index in range(8)])
+    store = JobStore()
+    pool = ThreadPoolExecutor(max_workers=4)
+    try:
+      service = build_service(
+        downloader=downloader,
+        cache=cache,
+        store=store,
+        post_pool=pool,
+        post_concurrency=3,
+      )
+
+      job_id = service.start_selected([str(index) for index in range(8)])
+    finally:
+      pool.shutdown(wait=True)
+
+    snapshot = store.snapshot(job_id)
+    self.assertEqual(snapshot["state"], JOB_DONE)
+    self.assertEqual(downloader.running, 0)
+    self.assertEqual(len(downloader.calls), 8)
+
+  def test_one_failing_post_does_not_stop_the_others(self):
+    from concurrent.futures import ThreadPoolExecutor
+
+    downloader = self.build_counting_downloader()
+    downloader.failures = {"3": RuntimeError("boom")}
+    cache = PayloadCache()
+    cache.remember([post_item(str(index)) for index in range(6)])
+    pool = ThreadPoolExecutor(max_workers=4)
+    try:
+      service = build_service(
+        downloader=downloader,
+        cache=cache,
+        post_pool=pool,
+        post_concurrency=3,
+      )
+
+      service.start_selected([str(index) for index in range(6)])
+    finally:
+      pool.shutdown(wait=True)
+
+    self.assertEqual(len(downloader.calls), 6)

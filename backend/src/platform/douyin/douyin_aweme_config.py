@@ -140,6 +140,34 @@ class DouyinAwemeConfig:
     return self.get_config_dict_attr("$.platform.douyin.owner.page_size")
 
   @property
+  def owner_download_concurrency(self) -> int:
+    """How many posts a batch download may fetch at once, process-wide.
+
+    Clamped into ``[1, page_size]``.  Beyond one page's worth there is nothing
+    to run - the walk yields posts a page at a time - and anything unusable
+    means serial, which is the behaviour this setting was added to change
+    rather than the one it risks.
+    """
+    cap = self._positive_int("$.platform.douyin.owner.page_size")
+    if cap is None:
+      return 1
+    value = self._positive_int("$.platform.douyin.owner.download_concurrency")
+    if value is None:
+      return 1
+    return min(value, cap)
+
+  def _positive_int(self, attr: str):
+    """Return the value at ``attr`` when it is a usable count, else ``None``.
+
+    ``bool`` is rejected explicitly: it is a subclass of ``int``, so ``True``
+    would otherwise read as the count 1 and ``False`` as 0.
+    """
+    value = self.get_config_dict_attr(attr)
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+      return None
+    return value
+
+  @property
   def owner_max_pages(self) -> int:
     return self.get_config_dict_attr("$.platform.douyin.owner.max_pages")
 
