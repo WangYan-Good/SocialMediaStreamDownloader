@@ -1,0 +1,44 @@
+{#
+  Person management: mark which accounts belong to the same real person, and who
+  works with whom.
+
+  Nicknames cannot supply any of this - of 1815 accounts there are 1785 distinct
+  nicknames - so every relationship on this page is one somebody entered by hand.
+
+  Uses person_manager.js and person.css.
+#}
+{% macro person_manager() %}
+<div class="person-manager">
+
+  <!-- 建人 -->
+  <div class="pm-create">
+    <input type="text" class="pm-new-name" placeholder="人物名字，例如「张三」">
+    <input type="text" class="pm-new-directory" placeholder="归并目录名（选填，留空则各账号仍用自己的目录）">
+    <button type="button" class="pm-create-button">新建人物</button>
+  </div>
+
+  <p class="pm-status">还没有建立任何人物</p>
+
+  <!-- 人物列表 -->
+  <div class="pm-people"></div>
+
+  <!-- 账号搜索面板：挂载账号用 -->
+  <div class="pm-attach" hidden>
+    <div class="pm-attach-head">
+      <span>为 <b class="pm-attach-person"></b> 挂载账号</span>
+      <button type="button" class="pm-attach-close">关闭</button>
+    </div>
+    <div class="pm-search-row">
+      <input type="search" class="pm-search" placeholder="按昵称或账号 ID 搜索（共一千八百多个账号，只能搜）">
+      <select class="pm-role">
+        <option value="main">主号</option>
+        <option value="alt">小号</option>
+        <option value="matrix">矩阵号</option>
+      </select>
+      <button type="button" class="pm-search-button">搜索</button>
+    </div>
+    <div class="pm-results"></div>
+  </div>
+
+</div>
+{% endmacro %}

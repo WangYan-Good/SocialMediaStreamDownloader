@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 {% from 'content/history/owner_list.html' import owner_history %}
 {% from 'content/posts/owner_posts.html' import owner_posts %}
+{% from 'content/person/person_manager.html' import person_manager %}
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -12,6 +13,7 @@
     <link rel="stylesheet" href="../static/css/style.css">
     <link rel="stylesheet" href="../static/css/history.css">
     <link rel="stylesheet" href="../static/css/posts.css">
+    <link rel="stylesheet" href="../static/css/person.css">
 </head>
 <body>
     <!-- 页面头部 -->
@@ -43,6 +45,7 @@
         <div id="download"></div>
         <div id="history"></div>
         <div id="posts"></div>
+        <div id="person"></div>
         <div id="log"></div>
         <div id="setting"></div>
 
@@ -78,6 +81,14 @@
                             <span class="sidebar-menu-icon">🎬</span>
                             <span class="sidebar-menu-text">Posts</span>
                             <div class="tooltip">Posts</div>
+                        </a>
+                    </div>
+                    <div class="sidebar-menu-item">
+                        <!-- 人物与账号归并 -->
+                        <a href="#person" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">👤</span>
+                            <span class="sidebar-menu-text">Person</span>
+                            <div class="tooltip">Person</div>
                         </a>
                     </div>
                     <div class="sidebar-menu-item">
@@ -150,6 +161,16 @@
                 <h1>主播作品</h1>
                 {{ owner_posts() }}
             </section>
+            <section id="person-content" class="content-section">
+                <!-- 人物：把同一个人的主号/小号/矩阵号归到一起，并记录摄影师合作 -->
+                <h1>人物</h1>
+                <p class="section-hint">
+                    昵称无法用来归并——1815 个账号里有 1785 个不同昵称，同一个人的
+                    账号几乎从不同名，所以这里的每条关系都靠手工标记。归并目录只
+                    影响之后的下载，已下载的文件不会被移动。
+                </p>
+                {{ person_manager() }}
+            </section>
             <section id="log-content" class="content-section">
                 <!-- 下载日志内容 -->
                  <p>Log</p>
@@ -177,5 +198,6 @@
     <script src="../static/js/favorite_scoring.js"></script>
     <script src="../static/js/owner_history.js"></script>
     <script src="../static/js/owner_posts.js"></script>
+    <script src="../static/js/person_manager.js"></script>
 </body>
 </html>
