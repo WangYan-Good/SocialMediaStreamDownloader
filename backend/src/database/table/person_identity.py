@@ -28,18 +28,17 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
 ##
 ## >>============================= people =============================>>
 ##
-  def create_person(
-    self,
-    display_name: str,
-    directory_name: str = None,
-    note: str = None,
-  ) -> int:
-    """Create a person and return the new id."""
+  def create_person(self, display_name: str, note: str = None) -> int:
+    """Create a person and return the new id.
+
+    No folder is asked for: it comes from whichever account is later marked as
+    the main one.
+    """
     if not isinstance(display_name, str) or not display_name.strip():
       raise ValueError("display_name is required")
 
-    sql = '''INSERT INTO person (display_name, directory_name, note)
-             VALUES (%s, %s, %s);
+    sql = '''INSERT INTO person (display_name, note)
+             VALUES (%s, %s);
           '''
     self.require_write_ready()
     try:
@@ -47,7 +46,7 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
         with connector.cursor() as cursor:
           cursor.execute(
             sql,
-            (display_name.strip(), directory_name, note),
+            (display_name.strip(), note),
           )
           new_id = cursor.lastrowid
           connector.commit()
@@ -60,7 +59,6 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
     self,
     person_id: int,
     display_name: str = None,
-    directory_name: str = None,
     note: str = None,
   ) -> None:
     """Update only the fields that were named.
@@ -68,7 +66,7 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
     Renaming a folder must not blank a note that nobody mentioned, so unnamed
     fields are left out of the statement rather than written as ``None``.
     """
-    if display_name is None and directory_name is None and note is None:
+    if display_name is None and note is None:
       return
 
     ##
@@ -80,9 +78,8 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
     ## way, so the two stay recognisable as one idiom.
     ##
     sql = '''UPDATE person
-             SET display_name   = COALESCE(%s, display_name),
-                 directory_name = COALESCE(%s, directory_name),
-                 note           = COALESCE(%s, note)
+             SET display_name = COALESCE(%s, display_name),
+                 note         = COALESCE(%s, note)
              WHERE person_id = %s;
           '''
     self.require_write_ready()
@@ -91,7 +88,7 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
         with connector.cursor() as cursor:
           cursor.execute(
             sql,
-            (display_name, directory_name, note, person_id),
+            (display_name, note, person_id),
           )
           connector.commit()
     except Exception as e:
@@ -122,11 +119,21 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
     A LEFT JOIN so somebody created a moment ago, before any account was
     attached, still appears - that is the ordinary order of the operation.
     """
-    sql = '''SELECT p.person_id, p.display_name, p.directory_name, p.note,
-                    COUNT(pa.owner_user_id) AS account_count
+    ##
+    ## directory_name is reported, not stored: it is the main account's, shown so
+    ## the page can say where this person's files go without inventing a field.
+    ##
+    sql = '''SELECT p.person_id, p.display_name, p.note,
+                    COUNT(pa.owner_user_id) AS account_count,
+                    MAX(m.directory_name) AS directory_name
              FROM person AS p
              LEFT JOIN person_account AS pa ON pa.person_id = p.person_id
-             GROUP BY p.person_id, p.display_name, p.directory_name, p.note
+             LEFT JOIN person_account AS main_account
+               ON main_account.person_id = p.person_id
+              AND main_account.role = 'main'
+             LEFT JOIN share_url AS m
+               ON m.owner_user_id = main_account.owner_user_id
+             GROUP BY p.person_id, p.display_name, p.note
              ORDER BY p.display_name;
           '''
     try:
@@ -275,6 +282,44 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
       )
       raise e
 
+  def align_accounts_to_main(self, person_id: int) -> None:
+    """Point this person's other accounts at the main account's folder.
+
+    Their downloads already land there - the resolver reads the main account's
+    folder for every account of the person - so leaving each sub-account's own
+    row saying something else would give the database two answers to the same
+    question, and whoever read the wrong one would be wrong.
+
+    The main account's own row is the fact being copied, so it is excluded; and
+    a main account that has no folder yet copies nothing, rather than blanking
+    what the sub-accounts already had.
+    """
+    sql = '''UPDATE share_url AS s
+             JOIN person_account AS sub
+               ON sub.owner_user_id = s.owner_user_id AND sub.platform = %s
+             JOIN person_account AS main_account
+               ON main_account.person_id = sub.person_id
+              AND main_account.role = 'main'
+             JOIN share_url AS m
+               ON m.owner_user_id = main_account.owner_user_id
+             SET s.directory_name = m.directory_name
+             WHERE sub.person_id = %s
+               AND sub.role <> 'main'
+               AND m.directory_name IS NOT NULL
+               AND TRIM(m.directory_name) <> '';
+          '''
+    self.require_write_ready()
+    try:
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql, (PLATFORM, person_id))
+          connector.commit()
+    except Exception as e:
+      get_logger().error(
+        "align accounts of person {} failed: {}".format(person_id, e)
+      )
+      raise e
+
   def detach_account(self, platform: str, owner_user_id: str) -> None:
     """Unmark an account.
 
@@ -306,15 +351,25 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
   ):
     """Return the folder this account's person files under, or ``None``.
 
-    ``None`` covers all three ways there is no answer - the account is not
-    marked, its person has no folder recorded, or that folder is blank - because
-    the caller does the same thing in every one of them: fall back to what it
-    did before people existed.
+    The answer is the **main account's** recorded folder.  A person does not
+    carry a folder of their own: if a person exists then one of their accounts
+    is the main one, and its ``share_url.directory_name`` is already the fact of
+    where that person's files live.  A second copy on ``person`` would only be
+    somewhere for the two to disagree.
+
+    ``None`` covers every way there is no answer - the account is not marked,
+    the person has no main account, the main account has no row or no recorded
+    folder - because the caller does the same thing in all of them: fall back to
+    what it did before people existed.
     """
-    sql = '''SELECT p.directory_name
-             FROM person_account AS pa
-             JOIN person AS p ON p.person_id = pa.person_id
-             WHERE pa.platform = %s AND pa.owner_user_id = %s
+    sql = '''SELECT s.directory_name
+             FROM person_account AS mine
+             JOIN person_account AS main_account
+               ON main_account.person_id = mine.person_id
+              AND main_account.role = 'main'
+             JOIN share_url AS s
+               ON s.owner_user_id = main_account.owner_user_id
+             WHERE mine.platform = %s AND mine.owner_user_id = %s
              LIMIT 1;
           '''
     try:

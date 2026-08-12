@@ -142,14 +142,13 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
     if not display_name:
       return _error("缺少必需字段: display_name", 400)
 
-    directory_name = (body.get("directory_name") or "").strip() or None
     note = (body.get("note") or "").strip() or None
     try:
-      person_id = runtime.table().create_person(
-        display_name,
-        directory_name=directory_name,
-        note=note,
-      )
+      ##
+      ## No folder is asked for.  It is the main account's, so it arrives with
+      ## the first account marked as main rather than being invented here.
+      ##
+      person_id = runtime.table().create_person(display_name, note=note)
     except Exception as e:
       get_logger().error("create person failed: {}".format(e))
       return _error("创建人物失败", 502)
@@ -166,7 +165,7 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
     ## its stored value rather than being blanked.
     ##
     fields = {}
-    for name in ("display_name", "directory_name", "note"):
+    for name in ("display_name", "note"):
       if name in body:
         value = body.get(name)
         fields[name] = value.strip() if isinstance(value, str) else value
@@ -251,6 +250,11 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
         person_id,
         body.get("role"),
       )
+      ##
+      ## Their downloads all land in the main account's folder, so every
+      ## sub-account's own row is pointed at it too - one answer, not two.
+      ##
+      runtime.table().align_accounts_to_main(person_id)
     except UnknownRole as e:
       ##
       ## The role came from a list of three, so a bad one is a field problem the
@@ -326,6 +330,7 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
         nickname,
       )
       runtime.table().attach_account(PLATFORM, owner_user_id, person_id, role)
+      runtime.table().align_accounts_to_main(person_id)
     except UnknownRole as e:
       return _error(str(e), 400)
     except Exception as e:

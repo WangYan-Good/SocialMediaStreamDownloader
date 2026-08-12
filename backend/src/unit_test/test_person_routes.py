@@ -19,6 +19,7 @@ class StubTable:
     self.detached = []
     self.collaborations = []
     self.removed_collaborations = []
+    self.aligned = []
 
   def _guard(self):
     if self.failure is not None:
@@ -32,9 +33,9 @@ class StubTable:
     self._guard()
     return self.accounts
 
-  def create_person(self, display_name, directory_name=None, note=None):
+  def create_person(self, display_name, note=None):
     self._guard()
-    self.created.append((display_name, directory_name, note))
+    self.created.append((display_name, note))
     return 11
 
   def update_person(self, person_id, **fields):
@@ -50,6 +51,10 @@ class StubTable:
     if role not in ("main", "alt", "matrix"):
       raise UnknownRole("bad role")
     self.attached.append((platform, owner_user_id, person_id, role))
+
+  def align_accounts_to_main(self, person_id):
+    self._guard()
+    self.aligned.append(person_id)
 
   def detach_account(self, platform, owner_user_id):
     self._guard()
@@ -112,17 +117,20 @@ class CreatePersonRouteTest(RouteTestCase):
     response = self.post(
       client,
       "/api/person",
-      {"display_name": "张三", "directory_name": "张三_合并"},
+      {"display_name": "张三"},
     )
 
     self.assertEqual(response.status_code, 200)
     self.assertEqual(self.body(response)["data"]["person_id"], 11)
-    self.assertEqual(table.created, [("张三", "张三_合并", None)])
+    ##
+    ## 不接收目录：它是主账号的，随第一个被标为主号的账号而来
+    ##
+    self.assertEqual(table.created, [("张三", None)])
 
   def test_a_missing_name_is_rejected(self):
     client, table = self.build_client()
 
-    response = self.post(client, "/api/person", {"directory_name": "x"})
+    response = self.post(client, "/api/person", {"note": "x"})
 
     self.assertEqual(response.status_code, 400)
     self.assertEqual(table.created, [])
@@ -386,6 +394,39 @@ class AttachByLinkTest(RouteTestCase):
 
     self.assertEqual(response.status_code, 400)
     self.assertEqual(table.attached, [])
+
+
+class AlignAfterAttachTest(RouteTestCase):
+  """挂载之后必须把子账号那一列对齐到主账号。
+
+  落盘用的是主账号的目录；子账号自己那一行若还写着别的名字，库里就有两种说法，
+  读到哪一种都可能是错的。
+  """
+
+  def test_attaching_by_search_aligns(self):
+    client, table = self.build_client()
+
+    self.post(client, "/api/person/account", {
+      "owner_user_id": "acc-1", "person_id": 3, "role": "alt",
+    })
+
+    self.assertEqual(table.aligned, [3])
+
+  def test_attaching_by_link_aligns(self):
+    inner = AttachByLinkTest.SeedingTable()
+    inner.aligned = []
+    inner.align_accounts_to_main = lambda pid: inner.aligned.append(pid)
+    runtime = PersonRuntime(table_factory=lambda: inner)
+    runtime.resolve_owner = lambda url: "MS4wLjABAAAA"
+    runtime.owner_detail = lambda sec: AttachByLinkTest.Resolved()
+    app = Flask(__name__)
+    app.register_blueprint(build_person_blueprint(runtime))
+
+    self.post(app.test_client(), "/api/person/account/by-link", {
+      "url": "https://v.douyin.com/abc/", "person_id": 5, "role": "main",
+    })
+
+    self.assertEqual(inner.aligned, [5])
 
 if __name__ == "__main__":
   unittest.main()

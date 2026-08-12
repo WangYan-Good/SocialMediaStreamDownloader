@@ -346,13 +346,18 @@ class PersonIdentityModelTest(unittest.TestCase):
     self.assertTrue(PERSON_TABLES.issubset(models.MANAGED_TABLE_NAMES))
     self.assertTrue(PERSON_TABLES.issubset(models.Base.metadata.tables))
 
-  def test_a_person_carries_its_own_directory_name(self):
-    """归并目录是既成事实，不从主号推导——换主号不该搬动文件落点。"""
+  def test_a_person_carries_no_directory_of_their_own(self):
+    """目录属于主账号，不在 person 上再存一份。
+
+    这条断言原本要求 person 持有 directory_name。存两份的代价是它们可以不
+    一致，而落盘只认一份：一个 person 存在就意味着有主账号，主账号的
+    share_url.directory_name 已经是「文件在哪儿」的事实。0005 迁移删掉了它。
+    """
     models = load_models()
     table = models.Base.metadata.tables["person"]
 
     self.assertIn("display_name", table.columns)
-    self.assertIn("directory_name", table.columns)
+    self.assertNotIn("directory_name", table.columns)
     self.assertEqual(["person_id"], [c.name for c in table.primary_key])
 
   def test_an_account_belongs_to_at_most_one_person(self):

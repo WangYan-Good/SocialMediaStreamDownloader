@@ -47,13 +47,10 @@ class PersonModel(Base):
   display_name: Mapped[str] = mapped_column(String(100), nullable=False)
 
   ##
-  ## Where this person's files go from now on, and the same kind of fact as
-  ## share_url.directory_name: recorded, never derived.  Taking it from whichever
-  ## account is marked "main" would move the landing place every time that mark
-  ## moved, which is exactly the accident the post path already suffered once.
+  ## No folder of their own.  If a person exists then one of their accounts is
+  ## the main one, and its share_url.directory_name already says where their
+  ## files live; a copy here would only be somewhere for the two to disagree.
   ##
-  directory_name: Mapped[Optional[str]] = mapped_column(String(100))
-
   note: Mapped[Optional[str]] = mapped_column(String(500))
 
   created_at: Mapped[Optional[datetime]] = mapped_column(mysql.TIMESTAMP())

@@ -115,18 +115,38 @@ class AttachAccountTest(unittest.TestCase):
 
 
 class PersonDirectoryLookupTest(unittest.TestCase):
-  """B2 的落盘归并依赖这一个查询。"""
+  """落盘归并依赖这一个查询。
 
-  def test_an_attached_account_reports_its_persons_directory(self):
-    table, cursor = build_table(rows=[{"directory_name": "合并目录"}])
+  目录的唯一事实来源是**主账号**在 share_url 里记录的目录，person 自己不持有
+  目录：一个 person 存在就意味着有主账号，再复制一份目录只会多一个可能与它
+  不一致的地方。
+  """
 
-    found = table.find_person_directory_name("owner-1")
+  def test_a_sub_account_reports_the_main_accounts_directory(self):
+    table, cursor = build_table(rows=[{"directory_name": "主播甲"}])
 
-    self.assertEqual(found, "合并目录")
+    found = table.find_person_directory_name("sub-1")
+
+    self.assertEqual(found, "主播甲")
     sql, params = cursor.calls[0]
-    self.assertIn("person_account", sql)
-    self.assertIn("person", sql)
-    self.assertEqual(params, ("douyin", "owner-1"))
+    ##
+    ## 两次 person_account 自连接：一次定位这个账号，一次定位同一个人的主账号
+    ##
+    self.assertEqual(2, sql.count("person_account"))
+    self.assertIn("role", sql)
+    self.assertEqual(params, ("douyin", "sub-1"))
+
+  def test_the_main_account_reports_its_own_directory(self):
+    """主账号解析到自己，与没有 person 时的结果相同。"""
+    table, _ = build_table(rows=[{"directory_name": "主播甲"}])
+
+    self.assertEqual(table.find_person_directory_name("main-1"), "主播甲")
+
+  def test_a_person_without_a_main_account_reports_nothing(self):
+    """没有主账号就没有权威目录，回落到账号自己的记录。"""
+    table, _ = build_table(rows=[])
+
+    self.assertIsNone(table.find_person_directory_name("sub-1"))
 
   def test_an_unattached_account_reports_nothing(self):
     """没挂人的账号必须与今天行为一致，这是整个功能的零影响保证。"""
@@ -170,12 +190,16 @@ class PersonCrudTest(unittest.TestCase):
   def test_creating_a_person_returns_the_new_id(self):
     table, cursor = build_table()
 
-    person_id = table.create_person("张三", directory_name="张三_合并")
+    person_id = table.create_person("张三")
 
     self.assertEqual(person_id, cursor.lastrowid)
     sql, params = cursor.calls[0]
     self.assertIn("INSERT INTO person", sql)
-    self.assertEqual(params, ("张三", "张三_合并", None))
+    ##
+    ## 不问目录：它来自之后被标为主号的那个账号
+    ##
+    self.assertNotIn("directory_name", sql)
+    self.assertEqual(params, ("张三", None))
 
   def test_a_person_needs_a_name(self):
     table, cursor = build_table()
@@ -186,7 +210,7 @@ class PersonCrudTest(unittest.TestCase):
     self.assertEqual(cursor.calls, [])
 
   def test_updating_a_person_leaves_unmentioned_fields_alone(self):
-    """只改目录时不该把备注抹掉。
+    """只改名字时不该把备注抹掉。
 
     用固定语句 + COALESCE 而非拼 SET 子句：未指定的字段传 None，COALESCE
     保留原值。这样运行时不构造 SQL 文本，符合本库「只有标识符能被插值」的
@@ -194,11 +218,12 @@ class PersonCrudTest(unittest.TestCase):
     """
     table, cursor = build_table()
 
-    table.update_person(3, directory_name="新目录")
+    table.update_person(3, display_name="新名字")
 
     sql, params = cursor.calls[0]
     self.assertIn("note = COALESCE(%s, note)", sql)
-    self.assertEqual(params, (None, "新目录", None, 3))
+    self.assertNotIn("directory_name", sql)
+    self.assertEqual(params, ("新名字", None, 3))
 
   def test_updating_nothing_touches_no_sql(self):
     table, cursor = build_table()
@@ -404,6 +429,43 @@ class AccountIdentitySeedTest(unittest.TestCase):
       table.upsert_account_identity("   ", "sec-9", "主播甲")
 
     self.assertEqual(cursor.calls, [])
+
+
+
+class AlignToMainAccountTest(unittest.TestCase):
+  """子账号自己记录的目录也要与主账号一致。
+
+  不这样做，库里会写着「甲小号目录」而文件实际落在「主播甲」下——两处说法不同，
+  以后谁读到哪一处都可能是错的。落盘用主账号的目录，记录也就该是它。
+  """
+
+  def test_sub_accounts_take_the_main_accounts_folder(self):
+    table, cursor = build_table()
+
+    table.align_accounts_to_main(3)
+
+    sql, params = cursor.calls[0]
+    self.assertIn("UPDATE share_url", sql)
+    self.assertIn("role", sql)
+    self.assertEqual(params, ("douyin", 3))
+
+  def test_the_main_accounts_own_row_is_left_alone(self):
+    """它就是那个事实来源，不该被自己覆盖。"""
+    table, cursor = build_table()
+
+    table.align_accounts_to_main(3)
+
+    sql, _ = cursor.calls[0]
+    self.assertIn("<>", sql)
+
+  def test_a_main_account_without_a_folder_changes_nothing(self):
+    """主账号自己都还没有目录时，不能把子账号的清空。"""
+    table, cursor = build_table()
+
+    table.align_accounts_to_main(3)
+
+    sql, _ = cursor.calls[0]
+    self.assertIn("IS NOT NULL", sql)
 
 if __name__ == "__main__":
   unittest.main()

@@ -38,7 +38,6 @@
     this.people = root.querySelector('.pm-people');
     this.status = root.querySelector('.pm-status');
     this.newName = root.querySelector('.pm-new-name');
-    this.newDirectory = root.querySelector('.pm-new-directory');
     this.attachPanel = root.querySelector('.pm-attach');
     this.attachPersonName = root.querySelector('.pm-attach-person');
     this.searchInput = root.querySelector('.pm-search');
@@ -105,7 +104,9 @@
     head.appendChild(element(
       'span',
       'pm-person-directory',
-      person.directory_name ? '目录：' + person.directory_name : '未设归并目录'
+      person.directory_name
+        ? '目录：' + person.directory_name + '（来自主号）'
+        : '还没有主号，落盘目录未定'
     ));
     head.appendChild(element(
       'span',
@@ -120,16 +121,6 @@
     attach.addEventListener('click', function () { self.openAttach(person); });
     actions.appendChild(attach);
 
-    var rename = element('button', 'pm-action', '改目录');
-    rename.addEventListener('click', function () {
-      var next = window.prompt('归并目录名', person.directory_name || '');
-      if (next === null) { return; }
-      request('PATCH', '/api/person/' + person.person_id,
-              { directory_name: next.trim() })
-        .then(function () { return self.refresh(); })
-        .catch(function (error) { self.say('修改失败：' + error.message); });
-    });
-    actions.appendChild(rename);
 
     var remove = element('button', 'pm-action pm-danger', '删除');
     remove.addEventListener('click', function () {
@@ -269,13 +260,9 @@
       this.say('先填一个名字');
       return;
     }
-    request('POST', '/api/person', {
-      display_name: name,
-      directory_name: (this.newDirectory.value || '').trim()
-    })
+    request('POST', '/api/person', { display_name: name })
       .then(function () {
         self.newName.value = '';
-        self.newDirectory.value = '';
         return self.refresh();
       })
       .catch(function (error) { self.say('创建失败：' + error.message); });

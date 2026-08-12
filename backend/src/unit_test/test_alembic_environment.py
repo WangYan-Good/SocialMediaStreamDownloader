@@ -54,9 +54,12 @@ class AlembicEnvironmentTest(unittest.TestCase):
     scripts = ScriptDirectory.from_config(config)
 
     ##
-    ## one linear chain, one head: 0001 -> 0002 -> 0003 -> 0004
+    ## one linear chain, one head: 0001 -> 0002 -> 0003 -> 0004 -> 0005
     ##
-    self.assertEqual("0004_person_identity", scripts.get_current_head())
+    self.assertEqual(
+      "0005_drop_person_directory",
+      scripts.get_current_head(),
+    )
     baseline = scripts.get_revision("0001_initial_schema")
     self.assertIsNone(baseline.down_revision)
     live_status_cache = scripts.get_revision("0002_share_url_live_status_cache")
@@ -68,6 +71,8 @@ class AlembicEnvironmentTest(unittest.TestCase):
     )
     person_identity = scripts.get_revision("0004_person_identity")
     self.assertEqual("0003_aweme_record", person_identity.down_revision)
+    moved = scripts.get_revision("0005_drop_person_directory")
+    self.assertEqual("0004_person_identity", moved.down_revision)
 
   def test_the_person_migration_creates_all_three_tables_and_drops_them(self):
     """纯 DDL，无回填——此前没有任何版本记录过这些关系。"""
@@ -129,6 +134,22 @@ class AlembicEnvironmentTest(unittest.TestCase):
 
     self.assertEqual(3, source.count('mysql_collate="utf8mb4_0900_ai_ci"'))
     self.assertNotIn("utf8mb4_unicode_ci", source)
+
+  def test_every_revision_id_fits_the_version_column(self):
+    """alembic_version.version_num 是 VARCHAR(32)。
+
+    超长的 id 不会在写脚本时报错，而是在迁移执行完 DDL、准备记录自己那一刻
+    失败——库结构已经改了，版本号却没记上。只有真跑一次才会撞见。
+    """
+    config = self.load_factory()(unified_config())
+    scripts = ScriptDirectory.from_config(config)
+
+    for revision in scripts.walk_revisions():
+      self.assertLessEqual(
+        len(revision.revision),
+        32,
+        "revision id 超过 32 字符: {}".format(revision.revision),
+      )
 
   def test_environment_filters_unmanaged_tables(self):
     config = self.load_factory()(unified_config())
