@@ -16,6 +16,7 @@ from backend.src.platform.douyin.douyin_aweme_external_info import (
 )
 from backend.src.platform.douyin.douyin_owner_detail import fetch_owner_detail
 from backend.src.platform.douyin.douyin_owner_posts import iter_all_posts
+from backend.src.service.bounded_map import run_bounded
 from backend.src.service.job_store import (
   JOB_DONE,
   JOB_ERROR,
@@ -121,6 +122,8 @@ class PostDownloadJobService:
     cache: PayloadCache = None,
     executor=None,
     media_switches=None,
+    post_pool=None,
+    post_concurrency: int = 1,
   ) -> None:
     self.downloader = downloader
     self.api = api
@@ -128,6 +131,14 @@ class PostDownloadJobService:
     self.cache = cache if cache is not None else PayloadCache()
     self._executor = executor
     self._media_switches = media_switches
+    ##
+    ## The pool that runs posts, distinct from ``executor`` which runs whole
+    ## jobs.  Shared across jobs on purpose: the limit is how many posts are in
+    ## flight process-wide, not per job, because the CDN quota that this pacing
+    ## protects is counted process-wide too.
+    ##
+    self._post_pool = post_pool
+    self._post_concurrency = post_concurrency
 
   def _switches(self):
     if self._media_switches is not None:
@@ -191,6 +202,20 @@ class PostDownloadJobService:
     except Exception as e:
       get_logger().warning("owner avatar not saved: {}".format(e))
 
+  def _download_each(self, job_id: str, payloads, share_url: str) -> None:
+    """Download every payload, at most ``post_concurrency`` at once.
+
+    Returns only when all of them have finished, so the caller may mark the job
+    complete straight after.  At the default of one this is an ordinary serial
+    loop, byte for byte the behaviour before the setting existed.
+    """
+    run_bounded(
+      payloads,
+      lambda payload: self._download_one(job_id, payload, share_url),
+      pool=self._post_pool,
+      limit=self._post_concurrency,
+    )
+
   def _submit(self, function, *args):
     if self._executor is None:
       ##
@@ -221,8 +246,7 @@ class PostDownloadJobService:
     try:
       if payloads:
         self._write_owner_card(payloads[0])
-      for payload in payloads:
-        self._download_one(job_id, payload, share_url)
+      self._download_each(job_id, payloads, share_url)
     except BaseException as e:
       get_logger().error("post download job {} failed: {}".format(job_id, e))
       self.store.finish(job_id, state=JOB_ERROR, message=str(e))
@@ -247,25 +271,39 @@ class PostDownloadJobService:
     return job_id
 
   def _run_all(self, job_id: str, sec_user_id: str, share_url: str) -> None:
-    walked = 0
-    wrote_card = False
-    try:
+    ##
+    ## Held in a list so the walk, which runs inside the generator below, and the
+    ## error report, which runs out here, see the same count.
+    ##
+    progress = {"walked": 0, "wrote_card": False}
+
+    def walk():
+      """Yield each post, doing the once-per-owner work as it goes.
+
+      The card, the cache and the count stay on this thread even when the
+      downloads themselves are handed to the pool: they are ordered work about
+      the walk, not about any one post.
+      """
       for payload in iter_all_posts(
         self.api,
         sec_user_id,
         max_pages=self.downloader.config.owner_max_pages,
       ):
-        if not wrote_card:
+        if not progress["wrote_card"]:
           ##
           ## Written from the first post rather than up front, because that is
           ## where the owner identity the folder is named after comes from.
           ##
           self._write_owner_card(payload)
-          wrote_card = True
+          progress["wrote_card"] = True
         self.cache.remember([payload])
-        self._download_one(job_id, payload, share_url)
-        walked += 1
+        progress["walked"] += 1
+        yield payload
+
+    try:
+      self._download_each(job_id, walk(), share_url)
     except BaseException as e:
+      walked = progress["walked"]
       ##
       ## Pages already walked stay downloaded.  A mid-walk refusal - an expired
       ## session, most likely - is reported with how far it got rather than

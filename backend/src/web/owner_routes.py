@@ -12,6 +12,7 @@ from backend.src.library.loglib import get_logger
 from backend.src.platform.douyin.douyin_aweme_downloader import (
   get_aweme_downloader,
   get_aweme_executor,
+  get_post_pool,
 )
 from backend.src.platform.douyin.douyin_header import DouyinShareHeader
 from backend.src.platform.douyin.douyin_owner_api import DouyinOwnerApi
@@ -176,6 +177,14 @@ class OwnerRuntime:
             retention_seconds=config.payload_retention_seconds
           ),
           executor=get_aweme_executor(config.concurrency),
+          ##
+          ## Two different limits: ``concurrency`` bounds how many download jobs
+          ## run at once, ``download_concurrency`` how many posts do, across all
+          ## of them.  The pools have to be separate or a job waiting on its own
+          ## posts could hold the workers those posts need.
+          ##
+          post_pool=get_post_pool(config.owner_download_concurrency),
+          post_concurrency=config.owner_download_concurrency,
         )
       return self._service
 
