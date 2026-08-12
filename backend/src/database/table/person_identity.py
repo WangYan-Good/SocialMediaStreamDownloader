@@ -192,6 +192,48 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
 ##
 ## >>============================= accounts =============================>>
 ##
+  def upsert_account_identity(
+    self,
+    owner_user_id: str,
+    sec_user_id: str = None,
+    nickname: str = None,
+  ) -> None:
+    """Record who an account is, without claiming anything else about it.
+
+    Marking an owner who has never been downloaded would otherwise leave the
+    person page showing a bare ``owner_user_id``: ``share_url`` has no row for
+    them yet, because only a download creates one.  Marking is a deliberate
+    statement of interest - unlike merely browsing - so an identity row for
+    somebody just marked is earned.
+
+    Identity columns only.  ``directory_name`` belongs to the person and the
+    download paths, the two share urls each belong to their own path, and
+    ``actived_count`` belongs to the live path; a row created here leaves every
+    one of them to whoever owns it.  ``directory_name`` in particular stays
+    empty on purpose - the first download fills it through its own COALESCE, and
+    the person's folder wins over it regardless.
+    """
+    if not isinstance(owner_user_id, str) or not owner_user_id.strip():
+      raise ValueError("owner_user_id is required")
+
+    sql = '''INSERT INTO share_url (owner_user_id, sec_user_id, nickname)
+             VALUES (%s, %s, %s)
+             ON DUPLICATE KEY UPDATE
+               sec_user_id = COALESCE(VALUES(sec_user_id), sec_user_id),
+               nickname    = COALESCE(VALUES(nickname), nickname);
+          '''
+    self.require_write_ready()
+    try:
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql, (owner_user_id.strip(), sec_user_id, nickname))
+          connector.commit()
+    except Exception as e:
+      get_logger().error(
+        "record identity for {} failed: {}".format(owner_user_id, e)
+      )
+      raise e
+
   def attach_account(
     self,
     platform: str,

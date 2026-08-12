@@ -280,9 +280,6 @@ class AccountSearchTest(unittest.TestCase):
     self.assertEqual(table.search_accounts("   "), [])
     self.assertEqual(cursor.calls, [])
 
-if __name__ == "__main__":
-  unittest.main()
-
 
 class PersonAggregationTest(unittest.TestCase):
   """按人聚合：一个人名下所有账号的作品与录播一起看。"""
@@ -360,3 +357,53 @@ class PhotographerSearchTest(unittest.TestCase):
     self.assertIn("person_account", sql)
     self.assertIn("aweme_record", sql)
     self.assertEqual(params[:1], (2,))
+
+
+class AccountIdentitySeedTest(unittest.TestCase):
+  """标记一个还没下载过的主播时，顺便留一行身份记录。
+
+  否则人物页只能把这个账号显示成一串 owner_user_id——share_url 里还没有它。
+  身份是明确表态的产物，与「浏览了一下」不同，所以这一行是有依据的。
+  """
+
+  def test_only_identity_columns_are_written(self):
+    table, cursor = build_table()
+
+    table.upsert_account_identity("acc-9", "sec-9", "主播甲")
+
+    sql, params = cursor.calls[0]
+    self.assertIn("INSERT INTO share_url", sql)
+    self.assertEqual(params, ("acc-9", "sec-9", "主播甲"))
+    ##
+    ## 这四列各有其主：目录归 person 与下载链路，两个 share_url 归各自的
+    ## 链路，计数归直播。身份录入一列都不许碰。
+    ##
+    for owned_elsewhere in (
+      "directory_name",
+      "post_share_url",
+      "live_share_url",
+      "actived_count",
+    ):
+      self.assertNotIn(owned_elsewhere, sql)
+
+  def test_an_existing_row_keeps_what_it_has(self):
+    """已有主播被标记时，昵称可以更新，但不得抹掉任何既有值。"""
+    table, cursor = build_table()
+
+    table.upsert_account_identity("acc-9", None, None)
+
+    sql, _ = cursor.calls[0]
+    self.assertIn("COALESCE(VALUES(sec_user_id), sec_user_id)", sql)
+    self.assertIn("COALESCE(VALUES(nickname), nickname)", sql)
+
+  def test_a_missing_owner_id_is_rejected(self):
+    """owner_user_id 是主键，空值会造出一行谁也匹配不上的记录。"""
+    table, cursor = build_table()
+
+    with self.assertRaises(ValueError):
+      table.upsert_account_identity("   ", "sec-9", "主播甲")
+
+    self.assertEqual(cursor.calls, [])
+
+if __name__ == "__main__":
+  unittest.main()

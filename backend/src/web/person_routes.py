@@ -5,6 +5,7 @@ from threading import Lock
 from flask import Blueprint, jsonify, request
 
 ##<<Third-part>>
+from backend.src.database.orm.models.person import ACCOUNT_ROLES
 from backend.src.database.table.person_identity import (
   DouyinPersonIdentityTable,
   UnknownRole,
@@ -35,10 +36,38 @@ class PersonRuntime:
     self._config = config
     self._table_factory = table_factory
     self._table = None
+    self._owner_runtime = None
     self._lock = Lock()
 
   def settings(self) -> dict:
     return load_config() if self._config is None else self._config
+
+  def owner_runtime(self):
+    """The owner-browse runtime, reused for its link resolution.
+
+    Imported lazily and shared rather than copied: following a share link needs
+    the browser-shaped headers and the short-link handling that path already
+    got right, and a second copy of that would drift from it.
+    """
+    if self._owner_runtime is None:
+      with self._lock:
+        if self._owner_runtime is None:
+          from backend.src.web.owner_routes import OwnerRuntime
+
+          self._owner_runtime = OwnerRuntime(self._config)
+    return self._owner_runtime
+
+  def resolve_owner(self, url: str):
+    """Turn pasted share text into a ``sec_user_id``."""
+    return self.owner_runtime().resolve_owner(url)
+
+  def owner_detail(self, sec_user_id: str):
+    """Fetch the owner's profile, which is where ``uid`` comes from."""
+    from backend.src.platform.douyin.douyin_owner_detail import (
+      fetch_owner_detail,
+    )
+
+    return fetch_owner_detail(self.owner_runtime().api(), sec_user_id)
 
   def table(self):
     if self._table is None:
@@ -232,6 +261,82 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
       get_logger().error("attach account failed: {}".format(e))
       return _error("挂载账号失败", 502)
     return _ok({"owner_user_id": owner_user_id, "person_id": person_id})
+
+  @blueprint.route("/person/account/by-link", methods=["POST"])
+  def attach_account_by_link():
+    """Attach an account named by a share link, downloaded or not.
+
+    This is the only way to mark an owner who has never been downloaded and has
+    never streamed: ``share_url`` gets a row from the live path or from a post
+    download, so an owner with neither is invisible to the search - while the
+    folder is decided at the start of the very first download.  Without this the
+    first batch would always land under the nickname.
+    """
+    body = _payload()
+    if body is None:
+      return _error("请求必须是 JSON 格式", 400)
+    url = (body.get("url") or "").strip()
+    if not url:
+      return _error("缺少必需字段: url", 400)
+    person_id = _int_field(body, "person_id")
+    if person_id is None:
+      return _error("缺少必需字段: person_id", 400)
+    role = body.get("role")
+    if role not in ACCOUNT_ROLES:
+      ##
+      ## Checked before the network request: a bad role would waste it.
+      ##
+      return _error(
+        "role 必须是 {} 之一".format("/".join(ACCOUNT_ROLES)), 400
+      )
+
+    try:
+      sec_user_id = runtime.resolve_owner(url)
+    except Exception as e:
+      get_logger().error("resolve owner link failed: {}".format(e))
+      return _error("无法解析该链接，请稍后重试", 502)
+    if not sec_user_id:
+      return _error("请粘贴主播主页分享链接", 400)
+
+    try:
+      owner = runtime.owner_detail(sec_user_id)
+    except Exception as e:
+      get_logger().error("owner detail failed: {}".format(e))
+      return _error("读取主播详情失败，请稍后重试", 502)
+
+    owner_user_id = (getattr(owner, "uid", "") or "").strip()
+    if not owner_user_id:
+      ##
+      ## person_account is keyed on the account id.  A blank one would create a
+      ## row nothing can ever match, and the download path looks the owner up by
+      ## exactly this id.
+      ##
+      return _error("该主播没有可用的账号 id，无法挂载", 502)
+
+    nickname = getattr(owner, "nickname", None)
+    try:
+      ##
+      ## Identity first: attaching an account the rest of the program has never
+      ## heard of would leave the page showing a bare id until the first
+      ## download filled it in.
+      ##
+      runtime.table().upsert_account_identity(
+        owner_user_id,
+        getattr(owner, "sec_user_id", None) or sec_user_id,
+        nickname,
+      )
+      runtime.table().attach_account(PLATFORM, owner_user_id, person_id, role)
+    except UnknownRole as e:
+      return _error(str(e), 400)
+    except Exception as e:
+      get_logger().error("attach by link failed: {}".format(e))
+      return _error("挂载账号失败", 502)
+
+    return _ok({
+      "owner_user_id": owner_user_id,
+      "person_id": person_id,
+      "nickname": nickname,
+    })
 
   @blueprint.route("/person/account", methods=["DELETE"])
   def detach_account():

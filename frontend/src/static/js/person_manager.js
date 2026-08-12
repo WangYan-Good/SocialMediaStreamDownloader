@@ -44,6 +44,7 @@
     this.searchInput = root.querySelector('.pm-search');
     this.roleSelect = root.querySelector('.pm-role');
     this.results = root.querySelector('.pm-results');
+    this.linkInput = root.querySelector('.pm-link');
     this.collabPanel = root.querySelector('.pm-collab');
     this.collabPersonName = root.querySelector('.pm-collab-person');
     this.subjectSelect = root.querySelector('.pm-subject');
@@ -55,6 +56,8 @@
         .addEventListener('click', this.createPerson.bind(this));
     root.querySelector('.pm-search-button')
         .addEventListener('click', this.searchAccounts.bind(this));
+    root.querySelector('.pm-link-button')
+        .addEventListener('click', this.attachByLink.bind(this));
     root.querySelector('.pm-attach-close')
         .addEventListener('click', this.closeAttach.bind(this));
     root.querySelector('.pm-collab-close')
@@ -283,6 +286,7 @@
     this.attachPersonName.textContent = person.display_name;
     this.results.innerHTML = '';
     this.searchInput.value = '';
+    this.linkInput.value = '';
     this.attachPanel.hidden = false;
     this.searchInput.focus();
   };
@@ -290,6 +294,32 @@
   PersonManager.prototype.closeAttach = function () {
     this.attachingTo = null;
     this.attachPanel.hidden = true;
+  };
+
+  /*
+   * 按链接挂载：从没下载过、也从没直播过的主播在 share_url 里没有行，搜不到，
+   * 而目录在首次下载一开始就定死了。这条路让标记可以发生在下载之前。
+   */
+  PersonManager.prototype.attachByLink = function () {
+    var self = this;
+    if (!this.attachingTo) { return; }
+    var url = (this.linkInput.value || '').trim();
+    if (!url) {
+      this.say('先粘一条主播主页分享链接');
+      return;
+    }
+    this.say('解析链接中…');
+    request('POST', '/api/person/account/by-link', {
+      url: url,
+      person_id: this.attachingTo.person_id,
+      role: this.roleSelect.value
+    })
+      .then(function (data) {
+        self.linkInput.value = '';
+        self.say('已挂载 ' + (data.nickname || data.owner_user_id));
+        return self.refresh();
+      })
+      .catch(function (error) { self.say('挂载失败：' + error.message); });
   };
 
   PersonManager.prototype.searchAccounts = function () {
