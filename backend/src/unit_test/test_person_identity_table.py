@@ -161,5 +161,113 @@ class CollaborationTest(unittest.TestCase):
     self.assertEqual(cursor.calls, [])
 
 
+
+class PersonCrudTest(unittest.TestCase):
+  def test_creating_a_person_returns_the_new_id(self):
+    table, cursor = build_table()
+
+    person_id = table.create_person("张三", directory_name="张三_合并")
+
+    self.assertEqual(person_id, cursor.lastrowid)
+    sql, params = cursor.calls[0]
+    self.assertIn("INSERT INTO person", sql)
+    self.assertEqual(params, ("张三", "张三_合并", None))
+
+  def test_a_person_needs_a_name(self):
+    table, cursor = build_table()
+
+    with self.assertRaises(ValueError):
+      table.create_person("   ")
+
+    self.assertEqual(cursor.calls, [])
+
+  def test_updating_a_person_leaves_unmentioned_fields_alone(self):
+    """只改目录时不该把备注抹掉。
+
+    用固定语句 + COALESCE 而非拼 SET 子句：未指定的字段传 None，COALESCE
+    保留原值。这样运行时不构造 SQL 文本，符合本库「只有标识符能被插值」的
+    不变量。
+    """
+    table, cursor = build_table()
+
+    table.update_person(3, directory_name="新目录")
+
+    sql, params = cursor.calls[0]
+    self.assertIn("note = COALESCE(%s, note)", sql)
+    self.assertEqual(params, (None, "新目录", None, 3))
+
+  def test_updating_nothing_touches_no_sql(self):
+    table, cursor = build_table()
+
+    table.update_person(3)
+
+    self.assertEqual(cursor.calls, [])
+
+  def test_deleting_a_person_relies_on_cascade(self):
+    """账号归属与协作关系由外键级联删除，不在这里手工清。"""
+    table, cursor = build_table()
+
+    table.delete_person(3)
+
+    self.assertEqual(len(cursor.calls), 1)
+    sql, params = cursor.calls[0]
+    self.assertIn("DELETE FROM person", sql)
+    self.assertEqual(params, (3,))
+
+
+class PersonListingTest(unittest.TestCase):
+  def test_the_listing_counts_attached_accounts(self):
+    table, cursor = build_table(
+      rows=[(1, "张三", "张三_合并", None, 3)]
+    )
+
+    listed = table.list_persons()
+
+    self.assertEqual(listed[0]["display_name"], "张三")
+    self.assertEqual(listed[0]["account_count"], 3)
+    sql, _ = cursor.calls[0]
+    self.assertIn("LEFT JOIN person_account", sql)
+
+  def test_a_person_with_no_accounts_still_appears(self):
+    """先建人后挂号是自然顺序，中间那一刻不该从列表里消失。"""
+    table, cursor = build_table(rows=[(2, "摄影师李", None, None, 0)])
+
+    listed = table.list_persons()
+
+    self.assertEqual(listed[0]["account_count"], 0)
+    sql, _ = cursor.calls[0]
+    self.assertIn("LEFT JOIN", sql)
+
+
+class AccountSearchTest(unittest.TestCase):
+  """1815 个账号无法用下拉框选，必须能搜。"""
+
+  def test_a_keyword_matches_nickname_or_id(self):
+    table, cursor = build_table(rows=[("acc-1", "昵称", "目录", None, None)])
+
+    found = table.search_accounts("昵称")
+
+    self.assertEqual(found[0]["owner_user_id"], "acc-1")
+    sql, params = cursor.calls[0]
+    self.assertIn("LIKE", sql)
+    self.assertIn("%昵称%", params)
+
+  def test_the_search_reports_who_an_account_already_belongs_to(self):
+    """挂号时必须看得见它是不是已经挂在别人名下。"""
+    table, cursor = build_table(rows=[("acc-1", "昵称", "目录", 4, "alt")])
+
+    found = table.search_accounts("昵称")
+
+    self.assertEqual(found[0]["person_id"], 4)
+    self.assertEqual(found[0]["role"], "alt")
+    sql, _ = cursor.calls[0]
+    self.assertIn("LEFT JOIN person_account", sql)
+
+  def test_an_empty_keyword_searches_nothing(self):
+    table, cursor = build_table()
+
+    self.assertEqual(table.search_accounts("   "), [])
+    self.assertEqual(cursor.calls, [])
+
 if __name__ == "__main__":
   unittest.main()
