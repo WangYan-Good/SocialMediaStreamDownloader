@@ -44,7 +44,12 @@
     this.searchInput = root.querySelector('.pm-search');
     this.roleSelect = root.querySelector('.pm-role');
     this.results = root.querySelector('.pm-results');
+    this.collabPanel = root.querySelector('.pm-collab');
+    this.collabPersonName = root.querySelector('.pm-collab-person');
+    this.subjectSelect = root.querySelector('.pm-subject');
     this.attachingTo = null;
+    this.collaboratingAs = null;
+    this.persons = [];
 
     root.querySelector('.pm-create-button')
         .addEventListener('click', this.createPerson.bind(this));
@@ -52,6 +57,13 @@
         .addEventListener('click', this.searchAccounts.bind(this));
     root.querySelector('.pm-attach-close')
         .addEventListener('click', this.closeAttach.bind(this));
+    root.querySelector('.pm-collab-close')
+        .addEventListener('click', function () {
+          this.collabPanel.hidden = true;
+          this.collaboratingAs = null;
+        }.bind(this));
+    root.querySelector('.pm-collab-add')
+        .addEventListener('click', this.addCollaboration.bind(this));
     this.searchInput.addEventListener('keydown', function (event) {
       if (event.key === 'Enter') { this.searchAccounts(); }
     }.bind(this));
@@ -76,6 +88,7 @@
       this.say('还没有建立任何人物。建一个，再把他的账号挂上去。');
       return;
     }
+    this.persons = persons;
     this.say('共 ' + persons.length + ' 个人物');
     persons.forEach(this.renderPerson.bind(this));
   };
@@ -127,8 +140,123 @@
     });
     actions.appendChild(remove);
 
+    var collab = element('button', 'pm-action', '记录合作');
+    collab.addEventListener('click', function () { self.openCollab(person); });
+    actions.appendChild(collab);
+
+    var detail = element('button', 'pm-action', '详情');
+    var detailBox = element('div', 'pm-detail');
+    detailBox.hidden = true;
+    detail.addEventListener('click', function () {
+      if (!detailBox.hidden) { detailBox.hidden = true; return; }
+      self.loadDetail(person, detailBox);
+    });
+    actions.appendChild(detail);
+
     card.appendChild(actions);
+    card.appendChild(detailBox);
     this.people.appendChild(card);
+  };
+
+  PersonManager.prototype.loadDetail = function (person, box) {
+    var self = this;
+    box.hidden = false;
+    box.textContent = '读取中…';
+    request('GET', '/api/person/' + person.person_id + '/detail')
+      .then(function (data) { self.renderDetail(person, box, data); })
+      .catch(function (error) { box.textContent = '读取失败：' + error.message; });
+  };
+
+  PersonManager.prototype.renderDetail = function (person, box, data) {
+    var self = this;
+    box.innerHTML = '';
+
+    var summary = data.summary || {};
+    box.appendChild(element(
+      'div',
+      'pm-detail-line',
+      '作品 ' + (summary.aweme_count || 0) +
+        ' · 录播 ' + (summary.live_count || 0) + '（名下所有账号合计）'
+    ));
+
+    var accounts = data.accounts || [];
+    box.appendChild(element(
+      'div',
+      'pm-detail-line',
+      accounts.length
+        ? '账号：' + accounts.map(function (a) {
+            return (a.nickname || a.owner_user_id) +
+                   '（' + (ROLE_LABELS[a.role] || a.role) + '）';
+          }).join('、')
+        : '还没有挂任何账号'
+    ));
+
+    (data.subjects || []).length && box.appendChild(element(
+      'div',
+      'pm-detail-line',
+      '拍过：' + data.subjects.map(function (s) { return s.display_name; }).join('、')
+    ));
+    (data.photographers || []).length && box.appendChild(element(
+      'div',
+      'pm-detail-line',
+      '被拍：' + data.photographers.map(function (p) { return p.display_name; }).join('、')
+    ));
+
+    if ((data.subjects || []).length) {
+      var works = element('button', 'pm-action', '看他拍过的作品');
+      works.addEventListener('click', function () {
+        request('GET', '/api/person/' + person.person_id + '/works')
+          .then(function (payload) {
+            var list = element('div', 'pm-works');
+            (payload.works || []).forEach(function (work) {
+              list.appendChild(element(
+                'div',
+                'pm-work',
+                (work.owner_display_name || '') + ' · ' +
+                  (work.desc || work.aweme_id)
+              ));
+            });
+            if (!(payload.works || []).length) {
+              list.appendChild(element('p', 'pm-empty', '这些主播还没有下载过的作品'));
+            }
+            box.appendChild(list);
+          })
+          .catch(function (error) { self.say('读取作品失败：' + error.message); });
+      });
+      box.appendChild(works);
+    }
+  };
+
+  PersonManager.prototype.openCollab = function (person) {
+    var self = this;
+    this.collaboratingAs = person;
+    this.collabPersonName.textContent = person.display_name;
+    this.subjectSelect.innerHTML = '';
+    /* 自己不能拍自己，所以把自己从候选里去掉 */
+    this.persons.filter(function (candidate) {
+      return candidate.person_id !== person.person_id;
+    }).forEach(function (candidate) {
+      var option = document.createElement('option');
+      option.value = candidate.person_id;
+      option.textContent = candidate.display_name;
+      self.subjectSelect.appendChild(option);
+    });
+    this.collabPanel.hidden = false;
+  };
+
+  PersonManager.prototype.addCollaboration = function () {
+    var self = this;
+    if (!this.collaboratingAs || !this.subjectSelect.value) { return; }
+    request('POST', '/api/person/collaboration', {
+      photographer_id: this.collaboratingAs.person_id,
+      subject_id: parseInt(this.subjectSelect.value, 10)
+    })
+      .then(function () {
+        self.say('已记录合作关系');
+        self.collabPanel.hidden = true;
+        self.collaboratingAs = null;
+      })
+      .catch(function (error) { self.say('记录失败：' + error.message); });
   };
 
   PersonManager.prototype.createPerson = function () {
