@@ -1324,16 +1324,29 @@ class PersonMergedDirectoryTest(AwemeDownloaderTestCase):
   """
 
   class PersonDatabase:
-    def __init__(self, directory=None, failure=None):
+    def __init__(self, directory=None, failure=None, main_owner="main-1",
+                 identities=1):
       self.directory = directory
       self.failure = failure
+      self.main_owner = main_owner
+      self.identities = identities
       self.asked = []
 
-    def find_person_directory_name(self, owner_user_id, platform="douyin"):
+    def find_person_folder(self, owner_user_id, platform="douyin"):
       self.asked.append(owner_user_id)
       if self.failure is not None:
         raise self.failure
-      return self.directory
+      if not self.directory:
+        return None
+      return {
+        "directory_name": self.directory,
+        "main_owner_user_id": self.main_owner,
+      }
+
+    def count_identities_using_directory_name(self, name, platform="douyin"):
+      if self.failure is not None:
+        raise self.failure
+      return self.identities
 
   def build_with_person(self, person_database, directory, database=None):
     downloader, detail = self.build(save_path=directory, database=database)
@@ -1379,3 +1392,31 @@ class PersonMergedDirectoryTest(AwemeDownloaderTestCase):
         detail.directory_name,
         downloader.resolve_directory_name(detail),
       )
+
+
+class PersonCollisionDirectoryTest(PersonMergedDirectoryTest):
+  """同名但不同人时，消歧规则仍要生效。"""
+
+  def test_two_people_sharing_a_folder_name_are_separated(self):
+    with tempfile.TemporaryDirectory() as directory:
+      person_database = self.PersonDatabase(
+        directory="主播甲",
+        main_owner="main-9",
+        identities=2,
+      )
+      downloader, detail = self.build_with_person(person_database, directory)
+
+      resolved = downloader.resolve_directory_name(detail)
+
+      self.assertEqual("主播甲_main-9", resolved)
+
+  def test_one_person_alone_keeps_the_bare_name(self):
+    with tempfile.TemporaryDirectory() as directory:
+      person_database = self.PersonDatabase(
+        directory="主播甲",
+        main_owner="main-9",
+        identities=1,
+      )
+      downloader, detail = self.build_with_person(person_database, directory)
+
+      self.assertEqual("主播甲", downloader.resolve_directory_name(detail))

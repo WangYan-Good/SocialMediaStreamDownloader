@@ -467,5 +467,65 @@ class AlignToMainAccountTest(unittest.TestCase):
     sql, _ = cursor.calls[0]
     self.assertIn("IS NOT NULL", sql)
 
+
+class IdentityAwareCountTest(unittest.TestCase):
+  """消歧要按身份组计数：一个 person 算一组，未标记的账号各算一组。
+
+  对齐之后，同一个 person 的多个账号在 share_url 里记着同一个目录名。若仍按
+  账号数计，一个人自己就把计数顶到 2，于是被当成撞名而各自加后缀——归并当场
+  失效。而两个真正不同的人同名时，计数必须仍然大于 1。
+  """
+
+  def test_one_person_with_many_accounts_counts_once(self):
+    table, cursor = build_table(rows=[{"identity_count": 1}])
+
+    self.assertEqual(1, table.count_identities_using_directory_name("主播甲"))
+    sql, params = cursor.calls[0]
+    self.assertIn("COUNT(DISTINCT", sql)
+    self.assertIn("person_account", sql)
+    self.assertEqual(params, ("douyin", "主播甲"))
+
+  def test_two_people_sharing_a_name_count_twice(self):
+    table, _ = build_table(rows=[{"identity_count": 2}])
+
+    self.assertEqual(2, table.count_identities_using_directory_name("主播甲"))
+
+  def test_a_name_nobody_uses_counts_zero(self):
+    table, _ = build_table(rows=[])
+
+    self.assertEqual(0, table.count_identities_using_directory_name("主播甲"))
+
+  def test_a_blank_name_is_not_queried(self):
+    table, cursor = build_table()
+
+    self.assertEqual(0, table.count_identities_using_directory_name("  "))
+    self.assertEqual(cursor.calls, [])
+
+
+class PersonFolderTest(unittest.TestCase):
+  """落盘既要目录名，也要主账号 id 作为消歧后缀。"""
+
+  def test_the_main_accounts_folder_and_id_are_returned_together(self):
+    table, _ = build_table(
+      rows=[{"directory_name": "主播甲", "owner_user_id": "main-1"}]
+    )
+
+    found = table.find_person_folder("sub-1")
+
+    self.assertEqual(found["directory_name"], "主播甲")
+    self.assertEqual(found["main_owner_user_id"], "main-1")
+
+  def test_an_unmarked_account_returns_nothing(self):
+    table, _ = build_table(rows=[])
+
+    self.assertIsNone(table.find_person_folder("nobody"))
+
+  def test_a_main_account_without_a_folder_returns_nothing(self):
+    table, _ = build_table(
+      rows=[{"directory_name": "   ", "owner_user_id": "main-1"}]
+    )
+
+    self.assertIsNone(table.find_person_folder("sub-1"))
+
 if __name__ == "__main__":
   unittest.main()

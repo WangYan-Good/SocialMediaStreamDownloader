@@ -1577,14 +1577,27 @@ class LiveOwnerDirectoryTest(unittest.TestCase):
       return self.owners
 
   class PersonDatabase:
-    def __init__(self, directory=None, failure=None):
+    def __init__(self, directory=None, failure=None, main_owner="main-1",
+                 identities=1):
       self.directory = directory
       self.failure = failure
+      self.main_owner = main_owner
+      self.identities = identities
 
-    def find_person_directory_name(self, owner_user_id, platform="douyin"):
+    def find_person_folder(self, owner_user_id, platform="douyin"):
       if self.failure is not None:
         raise self.failure
-      return self.directory
+      if not self.directory:
+        return None
+      return {
+        "directory_name": self.directory,
+        "main_owner_user_id": self.main_owner,
+      }
+
+    def count_identities_using_directory_name(self, name, platform="douyin"):
+      if self.failure is not None:
+        raise self.failure
+      return self.identities
 
   def _record_into(self, database, directory_name="Test_Host", person=None):
     config = live_config()
@@ -1725,3 +1738,27 @@ class LivePersonDirectoryTest(LiveOwnerDirectoryTest):
     )
 
     self.assertEqual(created, ["Recorded_Host"])
+
+
+class LivePersonCollisionTest(LiveOwnerDirectoryTest):
+  """录播同样要区分「同一个人」和「同名的两个人」。"""
+
+  def test_two_people_sharing_a_folder_name_are_separated(self):
+    created = self._record_into(
+      self.DirectoryDatabase(recorded="Recorded_Host", owners=1),
+      person=self.PersonDatabase(
+        directory="主播甲", main_owner="main-9", identities=2
+      ),
+    )
+
+    self.assertEqual(created, ["主播甲_main-9"])
+
+  def test_one_person_alone_keeps_the_bare_name(self):
+    created = self._record_into(
+      self.DirectoryDatabase(recorded="Recorded_Host", owners=1),
+      person=self.PersonDatabase(
+        directory="主播甲", main_owner="main-9", identities=1
+      ),
+    )
+
+    self.assertEqual(created, ["主播甲"])

@@ -282,6 +282,85 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
       )
       raise e
 
+  def find_person_folder(self, owner_user_id: str, platform: str = PLATFORM):
+    """Return this account's person folder and the id that discriminates it.
+
+    ``{"directory_name": ..., "main_owner_user_id": ...}`` or ``None``.
+
+    Both come from the main account: the folder because that is where the
+    person's files live, and the id because a folder shared by two different
+    people has to be split, and every account of one person must land on the
+    same side of that split.
+    """
+    sql = '''SELECT s.directory_name, s.owner_user_id
+             FROM person_account AS mine
+             JOIN person_account AS main_account
+               ON main_account.person_id = mine.person_id
+              AND main_account.role = 'main'
+             JOIN share_url AS s
+               ON s.owner_user_id = main_account.owner_user_id
+             WHERE mine.platform = %s AND mine.owner_user_id = %s
+             LIMIT 1;
+          '''
+    try:
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql, (platform, owner_user_id))
+          row = cursor.fetchone()
+    except Exception as e:
+      get_logger().error(
+        "look up person folder for {} failed: {}".format(owner_user_id, e)
+      )
+      raise e
+
+    if not row:
+      return None
+    directory = row.get("directory_name")
+    if not isinstance(directory, str) or not directory.strip():
+      return None
+    return {
+      "directory_name": directory,
+      "main_owner_user_id": row.get("owner_user_id"),
+    }
+
+  def count_identities_using_directory_name(
+    self,
+    directory_name: str,
+    platform: str = PLATFORM,
+  ) -> int:
+    """How many distinct identities file under this folder name.
+
+    An identity is a person, or an account nobody marked.  Counting accounts
+    instead would let one person's own accounts look like a collision: they all
+    record the same folder after alignment, so a single person would count as
+    two and their accounts would be split apart by the discriminator meant to
+    separate strangers.
+    """
+    if not isinstance(directory_name, str) or not directory_name.strip():
+      return 0
+
+    sql = '''SELECT COUNT(DISTINCT
+                      COALESCE(CAST(pa.person_id AS CHAR), s.owner_user_id)
+                    ) AS identity_count
+             FROM share_url AS s
+             LEFT JOIN person_account AS pa
+               ON pa.owner_user_id = s.owner_user_id AND pa.platform = %s
+             WHERE s.directory_name = %s;
+          '''
+    try:
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql, (platform, directory_name))
+          row = cursor.fetchone()
+    except Exception as e:
+      get_logger().error(
+        "count identities using {} failed: {}".format(directory_name, e)
+      )
+      raise e
+    if not row:
+      return 0
+    return int(row.get("identity_count") or 0)
+
   def align_accounts_to_main(self, person_id: int) -> None:
     """Point this person's other accounts at the main account's folder.
 

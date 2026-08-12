@@ -260,3 +260,86 @@ class PersonDirectoryIsSanitisedTest(unittest.TestCase):
     )
 
     self.assertEqual("记录目录", chosen)
+
+
+class PersonCollisionTest(unittest.TestCase):
+  """消歧要区分的是人，不是账号。
+
+  同一个 person 的账号必须落进同一个目录，所以不能按账号加后缀；但两个不同
+  的 person 恰好同名时，仍然要被分开——否则两个人的文件混在一处，而这正是
+  消歧规则当初存在的理由。
+  """
+
+  def test_one_persons_accounts_share_a_folder_without_a_suffix(self):
+    first = choose_owner_directory(
+      "昵称A",
+      person_directory="主播甲",
+      person_owner_user_id="main-1",
+      owner_count=1,
+    )
+    second = choose_owner_directory(
+      "昵称B",
+      person_directory="主播甲",
+      person_owner_user_id="main-1",
+      owner_count=1,
+    )
+
+    self.assertEqual("主播甲", first)
+    self.assertEqual(first, second)
+
+  def test_two_different_people_sharing_a_name_are_separated(self):
+    one = choose_owner_directory(
+      "昵称",
+      person_directory="主播甲",
+      person_owner_user_id="main-1",
+      owner_count=2,
+    )
+    other = choose_owner_directory(
+      "昵称",
+      person_directory="主播甲",
+      person_owner_user_id="main-9",
+      owner_count=2,
+    )
+
+    self.assertNotEqual(one, other)
+    self.assertTrue(one.endswith("_main-1"))
+    self.assertTrue(other.endswith("_main-9"))
+
+  def test_the_suffix_is_the_main_account_not_the_account_downloading(self):
+    """否则同一个人的两个账号会各自带上自己的 id 而重新分家。"""
+    main_side = choose_owner_directory(
+      "昵称",
+      owner_user_id="main-1",
+      person_directory="主播甲",
+      person_owner_user_id="main-1",
+      owner_count=2,
+    )
+    sub_side = choose_owner_directory(
+      "昵称",
+      owner_user_id="sub-1",
+      person_directory="主播甲",
+      person_owner_user_id="main-1",
+      owner_count=2,
+    )
+
+    self.assertEqual(main_side, sub_side)
+    self.assertTrue(sub_side.endswith("_main-1"))
+
+  def test_a_person_without_a_main_id_cannot_be_discriminated(self):
+    """没有主账号 id 就加不出后缀，宁可不加也不能加错。"""
+    self.assertEqual(
+      "主播甲",
+      choose_owner_directory("昵称", person_directory="主播甲", owner_count=3),
+    )
+
+  def test_unmarked_accounts_keep_the_old_rule(self):
+    """没有 person 的账号，消歧行为与今天逐字相同。"""
+    self.assertEqual(
+      "记录目录_acc-1",
+      choose_owner_directory(
+        "昵称",
+        recorded_directory="记录目录",
+        owner_user_id="acc-1",
+        owner_count=2,
+      ),
+    )
