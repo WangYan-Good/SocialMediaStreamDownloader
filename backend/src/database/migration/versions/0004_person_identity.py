@@ -137,11 +137,12 @@ def downgrade() -> None:
   ##
   ## Children first: both carry a foreign key onto person.
   ##
-  op.drop_index(
-    "idx_person_collaboration_subject_id",
-    table_name="person_collaboration",
-  )
+  ## The indexes are not dropped separately.  MySQL keeps the index a foreign key
+  ## needs and refuses to drop it while the constraint stands - "Cannot drop
+  ## index ...: needed in a foreign key constraint" - and dropping the table
+  ## removes its indexes anyway, so the explicit drops were both illegal and
+  ## redundant.
+  ##
   op.drop_table("person_collaboration")
-  op.drop_index("idx_person_account_person_id", table_name="person_account")
   op.drop_table("person_account")
   op.drop_table("person")

@@ -90,6 +90,12 @@ class AlembicEnvironmentTest(unittest.TestCase):
     ##
     self.assertNotIn("op.drop_table", upgrade)
     self.assertNotIn("op.execute", upgrade)
+    ##
+    ## downgrade 不得显式删索引。MySQL 会保留外键所需的索引并拒绝删除
+    ## （"Cannot drop index ...: needed in a foreign key constraint"），
+    ## 而删表本就会带走它的索引——真实往返测出来的，文本断言看不出。
+    ##
+    self.assertNotIn("op.drop_index", downgrade)
 
   def test_baseline_is_an_explicit_immutable_snapshot(self):
     config = self.load_factory()(unified_config())
