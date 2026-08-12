@@ -1,0 +1,211 @@
+/* Person management page: people list, account search, attach panel. */
+
+.person-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.pm-create {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.pm-new-name,
+.pm-new-directory,
+.pm-search {
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 0;
+}
+
+.pm-new-name { flex: 0 1 220px; }
+.pm-new-directory { flex: 1 1 280px; }
+.pm-search { flex: 1 1 auto; }
+
+.pm-create-button,
+.pm-search-button,
+.pm-action,
+.pm-attach-close {
+  padding: 6px 12px;
+  border: 1px solid #888;
+  border-radius: 4px;
+  background: #f6f6f6;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.pm-create-button:hover,
+.pm-search-button:hover,
+.pm-action:hover,
+.pm-attach-close:hover {
+  background: #ececec;
+}
+
+.pm-danger {
+  border-color: #c0392b;
+  color: #c0392b;
+}
+
+.pm-status {
+  margin: 0;
+  color: #666;
+  font-size: 13px;
+}
+
+.pm-people {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pm-person {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  flex-wrap: wrap;
+}
+
+.pm-person-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.pm-person-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.pm-person-directory,
+.pm-person-count {
+  color: #777;
+  font-size: 12px;
+}
+
+.pm-person-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.pm-attach {
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pm-attach-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+
+.pm-search-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.pm-role {
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.pm-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.pm-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  flex-wrap: wrap;
+}
+
+.pm-result-name {
+  font-size: 14px;
+  min-width: 0;
+}
+
+.pm-result-id {
+  color: #999;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+/* 已属于别人时要显眼：挂载是移动，不是静默覆盖 */
+.pm-result-taken {
+  color: #b7791f;
+  font-size: 12px;
+}
+
+.pm-empty {
+  margin: 0;
+  color: #999;
+  font-size: 13px;
+}
+
+.pm-detail {
+  flex-basis: 100%;
+  border-top: 1px dashed #ddd;
+  margin-top: 8px;
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pm-detail-line {
+  font-size: 13px;
+  color: #555;
+}
+
+.pm-works {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 240px;
+  overflow-y: auto;
+  margin-top: 6px;
+}
+
+.pm-work {
+  font-size: 12px;
+  color: #666;
+  padding: 3px 6px;
+  border-left: 2px solid #eee;
+}
+
+.pm-subject {
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  flex: 1 1 auto;
+}

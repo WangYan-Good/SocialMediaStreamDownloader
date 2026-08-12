@@ -25,6 +25,7 @@ from backend.src.platform.douyin.douyin_live_config         import DouyinLiveCon
 from backend.src.platform.douyin.douyin_login               import DouyinLogin
 from backend.src.platform.douyin.douyin_live_external_info  import LiveExternal, observed_at
 from backend.src.platform.douyin.douyin_live_prober         import DouyinLiveProber
+from backend.src.database.table.person_identity              import DouyinPersonIdentityTable
 from backend.src.platform.douyin.douyin_owner_directory      import choose_owner_directory
 from backend.src.platform.douyin.hls_recorder               import HlsRecorder
 from backend.src.platform.douyin.douyin_api                 import DouyinApi
@@ -63,6 +64,7 @@ class DouyinLiveDownloader(Downloader):
 ##
   def __init__(self, config: dict = None) -> None:
     self.database = None
+    self._person_database = None
     self._database_warning_state = None
     self._database_clock = monotonic
     self._database_retry_at = 0.0
@@ -485,6 +487,44 @@ class DouyinLiveDownloader(Downloader):
       self._database_clock() + self._database_retry_seconds
     )
 
+  def _person_directory(self, owner_user_id: str):
+    """Return the folder this owner's person files under, or ``None``.
+
+    Every failure answers ``None``.  A recording is the thing that cannot be
+    repeated - the stream is live now - so nothing about who this owner is may
+    ever stand between it and starting.
+    """
+    if not owner_user_id:
+      return None
+    database = self._person_database_for_read()
+    if database is None:
+      return None
+    try:
+      return database.find_person_directory_name(owner_user_id)
+    except Exception as e:
+      get_logger().warning(
+        "person directory lookup failed, use the owner's own: {}".format(e)
+      )
+      return None
+
+  def _person_database_for_read(self):
+    """Lazily hold a person table handle, sharing the process-wide pool."""
+    if self._person_database is not None:
+      return self._person_database
+    if self.config.get_config_dict_attr("$.database.enable") is not True:
+      return None
+    try:
+      self._person_database = DouyinPersonIdentityTable(
+        host=self.config.get_config_dict_attr("$.database.host"),
+        user=self.config.get_config_dict_attr("$.database.username"),
+        passwd=self.config.get_config_dict_attr("$.database.password"),
+        database=self.config.get_config_dict_attr("$.database.name"),
+      )
+    except Exception as e:
+      get_logger().warning("person table unavailable: {}".format(e))
+      return None
+    return self._person_database
+
   def _database_for_read(self):
     if self.database is not None:
       return self.database
@@ -655,13 +695,22 @@ class DouyinLiveDownloader(Downloader):
     ## problem must not stop a recording, it just costs the correction.
     ##
     nickname_directory = get_dict_attr(params, "$.summary.directory_name")
-    directory_name = choose_owner_directory(nickname_directory)
+    owner_user_id = get_dict_attr(
+      params,
+      "$.external_info.data.room.owner_user_id",
+    )
+    ##
+    ## Asked independently of the record table: whether this owner is a marked
+    ## person has nothing to do with whether share_url is readable, and the
+    ## recordings have to land beside that person's posts either way.
+    ##
+    person_directory = self._person_directory(owner_user_id)
+    directory_name = choose_owner_directory(
+      nickname_directory,
+      person_directory=person_directory,
+    )
     database = self._database_for_read()
     if database is not None:
-      owner_user_id = get_dict_attr(
-        params,
-        "$.external_info.data.room.owner_user_id",
-      )
       try:
         recorded = None
         if database.is_owner_user_id_record_exist(owner_user_id) is True:
@@ -674,6 +723,7 @@ class DouyinLiveDownloader(Downloader):
           recorded_directory=recorded,
           owner_user_id=owner_user_id,
           owner_count=owners,
+          person_directory=person_directory,
         )
         if directory_name != nickname_directory:
           get_logger().info(
@@ -690,7 +740,10 @@ class DouyinLiveDownloader(Downloader):
           "database directory lookup failed, use live nickname: {}".format(e)
         )
         self._mark_database_unavailable()
-        directory_name = choose_owner_directory(nickname_directory)
+        directory_name = choose_owner_directory(
+          nickname_directory,
+          person_directory=person_directory,
+        )
     save_dir    = self.config.get_config_dict_attr("$.download.save_path")+"/douyin/" + self.config.get_config_dict_attr("$.platform.douyin.download.type") + "/" + directory_name
     
     ##

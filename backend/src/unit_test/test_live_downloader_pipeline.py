@@ -1576,7 +1576,17 @@ class LiveOwnerDirectoryTest(unittest.TestCase):
         raise self.failure
       return self.owners
 
-  def _record_into(self, database, directory_name="Test_Host"):
+  class PersonDatabase:
+    def __init__(self, directory=None, failure=None):
+      self.directory = directory
+      self.failure = failure
+
+    def find_person_directory_name(self, owner_user_id, platform="douyin"):
+      if self.failure is not None:
+        raise self.failure
+      return self.directory
+
+  def _record_into(self, database, directory_name="Test_Host", person=None):
     config = live_config()
     config["download"]["test_mode"] = True
     config["download"]["tick_naming"] = False
@@ -1586,6 +1596,7 @@ class LiveOwnerDirectoryTest(unittest.TestCase):
       config["download"]["save_path"] = str(save_path)
       downloader = live_module.DouyinLiveDownloader(config)
       downloader.database = database
+      downloader._person_database_for_read = lambda: person
       downloader.download_live_stream(
         "https://v.douyin.com/example/",
         {
@@ -1674,3 +1685,43 @@ class LiveOwnerDirectoryTest(unittest.TestCase):
 
 if __name__ == "__main__":
   unittest.main()
+
+
+class LivePersonDirectoryTest(LiveOwnerDirectoryTest):
+  """录播与作品共用同一套目录策略，所以人物归并也必须对直播生效。
+
+  否则同一个人的录播和作品会分到两处，而归并的整个目的就是让它们在一起。
+  """
+
+  def test_recordings_go_under_the_person_folder(self):
+    created = self._record_into(
+      self.DirectoryDatabase(recorded="Recorded_Host", owners=1),
+      person=self.PersonDatabase(directory="某人_合并"),
+    )
+
+    self.assertEqual(created, ["某人_合并"])
+
+  def test_the_person_folder_survives_a_name_collision(self):
+    """消歧后缀若作用在人物目录上，同一个人的账号会各自分家。"""
+    created = self._record_into(
+      self.DirectoryDatabase(recorded="Recorded_Host", owners=3),
+      person=self.PersonDatabase(directory="某人_合并"),
+    )
+
+    self.assertEqual(created, ["某人_合并"])
+
+  def test_an_unmarked_owner_records_exactly_as_before(self):
+    created = self._record_into(
+      self.DirectoryDatabase(recorded="Recorded_Host", owners=1),
+      person=self.PersonDatabase(directory=None),
+    )
+
+    self.assertEqual(created, ["Recorded_Host"])
+
+  def test_a_person_lookup_failure_never_stops_a_recording(self):
+    created = self._record_into(
+      self.DirectoryDatabase(recorded="Recorded_Host", owners=1),
+      person=self.PersonDatabase(failure=RuntimeError("gone")),
+    )
+
+    self.assertEqual(created, ["Recorded_Host"])

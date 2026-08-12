@@ -27,6 +27,7 @@ from backend.src.platform.douyin.douyin_aweme_external_info import naming_tick
 from backend.src.platform.douyin.douyin_owner_directory import (
   choose_owner_directory,
 )
+from backend.src.database.table.person_identity import DouyinPersonIdentityTable
 from backend.src.platform.douyin.douyin_url_hosts import host_of, is_short_link_host
 from backend.src.platform.douyin.douyin_aweme_resolver import DouyinAwemeResolver
 from backend.src.platform.douyin.douyin_header import DouyinPostInfoHeader
@@ -124,6 +125,7 @@ class DouyinAwemeDownloader(Downloader):
 
   def __init__(self, config: dict = None) -> None:
     self.database = None
+    self._person_database = None
     self._database_warning_state = None
     self._database_clock = monotonic
     self._database_retry_at = 0.0
@@ -308,9 +310,16 @@ class DouyinAwemeDownloader(Downloader):
     the live path rather than refusing to download.
     """
     fallback = detail.directory_name
+    ##
+    ## Asked first and independently of the record table.  Whether this account
+    ## belongs to a marked person has nothing to do with whether aweme_record is
+    ## readable, and a person folder still applies when that lookup is skipped.
+    ##
+    person_directory = self._person_directory(detail.owner_user_id)
+
     database = self._database_for_read()
     if database is None or not detail.owner_user_id:
-      return choose_owner_directory(fallback)
+      return choose_owner_directory(fallback, person_directory=person_directory)
     try:
       recorded = database.find_owner_directory_name(detail.owner_user_id)
       owners = database.count_owners_using_directory_name(recorded or fallback)
@@ -319,13 +328,14 @@ class DouyinAwemeDownloader(Downloader):
         "database directory lookup failed, use post nickname: {}".format(e)
       )
       self._mark_database_unavailable()
-      return choose_owner_directory(fallback)
+      return choose_owner_directory(fallback, person_directory=person_directory)
 
     resolved = choose_owner_directory(
       fallback,
       recorded_directory=recorded,
       owner_user_id=detail.owner_user_id,
       owner_count=owners,
+      person_directory=self._person_directory(detail.owner_user_id),
     )
     if resolved != fallback:
       get_logger().info(
@@ -338,6 +348,50 @@ class DouyinAwemeDownloader(Downloader):
         )
       )
     return resolved
+
+  def _person_directory(self, owner_user_id: str):
+    """Return the folder this account's person files under, or ``None``.
+
+    Every failure answers ``None``: no person table, no marking, or a database
+    that will not answer.  Whose account this is, is extra information about a
+    download - never a precondition for one - so a lookup that fails here must
+    leave the download filing exactly where it would have without people.
+    """
+    if not owner_user_id:
+      return None
+    database = self._person_database_for_read()
+    if database is None:
+      return None
+    try:
+      return database.find_person_directory_name(owner_user_id)
+    except Exception as e:
+      get_logger().warning(
+        "person directory lookup failed, use the account's own: {}".format(e)
+      )
+      return None
+
+  def _person_database_for_read(self):
+    """Lazily hold a person table handle, sharing the process-wide pool.
+
+    Separate from the aweme handle so each table's SQL stays with its own
+    module.  The connection pool is class-wide, so a second handle costs a
+    Python object rather than a connection.
+    """
+    if self._person_database is not None:
+      return self._person_database
+    if self.config.get_config_dict_attr("$.database.enable") is not True:
+      return None
+    try:
+      self._person_database = DouyinPersonIdentityTable(
+        host=self.config.get_config_dict_attr("$.database.host"),
+        user=self.config.get_config_dict_attr("$.database.username"),
+        passwd=self.config.get_config_dict_attr("$.database.password"),
+        database=self.config.get_config_dict_attr("$.database.name"),
+      )
+    except Exception as e:
+      get_logger().warning("person table unavailable: {}".format(e))
+      return None
+    return self._person_database
 
   def build_save_dir(self, detail) -> Path:
     """Return the directory this post's files belong in.
