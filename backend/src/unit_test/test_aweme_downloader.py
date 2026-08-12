@@ -1315,3 +1315,67 @@ class PostPoolTest(unittest.TestCase):
 
 if __name__ == "__main__":
   unittest.main()
+
+
+class PersonMergedDirectoryTest(AwemeDownloaderTestCase):
+  """挂到某个人名下的账号，作品落到那个人的目录。
+
+  这是「同一个人的多个账号归到一个目录」在作品链路上的落地点。
+  """
+
+  class PersonDatabase:
+    def __init__(self, directory=None, failure=None):
+      self.directory = directory
+      self.failure = failure
+      self.asked = []
+
+    def find_person_directory_name(self, owner_user_id, platform="douyin"):
+      self.asked.append(owner_user_id)
+      if self.failure is not None:
+        raise self.failure
+      return self.directory
+
+  def build_with_person(self, person_database, directory, database=None):
+    downloader, detail = self.build(save_path=directory, database=database)
+    downloader._person_database_for_read = lambda: person_database
+    return downloader, detail
+
+  def test_files_go_under_the_person_folder(self):
+    with tempfile.TemporaryDirectory() as directory:
+      person_database = self.PersonDatabase(directory="某人_合并")
+      downloader, detail = self.build_with_person(person_database, directory)
+
+      self.assertEqual("某人_合并", downloader.resolve_directory_name(detail))
+      self.assertEqual([detail.owner_user_id], person_database.asked)
+
+  def test_an_unmarked_account_is_untouched(self):
+    """零影响保证：没挂人就是今天的行为。"""
+    with tempfile.TemporaryDirectory() as directory:
+      person_database = self.PersonDatabase(directory=None)
+      downloader, detail = self.build_with_person(person_database, directory)
+
+      self.assertEqual(
+        detail.directory_name,
+        downloader.resolve_directory_name(detail),
+      )
+
+  def test_a_person_lookup_failure_never_blocks_a_download(self):
+    """人物表是可选信息，读不到就退回原行为，不能让下载失败。"""
+    with tempfile.TemporaryDirectory() as directory:
+      person_database = self.PersonDatabase(failure=RuntimeError("gone"))
+      downloader, detail = self.build_with_person(person_database, directory)
+
+      self.assertEqual(
+        detail.directory_name,
+        downloader.resolve_directory_name(detail),
+      )
+
+  def test_without_a_person_database_nothing_changes(self):
+    with tempfile.TemporaryDirectory() as directory:
+      downloader, detail = self.build(save_path=directory)
+      downloader._person_database_for_read = lambda: None
+
+      self.assertEqual(
+        detail.directory_name,
+        downloader.resolve_directory_name(detail),
+      )
