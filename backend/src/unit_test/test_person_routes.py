@@ -428,5 +428,37 @@ class AlignAfterAttachTest(RouteTestCase):
 
     self.assertEqual(inner.aligned, [5])
 
+
+class OwnerRuntimeWiringTest(unittest.TestCase):
+  """真实装配必须被测到，哪怕它只有一行。
+
+  之前每个链接挂载测试都把 runtime.resolve_owner 整个替换掉，于是这行装配
+  从未被执行过——而它是错的：OwnerRuntime 的第一个参数是 config_loader（可
+  调用），传进去一个 config 字典（生产环境下是 None）会让 settings() 去调用
+  None()，挂载在生产环境 100% 失败。
+  """
+
+  SETTINGS = {
+    "platform": {"douyin": {"headers": {}, "owner": {"max_timeout": 5}}},
+    "database": {"enable": False},
+  }
+
+  def test_the_owner_runtime_reads_the_supplied_settings(self):
+    runtime = PersonRuntime(config=self.SETTINGS)
+
+    self.assertEqual(self.SETTINGS, runtime.owner_runtime().settings())
+
+  def test_the_owner_runtime_is_built_once(self):
+    runtime = PersonRuntime(config=self.SETTINGS)
+
+    self.assertIs(runtime.owner_runtime(), runtime.owner_runtime())
+
+  def test_without_a_config_it_falls_back_to_the_process_wide_loader(self):
+    """生产路径：不传 config 时必须仍然可用，而不是把 None 当成 loader。"""
+    runtime = PersonRuntime()
+    owner = runtime.owner_runtime()
+
+    self.assertTrue(callable(owner._config_loader))
+
 if __name__ == "__main__":
   unittest.main()

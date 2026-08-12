@@ -54,7 +54,17 @@ class PersonRuntime:
         if self._owner_runtime is None:
           from backend.src.web.owner_routes import OwnerRuntime
 
-          self._owner_runtime = OwnerRuntime(self._config)
+          ##
+          ## Its first parameter is a config *loader*, not a config.  Handing it
+          ## the mapping puts a dict where a callable is expected, and handing it
+          ## ``None`` - which is what production has - makes it call ``None()``
+          ## the moment anything reads a setting.
+          ##
+          self._owner_runtime = (
+            OwnerRuntime()
+            if self._config is None
+            else OwnerRuntime(config_loader=lambda: self._config)
+          )
     return self._owner_runtime
 
   def resolve_owner(self, url: str):
