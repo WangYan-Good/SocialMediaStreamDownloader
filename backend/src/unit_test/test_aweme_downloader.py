@@ -1267,5 +1267,51 @@ class ExecutorTest(unittest.TestCase):
     self.assertEqual(aweme_module.download_multiple_aweme([]), [])
 
 
+class PostPoolTest(unittest.TestCase):
+  """The post-level pool is separate from the job pool, and must stay so.
+
+  A job task occupies a worker for as long as its whole download runs.  If its
+  posts were submitted to that same pool and it then waited for them, enough
+  concurrent jobs would hold every worker and nothing could ever be scheduled to
+  release them.
+  """
+
+  def tearDown(self):
+    aweme_module.shutdown_aweme_downloads()
+
+  def test_the_post_pool_is_not_the_job_pool(self):
+    aweme_module.shutdown_aweme_downloads()
+
+    self.assertIsNot(
+      aweme_module.get_post_pool(4),
+      aweme_module.get_aweme_executor(3),
+    )
+
+  def test_the_worker_count_comes_from_the_caller(self):
+    aweme_module.shutdown_aweme_downloads()
+
+    self.assertEqual(aweme_module.get_post_pool(5)._max_workers, 5)
+
+  def test_it_is_a_singleton_so_the_count_is_fixed_at_creation(self):
+    """Which is why changing the setting needs a restart."""
+    aweme_module.shutdown_aweme_downloads()
+    pool = aweme_module.get_post_pool(2)
+
+    self.assertIs(aweme_module.get_post_pool(9), pool)
+    self.assertEqual(pool._max_workers, 2)
+
+  def test_an_invalid_worker_count_falls_back_to_serial(self):
+    aweme_module.shutdown_aweme_downloads()
+
+    self.assertEqual(aweme_module.get_post_pool(0)._max_workers, 1)
+
+  def test_shutdown_releases_the_post_pool_too(self):
+    aweme_module.shutdown_aweme_downloads()
+    first = aweme_module.get_post_pool(2)
+    aweme_module.shutdown_aweme_downloads()
+
+    self.assertIsNot(aweme_module.get_post_pool(2), first)
+
+
 if __name__ == "__main__":
   unittest.main()

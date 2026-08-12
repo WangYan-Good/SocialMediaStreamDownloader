@@ -625,6 +625,8 @@ downloader = None
 _downloader_lock = Lock()
 _executor = None
 _executor_lock = Lock()
+_post_pool = None
+_post_pool_lock = Lock()
 
 
 def get_aweme_downloader():
@@ -657,14 +659,48 @@ def get_aweme_executor(max_workers: int = None):
   return _executor
 
 
+def get_post_pool(max_workers: int = None):
+  """Return the pool that runs individual posts inside a batch download.
+
+  Separate from ``get_aweme_executor`` on purpose, and it has to stay separate.
+  A job task occupies one of that pool's workers for as long as its whole
+  download runs; if its posts were submitted back to the same pool and it then
+  waited for them, enough concurrent jobs would hold every worker and nothing
+  could be scheduled to release them.
+
+  A singleton, so the worker count is fixed the first time it is built - which
+  is why changing ``owner.download_concurrency`` needs a restart.  An unusable
+  count falls back to one worker, matching the serial default.
+  """
+  global _post_pool
+  if _post_pool is None:
+    with _post_pool_lock:
+      if _post_pool is None:
+        workers = max_workers
+        if not isinstance(workers, int) or isinstance(workers, bool) \
+           or workers < 1:
+          workers = 1
+        _post_pool = ThreadPoolExecutor(
+          max_workers=workers,
+          thread_name_prefix="aweme-post",
+        )
+  return _post_pool
+
+
 def shutdown_aweme_downloads(wait: bool = False) -> None:
   """Stop accepting new posts.  Files in flight finish or are discarded."""
   global _executor
+  global _post_pool
   with _executor_lock:
     existing = _executor
     _executor = None
+  with _post_pool_lock:
+    existing_post_pool = _post_pool
+    _post_pool = None
   if existing is not None:
     existing.shutdown(wait=wait, cancel_futures=True)
+  if existing_post_pool is not None:
+    existing_post_pool.shutdown(wait=wait, cancel_futures=True)
 
 
 def download_single_aweme(token: dict):
