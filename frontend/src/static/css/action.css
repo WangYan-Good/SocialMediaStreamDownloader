@@ -85,6 +85,7 @@
 #download:target ~ .sidebar .sidebar-content .sidebar-menu .sidebar-menu-item .sidebar-menu-link[href="#download"],
 #history:target ~ .sidebar .sidebar-content .sidebar-menu .sidebar-menu-item .sidebar-menu-link[href="#history"],
 #posts:target ~ .sidebar .sidebar-content .sidebar-menu .sidebar-menu-item .sidebar-menu-link[href="#posts"],
+#person:target ~ .sidebar .sidebar-content .sidebar-menu .sidebar-menu-item .sidebar-menu-link[href="#person"],
 #log:target ~ .sidebar .sidebar-content .sidebar-menu .sidebar-menu-item .sidebar-menu-link[href="#log"],
 #setting:target ~ .sidebar .sidebar-footer .sidebar-menu-link[href="#setting"] {
     color: #007bff;               /* 颜色: #007bff */
@@ -96,6 +97,7 @@
 #download:target ~ .content-main #download-content,
 #history:target ~ .content-main #history-content,
 #posts:target ~ .content-main #posts-content,
+#person:target ~ .content-main #person-content,
 #log:target ~ .content-main #log-content,
 #setting:target ~ .content-main #setting-content {
     display: block; /* 显示: 块 */
