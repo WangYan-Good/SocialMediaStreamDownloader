@@ -216,5 +216,60 @@ class DeletePersonRouteTest(RouteTestCase):
     self.assertEqual(table.deleted, [3])
 
 
+
+class PersonDetailRouteTest(RouteTestCase):
+  class DetailTable(StubTable):
+    def list_person_accounts(self, person_id):
+      self._guard()
+      return [{"owner_user_id": "acc-1", "nickname": "昵称", "role": "main"}]
+
+    def person_summary(self, person_id):
+      self._guard()
+      return {"aweme_count": 12, "live_count": 47}
+
+    def list_subjects_of(self, person_id):
+      self._guard()
+      return [{"person_id": 9, "display_name": "主播甲", "note": None}]
+
+    def list_photographers_of(self, person_id):
+      self._guard()
+      return []
+
+    def list_works_by_photographer(self, person_id, limit=200):
+      self._guard()
+      return [{
+        "aweme_id": "7",
+        "desc": "描述",
+        "save_dir": "/mnt/video/x",
+        "downloaded_at": None,
+        "owner_display_name": "主播甲",
+      }]
+
+  def test_the_detail_carries_accounts_counts_and_both_relation_sides(self):
+    """两个方向都返回：一个人可能既拍别人又被别人拍。"""
+    client, _ = self.build_client(self.DetailTable())
+
+    response = client.get("/api/person/3/detail")
+    data = self.body(response)["data"]
+
+    self.assertEqual(response.status_code, 200)
+    self.assertEqual(data["summary"]["aweme_count"], 12)
+    self.assertEqual(data["accounts"][0]["role"], "main")
+    self.assertEqual(data["subjects"][0]["display_name"], "主播甲")
+    self.assertIn("photographers", data)
+
+  def test_works_by_a_photographer_are_returned(self):
+    client, _ = self.build_client(self.DetailTable())
+
+    response = client.get("/api/person/2/works")
+
+    self.assertEqual(response.status_code, 200)
+    self.assertEqual(self.body(response)["data"]["works"][0]["aweme_id"], "7")
+
+  def test_a_failure_is_reported_rather_than_crashing(self):
+    client, _ = self.build_client(self.DetailTable(failure=RuntimeError("x")))
+
+    self.assertEqual(client.get("/api/person/3/detail").status_code, 502)
+
 if __name__ == "__main__":
   unittest.main()

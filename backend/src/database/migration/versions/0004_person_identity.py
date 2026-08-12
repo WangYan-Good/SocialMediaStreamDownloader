@@ -12,6 +12,12 @@ as a guess: of 1815 accounts there are 1785 distinct nicknames, and only 30
 nicknames are shared by more than one account, so the same person's accounts
 almost never share a name.  Every row here comes from someone marking it.
 
+The collation is ``utf8mb4_0900_ai_ci``, matching every other table here.  It
+is not cosmetic: ``person_account.owner_user_id`` is joined against
+``share_url``, ``aweme_record`` and ``live_record``, and MySQL refuses to compare
+strings of different collations - "Illegal mix of collations ... for operation
+'='" - so a mismatch would fail every one of those queries at runtime.
+
 No foreign key from ``person_account.owner_user_id`` to ``share_url``.  That
 table is upserted by the download paths, and a constraint would make a marked
 account impossible to clean up; no other table here cross-references it either.
@@ -51,7 +57,7 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint("person_id", name="pk_person"),
     mysql_engine="InnoDB",
     mysql_charset="utf8mb4",
-    mysql_collate="utf8mb4_unicode_ci",
+    mysql_collate="utf8mb4_0900_ai_ci",
   )
 
   op.create_table(
@@ -86,7 +92,7 @@ def upgrade() -> None:
     ),
     mysql_engine="InnoDB",
     mysql_charset="utf8mb4",
-    mysql_collate="utf8mb4_unicode_ci",
+    mysql_collate="utf8mb4_0900_ai_ci",
   )
   op.create_index(
     "idx_person_account_person_id",
@@ -123,7 +129,7 @@ def upgrade() -> None:
     ),
     mysql_engine="InnoDB",
     mysql_charset="utf8mb4",
-    mysql_collate="utf8mb4_unicode_ci",
+    mysql_collate="utf8mb4_0900_ai_ci",
   )
   op.create_index(
     "idx_person_collaboration_subject_id",

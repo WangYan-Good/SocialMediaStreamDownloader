@@ -6,6 +6,10 @@ from backend.src.database.table.person_identity import (
 )
 
 
+##
+## 真实连接池用的是 pymysql 的 DictCursor，行是字典而不是元组。假游标最初返回
+## 元组，把这个差异藏了起来：所有查询在单测里通过、在真库上 KeyError。
+##
 class FakeCursor:
   def __init__(self):
     self.calls = []
@@ -114,7 +118,7 @@ class PersonDirectoryLookupTest(unittest.TestCase):
   """B2 的落盘归并依赖这一个查询。"""
 
   def test_an_attached_account_reports_its_persons_directory(self):
-    table, cursor = build_table(rows=[("合并目录",)])
+    table, cursor = build_table(rows=[{"directory_name": "合并目录"}])
 
     found = table.find_person_directory_name("owner-1")
 
@@ -132,12 +136,12 @@ class PersonDirectoryLookupTest(unittest.TestCase):
 
   def test_a_person_without_a_directory_reports_nothing(self):
     """建了人但没填目录，不该把落盘位置变成空字符串。"""
-    table, _ = build_table(rows=[(None,)])
+    table, _ = build_table(rows=[{"directory_name": None}])
 
     self.assertIsNone(table.find_person_directory_name("owner-1"))
 
   def test_a_blank_directory_reports_nothing(self):
-    table, _ = build_table(rows=[("   ",)])
+    table, _ = build_table(rows=[{"directory_name": "   "}])
 
     self.assertIsNone(table.find_person_directory_name("owner-1"))
 
@@ -218,7 +222,8 @@ class PersonCrudTest(unittest.TestCase):
 class PersonListingTest(unittest.TestCase):
   def test_the_listing_counts_attached_accounts(self):
     table, cursor = build_table(
-      rows=[(1, "张三", "张三_合并", None, 3)]
+      rows=[{"person_id": 1, "display_name": "张三",
+            "directory_name": "张三_合并", "note": None, "account_count": 3}]
     )
 
     listed = table.list_persons()
@@ -230,7 +235,9 @@ class PersonListingTest(unittest.TestCase):
 
   def test_a_person_with_no_accounts_still_appears(self):
     """先建人后挂号是自然顺序，中间那一刻不该从列表里消失。"""
-    table, cursor = build_table(rows=[(2, "摄影师李", None, None, 0)])
+    table, cursor = build_table(rows=[{"person_id": 2, "display_name": "摄影师李",
+                              "directory_name": None, "note": None,
+                              "account_count": 0}])
 
     listed = table.list_persons()
 
@@ -243,7 +250,9 @@ class AccountSearchTest(unittest.TestCase):
   """1815 个账号无法用下拉框选，必须能搜。"""
 
   def test_a_keyword_matches_nickname_or_id(self):
-    table, cursor = build_table(rows=[("acc-1", "昵称", "目录", None, None)])
+    table, cursor = build_table(rows=[{"owner_user_id": "acc-1", "nickname": "昵称",
+                              "directory_name": "目录", "person_id": None,
+                              "role": None}])
 
     found = table.search_accounts("昵称")
 
@@ -254,7 +263,9 @@ class AccountSearchTest(unittest.TestCase):
 
   def test_the_search_reports_who_an_account_already_belongs_to(self):
     """挂号时必须看得见它是不是已经挂在别人名下。"""
-    table, cursor = build_table(rows=[("acc-1", "昵称", "目录", 4, "alt")])
+    table, cursor = build_table(rows=[{"owner_user_id": "acc-1", "nickname": "昵称",
+                              "directory_name": "目录", "person_id": 4,
+                              "role": "alt"}])
 
     found = table.search_accounts("昵称")
 
@@ -271,3 +282,81 @@ class AccountSearchTest(unittest.TestCase):
 
 if __name__ == "__main__":
   unittest.main()
+
+
+class PersonAggregationTest(unittest.TestCase):
+  """按人聚合：一个人名下所有账号的作品与录播一起看。"""
+
+  def test_a_persons_accounts_are_listed_with_their_roles(self):
+    table, cursor = build_table(
+      rows=[{"owner_user_id": "acc-1", "nickname": "昵称A", "role": "main"},
+            {"owner_user_id": "acc-2", "nickname": "昵称B", "role": "alt"}]
+    )
+
+    accounts = table.list_person_accounts(3)
+
+    self.assertEqual([a["role"] for a in accounts], ["main", "alt"])
+    sql, params = cursor.calls[0]
+    self.assertIn("person_account", sql)
+    self.assertEqual(params, (3,))
+
+  def test_the_summary_counts_posts_and_recordings_across_accounts(self):
+    table, cursor = build_table(rows=[{"aweme_count": 12, "live_count": 47}])
+
+    summary = table.person_summary(3)
+
+    self.assertEqual(summary["aweme_count"], 12)
+    self.assertEqual(summary["live_count"], 47)
+    sql, _ = cursor.calls[0]
+    self.assertIn("aweme_record", sql)
+    self.assertIn("live_record", sql)
+
+  def test_a_person_with_nothing_downloaded_counts_zero(self):
+    table, _ = build_table(rows=[])
+
+    summary = table.person_summary(3)
+
+    self.assertEqual(summary, {"aweme_count": 0, "live_count": 0})
+
+
+class PhotographerSearchTest(unittest.TestCase):
+  """按摄影师检索：先找他合作过的主播，再取那些人名下账号的作品。"""
+
+  def test_the_subjects_of_a_photographer_are_listed(self):
+    table, cursor = build_table(rows=[{"person_id": 9, "display_name": "主播甲", "note": None},
+            {"person_id": 10, "display_name": "主播乙", "note": "备注"}])
+
+    subjects = table.list_subjects_of(2)
+
+    self.assertEqual([s["display_name"] for s in subjects], ["主播甲", "主播乙"])
+    sql, params = cursor.calls[0]
+    self.assertIn("person_collaboration", sql)
+    self.assertEqual(params, (2,))
+
+  def test_the_photographers_of_a_subject_are_listed(self):
+    """方向相反的一问：这个主播被谁拍过。"""
+    table, cursor = build_table(rows=[{"person_id": 2, "display_name": "摄影师李", "note": None}])
+
+    photographers = table.list_photographers_of(9)
+
+    self.assertEqual(photographers[0]["display_name"], "摄影师李")
+    sql, params = cursor.calls[0]
+    self.assertIn("person_collaboration", sql)
+    self.assertEqual(params, (9,))
+
+  def test_works_shot_by_a_photographer_span_every_subject_account(self):
+    table, cursor = build_table(
+      rows=[{"aweme_id": "7", "desc": "作品描述",
+            "save_dir": "/mnt/video/x", "downloaded_at": None,
+            "display_name": "主播甲"}]
+    )
+
+    works = table.list_works_by_photographer(2)
+
+    self.assertEqual(works[0]["aweme_id"], "7")
+    self.assertEqual(works[0]["owner_display_name"], "主播甲")
+    sql, params = cursor.calls[0]
+    self.assertIn("person_collaboration", sql)
+    self.assertIn("person_account", sql)
+    self.assertIn("aweme_record", sql)
+    self.assertEqual(params[:1], (2,))

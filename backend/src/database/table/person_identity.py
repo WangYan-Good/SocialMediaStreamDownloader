@@ -140,11 +140,11 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
 
     return [
       {
-        "person_id": row[0],
-        "display_name": row[1],
-        "directory_name": row[2],
-        "note": row[3],
-        "account_count": row[4],
+        "person_id": row.get("person_id"),
+        "display_name": row.get("display_name"),
+        "directory_name": row.get("directory_name"),
+        "note": row.get("note"),
+        "account_count": row.get("account_count"),
       }
       for row in rows
     ]
@@ -180,11 +180,11 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
 
     return [
       {
-        "owner_user_id": row[0],
-        "nickname": row[1],
-        "directory_name": row[2],
-        "person_id": row[3],
-        "role": row[4],
+        "owner_user_id": row.get("owner_user_id"),
+        "nickname": row.get("nickname"),
+        "directory_name": row.get("directory_name"),
+        "person_id": row.get("person_id"),
+        "role": row.get("role"),
       }
       for row in rows
     ]
@@ -288,10 +288,161 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
 
     if not row:
       return None
-    found = row[0] if not isinstance(row, dict) else row.get("directory_name")
+    found = row.get("directory_name")
     if not isinstance(found, str) or not found.strip():
       return None
     return found
+
+##
+## >>============================= aggregation =============================>>
+##
+  def list_person_accounts(self, person_id: int) -> list:
+    """Every account this person holds, with its role and current nickname."""
+    sql = '''SELECT pa.owner_user_id, s.nickname, pa.role
+             FROM person_account AS pa
+             LEFT JOIN share_url AS s
+               ON s.owner_user_id = pa.owner_user_id
+             WHERE pa.person_id = %s
+             ORDER BY pa.role, s.nickname;
+          '''
+    try:
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql, (person_id,))
+          rows = cursor.fetchall() or []
+    except Exception as e:
+      get_logger().error("list accounts of {} failed: {}".format(person_id, e))
+      raise e
+
+    return [
+      {
+        "owner_user_id": row.get("owner_user_id"),
+        "nickname": row.get("nickname"),
+        "role": row.get("role"),
+      }
+      for row in rows
+    ]
+
+  def person_summary(self, person_id: int) -> dict:
+    """How many posts and recordings this person has, across every account.
+
+    Counted with subqueries rather than joined together: joining both record
+    tables onto the accounts would multiply their rows against each other and
+    report a product instead of two counts.
+    """
+    sql = '''SELECT
+               (SELECT COUNT(*)
+                FROM aweme_record AS a
+                JOIN person_account AS pa
+                  ON pa.owner_user_id = a.owner_user_id
+                WHERE pa.person_id = %s) AS aweme_count,
+               (SELECT COUNT(*)
+                FROM live_record AS l
+                JOIN person_account AS pa
+                  ON pa.owner_user_id = l.owner_user_id
+                WHERE pa.person_id = %s) AS live_count;
+          '''
+    try:
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql, (person_id, person_id))
+          row = cursor.fetchone()
+    except Exception as e:
+      get_logger().error("summarise person {} failed: {}".format(person_id, e))
+      raise e
+
+    if not row:
+      return {"aweme_count": 0, "live_count": 0}
+    return {
+      "aweme_count": row.get("aweme_count") or 0,
+      "live_count": row.get("live_count") or 0,
+    }
+
+  def list_subjects_of(self, photographer_id: int) -> list:
+    """The people this photographer has worked with."""
+    sql = '''SELECT p.person_id, p.display_name, c.note
+             FROM person_collaboration AS c
+             JOIN person AS p ON p.person_id = c.subject_id
+             WHERE c.photographer_id = %s
+             ORDER BY p.display_name;
+          '''
+    return self._collaboration_side(sql, photographer_id, "subjects")
+
+  def list_photographers_of(self, subject_id: int) -> list:
+    """The photographers who have shot this person.
+
+    The mirror of ``list_subjects_of``: the relation is directed, so asking it
+    from the other end is a different query rather than the same one reversed.
+    """
+    sql = '''SELECT p.person_id, p.display_name, c.note
+             FROM person_collaboration AS c
+             JOIN person AS p ON p.person_id = c.photographer_id
+             WHERE c.subject_id = %s
+             ORDER BY p.display_name;
+          '''
+    return self._collaboration_side(sql, subject_id, "photographers")
+
+  def _collaboration_side(self, sql: str, person_id: int, side: str) -> list:
+    try:
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql, (person_id,))
+          rows = cursor.fetchall() or []
+    except Exception as e:
+      get_logger().error(
+        "list {} of {} failed: {}".format(side, person_id, e)
+      )
+      raise e
+
+    return [
+      {
+        "person_id": row.get("person_id"),
+        "display_name": row.get("display_name"),
+        "note": row.get("note"),
+      }
+      for row in rows
+    ]
+
+  def list_works_by_photographer(self, photographer_id: int, limit: int = 200):
+    """Posts belonging to everyone this photographer has worked with.
+
+    Recorded between people, not against individual posts, so this returns the
+    subjects' whole output rather than the specific shoots.  Marking 1547 posts
+    one by one, and each new one after them, costs more than that precision is
+    worth; a pair is marked once.
+    """
+    sql = '''SELECT a.aweme_id, a.desc, a.save_dir, a.downloaded_at,
+                    p.display_name
+             FROM person_collaboration AS c
+             JOIN person_account AS pa ON pa.person_id = c.subject_id
+             JOIN aweme_record AS a
+               ON a.owner_user_id = pa.owner_user_id
+             JOIN person AS p ON p.person_id = c.subject_id
+             WHERE c.photographer_id = %s
+             ORDER BY a.downloaded_at DESC
+             LIMIT %s;
+          '''
+    try:
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql, (photographer_id, int(limit)))
+          rows = cursor.fetchall() or []
+    except Exception as e:
+      get_logger().error(
+        "list works by photographer {} failed: {}".format(photographer_id, e)
+      )
+      raise e
+
+    return [
+      {
+        "aweme_id": row.get("aweme_id"),
+        "desc": row.get("desc"),
+        "save_dir": row.get("save_dir"),
+        "downloaded_at": row.get("downloaded_at"),
+        "owner_display_name": row.get("display_name"),
+      }
+      for row in rows
+    ]
 
 ##
 ## >>============================= collaboration =============================>>

@@ -113,6 +113,23 @@ class AlembicEnvironmentTest(unittest.TestCase):
     self.assertNotIn("Base.metadata.create_all", source)
     self.assertNotIn("v1", source.lower())
 
+  def test_the_person_migration_matches_the_databases_collation(self):
+    """排序规则必须与被 join 的表一致。
+
+    person_account.owner_user_id 要和 share_url / aweme_record / live_record
+    对比，MySQL 拒绝比较不同排序规则的字符串（Illegal mix of collations），
+    所以写错会让这些查询在运行时全部失败——假游标测不出来，只有真库会报。
+    """
+    config = self.load_factory()(unified_config())
+    source = (
+      Path(config.get_main_option("script_location"))
+      / "versions"
+      / "0004_person_identity.py"
+    ).read_text(encoding="utf-8")
+
+    self.assertEqual(3, source.count('mysql_collate="utf8mb4_0900_ai_ci"'))
+    self.assertNotIn("utf8mb4_unicode_ci", source)
+
   def test_environment_filters_unmanaged_tables(self):
     config = self.load_factory()(unified_config())
     env_source = (

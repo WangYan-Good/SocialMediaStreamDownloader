@@ -57,6 +57,21 @@ class PersonRuntime:
     return self._table
 
 
+def _serialize_work(work: dict) -> dict:
+  """Dates become strings; everything else passes through."""
+  downloaded_at = work.get("downloaded_at")
+  return {
+    "aweme_id": work.get("aweme_id"),
+    "desc": work.get("desc"),
+    "save_dir": work.get("save_dir"),
+    "downloaded_at": (
+      downloaded_at.isoformat() if hasattr(downloaded_at, "isoformat")
+      else downloaded_at
+    ),
+    "owner_display_name": work.get("owner_display_name"),
+  }
+
+
 def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
   runtime = runtime if runtime is not None else PersonRuntime()
   blueprint = Blueprint("person", __name__, url_prefix="/api")
@@ -144,6 +159,37 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
       get_logger().error("delete person {} failed: {}".format(person_id, e))
       return _error("删除人物失败", 502)
     return _ok({"person_id": person_id})
+
+  @blueprint.route("/person/<int:person_id>/detail", methods=["GET"])
+  def person_detail(person_id: int):
+    """Everything about one person: accounts, counts, and both sides of the
+    collaboration relation.
+
+    Both directions are returned because the relation is directed and a person
+    can be on either end - somebody who shoots and also streams appears in both
+    lists, and only showing one would hide half of what is recorded.
+    """
+    try:
+      table = runtime.table()
+      data = {
+        "accounts": table.list_person_accounts(person_id),
+        "summary": table.person_summary(person_id),
+        "subjects": table.list_subjects_of(person_id),
+        "photographers": table.list_photographers_of(person_id),
+      }
+    except Exception as e:
+      get_logger().error("person detail {} failed: {}".format(person_id, e))
+      return _error("读取人物详情失败", 502)
+    return _ok(data)
+
+  @blueprint.route("/person/<int:person_id>/works", methods=["GET"])
+  def works_by_photographer(person_id: int):
+    try:
+      works = runtime.table().list_works_by_photographer(person_id)
+    except Exception as e:
+      get_logger().error("works by {} failed: {}".format(person_id, e))
+      return _error("读取作品失败", 502)
+    return _ok({"works": [_serialize_work(work) for work in works]})
 
   @blueprint.route("/person/accounts", methods=["GET"])
   def search_accounts():
