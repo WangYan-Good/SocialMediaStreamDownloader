@@ -137,3 +137,74 @@ class FitDirectoryNameTest(unittest.TestCase):
 
 if __name__ == "__main__":
   unittest.main()
+
+
+class PersonDirectoryTest(unittest.TestCase):
+  """一个人名下的多个账号，以后的下载落到同一个目录。
+
+  这个目录由人显式命名，不从任何账号推导——取自被标为主号的那个账号会让
+  落盘位置随主号变动而搬家。
+  """
+
+  def test_the_person_folder_wins_over_the_recorded_one(self):
+    self.assertEqual(
+      "某人_合并",
+      choose_owner_directory(
+        "当前昵称",
+        recorded_directory="旧账号目录",
+        person_directory="某人_合并",
+      ),
+    )
+
+  def test_a_blank_person_folder_changes_nothing(self):
+    """建了人但没填目录，不该把落盘位置变成空。"""
+    self.assertEqual(
+      "旧账号目录",
+      choose_owner_directory(
+        "当前昵称",
+        recorded_directory="旧账号目录",
+        person_directory="   ",
+      ),
+    )
+
+  def test_an_unmarked_account_behaves_exactly_as_before(self):
+    """零影响保证：没挂人的账号必须与今天逐字一致。"""
+    self.assertEqual(
+      choose_owner_directory("昵称", recorded_directory="记录目录"),
+      choose_owner_directory(
+        "昵称",
+        recorded_directory="记录目录",
+        person_directory=None,
+      ),
+    )
+
+  def test_the_person_folder_never_takes_the_owner_id_suffix(self):
+    """这是归并成立的前提。
+
+    同名消歧后缀是按账号加的。若它作用在人物目录上，同一个人的两个账号会各自
+    得到 某人_合并_<账号A> 和 某人_合并_<账号B>，正好把要合并的东西又拆开。
+    人物目录是人显式指定的，不需要消歧。
+    """
+    first = choose_owner_directory(
+      "昵称",
+      person_directory="某人_合并",
+      owner_user_id="acc-A",
+      owner_count=3,
+    )
+    second = choose_owner_directory(
+      "昵称",
+      person_directory="某人_合并",
+      owner_user_id="acc-B",
+      owner_count=3,
+    )
+
+    self.assertEqual("某人_合并", first)
+    self.assertEqual(first, second)
+
+  def test_an_over_long_person_folder_is_still_trimmed(self):
+    """字节上限是路径本身的限制，人物目录一样受它约束。"""
+    long_name = "长" * 200
+
+    chosen = choose_owner_directory("昵称", person_directory=long_name)
+
+    self.assertLessEqual(len(chosen.encode("utf-8")), 255)

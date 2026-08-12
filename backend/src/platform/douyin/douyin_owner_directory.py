@@ -49,6 +49,7 @@ def choose_owner_directory(
   recorded_directory: str = None,
   owner_user_id: str = None,
   owner_count: int = 1,
+  person_directory: str = None,
 ) -> str:
   """Return the folder name to use for one owner.
 
@@ -61,7 +62,22 @@ def choose_owner_directory(
   The discriminator is applied to *every* owner in a colliding group, including
   whoever was downloaded first, so the layout on disk does not depend on download
   order.
+
+  ``person_directory`` is the folder a marked person files under, and it wins
+  outright - it is the only one of the three a human named on purpose.  An
+  account nobody marked passes ``None`` here and the result is unchanged.
   """
+  ##
+  ## Taken before the discriminator, and returned without it.  The suffix
+  ## disambiguates *accounts* that would otherwise collide; applied to a person
+  ## folder it would give the same person's two accounts
+  ## ``name_<account A>`` and ``name_<account B>`` - splitting apart exactly what
+  ## marking them was meant to join.  A folder someone named on purpose needs no
+  ## disambiguation.
+  ##
+  if isinstance(person_directory, str) and person_directory.strip():
+    return fit_directory_name(person_directory)
+
   chosen = recorded_directory or nickname_directory or ""
   if not chosen:
     return ""
