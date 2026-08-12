@@ -1,4 +1,5 @@
 ##<<Base>>
+import re
 ##
 ## Owner folder naming, shared by the live and post paths.
 ##
@@ -24,6 +25,33 @@
 ## so the column permits more than a path component can hold.
 ##
 MAX_DIRECTORY_NAME_BYTES = 255
+
+##
+## Which characters may appear in a folder name.  An allow list, matching the one
+## nicknames already pass through on their way to disk: everything outside CJK,
+## letters, digits and ``#`` becomes an underscore.
+##
+## A person's folder is typed by hand, and a typed name reaches the filesystem
+## the same way a nickname does.  Without this it reached it *unchecked*: "a/b"
+## quietly nested a folder, "." collapsed into the parent so every post landed in
+## the shared root, and "../.." wrote outside the media root entirely.
+##
+_ILLEGAL_IN_A_NAME = re.compile(r"[^一-龥a-zA-Z0-9#]")
+
+
+def safe_directory_name(name, suffix: str = "") -> str:
+  """Return ``name`` as a single folder name that is safe to join onto a path.
+
+  Sanitised first, then held within the byte limit, so the result is always one
+  path component and never a traversal.  Returns ``""`` when nothing usable is
+  left - the caller then falls back to whatever it would have used anyway.
+  """
+  if not isinstance(name, str) or not name.strip():
+    return ""
+  cleaned = _ILLEGAL_IN_A_NAME.sub("_", name).strip("_")
+  if not cleaned:
+    return ""
+  return fit_directory_name(cleaned, suffix)
 
 
 def fit_directory_name(name: str, suffix: str = "") -> str:
@@ -75,8 +103,9 @@ def choose_owner_directory(
   ## marking them was meant to join.  A folder someone named on purpose needs no
   ## disambiguation.
   ##
-  if isinstance(person_directory, str) and person_directory.strip():
-    return fit_directory_name(person_directory)
+  chosen_person = safe_directory_name(person_directory)
+  if chosen_person:
+    return chosen_person
 
   chosen = recorded_directory or nickname_directory or ""
   if not chosen:
