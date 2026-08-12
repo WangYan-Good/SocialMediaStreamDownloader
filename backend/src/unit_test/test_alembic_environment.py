@@ -54,9 +54,9 @@ class AlembicEnvironmentTest(unittest.TestCase):
     scripts = ScriptDirectory.from_config(config)
 
     ##
-    ## one linear chain, one head: 0001 -> 0002 -> 0003
+    ## one linear chain, one head: 0001 -> 0002 -> 0003 -> 0004
     ##
-    self.assertEqual("0003_aweme_record", scripts.get_current_head())
+    self.assertEqual("0004_person_identity", scripts.get_current_head())
     baseline = scripts.get_revision("0001_initial_schema")
     self.assertIsNone(baseline.down_revision)
     live_status_cache = scripts.get_revision("0002_share_url_live_status_cache")
@@ -66,6 +66,30 @@ class AlembicEnvironmentTest(unittest.TestCase):
       "0002_share_url_live_status_cache",
       aweme_record.down_revision,
     )
+    person_identity = scripts.get_revision("0004_person_identity")
+    self.assertEqual("0003_aweme_record", person_identity.down_revision)
+
+  def test_the_person_migration_creates_all_three_tables_and_drops_them(self):
+    """纯 DDL，无回填——此前没有任何版本记录过这些关系。"""
+    config = self.load_factory()(unified_config())
+    revision_path = (
+      Path(config.get_main_option("script_location"))
+      / "versions"
+      / "0004_person_identity.py"
+    )
+    source = revision_path.read_text(encoding="utf-8")
+    upgrade = source.split("def upgrade()", 1)[1].split("def downgrade()", 1)[0]
+    downgrade = source.split("def downgrade()", 1)[1]
+
+    self.assertEqual(3, upgrade.count("op.create_table("))
+    for table_name in ("person", "person_account", "person_collaboration"):
+      self.assertIn('"{}",'.format(table_name), upgrade)
+      self.assertIn('op.drop_table("{}")'.format(table_name), downgrade)
+    ##
+    ## 无回填：此前没有任何版本记录过这些关系
+    ##
+    self.assertNotIn("op.drop_table", upgrade)
+    self.assertNotIn("op.execute", upgrade)
 
   def test_baseline_is_an_explicit_immutable_snapshot(self):
     config = self.load_factory()(unified_config())
