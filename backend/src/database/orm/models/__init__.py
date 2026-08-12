@@ -2,6 +2,12 @@ from backend.src.database.orm.base import Base
 from backend.src.database.orm.models.aweme import AwemeRecordModel
 from backend.src.database.orm.models.legacy import FavoriteOwnerModel, ShareUrlModel
 from backend.src.database.orm.models.live import LiveRecordModel
+from backend.src.database.orm.models.person import (
+  ACCOUNT_ROLES,
+  PersonAccountModel,
+  PersonCollaborationModel,
+  PersonModel,
+)
 from backend.src.database.orm.models.room import (
   FansGroupAdminUserIdModel,
   FansGroupAdminUserOpenIdModel,
@@ -21,6 +27,9 @@ MANAGED_TABLE_NAMES = frozenset(
     ShareUrlModel.__tablename__,
     FavoriteOwnerModel.__tablename__,
     LiveRecordModel.__tablename__,
+    PersonModel.__tablename__,
+    PersonAccountModel.__tablename__,
+    PersonCollaborationModel.__tablename__,
     FansGroupAdminUserIdModel.__tablename__,
     FansGroupAdminUserOpenIdModel.__tablename__,
     RoomAdminUserIdModel.__tablename__,
@@ -35,6 +44,7 @@ MANAGED_TABLE_NAMES = frozenset(
 
 
 __all__ = [
+  "ACCOUNT_ROLES",
   "AwemeRecordModel",
   "Base",
   "FavoriteOwnerModel",
@@ -42,6 +52,9 @@ __all__ = [
   "FansGroupAdminUserOpenIdModel",
   "LiveRecordModel",
   "MANAGED_TABLE_NAMES",
+  "PersonAccountModel",
+  "PersonCollaborationModel",
+  "PersonModel",
   "RoomAdminUserIdModel",
   "RoomAdminUserOpenIdModel",
   "RoomBaseModel",

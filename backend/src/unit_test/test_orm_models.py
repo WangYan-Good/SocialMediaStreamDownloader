@@ -265,6 +265,7 @@ class OrmModelTest(unittest.TestCase):
     expected = (
       CORE_TABLES
       | POST_TABLES
+      | PERSON_TABLES
       | PRIMARY_ENTITY_TABLES
       | ROOM_EXTENSION_TABLES
     )
@@ -327,3 +328,62 @@ class OrmModelTest(unittest.TestCase):
 
 if __name__ == "__main__":
   unittest.main()
+
+
+PERSON_TABLES = frozenset({"person", "person_account", "person_collaboration"})
+
+
+class PersonIdentityModelTest(unittest.TestCase):
+  """一个真实的人可能持有主号、小号、矩阵号，摄影师也一样。
+
+  昵称无法用来归并：实测 1815 个账号里有 1785 个不同昵称，只有 30 个昵称被
+  多账号共用，所以关系只能人工标记，模型必须能承载这种标记。
+  """
+
+  def test_person_tables_are_registered(self):
+    models = load_models()
+
+    self.assertTrue(PERSON_TABLES.issubset(models.MANAGED_TABLE_NAMES))
+    self.assertTrue(PERSON_TABLES.issubset(models.Base.metadata.tables))
+
+  def test_a_person_carries_its_own_directory_name(self):
+    """归并目录是既成事实，不从主号推导——换主号不该搬动文件落点。"""
+    models = load_models()
+    table = models.Base.metadata.tables["person"]
+
+    self.assertIn("display_name", table.columns)
+    self.assertIn("directory_name", table.columns)
+    self.assertEqual(["person_id"], [c.name for c in table.primary_key])
+
+  def test_an_account_belongs_to_at_most_one_person(self):
+    """主键是账号本身。
+
+    做成 (人, 账号) 会允许一个账号同时挂在两个人名下，那就无法回答
+    「这个账号是谁的」——而这正是「同一个人的小号」这句话的全部含义。
+    """
+    models = load_models()
+    table = models.Base.metadata.tables["person_account"]
+
+    self.assertEqual(
+      ["platform", "owner_user_id"],
+      [c.name for c in table.primary_key],
+    )
+    self.assertIn("person_id", table.columns)
+    self.assertIn("role", table.columns)
+
+  def test_a_role_is_required(self):
+    """允许留空只会攒出一批将来没人记得该填什么的行。"""
+    models = load_models()
+    table = models.Base.metadata.tables["person_account"]
+
+    self.assertFalse(table.columns["role"].nullable)
+
+  def test_collaboration_is_directed(self):
+    """一个人可能既是摄影师又是主播，无向边分不出谁拍谁。"""
+    models = load_models()
+    table = models.Base.metadata.tables["person_collaboration"]
+
+    self.assertEqual(
+      ["photographer_id", "subject_id"],
+      [c.name for c in table.primary_key],
+    )
