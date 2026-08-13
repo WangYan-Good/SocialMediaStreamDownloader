@@ -36,6 +36,9 @@ class TaskStore:
   Every method that mutates a task raises rather than ignoring an unknown id.  A
   worker updating a task it created should never find it missing, so silence
   there would hide a real defect.
+
+  One item key is one logical unit of work, unique within a task; see ``create``
+  for what that guarantees and why.
   """
 
 ##
@@ -143,9 +146,34 @@ class TaskStore:
     discovers its work as it runs may start with none and grow.  When ``total``
     is not stated it follows the item count, and stays unknown when there are no
     items - a live recording has no final number to divide by.
+
+    **Item key contract.**  A ``TaskItem.key`` identifies one logical unit of
+    work and is unique within a task.  Duplicate keys are deduplicated, keeping
+    first-seen order.  This is a decision, not an accident of the dict used to
+    hold them, and callers may rely on it:
+
+    * one key, one item, whatever a caller's list happens to repeat;
+    * ``len(items)`` is therefore the number of units, which is what makes a
+      derived ``total`` reachable and progress monotonic;
+    * a legacy list that names the same unit twice - a browser sending an
+      untidied selection - describes two passes over one unit, and the task
+      counts units, not passes.
+
+    Callers whose ids are not unit identities must key on something that is.
     """
     validate_task_type(task_type)
-    keys = [str(key) for key in (items or ())]
+    ##
+    ## Deduplicated while keeping submission order.  A caller may hand the same
+    ## id twice - a browser sending a selection it did not tidy up - and one item
+    ## per unit of work is the invariant everything else rests on: a total taken
+    ## from a list with repeats would exceed the number of items that can ever
+    ## finish, stranding the progress bar one short forever.
+    ##
+    keys = []
+    for key in items or ():
+      text = str(key)
+      if text not in keys:
+        keys.append(text)
     resolved_total = len(keys) if total is UNSET else total
     if not keys and total is UNSET:
       resolved_total = None
@@ -278,6 +306,30 @@ class TaskStore:
         progress["current"] if current is UNSET else current,
         progress["total"] if total is UNSET else total,
       )
+      return self._snapshot(task)
+
+  def add_item(self, task_id: str, key, message=None, metadata=None) -> dict:
+    """Register one unit of work, doing nothing when it is already known.
+
+    A task that discovers its work while running - the owner walk pages through
+    posts - meets the same id twice when a page overlaps or is retried.  Doing
+    that through ``update_item`` would reset a post already downloaded back to
+    pending, so registering has its own door and is deliberately a no-op on a
+    key that exists, whatever state that key has reached.
+
+    Registering does not touch progress: a pending item is not finished work, and
+    the total belongs to whoever knows how much work there is.
+    """
+    key = str(key)
+    with self._guard:
+      task = self._locked_task(task_id)
+      if key not in task["items"]:
+        task["items"][key] = {
+          "key": key,
+          "state": ITEM_STATE_PENDING,
+          "message": message,
+          "metadata": deepcopy(dict(metadata or {})),
+        }
       return self._snapshot(task)
 
   def update_item(

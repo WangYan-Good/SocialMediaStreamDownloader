@@ -119,6 +119,23 @@ class TaskCreationTest(unittest.TestCase):
 
     self.assertEqual(store.get(task_id)["progress"], {"current": 0, "total": 3})
 
+  def test_a_key_listed_twice_is_one_item(self):
+    store = build_store()
+
+    task_id = store.create(TASK_TYPE_OWNER_BATCH_DOWNLOAD, items=["1", "2", "1"])
+
+    self.assertEqual(
+      [item["key"] for item in store.get(task_id)["items"]], ["1", "2"]
+    )
+
+  def test_a_derived_total_counts_the_items_that_exist(self):
+    """A total no item list can ever reach would strand the bar at 2 / 3."""
+    store = build_store()
+
+    task_id = store.create(TASK_TYPE_OWNER_BATCH_DOWNLOAD, items=["1", "2", "1"])
+
+    self.assertEqual(store.get(task_id)["progress"], {"current": 0, "total": 2})
+
   def test_an_explicit_total_wins_over_the_item_count(self):
     """"Download everything" knows the count before it has the items."""
     store = build_store()
@@ -478,6 +495,115 @@ class TaskItemTest(unittest.TestCase):
       thread.join()
 
     self.assertEqual(store.get(task_id)["progress"], {"current": 200, "total": 200})
+
+
+class TaskItemRegistrationTest(unittest.TestCase):
+  """Registering work discovered while the task runs, without losing any."""
+
+  def test_a_new_key_is_registered_pending(self):
+    store = build_store()
+    task_id = store.create(TASK_TYPE_OWNER_BATCH_DOWNLOAD)
+
+    task = store.add_item(task_id, "a")
+
+    self.assertEqual([item["key"] for item in task["items"]], ["a"])
+    self.assertEqual(task["items"][0]["state"], ITEM_STATE_PENDING)
+
+  def test_discovery_order_is_preserved(self):
+    """Pages arrive in order and the list the user watches must match."""
+    store = build_store()
+    task_id = store.create(TASK_TYPE_OWNER_BATCH_DOWNLOAD)
+
+    for key in ("c", "a", "b"):
+      store.add_item(task_id, key)
+
+    self.assertEqual(
+      [item["key"] for item in store.get(task_id)["items"]], ["c", "a", "b"]
+    )
+
+  def test_registering_a_known_key_changes_nothing(self):
+    """A post seen twice while paging must not be reset to pending."""
+    store = build_store()
+    task_id = store.create(TASK_TYPE_OWNER_BATCH_DOWNLOAD)
+    store.add_item(task_id, "a")
+    store.update_item(task_id, "a", state=ITEM_STATE_SUCCESS, message="已保存 3 个")
+
+    task = store.add_item(task_id, "a")
+
+    self.assertEqual(len(task["items"]), 1)
+    self.assertEqual(task["items"][0]["state"], ITEM_STATE_SUCCESS)
+    self.assertEqual(task["items"][0]["message"], "已保存 3 个")
+
+  def test_registering_a_known_key_does_not_disturb_progress(self):
+    store = build_store()
+    task_id = store.create(TASK_TYPE_OWNER_BATCH_DOWNLOAD)
+    store.add_item(task_id, "a")
+    store.update_item(task_id, "a", state=ITEM_STATE_SUCCESS, advance_progress=True)
+
+    task = store.add_item(task_id, "a")
+
+    self.assertEqual(task["progress"]["current"], 1)
+
+  def test_registering_a_new_key_does_not_count_as_progress(self):
+    store = build_store()
+    task_id = store.create(TASK_TYPE_OWNER_BATCH_DOWNLOAD)
+
+    task = store.add_item(task_id, "a")
+
+    self.assertEqual(task["progress"], {"current": 0, "total": None})
+
+  def test_registering_does_not_invent_a_total(self):
+    """A walk still in progress has no total; only its end knows one."""
+    store = build_store()
+    task_id = store.create(TASK_TYPE_OWNER_BATCH_DOWNLOAD, total=None)
+
+    store.add_item(task_id, "a")
+    store.add_item(task_id, "b")
+
+    self.assertIsNone(store.get(task_id)["progress"]["total"])
+
+  def test_a_key_is_normalised_to_text(self):
+    store = build_store()
+    task_id = store.create(TASK_TYPE_OWNER_BATCH_DOWNLOAD)
+
+    store.add_item(task_id, 7657271784144009946)
+    store.add_item(task_id, "7657271784144009946")
+
+    self.assertEqual(len(store.get(task_id)["items"]), 1)
+
+  def test_a_first_registration_may_carry_its_own_details(self):
+    store = build_store()
+    task_id = store.create(TASK_TYPE_OWNER_BATCH_DOWNLOAD)
+
+    store.add_item(task_id, "a", message="第 2 页", metadata={"page": 2})
+    item = store.get(task_id)["items"][0]
+
+    self.assertEqual(item["message"], "第 2 页")
+    self.assertEqual(item["metadata"], {"page": 2})
+
+  def test_registering_on_an_unknown_task_is_an_error(self):
+    with self.assertRaises(TaskNotFound):
+      build_store().add_item("nope", "a")
+
+  def test_parallel_discovery_registers_each_key_once(self):
+    store = build_store()
+    task_id = store.create(TASK_TYPE_OWNER_BATCH_DOWNLOAD)
+    import threading
+
+    ready = threading.Barrier(8)
+
+    def run(index):
+      ready.wait()
+      for key in ("key-{}".format(step) for step in range(50)):
+        store.add_item(task_id, key)
+
+    threads = [threading.Thread(target=run, args=(index,)) for index in range(8)]
+    for thread in threads:
+      thread.start()
+    for thread in threads:
+      thread.join()
+
+    self.assertEqual(len(store.get(task_id)["items"]), 50)
 
 
 class SnapshotIsolationTest(unittest.TestCase):

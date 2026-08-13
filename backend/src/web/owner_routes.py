@@ -124,10 +124,17 @@ class OwnerRuntime:
   """
 
   def __init__(self, config_loader=load_config, api_factory=None,
-               downloader_factory=None) -> None:
+               downloader_factory=None, task_service=None) -> None:
     self._config_loader = config_loader
     self._api_factory = api_factory
     self._downloader_factory = downloader_factory
+    ##
+    ## Handed in by whoever built this runtime, never fetched from Flask.  The
+    ## download service must stay testable without an application context, so
+    ## the dependency travels down - Flask, to the factory, to the service -
+    ## rather than being reached up for.
+    ##
+    self.task_service = task_service
     self._lock = threading.Lock()
     self._config = None
     self._api = None
@@ -176,6 +183,11 @@ class OwnerRuntime:
           cache=PayloadCache(
             retention_seconds=config.payload_retention_seconds
           ),
+          ##
+          ## The process-wide task service, so a batch download started here is
+          ## visible from /api/tasks in the same process.
+          ##
+          task_service=self.task_service,
           executor=get_aweme_executor(config.concurrency),
           ##
           ## Two different limits: ``concurrency`` bounds how many download jobs
@@ -255,8 +267,20 @@ class OwnerRuntime:
       return {}
 
 
-def build_owner_blueprint(runtime: OwnerRuntime = None) -> Blueprint:
-  runtime = runtime if runtime is not None else OwnerRuntime()
+def _started(service, job_id: str) -> dict:
+  """What a started batch download answers with.
+
+  ``job_id`` is the field the current page reads and keeps its meaning exactly.
+  ``task_id`` is added beside it for the unified task centre; it is ``null``
+  when nothing is mirroring, so the shape never changes.
+  """
+  return {"job_id": job_id, "task_id": service.task_id_for(job_id)}
+
+
+def build_owner_blueprint(runtime: OwnerRuntime = None, task_service=None) -> Blueprint:
+  runtime = (
+    runtime if runtime is not None else OwnerRuntime(task_service=task_service)
+  )
   blueprint = Blueprint("owner", __name__, url_prefix="/api")
 
   def _page_response(sec_user_id, cursor):
@@ -362,7 +386,7 @@ def build_owner_blueprint(runtime: OwnerRuntime = None) -> Blueprint:
         job_id = service.start_all(sec_user_id, share_url=share_url)
       except ValueError as e:
         return _error(str(e), 400)
-      return _success({"job_id": job_id})
+      return _success(_started(service, job_id))
 
     aweme_ids = payload.get("aweme_ids")
     if not isinstance(aweme_ids, list) or not aweme_ids:
@@ -377,7 +401,7 @@ def build_owner_blueprint(runtime: OwnerRuntime = None) -> Blueprint:
       return _error("作品数据已过期，请重新读取该页后再下载", 404)
     except ValueError as e:
       return _error(str(e), 400)
-    return _success({"job_id": job_id})
+    return _success(_started(service, job_id))
 
   @blueprint.route("/owner/download/<job_id>", methods=["GET"])
   def read_owner_download(job_id):

@@ -9,6 +9,7 @@ from backend.src.task.errors import (
 )
 from backend.src.task.model import (
   ITEM_STATE_FAILED,
+  ITEM_STATE_PENDING,
   ITEM_STATE_RUNNING,
   ITEM_STATE_SKIPPED,
   ITEM_STATE_SUCCESS,
@@ -321,6 +322,43 @@ class TaskMessageTest(unittest.TestCase):
   def test_narrating_an_unknown_task_is_refused(self):
     with self.assertRaises(TaskNotFound):
       build_service().update_message("nope", "正在解析主播")
+
+
+class TaskItemRegistrationTest(unittest.TestCase):
+  """A task that discovers its work registers it as it goes."""
+
+  def test_discovered_work_is_registered_pending(self):
+    service = build_service()
+    task = service.create_task(TASK_TYPE_OWNER_BATCH_DOWNLOAD)
+
+    updated = service.add_item(task["task_id"], "7657271784144009946")
+
+    self.assertEqual(updated["items"][0]["key"], "7657271784144009946")
+    self.assertEqual(updated["items"][0]["state"], ITEM_STATE_PENDING)
+
+  def test_seeing_the_same_work_twice_registers_it_once(self):
+    service = build_service()
+    task = service.create_task(TASK_TYPE_OWNER_BATCH_DOWNLOAD)
+
+    service.add_item(task["task_id"], "a")
+    updated = service.add_item(task["task_id"], "a")
+
+    self.assertEqual(len(updated["items"]), 1)
+
+  def test_re_registering_never_undoes_finished_work(self):
+    service = build_service()
+    task = service.create_task(TASK_TYPE_OWNER_BATCH_DOWNLOAD)
+    service.add_item(task["task_id"], "a")
+    service.update_item(task["task_id"], "a", state=ITEM_STATE_SUCCESS)
+
+    updated = service.add_item(task["task_id"], "a")
+
+    self.assertEqual(updated["items"][0]["state"], ITEM_STATE_SUCCESS)
+    self.assertEqual(updated["progress"]["current"], 1)
+
+  def test_registering_on_an_unknown_task_is_refused(self):
+    with self.assertRaises(TaskNotFound):
+      build_service().add_item("nope", "a")
 
 
 class TaskReadTest(unittest.TestCase):

@@ -75,6 +75,13 @@ class StubService:
     self.all_calls.append((sec_user_id, share_url))
     return self.store.create([])
 
+  def task_id_for(self, job_id):
+    ##
+    ## This stub mirrors nothing, which is a supported wiring: the route answers
+    ## with a null task id rather than failing.
+    ##
+    return None
+
 
 class StubRuntime(OwnerRuntime):
   """Replaces every outbound call so the routes are tested on their own."""

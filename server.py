@@ -198,6 +198,17 @@ def _new_flask_app(
       return render_template('index.html')
 
   ##
+  ## the unified background task record.  Installed on the app rather than kept
+  ## as a module global so every request of this process reads the one store,
+  ## and two apps in one interpreter - the lazy wsgi app and a test's app - do
+  ## not report each other's tasks.
+  ##
+  ## Installed before the blueprints that report into it, so the dependency
+  ## travels down into the services rather than being reached up for.
+  ##
+  task_service = install_task_service(configured_app)
+
+  ##
   ## download history browsing and live status probing
   ##
   configured_app.register_blueprint(build_history_blueprint())
@@ -205,7 +216,7 @@ def _new_flask_app(
   ##
   ## owner profile browsing and post batch download
   ##
-  configured_app.register_blueprint(build_owner_blueprint())
+  configured_app.register_blueprint(build_owner_blueprint(task_service=task_service))
 
   ##
   ## marking which accounts belong to the same person, and who works with whom
@@ -213,12 +224,8 @@ def _new_flask_app(
   configured_app.register_blueprint(build_person_blueprint())
 
   ##
-  ## the unified background task record.  Installed on the app rather than kept
-  ## as a module global so every request of this process reads the one store,
-  ## and two apps in one interpreter - the lazy wsgi app and a test's app - do
-  ## not report each other's tasks.
+  ## the read side of the task centre
   ##
-  install_task_service(configured_app)
   configured_app.register_blueprint(build_task_blueprint())
 
   return configured_app
