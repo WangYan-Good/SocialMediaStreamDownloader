@@ -73,6 +73,15 @@ class TaskService:
     """Report how far along a task is, leaving anything unstated alone."""
     return self._store.update_progress(task_id, current=current, total=total)
 
+  def add_item(self, task_id: str, key, message=None, metadata=None) -> dict:
+    """Register work discovered while the task runs, once per key.
+
+    Safe to call on a key already registered - it changes nothing, whatever
+    state that key has reached - so a caller walking pages does not have to
+    remember what it has already seen.
+    """
+    return self._store.add_item(task_id, key, message=message, metadata=metadata)
+
   def update_item(
     self,
     task_id: str,

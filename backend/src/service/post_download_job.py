@@ -26,6 +26,12 @@ from backend.src.service.job_store import (
   STATE_SKIPPED,
   JobStore,
 )
+from backend.src.service.owner_task_mirror import PLATFORM_DOUYIN, OwnerTaskMirror
+from backend.src.task.model import (
+  ITEM_STATE_FAILED,
+  ITEM_STATE_SKIPPED,
+  ITEM_STATE_SUCCESS,
+)
 
 
 class PayloadCache:
@@ -106,6 +112,18 @@ class MissingPayloads(KeyError):
     )
 
 
+def _owner_title(payload=None) -> str:
+  """Name the task after the owner when the payload already says who that is.
+
+  Never worth a platform request: the title is decoration on a task the user
+  just started, and the walk has no payload at all until its first page lands.
+  """
+  nickname = get_dict_attr(payload or {}, "$.author.nickname")
+  if isinstance(nickname, str) and nickname.strip():
+    return "下载{}的作品".format(nickname.strip())
+  return "下载主播作品"
+
+
 class PostDownloadJobService:
   """Runs post downloads in the background and reports progress.
 
@@ -122,6 +140,7 @@ class PostDownloadJobService:
     cache: PayloadCache = None,
     executor=None,
     media_switches=None,
+    task_service=None,
     post_pool=None,
     post_concurrency: int = 1,
   ) -> None:
@@ -129,6 +148,18 @@ class PostDownloadJobService:
     self.api = api
     self.store = store if store is not None else JobStore()
     self.cache = cache if cache is not None else PayloadCache()
+    ##
+    ## Owner batch download is temporarily dual-written: ``store`` is the legacy
+    ## compatibility surface the current page polls, and the mirror reports the
+    ## same work onto the unified TaskService the next frontend will read.
+    ##
+    ## The task service is injected rather than constructed here.  One process
+    ## must have exactly one task store, and a service that built its own would
+    ## report into a store no request could ever read.  Passing ``None`` is a
+    ## supported wiring that simply reports nothing.
+    ##
+    self.task_service = task_service
+    self._tasks = OwnerTaskMirror(task_service)
     self._executor = executor
     self._media_switches = media_switches
     ##
@@ -139,6 +170,14 @@ class PostDownloadJobService:
     ##
     self._post_pool = post_pool
     self._post_concurrency = post_concurrency
+
+  def task_id_for(self, job_id: str):
+    """The unified task mirroring ``job_id``, or ``None`` when there is not one.
+
+    The association is held by the mirror; neither id is ever derived from the
+    other.
+    """
+    return self._tasks.task_id(job_id)
 
   def _switches(self):
     if self._media_switches is not None:
@@ -239,10 +278,34 @@ class PostDownloadJobService:
       raise MissingPayloads(missing)
 
     job_id = self.store.create(ids)
+    ##
+    ## The task counts posts, not clicks.  A selection carrying the same id twice
+    ## is one post to download, so the task lists it once and its total says two
+    ## rather than a three nothing could ever reach.  The legacy job keeps the
+    ## list exactly as it was given; changing how it counts is not this
+    ## migration's business.
+    ##
+    unique_ids = list(dict.fromkeys(ids))
+    self._tasks.open(
+      job_id,
+      title=_owner_title(payloads[0] if payloads else None),
+      metadata={
+        "platform": PLATFORM_DOUYIN,
+        "legacy_job_id": job_id,
+        "mode": "selected",
+        "requested_count": len(unique_ids),
+      },
+      ##
+      ## No explicit total: the store derives it from the items, which keeps the
+      ## two numbers from ever disagreeing.
+      ##
+      items=unique_ids,
+    )
     self._submit(self._run_selected, job_id, payloads, share_url)
     return job_id
 
   def _run_selected(self, job_id: str, payloads, share_url: str) -> None:
+    self._tasks.start(job_id, message="正在下载所选作品")
     try:
       if payloads:
         self._write_owner_card(payloads[0])
@@ -250,8 +313,10 @@ class PostDownloadJobService:
     except BaseException as e:
       get_logger().error("post download job {} failed: {}".format(job_id, e))
       self.store.finish(job_id, state=JOB_ERROR, message=str(e))
+      self._tasks.finish(job_id, message=str(e), stopped_early=True)
       return
     self.store.finish(job_id, state=JOB_DONE)
+    self._tasks.finish(job_id)
 
 ##
 ## >>============================= every post =============================>>
@@ -267,6 +332,23 @@ class PostDownloadJobService:
     ## knowable until the walk ends.
     ##
     job_id = self.store.create([])
+    self._tasks.open(
+      job_id,
+      title=_owner_title(),
+      metadata={
+        "platform": PLATFORM_DOUYIN,
+        "legacy_job_id": job_id,
+        "mode": "all",
+        "sec_user_id": sec_user_id.strip(),
+      },
+      ##
+      ## Explicitly unknown rather than the profile's ``aweme_count``: that is a
+      ## platform statistic which disagrees with what the pages actually hand
+      ## over often enough that trusting it would buy a tidy percentage with a
+      ## wrong one.  The real total is settled when the walk ends.
+      ##
+      total=None,
+    )
     self._submit(self._run_all, job_id, sec_user_id.strip(), share_url)
     return job_id
 
@@ -276,6 +358,7 @@ class PostDownloadJobService:
     ## error report, which runs out here, see the same count.
     ##
     progress = {"walked": 0, "wrote_card": False}
+    self._tasks.start(job_id, message="正在读取主播作品")
 
     def walk():
       """Yield each post, doing the once-per-owner work as it goes.
@@ -298,12 +381,24 @@ class PostDownloadJobService:
           progress["wrote_card"] = True
         self.cache.remember([payload])
         progress["walked"] += 1
+        ##
+        ## Registered before it is yielded, so the post is on the task list
+        ## before any worker can report running against it.  Registering is
+        ## idempotent, which is what makes an overlapping page harmless.
+        ##
+        aweme_id = get_dict_attr(payload, "$.aweme_id")
+        if aweme_id:
+          self._tasks.add_item(job_id, aweme_id)
+        self._tasks.narrate(
+          job_id, "已读取 {} 个作品".format(progress["walked"])
+        )
         yield payload
 
     try:
       self._download_each(job_id, walk(), share_url)
     except BaseException as e:
       walked = progress["walked"]
+      stop_message = "停在第 {} 个作品：{}".format(walked + 1, e)
       ##
       ## Pages already walked stay downloaded.  A mid-walk refusal - an expired
       ## session, most likely - is reported with how far it got rather than
@@ -316,13 +411,16 @@ class PostDownloadJobService:
           e,
         )
       )
-      self.store.finish(
-        job_id,
-        state=JOB_ERROR,
-        message="停在第 {} 个作品：{}".format(walked + 1, e),
-      )
+      self.store.finish(job_id, state=JOB_ERROR, message=stop_message)
+      self._tasks.finish(job_id, message=stop_message, stopped_early=True)
       return
+    ##
+    ## Only now is the size of this owner's feed known, so this is where the
+    ## total stops being null.
+    ##
+    self._tasks.settle_total(job_id)
     self.store.finish(job_id, state=JOB_DONE)
+    self._tasks.finish(job_id)
 
 ##
 ## >>============================= one post =============================>>
@@ -330,6 +428,7 @@ class PostDownloadJobService:
   def _download_one(self, job_id: str, payload, share_url: str) -> None:
     aweme_id = get_dict_attr(payload, "$.aweme_id") or "?"
     self.store.update_item(job_id, aweme_id, state=STATE_RUNNING)
+    self._tasks.item_running(job_id, aweme_id)
     try:
       detail = build_aweme_detail(
         payload,
@@ -346,6 +445,9 @@ class PostDownloadJobService:
         aweme_id,
         state=STATE_SKIPPED,
         message=str(e),
+      )
+      self._tasks.item_finished(
+        job_id, aweme_id, ITEM_STATE_SKIPPED, message=str(e)
       )
       return
 
@@ -367,6 +469,13 @@ class PostDownloadJobService:
         state=STATE_ERROR,
         message=str(e),
       )
+      ##
+      ## The reason only, never the traceback: this reaches a browser.  The full
+      ## trace is already in the log line above.
+      ##
+      self._tasks.item_finished(
+        job_id, aweme_id, ITEM_STATE_FAILED, message=str(e)
+      )
       return
 
     self.store.update_item(
@@ -377,4 +486,20 @@ class PostDownloadJobService:
       planned=result.media_count,
       save_dir=result.save_dir,
       message=result.reason,
+    )
+    self._tasks.item_finished(
+      job_id,
+      aweme_id,
+      ITEM_STATE_SKIPPED if result.skipped else ITEM_STATE_SUCCESS,
+      message=result.reason,
+      ##
+      ## A summary of what landed on disk, not the post payload: the payload
+      ## stays in PayloadCache, and a task carries state rather than transporting
+      ## platform data to the browser.
+      ##
+      metadata={
+        "saved_count": result.saved_count,
+        "media_count": result.media_count,
+        "save_dir": result.save_dir,
+      },
     )
