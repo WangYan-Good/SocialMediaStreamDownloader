@@ -26,6 +26,7 @@ from backend.src.platform.platform_dispatcher import PlatformDispatcher
 from backend.src.web.history_routes import build_history_blueprint
 from backend.src.web.owner_routes import build_owner_blueprint
 from backend.src.web.person_routes import build_person_blueprint
+from backend.src.web.task_routes import build_task_blueprint, install_task_service
 
 def _server_options(config: dict) -> dict:
   server = config.get("server")
@@ -210,6 +211,15 @@ def _new_flask_app(
   ## marking which accounts belong to the same person, and who works with whom
   ##
   configured_app.register_blueprint(build_person_blueprint())
+
+  ##
+  ## the unified background task record.  Installed on the app rather than kept
+  ## as a module global so every request of this process reads the one store,
+  ## and two apps in one interpreter - the lazy wsgi app and a test's app - do
+  ## not report each other's tasks.
+  ##
+  install_task_service(configured_app)
+  configured_app.register_blueprint(build_task_blueprint())
 
   return configured_app
 
