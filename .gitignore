@@ -14,6 +14,13 @@ venv/
 .venv/
 logs/
 config/build/
+
+# Runtime download output. docs/design/config.yml.example ships
+# download.save_path = ./downloads, so a default-configured run writes media
+# here. Anchored to the repository root on purpose: a nested "downloads"
+# directory elsewhere may well be source worth tracking.
+/downloads/
+
 .vscode/
 .obsidian/
 nohup.out
