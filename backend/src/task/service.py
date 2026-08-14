@@ -69,6 +69,20 @@ class TaskService:
     """
     return self._store.update_message(task_id, message)
 
+  def update_metadata(self, task_id: str, fields: dict) -> dict:
+    """Record facts the task only learned while running, merged at the top level.
+
+    For a task that is itself one unit of work - a single post download - the
+    outcome is not known until the work is done: the folder it landed in, how
+    many files were saved, why it could not finish.  That record belongs to the
+    task rather than to an item of it, so it cannot travel through
+    ``update_item``, and ``create_task`` runs long before any of it is known.
+
+    Refused once the task has finished, so the intended order is: write the
+    result, set the progress, then end the task.
+    """
+    return self._store.update_metadata(task_id, fields)
+
   def update_progress(self, task_id: str, current=UNSET, total=UNSET) -> dict:
     """Report how far along a task is, leaving anything unstated alone."""
     return self._store.update_progress(task_id, current=current, total=total)

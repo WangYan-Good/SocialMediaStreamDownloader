@@ -242,5 +242,149 @@ class BatchIsolationTest(RoutingTestCase):
         self.assertEqual(len(self.aweme_batches), 0 if expect_live else 1)
 
 
+class FakeDirectPostService:
+  """Stands in for the task-aware post runner handed down by a dispatch."""
+
+  def __init__(self):
+    self.submitted = []
+
+  def submit(self, token):
+    self.submitted.append(token)
+    return None
+
+
+class DispatchContextTest(RoutingTestCase):
+  """A dispatch may carry dependencies; the handler routes work through them.
+
+  The context is execution machinery, not user data.  It travels beside the
+  token rather than inside it, so nothing that reaches a log, a database or an
+  API can ever contain a service object.
+  """
+
+  def test_a_post_goes_to_the_runner_the_dispatch_supplied(self):
+    self.resolve_to("https://www.douyin.com/video/" + AWEME_ID)
+    runner = FakeDirectPostService()
+
+    handler_module.douyin_handler(
+      {"url": "https://v.douyin.com/abc/"},
+      context={"direct_post_service": runner},
+    )
+
+    self.assertEqual(1, len(runner.submitted))
+    ##
+    ## The legacy batch call is bypassed rather than run as well: submitting to
+    ## both would download the post twice.
+    ##
+    self.assertEqual([], self.aweme_batches)
+
+  def test_the_runner_is_given_what_the_handler_resolved(self):
+    self.resolve_to("https://www.douyin.com/video/" + AWEME_ID)
+    runner = FakeDirectPostService()
+
+    handler_module.douyin_handler(
+      {"url": "https://v.douyin.com/abc/", "score": 80},
+      context={"direct_post_service": runner},
+    )
+
+    forwarded = runner.submitted[0]
+    self.assertEqual("https://v.douyin.com/abc/", forwarded["url"])
+    self.assertEqual("https://www.douyin.com/video/" + AWEME_ID, forwarded["resolved_url"])
+    self.assertEqual(AWEME_ID, forwarded["aweme_id"])
+    self.assertEqual(80, forwarded["score"])
+
+  def test_the_context_never_leaks_into_the_token(self):
+    self.resolve_to("https://www.douyin.com/video/" + AWEME_ID)
+    runner = FakeDirectPostService()
+
+    handler_module.douyin_handler(
+      {"url": "https://v.douyin.com/abc/"},
+      context={"direct_post_service": runner},
+    )
+
+    forwarded = runner.submitted[0]
+    self.assertNotIn("direct_post_service", forwarded)
+    self.assertNotIn("context", forwarded)
+    self.assertNotIn("task_service", forwarded)
+
+  def test_a_live_room_is_untouched_by_the_context(self):
+    self.resolve_to("https://live.douyin.com/123456")
+    runner = FakeDirectPostService()
+
+    handler_module.douyin_handler(
+      {"url": "https://v.douyin.com/abc/"},
+      context={"direct_post_service": runner},
+    )
+
+    ##
+    ## Live recording is not this stage's to migrate: it goes where it always
+    ## went, and no post task is invented for it.
+    ##
+    self.assertEqual(1, len(self.live_batches))
+    self.assertEqual([], runner.submitted)
+
+  def test_an_unrecognised_url_creates_no_post_work(self):
+    self.resolve_to("https://www.douyin.com/user/MS4wLjABAAAA")
+    runner = FakeDirectPostService()
+
+    handler_module.douyin_handler(
+      {"url": "https://v.douyin.com/abc/"},
+      context={"direct_post_service": runner},
+    )
+
+    ##
+    ## It was never confirmed to be a post, so it must not become a failed post
+    ## task.  Saying so is the resolve stage's job, later.
+    ##
+    self.assertEqual([], runner.submitted)
+    self.assertEqual([], self.aweme_batches)
+    self.assertEqual(1, len(self.warnings))
+
+  def test_each_post_is_submitted_on_its_own(self):
+    self.resolve_to("https://www.douyin.com/video/" + AWEME_ID)
+    runner = FakeDirectPostService()
+
+    for unused in range(3):
+      handler_module.douyin_handler(
+        {"url": "https://v.douyin.com/abc/"},
+        context={"direct_post_service": runner},
+      )
+
+    self.assertEqual(3, len(runner.submitted))
+
+  def test_a_dispatch_without_a_runner_uses_the_legacy_path(self):
+    self.resolve_to("https://www.douyin.com/video/" + AWEME_ID)
+
+    handler_module.douyin_handler(
+      {"url": "https://v.douyin.com/abc/"}, context={}
+    )
+
+    self.assertEqual(1, len(self.aweme_batches))
+
+  def test_no_context_at_all_uses_the_legacy_path(self):
+    self.resolve_to("https://www.douyin.com/video/" + AWEME_ID)
+
+    handler_module.douyin_handler({"url": "https://v.douyin.com/abc/"})
+
+    self.assertEqual(1, len(self.aweme_batches))
+
+  def test_a_runner_that_throws_does_not_escape_the_handler(self):
+    class ExplodingRunner:
+      def submit(self, token):
+        raise RuntimeError("scheduling exploded")
+
+    self.resolve_to("https://www.douyin.com/video/" + AWEME_ID)
+
+    handler_module.douyin_handler(
+      {"url": "https://v.douyin.com/abc/"},
+      context={"direct_post_service": ExplodingRunner()},
+    )
+
+    ##
+    ## Handled the same way the legacy batch call already is: reported, not
+    ## propagated into the dispatcher's worker thread.
+    ##
+    self.assertEqual(1, len(self.errors))
+
+
 if __name__ == "__main__":
   unittest.main()

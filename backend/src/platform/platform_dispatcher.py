@@ -90,7 +90,18 @@ class PlatformDispatcher:
   ##
   ## dispatch event
   ##
-  def dispatch(self, jsonData=None):
+  def dispatch(self, jsonData=None, context=None):
+    ##
+    ## ``context`` carries the dependencies of this one dispatch - the task-aware
+    ## post runner of the application that received the request.  It is passed
+    ## along to each handler and deliberately never stored on ``self``: this class
+    ## is a process-wide singleton, while a task service belongs to a single
+    ## Flask application, so anything kept here would be handed to whoever
+    ## dispatched next and two applications would report each other's downloads.
+    ##
+    ## It is also kept out of ``token`` below.  The token is user data on its way
+    ## to logs, downloaders and the database; a service object inside it would
+    ## travel everywhere it goes.
     ##
     ## extended data related to the event
     ##
@@ -162,7 +173,7 @@ class PlatformDispatcher:
         ##
         ## submit handler
         ##
-        for token in token_list:  
-          self.executors[event].submit(self.handlers[event], token)
+        for token in token_list:
+          self.executors[event].submit(self.handlers[event], token, context)
       else:
         get_logger().error("invalid event: {}".format(event))

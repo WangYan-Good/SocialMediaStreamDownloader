@@ -13,13 +13,15 @@ class FakeDispatcher:
   def __init__(self, failure=None):
     self.failure = failure
     self.received = []
+    self.contexts = []
     self.register_calls = 0
 
   def register(self):
     self.register_calls += 1
 
-  def dispatch(self, payload):
+  def dispatch(self, payload, context=None):
     self.received.append(payload)
+    self.contexts.append(context)
     if self.failure is not None:
       raise self.failure
 
@@ -120,6 +122,68 @@ class ServerConfigTest(unittest.TestCase):
     self.assertIsNotNone(installed)
     self.assertIs(installed, captured["history"])
     self.assertIs(installed, captured["owner"])
+
+  def test_a_dispatch_carries_the_applications_own_post_runner(self):
+    dispatcher = FakeDispatcher()
+    app = server.create_app(
+      unified_config(),
+      dispatcher,
+      schema_guard_factory=lambda unused: object(),
+    )
+
+    client = app.test_client()
+    response = client.post("/", json={"urls": ["https://v.douyin.com/abc/"]})
+
+    self.assertEqual(200, response.status_code)
+    self.assertEqual(1, len(dispatcher.contexts))
+    runner = dispatcher.contexts[0]["direct_post_service"]
+    ##
+    ## The runner reports into this application's store, which is what keeps two
+    ## applications in one interpreter from sharing a task centre.
+    ##
+    self.assertIs(app.extensions["smsd_task_service"], runner._task_service)
+
+  def test_two_applications_get_their_own_post_runners(self):
+    first_dispatcher = FakeDispatcher()
+    second_dispatcher = FakeDispatcher()
+    first = server.create_app(
+      unified_config(), first_dispatcher, schema_guard_factory=lambda u: object()
+    )
+    second = server.create_app(
+      unified_config(), second_dispatcher, schema_guard_factory=lambda u: object()
+    )
+
+    first.test_client().post("/", json={"urls": ["https://v.douyin.com/abc/"]})
+    second.test_client().post("/", json={"urls": ["https://v.douyin.com/abc/"]})
+
+    first_runner = first_dispatcher.contexts[0]["direct_post_service"]
+    second_runner = second_dispatcher.contexts[0]["direct_post_service"]
+    self.assertIsNot(first_runner, second_runner)
+    self.assertIs(first.extensions["smsd_task_service"], first_runner._task_service)
+    self.assertIs(second.extensions["smsd_task_service"], second_runner._task_service)
+
+  def test_a_submission_answers_exactly_as_it_always_did(self):
+    dispatcher = FakeDispatcher()
+    app = server.create_app(
+      unified_config(),
+      dispatcher,
+      schema_guard_factory=lambda unused: object(),
+    )
+
+    response = app.test_client().post(
+      "/", json={"urls": ["https://v.douyin.com/abc/"]}
+    )
+
+    ##
+    ## No task id is added here, and the shape is asserted whole so one cannot be
+    ## added by accident.  When this thread answers, the share link has not been
+    ## followed and nobody knows whether it is a post at all.
+    ##
+    self.assertEqual(200, response.status_code)
+    self.assertEqual(
+      {"status": "success", "message": "请求已开始处理", "code": 200},
+      response.get_json(),
+    )
 
   def test_lazy_app_guard_failure_state_does_not_block_dispatch(self):
     config = unified_config()

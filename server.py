@@ -23,6 +23,7 @@ from backend.src.database.schema_guard import initialize_schema_guard
 from backend.src.platform.douyin.douyin_aweme_downloader import shutdown_aweme_downloads
 from backend.src.platform.douyin.douyin_live_downloader import cancel_live_downloads
 from backend.src.platform.platform_dispatcher import PlatformDispatcher
+from backend.src.service.direct_post_download_task import DirectPostDownloadTaskService
 from backend.src.web.history_routes import build_history_blueprint
 from backend.src.web.owner_routes import build_owner_blueprint
 from backend.src.web.person_routes import build_person_blueprint
@@ -136,7 +137,18 @@ def _new_flask_app(
       ##
       ## 处理请求
       ##
-      runtime["dispatcher"].dispatch(json_data)
+      ##
+      ## The reply below is deliberately unchanged, and deliberately carries no
+      ## task id.  Whether these links are posts or live rooms is not known yet -
+      ## the share links have not been followed - so any id invented here would
+      ## either be a guess or force this thread to wait on the network.  The
+      ## tasks appear in the task centre as soon as the handler confirms what
+      ## each link is.
+      ##
+      runtime["dispatcher"].dispatch(
+        json_data,
+        context={"direct_post_service": runtime.get("direct_post_service")},
+      )
 
     except BadRequest as e:
       ##
@@ -207,6 +219,18 @@ def _new_flask_app(
   ## travels down into the services rather than being reached up for.
   ##
   task_service = install_task_service(configured_app)
+
+  ##
+  ## The runner that turns a pasted post link into a task of this application.
+  ##
+  ## Held here, on the per-application runtime, and handed to the dispatcher one
+  ## dispatch at a time.  The dispatcher is a process-wide singleton, so storing
+  ## it there instead would let a second application overwrite the first one's
+  ## task store and each would report the other's downloads.
+  ##
+  runtime["direct_post_service"] = DirectPostDownloadTaskService(
+    task_service=task_service
+  )
 
   ##
   ## download history browsing and live status probing

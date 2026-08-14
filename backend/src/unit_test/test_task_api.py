@@ -343,7 +343,7 @@ class ApplicationFactoryTest(unittest.TestCase):
       def register(self):
         pass
 
-      def dispatch(self, payload):
+      def dispatch(self, payload, context=None):
         pass
 
     return server.create_app(
