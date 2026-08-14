@@ -28,6 +28,10 @@ from backend.src.service.live_recording_task import LiveRecordingTaskService
 from backend.src.web.history_routes import build_history_blueprint
 from backend.src.web.owner_routes import build_owner_blueprint
 from backend.src.web.person_routes import build_person_blueprint
+from backend.src.web.resolve_routes import (
+  build_resolve_blueprint,
+  install_resolve_service,
+)
 from backend.src.web.task_routes import build_task_blueprint, install_task_service
 
 def _server_options(config: dict) -> dict:
@@ -260,6 +264,19 @@ def _new_flask_app(
   ## the read side of the task centre
   ##
   configured_app.register_blueprint(build_task_blueprint())
+
+  ##
+  ## Answering what a pasted link is, before anything is done about it.
+  ##
+  ## Installed on the application rather than kept as a module global for the
+  ## same reason the task service is: a receipt is this server's own word that
+  ## it resolved a resource, so two applications in one interpreter must not be
+  ## able to redeem each other's.  Whatever creates tasks from a receipt reads
+  ## this same instance rather than trusting the browser to hand the identity
+  ## back.
+  ##
+  install_resolve_service(configured_app)
+  configured_app.register_blueprint(build_resolve_blueprint())
 
   return configured_app
 
