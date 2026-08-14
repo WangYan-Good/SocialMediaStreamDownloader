@@ -1334,13 +1334,11 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
     config = live_config()
     config["download"]["test_mode"] = False
     config["download"]["tick_naming"] = False
-    downloader = live_module.DouyinLiveDownloader(config)
     expected_error = exceptions.ConnectionError("stream disconnected")
 
     def fail_download(*args, **kwargs):
       raise expected_error
 
-    downloader.auto_down = fail_download
     build = {
       "summary": {
         "stream_url": "https://stream.example.test/live.flv",
@@ -1354,7 +1352,16 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
     }
 
     with tempfile.TemporaryDirectory() as temporary_directory:
+      ##
+      ## Set before the downloader is built.  It reads its configuration once, at
+      ## construction, so assigning ``save_path`` afterwards left the example
+      ## config's default ``./downloads`` in force and the run created
+      ## directories inside the checkout.
+      ##
       config["download"]["save_path"] = temporary_directory
+      downloader = live_module.DouyinLiveDownloader(config)
+      downloader.auto_down = fail_download
+
       with self.assertRaises(exceptions.ConnectionError) as raised:
         downloader.download_live_stream(
           "https://v.douyin.com/example/",
@@ -1369,8 +1376,6 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
     config["download"]["max_threads"] = 1
     config["download"]["test_mode"] = True
     config["download"]["tick_naming"] = False
-    downloader = live_module.DouyinLiveDownloader(config)
-    downloader._actived_task_number = 1
     build = {
       "summary": {
         "stream_url": "https://stream.example.test/live.flv",
@@ -1383,23 +1388,34 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
       },
     }
 
-    waiting_download = Thread(
-      target=downloader.download_live_stream,
-      args=("https://v.douyin.com/example/", build),
-      daemon=True,
-    )
+    with tempfile.TemporaryDirectory() as temporary_directory:
+      ##
+      ## Even in test mode the owner folder is created before the transfer is
+      ## skipped, so this test needs a save path of its own like every other one
+      ## here; without it the example config's ``./downloads`` was used and the
+      ## folder was left in the checkout.
+      ##
+      config["download"]["save_path"] = temporary_directory
+      downloader = live_module.DouyinLiveDownloader(config)
+      downloader._actived_task_number = 1
 
-    def complete_active_download():
-      downloader.acquire()
-      downloader._actived_task_number -= 1
-      downloader.release()
+      waiting_download = Thread(
+        target=downloader.download_live_stream,
+        args=("https://v.douyin.com/example/", build),
+        daemon=True,
+      )
 
-    waiting_download.start()
-    sleep(0.05)
-    completion = Thread(target=complete_active_download, daemon=True)
-    completion.start()
-    waiting_download.join(timeout=0.5)
-    completion.join(timeout=0.5)
+      def complete_active_download():
+        downloader.acquire()
+        downloader._actived_task_number -= 1
+        downloader.release()
+
+      waiting_download.start()
+      sleep(0.05)
+      completion = Thread(target=complete_active_download, daemon=True)
+      completion.start()
+      waiting_download.join(timeout=0.5)
+      completion.join(timeout=0.5)
 
     self.assertFalse(waiting_download.is_alive())
     self.assertFalse(completion.is_alive())
