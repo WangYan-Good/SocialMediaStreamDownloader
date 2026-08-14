@@ -13,6 +13,10 @@ from uuid import uuid4
 
 ## <<Third-Part>>
 from backend.src.library.loglib import get_logger
+from backend.src.service.live_probe_task_mirror import (
+  PLATFORM_DOUYIN,
+  LiveProbeTaskMirror,
+)
 
 
 ##
@@ -122,6 +126,7 @@ class LiveProbeService:
     store=None,
     executor=None,
     clock=datetime.now,
+    task_service=None,
   ) -> None:
     if prober is None:
       raise ValueError("prober is required")
@@ -143,6 +148,24 @@ class LiveProbeService:
       max_workers=concurrency,
       thread_name_prefix="live-probe",
     )
+    ##
+    ## Live probing is temporarily dual-written: ``store`` is the legacy
+    ## compatibility surface the current history page polls, and the mirror
+    ## reports the same probe onto the unified TaskService the next frontend
+    ## will read.
+    ##
+    ## The task service is injected rather than constructed here.  One process
+    ## must have exactly one task store, and a service that built its own would
+    ## report into a store no request could ever read.  Passing ``None`` is a
+    ## supported wiring that simply reports nothing.
+    ##
+    self.task_service = task_service
+    self._tasks = LiveProbeTaskMirror(task_service)
+
+  def _batch_title(self, count: int) -> str:
+    if count == 1:
+      return "检查主播直播状态"
+    return "检查 {} 个主播直播状态".format(count)
 
   def _cached_state(self, row: dict):
     """Return a cached state for ``row`` when it was probed recently enough."""
@@ -178,6 +201,19 @@ class LiveProbeService:
 
   def _run_one(self, batch_id: str, owner_user_id: str, share_url: str) -> None:
     self._store.update(batch_id, owner_user_id, state=STATE_RUNNING)
+    self._tasks.item_running(batch_id, owner_user_id)
+    try:
+      self._probe_one(batch_id, owner_user_id, share_url)
+    finally:
+      ##
+      ## In a ``finally`` so that every way out of a probe - answered, refused,
+      ## crashed - is followed by the completion check.  The last worker to
+      ## settle is the one that ends the task, and which worker that is cannot be
+      ## known in advance.
+      ##
+      self._tasks.finish_if_complete(batch_id)
+
+  def _probe_one(self, batch_id: str, owner_user_id: str, share_url: str) -> None:
     try:
       result = self._prober.probe(share_url)
     except Exception as e:
@@ -185,15 +221,18 @@ class LiveProbeService:
       self._store.update(
         batch_id, owner_user_id, state=STATE_ERROR, message="探测失败"
       )
+      self._tasks.item_failed(batch_id, owner_user_id, "探测失败")
       return
 
     if result.ok is not True:
+      message = result.error or "探测失败"
       self._store.update(
         batch_id,
         owner_user_id,
         state=STATE_ERROR,
-        message=result.error or "探测失败",
+        message=message,
       )
+      self._tasks.item_failed(batch_id, owner_user_id, message)
       return
 
     self._record(owner_user_id, result)
@@ -207,6 +246,21 @@ class LiveProbeService:
       checked_at=result.checked_at,
       cached=False,
       message=None,
+    )
+    ##
+    ## The room was reached and it answered, so the probe succeeded whichever
+    ## answer it gave; only ``live_status`` differs between the two.
+    ##
+    report = self._tasks.item_living if result.is_living else self._tasks.item_offline
+    report(
+      batch_id,
+      owner_user_id,
+      nickname=result.nickname or None,
+      room_id=result.room_id,
+      title=result.title,
+      live_share_url=share_url,
+      checked_at=result.checked_at,
+      cached=False,
     )
 
 ##
@@ -235,6 +289,13 @@ class LiveProbeService:
 
     items = list()
     scheduled = list()
+    ##
+    ## Owners whose answer is known before any worker starts: unknown to history,
+    ## no share link, or a cache entry still inside the window.  They are held
+    ## rather than reported straight away because the task does not exist yet -
+    ## it is created from ``items`` below - and replayed onto it once it does.
+    ##
+    settled = list()
     for owner_user_id in identifiers:
       row = owners.get(owner_user_id)
       if row is None:
@@ -245,6 +306,7 @@ class LiveProbeService:
             "message": "历史记录中没有该主播",
           }
         )
+        settled.append((STATE_ERROR, owner_user_id, "历史记录中没有该主播"))
         continue
 
       share_url = row.get("live_share_url")
@@ -257,6 +319,9 @@ class LiveProbeService:
             "message": "该主播没有可用的直播分享链接",
           }
         )
+        settled.append(
+          (STATE_ERROR, owner_user_id, "该主播没有可用的直播分享链接")
+        )
         continue
 
       cached = self._cached_state(row)
@@ -268,6 +333,19 @@ class LiveProbeService:
             "live_share_url": share_url,
             **cached,
           }
+        )
+        settled.append(
+          (
+            cached["state"],
+            owner_user_id,
+            {
+              "nickname": row.get("nickname"),
+              "room_id": cached["room_id"],
+              "live_share_url": share_url,
+              "checked_at": cached["checked_at"],
+              "cached": True,
+            },
+          )
         )
         continue
 
@@ -283,9 +361,50 @@ class LiveProbeService:
       scheduled.append((owner_user_id, share_url))
 
     batch_id = self._store.create(items)
+    self._open_task(batch_id, identifiers, settled)
     for owner_user_id, share_url in scheduled:
       self._executor.submit(self._run_one, batch_id, owner_user_id, share_url)
     return batch_id
+
+  def _open_task(self, batch_id: str, identifiers: list, settled: list) -> None:
+    """Mirror the batch onto the unified task record.
+
+    Every owner is known here - a probe never discovers work while it runs - so
+    the task is created with its full item list and a real total, and the
+    outcomes already decided are replayed onto it immediately.
+
+    The completion check that follows is what lets a batch answered entirely
+    from the cache, or rejected entirely before any network call, be a finished
+    task by the time the HTTP response is written.  A batch with work left is
+    simply not complete yet and the check does nothing.
+    """
+    self._tasks.open(
+      batch_id,
+      title=self._batch_title(len(identifiers)),
+      metadata={
+        "platform": PLATFORM_DOUYIN,
+        "legacy_batch_id": batch_id,
+        "requested_count": len(identifiers),
+      },
+      items=identifiers,
+    )
+    self._tasks.start(batch_id)
+    for state, owner_user_id, detail in settled:
+      if state == STATE_ERROR:
+        self._tasks.item_failed(batch_id, owner_user_id, detail)
+      elif state == STATE_LIVING:
+        self._tasks.item_living(batch_id, owner_user_id, **detail)
+      else:
+        self._tasks.item_offline(batch_id, owner_user_id, **detail)
+    self._tasks.finish_if_complete(batch_id)
+
+  def task_id_for(self, batch_id: str):
+    """The unified task mirroring ``batch_id``, or ``None`` when there is not one.
+
+    The association is held by the mirror; neither id is ever derived from the
+    other.
+    """
+    return self._tasks.task_id(batch_id)
 
   def snapshot(self, batch_id: str):
     return self._store.snapshot(batch_id)

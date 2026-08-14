@@ -85,9 +85,21 @@ class HistoryRuntime:
   an actual probe is requested.
   """
 
-  def __init__(self, config_loader=load_config, downloader_factory=None) -> None:
+  def __init__(
+    self,
+    config_loader=load_config,
+    downloader_factory=None,
+    task_service=None,
+  ) -> None:
     self._config_loader = config_loader
     self._downloader_factory = downloader_factory
+    ##
+    ## Handed down to the probe service so the probes of this process report into
+    ## the one task store the app installed.  Reaching for it through
+    ## ``current_app`` instead would tie the probe service to a request context
+    ## and stop it being testable on its own.
+    ##
+    self._task_service = task_service
     self._lock = threading.Lock()
     self._config = None
     self._query = None
@@ -169,6 +181,7 @@ class HistoryRuntime:
           get_dict_attr(settings, probe_root + ".batch_retention_seconds")
         )
       ),
+      task_service=self._task_service,
     )
     with self._lock:
       if self._probe_service is None:
@@ -176,8 +189,13 @@ class HistoryRuntime:
       return self._probe_service
 
 
-def build_history_blueprint(runtime: HistoryRuntime = None) -> Blueprint:
-  runtime = runtime if runtime is not None else HistoryRuntime()
+def build_history_blueprint(
+  runtime: HistoryRuntime = None,
+  task_service=None,
+) -> Blueprint:
+  runtime = (
+    runtime if runtime is not None else HistoryRuntime(task_service=task_service)
+  )
   blueprint = Blueprint("history", __name__, url_prefix="/api")
 
   @blueprint.route("/history/owners", methods=["GET"])
@@ -257,6 +275,13 @@ def build_history_blueprint(runtime: HistoryRuntime = None) -> Blueprint:
           "code": 202,
           "data": {
             "batch_id": snapshot["batch_id"],
+            ##
+            ## ``batch_id``, ``done`` and ``items`` are what the current page
+            ## reads and keep their meaning exactly.  ``task_id`` is added
+            ## beside them for the unified task centre; it is ``null`` when
+            ## nothing is mirroring, so the shape never changes.
+            ##
+            "task_id": service.task_id_for(batch_id),
             "done": snapshot["done"],
             "items": [_serialize_probe_item(item) for item in snapshot["items"]],
           },

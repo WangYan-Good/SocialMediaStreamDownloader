@@ -90,6 +90,37 @@ class ServerConfigTest(unittest.TestCase):
     self.assertEqual(["guard", "dispatcher"], events)
     self.assertIs(guard, app.extensions["smsd_schema_guard"])
 
+  def test_create_app_gives_probing_and_downloading_the_one_task_service(self):
+    ##
+    ## Both businesses must report into the store the task API reads.  Two
+    ## services would mean a task centre that can only ever show half of what
+    ## this process is doing.
+    ##
+    captured = {}
+    build_history = server.build_history_blueprint
+    build_owner = server.build_owner_blueprint
+
+    def capture_history(runtime=None, task_service=None):
+      captured["history"] = task_service
+      return build_history(runtime=runtime, task_service=task_service)
+
+    def capture_owner(runtime=None, task_service=None):
+      captured["owner"] = task_service
+      return build_owner(runtime=runtime, task_service=task_service)
+
+    with patch.object(server, "build_history_blueprint", capture_history):
+      with patch.object(server, "build_owner_blueprint", capture_owner):
+        app = server.create_app(
+          unified_config(),
+          FakeDispatcher(),
+          schema_guard_factory=lambda unused: object(),
+        )
+
+    installed = app.extensions["smsd_task_service"]
+    self.assertIsNotNone(installed)
+    self.assertIs(installed, captured["history"])
+    self.assertIs(installed, captured["owner"])
+
   def test_lazy_app_guard_failure_state_does_not_block_dispatch(self):
     config = unified_config()
     dispatcher = FakeDispatcher()

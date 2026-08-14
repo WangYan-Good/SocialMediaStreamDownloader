@@ -33,9 +33,10 @@ class FakeQuery:
 
 
 class FakeProbeService:
-  def __init__(self, batch=None, error=None):
+  def __init__(self, batch=None, error=None, task_id="task-1"):
     self._batch = batch
     self._error = error
+    self._task_id = task_id
     self.submitted = None
 
   def submit(self, owner_user_ids):
@@ -48,6 +49,9 @@ class FakeProbeService:
     if self._batch is None or batch_id != "batch-1":
       return None
     return self._batch
+
+  def task_id_for(self, batch_id):
+    return self._task_id if batch_id == "batch-1" else None
 
 
 class FakeRuntime:
@@ -198,6 +202,41 @@ class LiveProbeApiTest(unittest.TestCase):
     self.assertEqual("2026-08-10T12:00:00.000", body["data"]["items"][0]["checked_at"])
     self.assertEqual(["1"], service.submitted)
 
+  def test_an_accepted_batch_names_the_task_mirroring_it(self):
+    client = build_client(
+      FakeRuntime(probe_service=FakeProbeService(batch=self.batch, task_id="task-7"))
+    )
+
+    body = client.post("/api/live/probe", json={"owner_user_ids": ["1"]}).get_json()
+
+    self.assertEqual("task-7", body["data"]["task_id"])
+
+  def test_a_batch_nothing_is_mirroring_reports_a_null_task(self):
+    client = build_client(
+      FakeRuntime(probe_service=FakeProbeService(batch=self.batch, task_id=None))
+    )
+
+    response = client.post("/api/live/probe", json={"owner_user_ids": ["1"]})
+    body = response.get_json()
+
+    ##
+    ## The field is present and null rather than absent: the response shape must
+    ## not depend on whether mirroring happens to be wired up.
+    ##
+    self.assertEqual(202, response.status_code)
+    self.assertIn("task_id", body["data"])
+    self.assertIsNone(body["data"]["task_id"])
+    self.assertEqual("batch-1", body["data"]["batch_id"])
+
+  def test_the_accepted_response_keeps_exactly_its_legacy_fields(self):
+    client = build_client(FakeRuntime(probe_service=FakeProbeService(batch=self.batch)))
+
+    body = client.post("/api/live/probe", json={"owner_user_ids": ["1"]}).get_json()
+
+    self.assertEqual({"batch_id", "task_id", "done", "items"}, set(body["data"]))
+    self.assertIs(False, body["data"]["done"])
+    self.assertEqual("living", body["data"]["items"][0]["state"])
+
   def test_a_non_json_or_malformed_body_is_rejected(self):
     client = build_client(FakeRuntime(probe_service=FakeProbeService()))
 
@@ -230,6 +269,27 @@ class LiveProbeApiTest(unittest.TestCase):
 
     self.assertEqual(404, client.get("/api/live/probe/missing").status_code)
 
+  def test_polling_a_batch_is_untouched_by_the_task_migration(self):
+    client = build_client(FakeRuntime(probe_service=FakeProbeService(batch=self.batch)))
+
+    response = client.get("/api/live/probe/batch-1")
+    body = response.get_json()
+
+    ##
+    ## The polling contract the current page depends on, asserted whole.  No
+    ## task field appears here: this endpoint answers about the legacy batch and
+    ## a browser wanting the task reads /api/tasks/<task_id> instead.
+    ##
+    self.assertEqual(200, response.status_code)
+    self.assertEqual("success", body["status"])
+    self.assertEqual({"batch_id", "done", "items"}, set(body["data"]))
+    self.assertEqual("batch-1", body["data"]["batch_id"])
+    self.assertIs(False, body["data"]["done"])
+    self.assertEqual(
+      {"owner_user_id": "1", "state": "living", "checked_at": "2026-08-10T12:00:00.000"},
+      body["data"]["items"][0],
+    )
+
 
 class HistoryRuntimeTest(unittest.TestCase):
   def test_a_disabled_database_is_reported_as_unavailable(self):
@@ -247,6 +307,66 @@ class HistoryRuntimeTest(unittest.TestCase):
     runtime = HistoryRuntime(config_loader=lambda: {})
 
     self.assertEqual(10, runtime.page_size_limit())
+
+
+class FakeDownloader:
+  def __init__(self):
+    self.prober = object()
+
+  def _database_if_ready(self):
+    return None
+
+
+class HistoryRuntimeProbeWiringTest(unittest.TestCase):
+  """The probe service must be given the app's task service, not find its own."""
+
+  def build_runtime(self, task_service=None):
+    settings = {
+      "database": {"enable": True},
+      "platform": {
+        "douyin": {
+          "live": {
+            "probe": {
+              "max_batch_size": 5,
+              "concurrency": 2,
+              "cache_ttl_seconds": 60,
+              "batch_retention_seconds": 600,
+            }
+          }
+        }
+      },
+    }
+    runtime = HistoryRuntime(
+      config_loader=lambda: settings,
+      downloader_factory=FakeDownloader,
+      task_service=task_service,
+    )
+    ##
+    ## The query side would open a real database handle, which probing does not
+    ## need for this wiring question.
+    ##
+    runtime.query = lambda: FakeQuery()
+    return runtime
+
+  def test_the_probe_service_reports_into_the_injected_task_service(self):
+    tasks = object()
+    runtime = self.build_runtime(task_service=tasks)
+
+    self.assertIs(tasks, runtime.probe_service().task_service)
+
+  def test_a_runtime_without_a_task_service_still_builds_a_prober(self):
+    runtime = self.build_runtime()
+
+    self.assertIsNone(runtime.probe_service().task_service)
+
+  def test_the_probe_service_is_built_once_and_kept(self):
+    runtime = self.build_runtime(task_service=object())
+
+    ##
+    ## Rebuilding per request would hand every probe a fresh batch store, so a
+    ## browser polling the batch it just started would be told it never existed.
+    ##
+    self.assertIs(runtime.probe_service(), runtime.probe_service())
 
 
 if __name__ == "__main__":

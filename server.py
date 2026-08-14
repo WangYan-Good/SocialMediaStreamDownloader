@@ -211,7 +211,9 @@ def _new_flask_app(
   ##
   ## download history browsing and live status probing
   ##
-  configured_app.register_blueprint(build_history_blueprint())
+  configured_app.register_blueprint(
+    build_history_blueprint(task_service=task_service)
+  )
 
   ##
   ## owner profile browsing and post batch download
