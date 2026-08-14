@@ -1018,5 +1018,141 @@ class TaskConcurrencyTest(unittest.TestCase):
       self.assertEqual(len(task["items"]), 1)
 
 
+class TaskMetadataUpdateTest(unittest.TestCase):
+  """Facts a task only learns while it runs.
+
+  A task that is its own unit of work - one post download - has results that do
+  not exist when it is created: where the files landed, how many were saved, why
+  it could not finish.  Those belong to the task itself rather than to an item,
+  so there has to be a way to write them after creation.
+  """
+
+  def test_a_field_can_be_added_after_creation(self):
+    store = build_store()
+    task_id = store.create(TASK_TYPE_POST_DOWNLOAD, metadata={"platform": "douyin"})
+
+    store.update_metadata(task_id, {"result": {"ok": True}})
+
+    metadata = store.get(task_id)["metadata"]
+    self.assertEqual({"ok": True}, metadata["result"])
+
+  def test_what_was_already_there_is_kept(self):
+    store = build_store()
+    task_id = store.create(
+      TASK_TYPE_POST_DOWNLOAD,
+      metadata={"platform": "douyin", "aweme_id": "123"},
+    )
+
+    store.update_metadata(task_id, {"result": {"ok": True}})
+
+    metadata = store.get(task_id)["metadata"]
+    self.assertEqual("douyin", metadata["platform"])
+    self.assertEqual("123", metadata["aweme_id"])
+
+  def test_a_stated_field_replaces_the_one_it_names(self):
+    store = build_store()
+    task_id = store.create(TASK_TYPE_POST_DOWNLOAD, metadata={"stage": "resolving"})
+
+    store.update_metadata(task_id, {"stage": "downloading"})
+
+    self.assertEqual("downloading", store.get(task_id)["metadata"]["stage"])
+
+  def test_the_merge_is_one_level_deep(self):
+    store = build_store()
+    task_id = store.create(
+      TASK_TYPE_POST_DOWNLOAD, metadata={"result": {"ok": False, "reason": "gone"}}
+    )
+
+    store.update_metadata(task_id, {"result": {"ok": True}})
+
+    ##
+    ## The whole value is replaced rather than merged into.  A result is one
+    ## coherent record of one attempt, and half of an old attempt beside half of
+    ## a new one would describe something that never happened.
+    ##
+    self.assertEqual({"ok": True}, store.get(task_id)["metadata"]["result"])
+
+  def test_updating_nothing_leaves_the_metadata_alone(self):
+    store = build_store()
+    task_id = store.create(TASK_TYPE_POST_DOWNLOAD, metadata={"platform": "douyin"})
+
+    store.update_metadata(task_id, {})
+    store.update_metadata(task_id, None)
+
+    self.assertEqual({"platform": "douyin"}, store.get(task_id)["metadata"])
+
+  def test_the_updated_task_is_returned(self):
+    store = build_store()
+    task_id = store.create(TASK_TYPE_POST_DOWNLOAD)
+
+    returned = store.update_metadata(task_id, {"aweme_id": "123"})
+
+    self.assertEqual("123", returned["metadata"]["aweme_id"])
+
+  def test_an_unknown_task_is_refused(self):
+    store = build_store()
+
+    with self.assertRaises(TaskNotFound):
+      store.update_metadata("nope", {"aweme_id": "123"})
+
+  def test_a_finished_task_keeps_the_record_it_ended_with(self):
+    store = build_store()
+    task_id = store.create(TASK_TYPE_POST_DOWNLOAD)
+    store.set_state(task_id, TASK_STATE_RUNNING)
+    store.set_state(task_id, TASK_STATE_SUCCESS)
+
+    ##
+    ## Refused for the same reason a finished task keeps its final message: once
+    ## a task is over its record is what happened, and a late writer would be
+    ## editing history.  Callers must write their results before they finish.
+    ##
+    with self.assertRaises(TaskAlreadyFinished):
+      store.update_metadata(task_id, {"result": {"ok": True}})
+
+  def test_a_running_task_accepts_updates(self):
+    store = build_store()
+    task_id = store.create(TASK_TYPE_POST_DOWNLOAD)
+    store.set_state(task_id, TASK_STATE_RUNNING)
+
+    store.update_metadata(task_id, {"result": {"ok": True}})
+
+    self.assertEqual({"ok": True}, store.get(task_id)["metadata"]["result"])
+
+  def test_the_caller_cannot_reach_in_afterwards(self):
+    store = build_store()
+    task_id = store.create(TASK_TYPE_POST_DOWNLOAD)
+    supplied = {"result": {"saved": [1, 2]}}
+
+    store.update_metadata(task_id, supplied)
+    supplied["result"]["saved"].append(3)
+    supplied["result"]["ok"] = True
+
+    stored = store.get(task_id)["metadata"]["result"]
+    self.assertEqual([1, 2], stored["saved"])
+    self.assertNotIn("ok", stored)
+
+  def test_a_snapshot_cannot_be_written_back_through(self):
+    store = build_store()
+    task_id = store.create(TASK_TYPE_POST_DOWNLOAD)
+    store.update_metadata(task_id, {"result": {"saved": [1]}})
+
+    snapshot = store.update_metadata(task_id, {"stage": "done"})
+    snapshot["metadata"]["result"]["saved"].append(2)
+
+    self.assertEqual([1], store.get(task_id)["metadata"]["result"]["saved"])
+
+  def test_progress_and_state_are_untouched(self):
+    store = build_store()
+    task_id = store.create(TASK_TYPE_POST_DOWNLOAD, total=1)
+    store.set_state(task_id, TASK_STATE_RUNNING, message="下载中")
+
+    store.update_metadata(task_id, {"result": {"ok": True}})
+
+    task = store.get(task_id)
+    self.assertEqual(TASK_STATE_RUNNING, task["state"])
+    self.assertEqual("下载中", task["message"])
+    self.assertEqual({"current": 0, "total": 1}, task["progress"])
+
+
 if __name__ == "__main__":
   unittest.main()

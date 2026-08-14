@@ -419,5 +419,45 @@ class TaskReadTest(unittest.TestCase):
     self.assertEqual(service.list_tasks(), [])
 
 
+class ServiceMetadataUpdateTest(unittest.TestCase):
+  """Results learned while a task runs reach the record through the service."""
+
+  def test_results_can_be_recorded_before_the_task_ends(self):
+    service = TaskService()
+    task = service.create_task(
+      TASK_TYPE_POST_DOWNLOAD, metadata={"platform": "douyin"}, total=1
+    )
+    service.start_task(task["task_id"])
+
+    service.update_metadata(task["task_id"], {"result": {"ok": True, "saved": 3}})
+
+    metadata = service.get_task(task["task_id"])["metadata"]
+    self.assertEqual("douyin", metadata["platform"])
+    self.assertEqual({"ok": True, "saved": 3}, metadata["result"])
+
+  def test_the_updated_task_is_returned(self):
+    service = TaskService()
+    task = service.create_task(TASK_TYPE_POST_DOWNLOAD)
+
+    returned = service.update_metadata(task["task_id"], {"aweme_id": "123"})
+
+    self.assertEqual("123", returned["metadata"]["aweme_id"])
+
+  def test_an_unknown_task_is_refused(self):
+    service = TaskService()
+
+    with self.assertRaises(TaskNotFound):
+      service.update_metadata("nope", {"aweme_id": "123"})
+
+  def test_a_finished_task_is_refused(self):
+    service = TaskService()
+    task = service.create_task(TASK_TYPE_POST_DOWNLOAD)
+    service.start_task(task["task_id"])
+    service.finish_success(task["task_id"])
+
+    with self.assertRaises(TaskAlreadyFinished):
+      service.update_metadata(task["task_id"], {"result": {"ok": True}})
+
+
 if __name__ == "__main__":
   unittest.main()

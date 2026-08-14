@@ -81,7 +81,16 @@ def is_douyin_live_url(url):
 ## 3. 用户主页
 ##
 
-def douyin_handler(token:dict):
+def douyin_handler(token:dict, context:dict=None):
+  """Follow one share link and route what it turns out to be.
+
+  ``context`` carries the dependencies of *this* dispatch - currently the
+  task-aware post runner - and is deliberately a separate argument rather than
+  another key in ``token``.  The token is user data: it is copied, logged and
+  handed to downloaders, and a service object travelling inside it would end up
+  somewhere it has no business being.  Omitting it keeps the legacy behaviour,
+  so existing callers and scripts are unaffected.
+  """
   if token is None:
     get_logger().error("invalid url list")
     raise ValueError
@@ -165,8 +174,19 @@ def douyin_handler(token:dict):
   ## submit single posts to the post pool
   ##
   if aweme_token_list:
+    ##
+    ## Only now is the link known to be a post, which is why the task is created
+    ## here and not when the request arrived: a live link or a profile link
+    ## reaching this function would otherwise have already produced a post task
+    ## that describes work nobody is doing.
+    ##
+    runner = context.get("direct_post_service") if context else None
     try:
-      download_multiple_aweme(aweme_token_list)
+      if runner is not None:
+        for aweme_token in aweme_token_list:
+          runner.submit(aweme_token)
+      else:
+        download_multiple_aweme(aweme_token_list)
     except Exception as e:
       get_logger().error("download multiple aweme failed! {}".format(e))
       return

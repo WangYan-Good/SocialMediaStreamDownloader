@@ -297,6 +297,39 @@ class TaskStore:
       task["message"] = message
       return self._snapshot(task)
 
+  def update_metadata(self, task_id: str, fields: dict) -> dict:
+    """Merge ``fields`` into the task's metadata, one level deep.
+
+    A task whose work is one indivisible unit - a single post download - learns
+    most of its record while it runs: where the files went, how many were saved,
+    why it stopped.  Those facts describe the *task*, not an item of it, and
+    ``create`` is too early to know them, so they need a door of their own.
+
+    **Top level only.**  A stated key replaces whatever it named.  Nested merging
+    is deliberately not offered: a ``result`` is one coherent account of one
+    attempt, and blending a new one into an old one would produce a record of
+    something that never happened.
+
+    Refused once the task has finished, matching ``update_message``: after the
+    end the record is what happened, and a late writer would be editing history.
+    Callers therefore write their results *before* they finish the task.
+    """
+    ##
+    ## Copied on the way in, so a caller that keeps and later mutates the dict it
+    ## handed over cannot reach into the store through it.
+    ##
+    incoming = deepcopy(dict(fields or {}))
+    with self._guard:
+      task = self._locked_task(task_id)
+      if is_terminal(task["state"]):
+        raise TaskAlreadyFinished(
+          "task {!r} finished as {!r} and keeps the record it ended with".format(
+            task_id, task["state"]
+          )
+        )
+      task["metadata"].update(incoming)
+      return self._snapshot(task)
+
   def update_progress(self, task_id: str, current=UNSET, total=UNSET) -> dict:
     """Set either end of the progress pair, leaving anything unstated alone."""
     with self._guard:
