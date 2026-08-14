@@ -8,6 +8,7 @@ from backend.src.platform.douyin.douyin_url_hosts import (
   is_live_host,
   is_short_link_host,
 )
+from backend.src.platform.resource_resolution import extract_urls
 
 
 ##
@@ -50,32 +51,21 @@ def _is_owner_id(value) -> bool:
   return re.fullmatch(r"[A-Za-z0-9_\-]+", value) is not None
 
 
-##
-## Sharing from the app copies a sentence, not a bare link:
-##   0- 长按复制此条消息，打开抖音搜索，查看TA的更多作品。 https://v.douyin.com/xxx/ 4@1.com :0pm
-## The browser trims this before sending, but an api is not entitled to assume its
-## input was cleaned - so the same extraction happens here.
-##
-_URL_IN_TEXT = re.compile(r"https?://[^\s]+")
-
-##
-## Chinese full stops and brackets sit flush against a url that ends a sentence.
-##
-_TRAILING_NOISE = ")]}>,.;:!?，。；：！？、）】》"
-
-
 def extract_url(text: str) -> str:
   """Return the first url inside ``text``, or ``text`` itself if it is one.
 
+  Sharing from the app copies a sentence, not a bare link:
+    0- 长按复制此条消息，打开抖音搜索，查看TA的更多作品。 https://v.douyin.com/xxx/ 4@1.com :0pm
+  The browser trims this before sending, but an api is not entitled to assume
+  its input was cleaned - so the same extraction happens here.
+
   Never invents a url: if there is no ``http(s)://`` in the input, the result is
-  empty.
+  empty.  Where a url ends - which trailing full stop or bracket belongs to the
+  sentence rather than the link - is decided in exactly one place, so this and
+  ``extract_urls`` can never drift into two opinions about the same paste.
   """
-  if not isinstance(text, str) or not text.strip():
-    return ""
-  matched = _URL_IN_TEXT.search(text)
-  if matched is None:
-    return ""
-  return matched.group(0).rstrip(_TRAILING_NOISE)
+  found = extract_urls(text)
+  return found[0] if found else ""
 
 
 def classify_owner_url(url: str):
