@@ -143,6 +143,43 @@ class ServerConfigTest(unittest.TestCase):
     ##
     self.assertIs(app.extensions["smsd_task_service"], runner._task_service)
 
+  def test_a_dispatch_carries_the_applications_own_recorder(self):
+    dispatcher = FakeDispatcher()
+    app = server.create_app(
+      unified_config(),
+      dispatcher,
+      schema_guard_factory=lambda unused: object(),
+    )
+
+    app.test_client().post("/", json={"urls": ["https://v.douyin.com/abc/"]})
+
+    recorder = dispatcher.contexts[0]["live_record_service"]
+    self.assertIs(app.extensions["smsd_task_service"], recorder._task_service)
+
+  def test_two_applications_get_their_own_recorders(self):
+    first_dispatcher = FakeDispatcher()
+    second_dispatcher = FakeDispatcher()
+    first = server.create_app(
+      unified_config(), first_dispatcher, schema_guard_factory=lambda u: object()
+    )
+    second = server.create_app(
+      unified_config(), second_dispatcher, schema_guard_factory=lambda u: object()
+    )
+
+    first.test_client().post("/", json={"urls": ["https://v.douyin.com/abc/"]})
+    second.test_client().post("/", json={"urls": ["https://v.douyin.com/abc/"]})
+
+    first_recorder = first_dispatcher.contexts[0]["live_record_service"]
+    second_recorder = second_dispatcher.contexts[0]["live_record_service"]
+    ##
+    ## Both the dispatcher and the live downloader are process-wide singletons,
+    ## so the only thing keeping two applications apart is that the dependency
+    ## travels with the dispatch.
+    ##
+    self.assertIsNot(first_recorder, second_recorder)
+    self.assertIs(first.extensions["smsd_task_service"], first_recorder._task_service)
+    self.assertIs(second.extensions["smsd_task_service"], second_recorder._task_service)
+
   def test_two_applications_get_their_own_post_runners(self):
     first_dispatcher = FakeDispatcher()
     second_dispatcher = FakeDispatcher()

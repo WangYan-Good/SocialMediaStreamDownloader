@@ -2,6 +2,7 @@
 import os
 import sys
 sys.path.append(os.getcwd())
+from dataclasses import dataclass
 from re import compile
 ##<< Test
 
@@ -40,6 +41,45 @@ from backend.src.platform.douyin.xbogus import XBogus as XB
 from backend.src.platform.douyin.a_bogus import ABogus as AB
 
 from backend.src.platform.douyin.douyin_listener import DouyinLiveListener, ListenerItem
+
+##
+## What one live download attempt produced.
+##
+## It exists because every one of these outcomes used to be a bare ``None``
+## returned from ``run``: the probe failed, the room was not broadcasting, the
+## stream url was missing, or a recording ran to its end.  Those are entirely
+## different answers to "did you record the live?", and nothing above this layer
+## could tell them apart.
+##
+## Deliberately absent: the stream url and its headers.  A live stream url is
+## signed - it carries ``sign`` and ``token`` parameters that grant access - so it
+## has no field here rather than being carried and trusted to be dropped later.
+##
+@dataclass(frozen=True)
+class LiveDownloadResult:
+  """What one live download attempt produced."""
+
+  ok: bool
+  recorded: bool = False
+  room_status: int = None
+  room_id: str = None
+  owner_user_id: str = None
+  nickname: str = None
+  protocol: str = None
+  output_path: str = None
+  test_mode: bool = False
+  reason: str = None
+
+
+##
+## Why an attempt did not record anything.  Stated once because the mapping onto
+## a task and the tests that pin it need the same words.
+##
+PROBE_FAILED_REASON = "直播状态获取失败"
+NOT_LIVE_REASON = "当前未直播"
+NO_STREAM_REASON = "直播流地址不可用"
+MALFORMED_RESPONSE_REASON = "直播响应缺少必要字段"
+
 
 # total_live_number = 0
 class DouyinLiveDownloader(Downloader):
@@ -106,6 +146,12 @@ class DouyinLiveDownloader(Downloader):
     timeout = 10,
     ):
     succeeded = False
+    ##
+    ## Where the bytes actually landed, reported back to the caller.  ``None``
+    ## while nothing has been written - which stays the answer in test mode,
+    ## where the transfer is skipped on purpose.
+    ##
+    written_path = None
     try:
       ##
       ## start download
@@ -138,6 +184,7 @@ class DouyinLiveDownloader(Downloader):
       else:
         if protocol == "hls":
           output_path = self._reserve_hls_output_path(save_path, file_name)
+          written_path = output_path
           get_logger().info("HLS output reserved: {}".format(output_path))
           stall_timeout = self.config.get_config_dict_attr(
             "$.platform.douyin.live.hls_stall_timeout"
@@ -168,7 +215,7 @@ class DouyinLiveDownloader(Downloader):
               pass
             raise
         else:
-          self.auto_down(
+          written_path = self.auto_down(
             url,
             save_path,
             file_name,
@@ -214,7 +261,7 @@ class DouyinLiveDownloader(Downloader):
           )
         )
       get_logger().info("当前总下载数：{}\n".format(self._actived_task_number))
-    return None
+    return written_path
 
 ##
 ## >>============================= abstract method =============================>>
@@ -259,7 +306,18 @@ class DouyinLiveDownloader(Downloader):
     super().dump_config()
 
   def run(self, token) -> None:
-    
+    """Record one live room.  Answers with nothing, as it always has.
+
+    Every existing caller - the listener threads, the score entry point, the
+    patrolman - submits this and ignores what comes back, so its contract is
+    kept exactly.  Callers that need to know what happened use
+    ``run_with_result`` instead.
+    """
+    self.run_with_result(token)
+    return None
+
+  def run_with_result(self, token) -> LiveDownloadResult:
+
     ##
     ## get url from token
     ##
@@ -290,7 +348,15 @@ class DouyinLiveDownloader(Downloader):
     ##
     probe = self.prober.probe(url)
     if probe.ok is not True:
-      return None
+      ##
+      ## The platform could not be asked, so whether the room is live is
+      ## unknown.  Distinct from a room that answered "not broadcasting" below.
+      ##
+      return LiveDownloadResult(
+        ok=False,
+        recorded=False,
+        reason=probe.error or PROBE_FAILED_REASON,
+      )
 
     live_response        = probe.response
     live_response_dict   = probe.payload
@@ -401,22 +467,67 @@ class DouyinLiveDownloader(Downloader):
       ##
       if stream_url is None:
         raise FileNotFoundError
-      
+
       ##
       ## download live stream when live room is active
       ##
       if room_status == 2:
-        self.download_live_stream(url, build, headers=header)
+        output_path = self.download_live_stream(url, build, headers=header)
+        return self._recorded_result(probe, summary, output_path)
+
+      ##
+      ## The room answered, and it is not broadcasting.  Everything above still
+      ## ran - the response was saved and the database updated - so this is a
+      ## complete attempt that simply had nothing to record.
+      ##
+      return self._unrecorded_result(probe, NOT_LIVE_REASON)
 
     except FileNotFoundError:
       get_logger().error("stream url is not found, please double check")
-      return None
+      return self._unrecorded_result(probe, NO_STREAM_REASON)
     except KeyError:
       get_logger().error("KeyError, please check the code {} {}".format(get_dict_attr(build, "$.summary.nickname"), url))
-      return None
+      return self._unrecorded_result(probe, MALFORMED_RESPONSE_REASON)
     except Exception as e:
       get_logger().error("Failed download stream file {} {} {}".format(get_dict_attr(build, "$.summary.nickname"), url, e))
       raise e
+
+  def _unrecorded_result(self, probe, reason: str) -> LiveDownloadResult:
+    """An attempt that reached the platform but recorded nothing."""
+    return LiveDownloadResult(
+      ok=False,
+      recorded=False,
+      room_status=probe.room_status,
+      room_id=probe.room_id,
+      owner_user_id=probe.owner_user_id,
+      nickname=probe.nickname,
+      reason=reason,
+    )
+
+  def _recorded_result(self, probe, summary: dict, output_path) -> LiveDownloadResult:
+    """An attempt that ran the recording stage through to its end.
+
+    ``test_mode`` runs every stage but the media transfer, so it succeeds
+    without having written a file; saying otherwise would claim a recording that
+    does not exist on disk.
+    """
+    test_mode = self.config.get_config_dict_attr("$.download.test_mode") is True
+    return LiveDownloadResult(
+      ok=True,
+      recorded=not test_mode,
+      room_status=probe.room_status,
+      room_id=probe.room_id,
+      owner_user_id=probe.owner_user_id,
+      nickname=probe.nickname,
+      protocol=get_dict_attr(summary, "$.stream_protocol"),
+      ##
+      ## The path the downloader actually wrote, never one rebuilt from the
+      ## stream name: live files are renamed on collision, so a reconstructed
+      ## path would name a file nobody created.
+      ##
+      output_path=None if output_path is None else str(output_path),
+      test_mode=test_mode,
+    )
 
 ##
 ## >>============================= sub class method =============================>>
@@ -806,14 +917,14 @@ class DouyinLiveDownloader(Downloader):
         break
       self.release()
       sleep(0.05)
-    self.__request_file__(
-          "get", 
-          url, 
-          stream_url, 
+    return self.__request_file__(
+          "get",
+          url,
+          stream_url,
           save_dir,
           stream_name,
           nickname,
-          True, 
+          True,
           stream_protocol,
           proxies,
           header,

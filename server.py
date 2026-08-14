@@ -24,6 +24,7 @@ from backend.src.platform.douyin.douyin_aweme_downloader import shutdown_aweme_d
 from backend.src.platform.douyin.douyin_live_downloader import cancel_live_downloads
 from backend.src.platform.platform_dispatcher import PlatformDispatcher
 from backend.src.service.direct_post_download_task import DirectPostDownloadTaskService
+from backend.src.service.live_recording_task import LiveRecordingTaskService
 from backend.src.web.history_routes import build_history_blueprint
 from backend.src.web.owner_routes import build_owner_blueprint
 from backend.src.web.person_routes import build_person_blueprint
@@ -147,7 +148,10 @@ def _new_flask_app(
       ##
       runtime["dispatcher"].dispatch(
         json_data,
-        context={"direct_post_service": runtime.get("direct_post_service")},
+        context={
+          "direct_post_service": runtime.get("direct_post_service"),
+          "live_record_service": runtime.get("live_record_service"),
+        },
       )
 
     except BadRequest as e:
@@ -229,6 +233,9 @@ def _new_flask_app(
   ## task store and each would report the other's downloads.
   ##
   runtime["direct_post_service"] = DirectPostDownloadTaskService(
+    task_service=task_service
+  )
+  runtime["live_record_service"] = LiveRecordingTaskService(
     task_service=task_service
   )
 

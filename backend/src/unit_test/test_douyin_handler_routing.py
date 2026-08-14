@@ -386,5 +386,151 @@ class DispatchContextTest(RoutingTestCase):
     self.assertEqual(1, len(self.errors))
 
 
+class FakeLiveRecordService:
+  """Stands in for the task-aware recorder handed down by a dispatch."""
+
+  def __init__(self):
+    self.submitted = []
+
+  def submit(self, token):
+    self.submitted.append(token)
+    return None
+
+
+class LiveDispatchContextTest(RoutingTestCase):
+  def test_a_live_room_goes_to_the_recorder_the_dispatch_supplied(self):
+    self.resolve_to("https://live.douyin.com/123456")
+    recorder = FakeLiveRecordService()
+
+    handler_module.douyin_handler(
+      {"url": "https://v.douyin.com/abc/"},
+      context={"live_record_service": recorder},
+    )
+
+    self.assertEqual(1, len(recorder.submitted))
+    ##
+    ## The legacy batch call is bypassed rather than run as well: both would
+    ## record the same room twice.
+    ##
+    self.assertEqual([], self.live_batches)
+
+  def test_the_recorder_is_given_what_the_handler_resolved(self):
+    self.resolve_to("https://live.douyin.com/123456")
+    recorder = FakeLiveRecordService()
+
+    handler_module.douyin_handler(
+      {"url": "https://v.douyin.com/abc/", "score": 80},
+      context={"live_record_service": recorder},
+    )
+
+    forwarded = recorder.submitted[0]
+    self.assertEqual("https://v.douyin.com/abc/", forwarded["url"])
+    self.assertEqual("https://live.douyin.com/123456", forwarded["resolved_url"])
+    self.assertEqual(80, forwarded["score"])
+
+  def test_the_callers_token_is_not_mutated_by_the_live_branch(self):
+    self.resolve_to("https://live.douyin.com/123456")
+    token = {"url": "https://v.douyin.com/abc/"}
+
+    handler_module.douyin_handler(
+      token, context={"live_record_service": FakeLiveRecordService()}
+    )
+
+    self.assertEqual({"url": "https://v.douyin.com/abc/"}, token)
+
+  def test_the_context_never_leaks_into_the_live_token(self):
+    self.resolve_to("https://live.douyin.com/123456")
+    recorder = FakeLiveRecordService()
+
+    handler_module.douyin_handler(
+      {"url": "https://v.douyin.com/abc/"},
+      context={"live_record_service": recorder},
+    )
+
+    forwarded = recorder.submitted[0]
+    self.assertNotIn("live_record_service", forwarded)
+    self.assertNotIn("direct_post_service", forwarded)
+
+  def test_a_post_is_untouched_by_the_live_runner(self):
+    self.resolve_to("https://www.douyin.com/video/" + AWEME_ID)
+    recorder = FakeLiveRecordService()
+    poster = FakeDirectPostService()
+
+    handler_module.douyin_handler(
+      {"url": "https://v.douyin.com/abc/"},
+      context={"live_record_service": recorder, "direct_post_service": poster},
+    )
+
+    ##
+    ## The two branches stay strictly separate: a post must never produce a
+    ## recording task, and vice versa.
+    ##
+    self.assertEqual([], recorder.submitted)
+    self.assertEqual(1, len(poster.submitted))
+
+  def test_a_live_room_never_reaches_the_post_runner(self):
+    self.resolve_to("https://live.douyin.com/123456")
+    recorder = FakeLiveRecordService()
+    poster = FakeDirectPostService()
+
+    handler_module.douyin_handler(
+      {"url": "https://v.douyin.com/abc/"},
+      context={"live_record_service": recorder, "direct_post_service": poster},
+    )
+
+    self.assertEqual(1, len(recorder.submitted))
+    self.assertEqual([], poster.submitted)
+
+  def test_an_unrecognised_url_creates_no_recording(self):
+    self.resolve_to("https://www.douyin.com/user/MS4wLjABAAAA")
+    recorder = FakeLiveRecordService()
+
+    handler_module.douyin_handler(
+      {"url": "https://v.douyin.com/abc/"},
+      context={"live_record_service": recorder},
+    )
+
+    self.assertEqual([], recorder.submitted)
+    self.assertEqual([], self.live_batches)
+    self.assertEqual(1, len(self.warnings))
+
+  def test_a_dispatch_without_a_recorder_uses_the_legacy_path(self):
+    self.resolve_to("https://live.douyin.com/123456")
+
+    handler_module.douyin_handler({"url": "https://v.douyin.com/abc/"}, context={})
+
+    self.assertEqual(1, len(self.live_batches))
+
+  def test_no_context_at_all_uses_the_legacy_path(self):
+    self.resolve_to("https://live.douyin.com/123456")
+
+    handler_module.douyin_handler({"url": "https://v.douyin.com/abc/"})
+
+    self.assertEqual(1, len(self.live_batches))
+
+  def test_the_legacy_live_path_still_receives_the_resolved_url(self):
+    self.resolve_to("https://live.douyin.com/123456")
+
+    handler_module.douyin_handler({"url": "https://v.douyin.com/abc/"})
+
+    forwarded = self.live_batches[0][0]
+    self.assertEqual("https://v.douyin.com/abc/", forwarded["url"])
+    self.assertEqual("https://live.douyin.com/123456", forwarded["resolved_url"])
+
+  def test_a_recorder_that_throws_does_not_escape_the_handler(self):
+    class ExplodingRecorder:
+      def submit(self, token):
+        raise RuntimeError("thread exploded")
+
+    self.resolve_to("https://live.douyin.com/123456")
+
+    handler_module.douyin_handler(
+      {"url": "https://v.douyin.com/abc/"},
+      context={"live_record_service": ExplodingRecorder()},
+    )
+
+    self.assertEqual(1, len(self.errors))
+
+
 if __name__ == "__main__":
   unittest.main()

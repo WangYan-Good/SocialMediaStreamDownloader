@@ -130,7 +130,14 @@ def douyin_handler(token:dict, context:dict=None):
   ##
   try:
     if is_douyin_live_url(response.url):
-      live_token_list.append(token)
+      ##
+      ## Carry down what was already learned, exactly as the post branch does, so
+      ## the recording's task can name the link the user pasted and the room it
+      ## resolved to without spending a second request.
+      ##
+      live_token = token.copy()
+      set_dict_attr(live_token, "$.resolved_url", response.url)
+      live_token_list.append(live_token)
     elif classify_aweme_url(response.url) is not None:
       ##
       ## Hand the resolved url and id down with the token.  The share link was
@@ -164,8 +171,18 @@ def douyin_handler(token:dict, context:dict=None):
   ## start multiple thread to download living
   ##
   if live_token_list:
+    ##
+    ## Only now is the link known to be a live room, which is why the task is
+    ## created here: a post link or a profile link reaching this function must
+    ## not first produce a recording task that describes work nobody is doing.
+    ##
+    recorder = context.get("live_record_service") if context else None
     try:
-      download_multiple_live(live_token_list)
+      if recorder is not None:
+        for live_token in live_token_list:
+          recorder.submit(live_token)
+      else:
+        download_multiple_live(live_token_list)
     except Exception as e:
       get_logger().error("download multiple live failed! {}".format(e))
       return
