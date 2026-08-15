@@ -176,12 +176,16 @@ describe('placeholder views', () => {
   })
 
   it('says which stage fills each screen in', async () => {
+    //
+    // Asserted against a screen that is still a placeholder. New Download used
+    // to be one; it is now the real thing, which is why this points elsewhere.
+    //
     const { wrapper, router } = await mountShell()
 
-    await router.push('/new')
+    await router.push('/creators')
     await nextTick()
 
-    expect(wrapper.text()).toContain('P8')
+    expect(wrapper.text()).toContain('P10')
   })
 })
 
