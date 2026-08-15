@@ -18,14 +18,25 @@ export function createTask(payload: CreateTaskRequest): Promise<CreatedTask> {
   return request<CreatedTask>('/tasks', { method: 'POST', body: payload })
 }
 
-/** Every task this process knows about, newest first. */
-export function listTasks(filters: TaskListFilters = {}): Promise<TaskList> {
+/**
+ * Every task this process knows about, newest first.
+ *
+ * `signal` is optional and additive: a caller that watches this list has to be
+ * able to abandon a request whose answer it no longer wants - a filter changed,
+ * the screen closed - and every existing caller is unaffected by not passing
+ * one.
+ */
+export function listTasks(
+  filters: TaskListFilters = {},
+  signal?: AbortSignal,
+): Promise<TaskList> {
   return request<TaskList>('/tasks', {
     query: {
       state: filters.state,
       type: filters.type,
       limit: filters.limit,
     },
+    ...(signal ? { signal } : {}),
   })
 }
 

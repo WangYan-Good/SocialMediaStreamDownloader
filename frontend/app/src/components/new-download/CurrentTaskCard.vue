@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import TaskStateBadge from '@/components/new-download/TaskStateBadge.vue'
+import TaskStateBadge from '@/components/tasks/TaskStateBadge.vue'
+import {
+  TASK_TYPE_LABELS,
+  progressText,
+} from '@/components/tasks/taskPresentation'
 import type { CreatedTask, Task } from '@/types/task'
 
 const props = defineProps<{
@@ -15,14 +19,7 @@ const props = defineProps<{
 
 defineEmits<{ retry: []; startOver: [] }>()
 
-const TYPE_LABELS = {
-  post_download: '作品下载',
-  live_record: '直播录制',
-  owner_batch_download: '主播批量下载',
-  live_probe: '直播探测',
-} as const
-
-const typeLabel = computed(() => TYPE_LABELS[props.created.task_type])
+const typeLabel = computed(() => TASK_TYPE_LABELS[props.created.task_type])
 
 //
 // What a finished task says, in one sentence. The task's own message wins when
@@ -44,7 +41,7 @@ const outcome = computed(() => {
   return props.task?.message || OUTCOMES[state as keyof typeof OUTCOMES]
 })
 
-const progressText = computed(() => {
+const progressLabel = computed(() => {
   const progress = props.task?.progress
   if (!progress) {
     return null
@@ -53,10 +50,7 @@ const progressText = computed(() => {
   // A recording has no final count, and that is the honest answer rather than a
   // fabricated total that would render as a bar stuck near zero for hours.
   //
-  if (progress.total === null) {
-    return `已处理 ${progress.current}`
-  }
-  return `${progress.current} / ${progress.total}`
+  return progressText(progress.current, progress.total)
 })
 </script>
 
@@ -80,10 +74,10 @@ const progressText = computed(() => {
         <dt>标题</dt>
         <dd>{{ task.title }}</dd>
       </div>
-      <div v-if="progressText" class="facts__row">
+      <div v-if="progressLabel" class="facts__row">
         <dt>进度</dt>
         <dd>
-          {{ progressText }}
+          {{ progressLabel }}
           <span v-if="progressPercent !== null" class="facts__muted">
             （{{ progressPercent }}%）
           </span>
