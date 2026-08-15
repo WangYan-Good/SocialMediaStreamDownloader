@@ -3,6 +3,7 @@ from flask import Blueprint, current_app, jsonify, request
 
 ##<<Third-part>>
 from backend.src.library.loglib import get_logger
+from backend.src.service.task_creation import TaskCreateError
 from backend.src.task.errors import TaskValidationError
 from backend.src.task.model import to_payload
 from backend.src.task.service import TaskService
@@ -14,6 +15,22 @@ from backend.src.task.service import TaskService
 ##
 TASK_SERVICE_KEY = "smsd_task_service"
 
+##
+## And where the one thing allowed to *start* work lives.  Separate from the
+## service above because reading tasks and creating them are different
+## authorities: the read side works with nothing wired behind it, the write side
+## must refuse rather than pretend.
+##
+TASK_CREATION_SERVICE_KEY = "smsd_task_creation_service"
+
+##
+## The whole of what a creation request may say.  Anything else is refused
+## rather than ignored: a client sending ``aweme_id`` is describing the resource,
+## which is exactly the thing this endpoint declines to take its word for, and
+## silently dropping the field would leave the caller believing it was used.
+##
+_CREATE_FIELDS = ("resolve_id", "task_type", "options")
+
 
 def _error(message: str, code: int):
   return jsonify({"status": "error", "message": message, "code": code}), code
@@ -21,6 +38,15 @@ def _error(message: str, code: int):
 
 def _success(data: dict):
   return jsonify({"status": "success", "code": 200, "data": data}), 200
+
+
+def _accepted(data: dict):
+  ##
+  ## 202, not 200: the request has been taken on, and what it started is
+  ## observable through the read side rather than finished by the time this
+  ## answers.
+  ##
+  return jsonify({"status": "success", "code": 202, "data": data}), 202
 
 
 def install_task_service(app, service: TaskService = None) -> TaskService:
@@ -38,6 +64,29 @@ def install_task_service(app, service: TaskService = None) -> TaskService:
 def task_service() -> TaskService:
   """The TaskService of the application handling this request."""
   return current_app.extensions.get(TASK_SERVICE_KEY)
+
+
+def install_task_creation_service(app, service=None):
+  """Attach the one thing allowed to start work to ``app`` and return it.
+
+  Per application for the same reason everything else here is: a receipt issued
+  by one application must not be redeemable in another, and the tasks it creates
+  belong to that application's store.
+  """
+  app.extensions[TASK_CREATION_SERVICE_KEY] = service
+  return service
+
+
+def task_creation_service():
+  """The TaskCreationService of the application handling this request."""
+  return current_app.extensions.get(TASK_CREATION_SERVICE_KEY)
+
+
+def _required_text(payload: dict, field: str):
+  value = payload.get(field)
+  if not isinstance(value, str) or not value.strip():
+    raise TaskValidationError("缺少必需字段: {}".format(field))
+  return value.strip()
 
 
 def _optional_filter(name: str):
@@ -63,13 +112,72 @@ def _optional_limit():
 
 
 def build_task_blueprint() -> Blueprint:
-  """The read side of the unified task centre.
+  """The unified task centre: what is running, and how to start something.
 
-  Creating tasks is deliberately absent: a task is only worth showing once some
-  business actually runs it, so ``POST /api/tasks`` arrives with the first
-  migration rather than as an endpoint that starts nothing.
+  Both verbs live on one resource rather than in two blueprints sharing a url.
+  Creating arrived only once there was a trustworthy way to say *what* to run:
+  a request names a server-side resolution by its receipt and the work it wants
+  done, and never describes the resource itself.
   """
   blueprint = Blueprint("task", __name__, url_prefix="/api")
+
+  @blueprint.route("/tasks", methods=["POST"])
+  def create_task():
+    service = task_creation_service()
+    if service is None:
+      return _error("任务创建服务未初始化", 503)
+
+    if not request.is_json:
+      return _error("请求必须是 JSON 格式", 400)
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+      return _error("请求体为空或格式错误", 400)
+
+    unknown = sorted(set(payload) - set(_CREATE_FIELDS))
+    if unknown:
+      ##
+      ## Named in the message, because the fields a client is most likely to
+      ## send here are the ones it wants the server to trust - an aweme id, a
+      ## url - and "unknown field" alone would read as pedantry rather than as
+      ## the refusal it is.
+      ##
+      return _error("不支持的字段: {}".format(", ".join(unknown)), 400)
+
+    try:
+      resolve_id = _required_text(payload, "resolve_id")
+      task_type = _required_text(payload, "task_type")
+    except TaskValidationError as e:
+      return _error(str(e), 400)
+
+    options = payload.get("options")
+    if options is not None and not isinstance(options, dict):
+      return _error("options 必须是对象", 400)
+
+    try:
+      result = service.create(resolve_id, task_type, options)
+    except TaskCreateError as e:
+      ##
+      ## The category, never the request.  A refusal has to be diagnosable from
+      ## the log without the log holding what a client sent.
+      ##
+      get_logger().info("task creation refused: {}".format(e.kind))
+      return _error(str(e), e.status_code)
+    except Exception as e:
+      get_logger().error(
+        "task creation failed: {}: {}".format(type(e).__name__, e)
+      )
+      return _error("服务器内部错误，请稍后重试", 500)
+
+    get_logger().info(
+      "created a {} task from a resolution".format(result.task_type)
+    )
+    return _accepted(
+      {
+        "task_id": result.task_id,
+        "task_type": result.task_type,
+        "resolve_id": result.resolve_id,
+      }
+    )
 
   @blueprint.route("/tasks", methods=["GET"])
   def list_tasks():

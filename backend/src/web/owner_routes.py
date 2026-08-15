@@ -52,6 +52,15 @@ SESSION_MESSAGE = (
   "platform.douyin.headers.post_info.cookie"
 )
 
+##
+## Where the one OwnerRuntime lives for the life of the application.  Held on
+## the app rather than only inside this blueprint's closure because a second
+## entry point - the unified task api - has to reach the *same* runtime: two
+## would mean two job stores, two payload caches and two sets of per-post locks,
+## and the same post walked by one while downloaded by the other.
+##
+OWNER_RUNTIME_KEY = "smsd_owner_runtime"
+
 
 def _error(message: str, code: int):
   return jsonify({"status": "error", "message": message, "code": code}), code
