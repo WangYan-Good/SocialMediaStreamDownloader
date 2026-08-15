@@ -177,15 +177,16 @@ describe('placeholder views', () => {
 
   it('says which stage fills each screen in', async () => {
     //
-    // Asserted against a screen that is still a placeholder. New Download used
-    // to be one; it is now the real thing, which is why this points elsewhere.
+    // Asserted against a screen that is still a placeholder. New Download,
+    // Tasks and Creators each used to be one and are now the real thing, which
+    // is why this keeps moving to whichever is next.
     //
     const { wrapper, router } = await mountShell()
 
-    await router.push('/creators')
+    await router.push('/library')
     await nextTick()
 
-    expect(wrapper.text()).toContain('P10')
+    expect(wrapper.text()).toContain('P11')
   })
 })
 
@@ -197,16 +198,17 @@ describe('screens with nothing to load ask the backend for nothing', () => {
     // a whole workflow, but nothing reaches the network until the user pastes
     // something and presses a button.
     //
-    // The task centre is deliberately *out* of it. Showing what the server is
-    // doing is that screen's entire purpose, so reading the list on arrival is
-    // correct behaviour - asserted by its own tests rather than forbidden here.
-    // The observation point moved; the rule did not weaken.
+    // The task centre and the creators workspace are deliberately *out* of it.
+    // Showing what the server is doing, and which accounts it knows about, is
+    // those screens' entire purpose - so reading on arrival is correct
+    // behaviour, asserted by their own tests rather than forbidden here. The
+    // observation point moved; the rule did not weaken.
     //
     const fetched = vi.fn()
     vi.stubGlobal('fetch', fetched)
 
     const { router } = await mountShell()
-    for (const path of ['/overview', '/new', '/creators', '/library', '/system']) {
+    for (const path of ['/overview', '/new', '/library', '/system']) {
       await router.push(path)
       await nextTick()
     }

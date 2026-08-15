@@ -221,3 +221,58 @@ describe('ApiError', () => {
     expect(error.message).toBe('x')
   })
 })
+
+describe('methods beyond GET and POST', () => {
+  it('sends a PATCH with a json body', async () => {
+    //
+    // The person api really uses these two verbs; adding them here is what
+    // keeps every call in this project going through one client rather than a
+    // second one growing up beside it.
+    //
+    const fetched = stubFetch(jsonResponse({ status: 'success', code: 200, data: {} }))
+
+    await request('/person/7', { method: 'PATCH', body: { note: '改过的备注' } })
+
+    const [url, init] = fetched.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/person/7')
+    expect(init.method).toBe('PATCH')
+    expect(init.body).toBe(JSON.stringify({ note: '改过的备注' }))
+    expect(new Headers(init.headers).get('Content-Type')).toBe('application/json')
+  })
+
+  it('sends a DELETE with no body at all', async () => {
+    //
+    // Not an empty string and not "{}": a body on a DELETE is the kind of thing
+    // a proxy or a framework is entitled to reject.
+    //
+    const fetched = stubFetch(jsonResponse({ status: 'success', code: 200, data: {} }))
+
+    await request('/person/7', { method: 'DELETE' })
+
+    const [, init] = fetched.mock.calls[0] as [string, RequestInit]
+    expect(init.method).toBe('DELETE')
+    expect(init.body).toBeUndefined()
+    expect(new Headers(init.headers).get('Content-Type')).toBeNull()
+  })
+
+  it('puts a DELETE identifier in the query string', async () => {
+    const fetched = stubFetch(jsonResponse({ status: 'success', code: 200, data: {} }))
+
+    await request('/person/account', {
+      method: 'DELETE',
+      query: { owner_user_id: '58859666123' },
+    })
+
+    expect(fetched.mock.calls[0][0]).toBe('/api/person/account?owner_user_id=58859666123')
+  })
+
+  it('unwraps and fails the same way whatever the method', async () => {
+    stubFetch(jsonResponse({ status: 'error', code: 404, message: '人物不存在' }, 404))
+
+    const error = await failureOf(request('/person/7', { method: 'DELETE' }))
+
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error.status).toBe(404)
+    expect(error.message).toBe('人物不存在')
+  })
+})

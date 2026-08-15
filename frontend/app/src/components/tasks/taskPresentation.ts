@@ -99,24 +99,11 @@ export function formatTaskTime(value: string | null): string {
   return parsed.toLocaleString()
 }
 
-/**
- * Whether a value is safe to put in an `href`.
- *
- * `rel="noopener noreferrer"` does nothing about this: with `javascript:` or
- * `data:` the scheme *is* the payload, and a click runs it. Task metadata is
- * arbitrary business data written by whichever runner did the work, so a url
- * out of it is checked rather than trusted - and a value that fails the check
- * is still shown, as text, because an odd entry in a task record is something
- * somebody needs to be able to read and explain.
- */
-export function isLinkableUrl(value: string): boolean {
-  try {
-    const parsed = new URL(value.trim())
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
-  } catch {
-    //
-    // Not an absolute url at all. Nothing to link to.
-    //
-    return false
-  }
-}
+//
+// Re-exported so the task detail panel keeps its existing import while the rule
+// itself lives in one place - see utils/url.
+//
+export { isHttpUrl } from '@/utils/url'
+
+/** @deprecated Use isHttpUrl. Kept so existing imports keep working. */
+export { isHttpUrl as isLinkableUrl } from '@/utils/url'
