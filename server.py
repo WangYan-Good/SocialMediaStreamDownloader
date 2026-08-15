@@ -39,6 +39,10 @@ from backend.src.web.resolve_routes import (
   install_resolve_service,
 )
 from backend.src.web.spa_routes import build_spa_blueprint
+from backend.src.web.system_routes import (
+  build_system_blueprint,
+  install_system_config,
+)
 from backend.src.web.task_routes import (
   build_task_blueprint,
   install_task_creation_service,
@@ -98,6 +102,12 @@ def _new_flask_app(
       runtime["logger"] = get_logger()
       configured_app.debug = options["debug"]
       configured_app.extensions["smsd_schema_guard"] = schema_guard
+      ##
+      ## Reduced to the publishable fields here, at the moment this application
+      ## first learns its configuration.  What it stores is already safe, so the
+      ## status route has no full configuration to disclose even by mistake.
+      ##
+      install_system_config(configured_app, source)
       runtime["initialized"] = True
 
   @configured_app.before_request
@@ -290,6 +300,16 @@ def _new_flask_app(
   configured_app.register_blueprint(build_library_blueprint())
 
   ##
+  ## read-only runtime status and a safe summary of the loaded configuration
+  ##
+  ## The summary itself is installed separately, by whichever path knows this
+  ## application's configuration - see install_system_config below.  The route
+  ## reads it from the application, never from a process global, so the lazy
+  ## wsgi app and a test's app each describe their own settings.
+  ##
+  configured_app.register_blueprint(build_system_blueprint())
+
+  ##
   ## the read side of the task centre
   ##
   configured_app.register_blueprint(build_task_blueprint())
@@ -364,6 +384,12 @@ def create_app(
     initial_schema_guard=schema_guard,
   )
   configured_app.debug = options["debug"]
+  ##
+  ## The same reduction for an application built around an explicit
+  ## configuration.  Without this an application created here would report the
+  ## settings of whichever one happened to be initialised last.
+  ##
+  install_system_config(configured_app, source)
   return configured_app
 
 

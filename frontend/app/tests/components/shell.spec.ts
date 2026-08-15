@@ -177,16 +177,17 @@ describe('placeholder views', () => {
 
   it('says which stage fills each screen in', async () => {
     //
-    // Asserted against a screen that is still a placeholder. New Download,
-    // Tasks, Creators and now the Library each used to be one and are now the
-    // real thing, which is why this keeps moving to whichever is next.
+    // Asserted against the one screen that is still a placeholder. Every other
+    // entry in the sidebar has been filled in by now, which is why this has
+    // walked all the way to the overview - and why the overview is what stands
+    // between this application and replacing the legacy root.
     //
     const { wrapper, router } = await mountShell()
 
-    await router.push('/system')
+    await router.push('/overview')
     await nextTick()
 
-    expect(wrapper.text()).toContain('P12')
+    expect(wrapper.text()).toContain('P13')
   })
 })
 
@@ -198,18 +199,18 @@ describe('screens with nothing to load ask the backend for nothing', () => {
     // a whole workflow, but nothing reaches the network until the user pastes
     // something and presses a button.
     //
-    // The task centre, the creators workspace and the library are deliberately
-    // *out* of it. Showing what the server is doing, which accounts it knows
-    // about, and what it has already downloaded is those screens' entire
-    // purpose - so reading on arrival is correct behaviour, asserted by their
-    // own tests rather than forbidden here. The observation point moved; the
-    // rule did not weaken.
+    // The task centre, the creators workspace, the library and now the system
+    // page are deliberately *out* of it. Showing what the server is doing,
+    // which accounts it knows about, what it has already downloaded and how it
+    // is configured is those screens' entire purpose - so reading on arrival is
+    // correct behaviour, asserted by their own tests rather than forbidden
+    // here. The observation point moved; the rule did not weaken.
     //
     const fetched = vi.fn()
     vi.stubGlobal('fetch', fetched)
 
     const { router } = await mountShell()
-    for (const path of ['/overview', '/new', '/system']) {
+    for (const path of ['/overview', '/new']) {
       await router.push(path)
       await nextTick()
     }
