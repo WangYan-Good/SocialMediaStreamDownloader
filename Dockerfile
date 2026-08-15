@@ -23,6 +23,26 @@ RUN python -m venv /opt/venv && \
     /opt/venv/bin/pip install --no-cache-dir --upgrade pip && \
     /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
+# ---------- 阶段1b: 构建前端 ----------
+#
+# Node 24, matching frontend/app/package.json engines and the CI workflow.  One
+# major across all three on purpose: a lockfile resolved under one runtime and
+# installed under another is how a build passes locally and fails in the image.
+#
+FROM node:24-slim AS frontend-builder
+
+WORKDIR /frontend
+
+# 先复制依赖清单，让 npm 层可以被缓存：源码改动不应触发重新安装依赖
+COPY frontend/app/package.json frontend/app/package-lock.json ./
+
+# npm ci 而非 npm install：严格按 lock 安装，不允许解析出新版本
+RUN npm ci --no-audit --no-fund
+
+# 依赖就位后再复制源码，构建产物落在 /frontend/dist
+COPY frontend/app/ ./
+RUN npm run build
+
 # ---------- 阶段2: 运行环境 ----------
 FROM python:3.12-slim AS runtime
 
@@ -55,6 +75,12 @@ WORKDIR /app
 
 # 复制项目文件；root 入口代码必须不可由 appuser 改写
 COPY . .
+
+# 前端产物来自 node 构建阶段，而不是宿主机
+#
+# 运行镜像里没有 Node/npm：Flask 只需要 dist 里的静态文件，把工具链留在
+# builder 阶段是镜像体积和攻击面都更小的做法。
+COPY --from=frontend-builder /frontend/dist ./frontend/app/dist
 
 # 创建必要的目录
 RUN mkdir -p /app/logs /app/downloads /app/config/build /app/config/export && \

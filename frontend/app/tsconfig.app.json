@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "preserve",
+    "types": ["vitest/globals"],
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "exactOptionalPropertyTypes": false,
+
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  //
+  // vite.config.ts is listed here as well as in tsconfig.node.json: a test
+  // imports it to assert the build's own contract - the /app/ base that nothing
+  // else in this suite can see - and a file has to belong to a project to be
+  // importable from it.
+  //
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.vue",
+    "tests/**/*.ts",
+    "env.d.ts",
+    "vite.config.ts"
+  ]
+}

@@ -37,6 +37,7 @@ from backend.src.web.resolve_routes import (
   build_resolve_blueprint,
   install_resolve_service,
 )
+from backend.src.web.spa_routes import build_spa_blueprint
 from backend.src.web.task_routes import (
   build_task_blueprint,
   install_task_creation_service,
@@ -315,6 +316,16 @@ def _new_flask_app(
       owner_service_factory=owner_runtime.service,
     ),
   )
+
+  ##
+  ## The new interface, served beside the old one rather than in place of it.
+  ##
+  ## ``/`` stays the legacy Jinja product while the Vue application catches up
+  ## feature by feature; this mounts the new shell on its own prefix so both -
+  ## and the json api underneath them - answer at the same time.  Registered
+  ## last, and on a prefix, so it can never shadow a route above it.
+  ##
+  configured_app.register_blueprint(build_spa_blueprint())
 
   return configured_app
 

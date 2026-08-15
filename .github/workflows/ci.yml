@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+
+jobs:
+  backend:
+    name: Python tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # config/config.yml holds real credentials and is deliberately untracked,
+      # but parts of the unit suite reach code that loads it - a downloader
+      # built through the legacy dispatch path, for one - and swallow the
+      # failure, which shows up as a test asserting that work was submitted
+      # when none was. Every developer machine has the file, so this only
+      # surfaced once the suite first ran on a clean checkout.
+      #
+      # Materialised from the tracked example and hardened exactly the way
+      # backend/src/unit_test/config_fixture.py hardens it, so CI runs against
+      # the same settings the fixture already considers safe: no database, no
+      # real transfers, no files written into the workspace.
+      - name: Provide a test configuration
+        run: |
+          mkdir -p config
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+
+          config = yaml.safe_load(
+            Path("docs/design/config.yml.example").read_text(encoding="utf-8")
+          )
+          config["database"]["enable"] = False
+          config["download"]["test_mode"] = True
+          config["download"]["save_response"] = False
+          config["download"]["save_error_response"] = False
+          # Outside the workspace, so a stray write cannot masquerade as a
+          # source file or reach the artefact upload.
+          config["download"]["save_path"] = "/tmp/smsd-ci-downloads/"
+          config["log"]["log_save"] = False
+          config["server"]["debug_mode"] = False
+
+          Path("config/config.yml").write_text(
+            yaml.safe_dump(config, allow_unicode=True, sort_keys=False),
+            encoding="utf-8",
+          )
+          PY
+
+      # The unit suite only. backend/src/integration_test talks to a real
+      # database and is deliberately not part of this job.
+      - name: Run unit tests
+        run: python -m pytest backend/src/unit_test -q
+
+  frontend:
+    name: Frontend build and tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/app
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 24, matching frontend/app/package.json engines and the Dockerfile
+      # builder stage. One major across all three, so a lockfile resolved in one
+      # place installs the same way in the others.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/app/package-lock.json
+
+      # npm ci, never npm install: the lockfile is the contract, and resolving
+      # versions afresh in CI is how a green build stops matching the one that
+      # ships.
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test:run
+
+      - name: Production build
+        run: npm run build
+
+  image:
+    name: Docker build
+    runs-on: ubuntu-latest
+    # Only once both halves pass: the image contains both, so building it before
+    # either is verified would only ever fail slower.
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build only. Running the container needs a real config and a database,
+      # neither of which belongs in CI.
+      - name: Build image
+        run: docker build -t smsd:ci .

@@ -51,3 +51,12 @@ config
 # OS files
 .DS_Store
 Thumbs.db
+
+# New Vue frontend build artifacts. package-lock.json is deliberately NOT
+# ignored: npm ci depends on it, and Docker/CI install from it rather than
+# resolving versions afresh.
+frontend/app/node_modules/
+frontend/app/dist/
+frontend/app/coverage/
+frontend/app/.vite/
+frontend/app/node_modules/.tmp/
