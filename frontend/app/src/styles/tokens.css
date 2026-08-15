@@ -1,0 +1,46 @@
+/*
+ * The whole visual vocabulary of the new interface, in one place.
+ *
+ * Deliberately small.  A component library or a utility framework is a decision
+ * with a long tail - bundle size, upgrade path, how every later screen is
+ * written - and it is not one this stage has enough screens to make well.  Six
+ * colours and a spacing scale are enough to build a shell that reads clearly,
+ * and they are trivially replaceable once that decision is actually due.
+ */
+
+:root {
+  --color-background: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-text: #1c1f23;
+  --color-muted: #6b7280;
+  --color-border: #e3e6ea;
+  --color-accent: #2563eb;
+  --color-accent-soft: #eaf0fe;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+
+  --radius-1: 4px;
+  --radius-2: 8px;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+
+  --sidebar-width: 220px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background: #16181c;
+    --color-surface: #1e2126;
+    --color-text: #e8eaed;
+    --color-muted: #9aa2ae;
+    --color-border: #2c3037;
+    --color-accent: #6f9bff;
+    --color-accent-soft: #23304d;
+  }
+}

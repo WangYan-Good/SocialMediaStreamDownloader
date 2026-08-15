@@ -56,3 +56,11 @@ Dockerfile
 
 # Misc
 *.md.bak
+
+# Host frontend artifacts. The image builds its own dist in the node stage, so
+# anything built on a developer's machine must not travel into the build
+# context - it would be copied in and then shadowed, or worse, used.
+frontend/app/node_modules/
+frontend/app/dist/
+frontend/app/coverage/
+frontend/app/.vite/
