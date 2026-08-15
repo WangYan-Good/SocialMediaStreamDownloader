@@ -178,15 +178,15 @@ describe('placeholder views', () => {
   it('says which stage fills each screen in', async () => {
     //
     // Asserted against a screen that is still a placeholder. New Download,
-    // Tasks and Creators each used to be one and are now the real thing, which
-    // is why this keeps moving to whichever is next.
+    // Tasks, Creators and now the Library each used to be one and are now the
+    // real thing, which is why this keeps moving to whichever is next.
     //
     const { wrapper, router } = await mountShell()
 
-    await router.push('/library')
+    await router.push('/system')
     await nextTick()
 
-    expect(wrapper.text()).toContain('P11')
+    expect(wrapper.text()).toContain('P12')
   })
 })
 
@@ -198,17 +198,18 @@ describe('screens with nothing to load ask the backend for nothing', () => {
     // a whole workflow, but nothing reaches the network until the user pastes
     // something and presses a button.
     //
-    // The task centre and the creators workspace are deliberately *out* of it.
-    // Showing what the server is doing, and which accounts it knows about, is
-    // those screens' entire purpose - so reading on arrival is correct
-    // behaviour, asserted by their own tests rather than forbidden here. The
-    // observation point moved; the rule did not weaken.
+    // The task centre, the creators workspace and the library are deliberately
+    // *out* of it. Showing what the server is doing, which accounts it knows
+    // about, and what it has already downloaded is those screens' entire
+    // purpose - so reading on arrival is correct behaviour, asserted by their
+    // own tests rather than forbidden here. The observation point moved; the
+    // rule did not weaken.
     //
     const fetched = vi.fn()
     vi.stubGlobal('fetch', fetched)
 
     const { router } = await mountShell()
-    for (const path of ['/overview', '/new', '/library', '/system']) {
+    for (const path of ['/overview', '/new', '/system']) {
       await router.push(path)
       await nextTick()
     }

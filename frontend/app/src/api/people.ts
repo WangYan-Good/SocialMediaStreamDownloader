@@ -7,13 +7,31 @@ import type {
   CreatePersonPayload,
   PersonDetail,
   PersonSummaryItem,
+  PersonWork,
   UpdatePersonFields,
 } from '@/types/person'
 
-export function listPeople(signal?: AbortSignal): Promise<PersonSummaryItem[]> {
-  return request<PersonSummaryItem[]>('/person', {
+//
+// The wire shapes of the person endpoints that answer with a named collection.
+//
+// `request` unwraps the envelope's `data` and stops there; whatever is inside
+// it is each adapter's own business. Naming these makes the two layers of
+// unwrapping visible - typing the call as `PersonSummaryItem[]` would compile,
+// and would hand every caller an object wearing an array's type.
+//
+interface PersonListData {
+  persons: PersonSummaryItem[]
+}
+
+interface AccountSearchData {
+  accounts: AccountSearchResult[]
+}
+
+export async function listPeople(signal?: AbortSignal): Promise<PersonSummaryItem[]> {
+  const data = await request<PersonListData>('/person', {
     ...(signal ? { signal } : {}),
   })
+  return data.persons
 }
 
 export function createPerson(payload: CreatePersonPayload): Promise<{ person_id: number }> {
@@ -50,14 +68,15 @@ export function getPersonDetail(
   })
 }
 
-export function searchAccounts(
+export async function searchAccounts(
   keyword: string,
   signal?: AbortSignal,
 ): Promise<AccountSearchResult[]> {
-  return request<AccountSearchResult[]>('/person/accounts', {
+  const data = await request<AccountSearchData>('/person/accounts', {
     query: { keyword },
     ...(signal ? { signal } : {}),
   })
+  return data.accounts
 }
 
 /**
@@ -126,4 +145,26 @@ export function removeCollaboration(
       query: { photographer_id: photographerId, subject_id: subjectId },
     },
   )
+}
+
+/**
+ * The posts associated with a photographer through their collaborations.
+ *
+ * Deliberately absent through the creators phase: it returns content, and
+ * content is this phase's business rather than the identity screen's. The
+ * endpoint itself is unchanged - it has answered this way since the legacy
+ * page, including the part where it returns whole accounts rather than
+ * individually attributed shoots.
+ *
+ * There is no paging to pass: the endpoint takes none and answers with one
+ * bounded list.
+ */
+export async function getPersonWorks(
+  personId: number,
+  signal?: AbortSignal,
+): Promise<PersonWork[]> {
+  const data = await request<{ works: PersonWork[] }>(`/person/${personId}/works`, {
+    ...(signal ? { signal } : {}),
+  })
+  return data.works
 }

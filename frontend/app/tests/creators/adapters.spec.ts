@@ -249,11 +249,37 @@ describe('owner: starting downloads', () => {
 
 describe('people: reading', () => {
   it('lists people', async () => {
-    const fake = stubFetch([])
+    //
+    // The stub answers with the shape the backend actually sends. It used to
+    // answer with a bare array, which no endpoint here has ever returned - so
+    // this asserted the request and silently agreed with the adapter about a
+    // response neither of them had ever seen.
+    //
+    const fake = stubFetch({ persons: [] })
 
     await listPeople()
 
     expect(callOf(fake).url).toBe('/api/person')
+  })
+
+  it('unwraps the persons the envelope carries', async () => {
+    //
+    // `request` unwraps the envelope's `data` and stops there. Everything past
+    // that is this adapter's job, and getting it wrong is invisible to any test
+    // that mocks this module: the store sees whatever the mock promised rather
+    // than what the server sends.
+    //
+    stubFetch({
+      persons: [
+        { person_id: 1, display_name: '甲', directory_name: null, note: null, account_count: 1 },
+        { person_id: 2, display_name: '乙', directory_name: null, note: null, account_count: 0 },
+      ],
+    })
+
+    const people = await listPeople()
+
+    expect(Array.isArray(people)).toBe(true)
+    expect(people.map((one) => one.person_id)).toEqual([1, 2])
   })
 
   it('reads one person detail', async () => {
@@ -265,11 +291,30 @@ describe('people: reading', () => {
   })
 
   it('searches known accounts by keyword', async () => {
-    const fake = stubFetch([])
+    const fake = stubFetch({ accounts: [] })
 
     await searchAccounts('绿萝')
 
     expect(callOf(fake).url).toBe('/api/person/accounts?keyword=%E7%BB%BF%E8%90%9D')
+  })
+
+  it('unwraps the accounts the envelope carries', async () => {
+    stubFetch({
+      accounts: [
+        {
+          owner_user_id: '58859666123',
+          nickname: '绿萝',
+          directory_name: '绿萝',
+          person_id: null,
+          role: null,
+        },
+      ],
+    })
+
+    const accounts = await searchAccounts('绿萝')
+
+    expect(Array.isArray(accounts)).toBe(true)
+    expect(accounts.map((one) => one.owner_user_id)).toEqual(['58859666123'])
   })
 })
 
@@ -378,16 +423,26 @@ describe('people: collaboration', () => {
 })
 
 describe('the identity adapters stop where the library begins', () => {
-  it('offers no way to read what a person filmed', async () => {
+  it('reads a person without reading what they filmed', async () => {
     //
-    // The backend has had `/person/<id>/works` since the legacy page, and it
-    // returns content - which is the library stage, not this one. Asserted
-    // against the real module rather than a mock: a spec that mocks this module
-    // can only ever see the keys its own factory declares, so it would keep
-    // passing however many endpoints were added here.
+    // Through the creators phase this asserted that no works reader existed at
+    // all. The library phase wired one deliberately - `/person/<id>/works`
+    // returns content, and content is that phase's business - so the claim
+    // moved rather than disappeared: the adapter may exist, and the identity
+    // screen still must not call it.
     //
-    const people = await import('../../src/api/people')
+    // Where each half now lives:
+    //   the adapter's own contract  -> tests/library/adapters.spec.ts
+    //   the identity store's reach  -> tests/people/people-store.spec.ts
+    //
+    // What remains true here is the shape of a person read: one detail call,
+    // and nothing that walks their downloads.
+    //
+    const fake = stubFetch({ accounts: [], summary: {}, subjects: [], photographers: [] })
 
-    expect(Object.keys(people).filter((name) => /work/i.test(name))).toEqual([])
+    await getPersonDetail(7)
+
+    expect(fake).toHaveBeenCalledTimes(1)
+    expect(callOf(fake).url).toBe('/api/person/7/detail')
   })
 })

@@ -88,16 +88,11 @@ export function progressText(current: number, total: number | null): string {
  * raw value keeps the row rendering and keeps the odd value visible to whoever
  * has to explain it.
  */
-export function formatTaskTime(value: string | null): string {
-  if (!value) {
-    return '—'
-  }
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    return value
-  }
-  return parsed.toLocaleString()
-}
+//
+// Re-exported so the task screens keep their existing import while the rule
+// itself lives in one place - see utils/time.
+//
+export { formatTimestamp as formatTaskTime } from '@/utils/time'
 
 //
 // Re-exported so the task detail panel keeps its existing import while the rule

@@ -98,3 +98,23 @@ export interface CollaborationPayload {
   subject_id: number
   note?: string
 }
+
+/**
+ * One downloaded post associated with a photographer through a collaboration.
+ *
+ * Association, not attribution. The backend records collaboration between
+ * *people*, so this returns the whole output of every account belonging to
+ * somebody the photographer has worked with - it is not evidence that any
+ * particular post here was shot by them. The interface has to say so.
+ */
+export interface PersonWork {
+  aweme_id: string | null
+  desc: string | null
+  //
+  // Text only, like every other recorded path in this application.
+  //
+  save_dir: string | null
+  downloaded_at: string | null
+  /** The subject this post's account belongs to. */
+  owner_display_name: string | null
+}

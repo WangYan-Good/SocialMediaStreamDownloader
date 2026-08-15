@@ -27,6 +27,7 @@ from backend.src.service.direct_post_download_task import DirectPostDownloadTask
 from backend.src.service.live_recording_task import LiveRecordingTaskService
 from backend.src.service.task_creation import TaskCreationService
 from backend.src.web.history_routes import build_history_blueprint
+from backend.src.web.library_routes import build_library_blueprint
 from backend.src.web.owner_routes import (
   OWNER_RUNTIME_KEY,
   OwnerRuntime,
@@ -276,6 +277,17 @@ def _new_flask_app(
   ## marking which accounts belong to the same person, and who works with whom
   ##
   configured_app.register_blueprint(build_person_blueprint())
+
+  ##
+  ## browsing what has already been downloaded
+  ##
+  ## Read only, and lazy in the same way history is: registering it opens no
+  ## connection, so a server whose database is down still starts and still
+  ## serves everything that does not need one.  It builds no platform client
+  ## either - the library reports records, and reporting them never involves
+  ## asking a platform anything.
+  ##
+  configured_app.register_blueprint(build_library_blueprint())
 
   ##
   ## the read side of the task centre

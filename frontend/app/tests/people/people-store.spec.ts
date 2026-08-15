@@ -19,6 +19,12 @@ vi.mock('../../src/api/people', () => ({
   updatePerson: vi.fn(),
   deletePerson: vi.fn(),
   getPersonDetail: vi.fn(),
+  //
+  // Present in the factory on purpose. The library phase added this reader to
+  // the shared module; listing it here is what makes the assertion below able
+  // to notice if this screen ever started calling it.
+  //
+  getPersonWorks: vi.fn(),
   searchAccounts: vi.fn(),
   attachAccount: vi.fn(),
   attachAccountByLink: vi.fn(),
