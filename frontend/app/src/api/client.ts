@@ -57,8 +57,16 @@ export function apiBaseUrl(): string {
 
 export type QueryValue = string | number | boolean | undefined | null
 
+//
+// The verbs this backend actually uses. PATCH and DELETE arrived with the
+// person api, which edits and removes records; adding them here is what keeps
+// every call in this project going through one client rather than a second one
+// growing up beside it for two endpoints.
+//
+export type RequestMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE'
+
 export interface RequestOptions {
-  method?: 'GET' | 'POST'
+  method?: RequestMethod
   body?: unknown
   query?: Record<string, QueryValue>
   signal?: AbortSignal
