@@ -107,7 +107,14 @@ class ServerConfigTest(unittest.TestCase):
       return build_history(runtime=runtime, task_service=task_service)
 
     def capture_owner(runtime=None, task_service=None):
-      captured["owner"] = task_service
+      ##
+      ## The owner blueprint is handed a runtime rather than a bare task
+      ## service, because the unified task api has to be given the *same*
+      ## runtime - two would mean two job stores and two payload caches.  The
+      ## invariant under test is unchanged and is read one level in: whatever
+      ## reports owner work must report into the store the task api reads.
+      ##
+      captured["owner"] = None if runtime is None else runtime.task_service
       return build_owner(runtime=runtime, task_service=task_service)
 
     with patch.object(server, "build_history_blueprint", capture_history):

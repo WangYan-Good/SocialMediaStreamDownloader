@@ -26,7 +26,11 @@ from backend.src.service.job_store import (
   STATE_SKIPPED,
   JobStore,
 )
-from backend.src.service.owner_task_mirror import PLATFORM_DOUYIN, OwnerTaskMirror
+from backend.src.service.owner_task_mirror import (
+  PLATFORM_DOUYIN,
+  SOURCE_TASK_API,
+  OwnerTaskMirror,
+)
 from backend.src.task.model import (
   ITEM_STATE_FAILED,
   ITEM_STATE_SKIPPED,
@@ -351,6 +355,97 @@ class PostDownloadJobService:
     )
     self._submit(self._run_all, job_id, sec_user_id.strip(), share_url)
     return job_id
+
+  def start_all_tracked(
+    self,
+    sec_user_id: str = None,
+    resolved_url: str = None,
+    source_url: str = None,
+    resolve_id: str = None,
+  ) -> str:
+    """Download every post of one server-resolved owner.  Returns a task id.
+
+    Strict where ``start_all`` is best-effort: the unified task is created
+    before the walk is scheduled, and if it cannot be created the walk does not
+    start.  The legacy job is ended rather than abandoned - one left ``running``
+    would be polled forever against work nobody is doing.
+
+    Answers a task id, never the job id: the job stays an internal
+    compatibility record for the page that still polls it.
+    """
+    if not isinstance(sec_user_id, str) or not sec_user_id.strip():
+      raise ValueError("sec_user_id is required")
+    if self.api is None:
+      raise ValueError("an owner api is required to walk the pages")
+    sec_user_id = sec_user_id.strip()
+
+    job_id = self.store.create([])
+    try:
+      task_id = self._tasks.open_strict(
+        job_id,
+        title=_owner_title(),
+        metadata={
+          "platform": PLATFORM_DOUYIN,
+          "legacy_job_id": job_id,
+          "mode": "all",
+          "sec_user_id": sec_user_id,
+          "source": SOURCE_TASK_API,
+          "resolve_id": resolve_id,
+          "source_url": source_url,
+          "resolved_url": resolved_url,
+        },
+        ##
+        ## Explicitly unknown, as the legacy walk does: the real total is only
+        ## settled once the pages have been walked.
+        ##
+        total=None,
+      )
+    except Exception:
+      ##
+      ## Nothing was scheduled, so the job describes work that will never run.
+      ## Ending it here is what keeps the legacy surface from showing a batch
+      ## stuck at zero for the life of the process.
+      ##
+      self.store.finish(
+        job_id, state=JOB_ERROR, message="任务创建失败，未开始下载"
+      )
+      raise
+
+    ##
+    ## Whether the walk ever began.  ``_submit`` runs inline when no executor is
+    ## wired, and a walk that ran and reported its own ending must not then be
+    ## overwritten with "never scheduled".
+    ##
+    began = []
+
+    def worker():
+      began.append(True)
+      return self._run_all(job_id, sec_user_id, share_url)
+
+    ##
+    ## The link the user actually pasted, matching what the legacy page passes:
+    ## it is recorded against the posts, not used to reach the platform.
+    ##
+    share_url = source_url or resolved_url or ""
+
+    try:
+      self._submit(worker)
+    except Exception as e:
+      if began:
+        get_logger().info(
+          "owner walk for task {} failed while running inline: {}".format(
+            task_id, e
+          )
+        )
+      else:
+        get_logger().error(
+          "owner walk was not scheduled for task {}: {}".format(task_id, e)
+        )
+        self.store.finish(
+          job_id, state=JOB_ERROR, message="下载没有进入队列"
+        )
+        self._tasks.finish(job_id, message="下载没有进入队列", stopped_early=True)
+    return task_id
 
   def _run_all(self, job_id: str, sec_user_id: str, share_url: str) -> None:
     ##

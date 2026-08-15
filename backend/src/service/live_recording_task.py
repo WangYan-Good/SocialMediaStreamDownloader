@@ -4,6 +4,7 @@ from backend.src.library.loglib import get_logger
 from backend.src.platform.douyin.douyin_listener import ListenerItem
 from backend.src.platform.douyin.douyin_live_downloader import get_live_downloader
 from backend.src.platform.douyin.hls_recorder import HlsCancelled
+from backend.src.service.task_creation import TaskCreationUnavailable
 from backend.src.task.model import TASK_TYPE_LIVE_RECORD
 
 
@@ -12,7 +13,23 @@ from backend.src.task.model import TASK_TYPE_LIVE_RECORD
 ## the task type, so a second platform reuses ``live_record``.
 ##
 PLATFORM_DOUYIN = "douyin"
+
+##
+## Pasted into the legacy endpoint and classified by the handler.
+##
 SOURCE_DIRECT = "direct"
+
+##
+## Asked for through ``POST /api/tasks`` against a server-side resolution.  The
+## two differ in what they promise: one reports on work that runs regardless,
+## the other is a task the caller was told exists.
+##
+SOURCE_TASK_API = "task_api"
+
+##
+## What a strict creation says when it could not produce a task.
+##
+NOT_CREATED_MESSAGE = "任务创建失败，请稍后重试"
 
 ##
 ## ``room.status == 2`` is broadcasting; anything else answered is not.
@@ -226,9 +243,99 @@ class LiveRecordingTaskService:
     self._finish(task_id, outcome, message, self._result_metadata(result))
     return result
 
+  def _open_tracked(self, source_url, resolved_url, resolve_id) -> str:
+    """Create the task for a request that was promised one, or refuse.
+
+    The opposite of ``_open``: nothing is swallowed.  A caller told a recording
+    started must be able to watch it, so if no task exists the only honest
+    answer is that the request was not accepted.
+    """
+    if not self.enabled:
+      raise TaskCreationUnavailable(NOT_CREATED_MESSAGE)
+
+    try:
+      task = self._task_service.create_task(
+        TASK_TYPE_LIVE_RECORD,
+        ##
+        ## Named without asking the platform anything, exactly as the legacy
+        ## path does.  Who is streaming, and whether they are on air at all, is
+        ## discovered by the probe the recording itself runs.
+        ##
+        title="录制抖音直播",
+        metadata={
+          "platform": PLATFORM_DOUYIN,
+          "source": SOURCE_TASK_API,
+          "resolve_id": resolve_id,
+          "source_url": source_url,
+          "resolved_url": resolved_url,
+        },
+        total=None,
+      )
+    except Exception as e:
+      get_logger().error(
+        "live recording task: strict create failed: {}".format(e)
+      )
+      raise TaskCreationUnavailable(NOT_CREATED_MESSAGE)
+
+    if task is None:
+      raise TaskCreationUnavailable(NOT_CREATED_MESSAGE)
+    return task["task_id"]
+
 ##
 ## >>============================= sub class method =============================>>
 ##
+  def submit_tracked(
+    self,
+    resolved_url=None,
+    source_url=None,
+    resolve_id=None,
+  ) -> str:
+    """Record one server-resolved live room as a task the caller can watch.
+
+    Strict where ``submit`` is best-effort: the task is created first and the
+    recording thread is started **only** if that succeeded.
+
+    The recorder starts from ``resolved_url``.  The share link was already
+    followed once, by the resolver, under the host checks that make following it
+    safe; handing the short link over again would repeat that whole decision.
+    """
+    task_id = self._open_tracked(source_url, resolved_url, resolve_id)
+
+    token = {"url": resolved_url, "resolved_url": resolved_url}
+
+    ##
+    ## Whether the worker ever began - the same distinction the legacy path
+    ## draws.  A listener that runs its target inline raises the *worker's*
+    ## exception out of ``start_item``, and reporting that as "never started"
+    ## would overwrite an ending the worker already recorded correctly.
+    ##
+    began = []
+
+    def worker():
+      began.append(True)
+      return self._run(task_id, token)
+
+    try:
+      self._listener_factory(func=worker, args=()).start_item()
+    except Exception as e:
+      if began:
+        ##
+        ## The recording ran and failed, and ``_run`` has already said so.  The
+        ## caller still gets the id: a task that exists and failed is exactly
+        ## what it should be looking at.
+        ##
+        get_logger().info(
+          "live recording task {} failed while running inline: {}".format(
+            task_id, e
+          )
+        )
+      else:
+        get_logger().error(
+          "live recording was not started for task {}: {}".format(task_id, e)
+        )
+        self._finish(task_id, "failed", NOT_STARTED_MESSAGE, {})
+    return task_id
+
   def submit(self, token: dict):
     """Schedule one confirmed live room, returning the listener running it.
 

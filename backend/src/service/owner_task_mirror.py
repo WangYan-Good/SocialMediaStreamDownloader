@@ -3,6 +3,7 @@ from threading import Lock
 
 ##<<Third-part>>
 from backend.src.library.loglib import get_logger
+from backend.src.service.task_creation import TaskCreationUnavailable
 from backend.src.task.model import (
   ITEM_STATE_FAILED,
   ITEM_STATE_RUNNING,
@@ -22,10 +23,21 @@ from backend.src.task.model import (
 PLATFORM_DOUYIN = "douyin"
 
 ##
+## How the user asked.  Absent from a legacy job's metadata, so a task carrying
+## it was created through ``POST /api/tasks`` against a server-side resolution.
+##
+SOURCE_TASK_API = "task_api"
+
+##
 ## What an owner walk that found nothing should say.  Stated once because both
 ## the empty-owner case and its test need the same words.
 ##
 NO_POSTS_MESSAGE = "该主播没有可下载的作品"
+
+##
+## What a strict creation says when it could not produce a task.
+##
+NOT_CREATED_MESSAGE = "任务创建失败，请稍后重试"
 
 ##
 ## How good an outcome is for one post, for this business.  A repeated pass over
@@ -159,6 +171,41 @@ class OwnerTaskMirror:
     )
     if task is None:
       return None
+
+    with self._guard:
+      self._prune()
+      self._task_ids[job_id] = task["task_id"]
+      self._settled[job_id] = dict()
+    return task["task_id"]
+
+  def open_strict(self, job_id: str, title: str, metadata: dict, items=None,
+                  total=UNSET) -> str:
+    """Create and associate the task for a job that was promised one.
+
+    The strict twin of ``open``.  ``open`` is telemetry over work that runs
+    regardless, so it swallows a refusal and returns ``None``; this one is
+    called where the caller has been told a task exists, so a refusal has to
+    travel and stop the work rather than be logged and forgotten.
+    """
+    if not self.enabled:
+      raise TaskCreationUnavailable(NOT_CREATED_MESSAGE)
+
+    try:
+      task = self._task_service.create_task(
+        TASK_TYPE_OWNER_BATCH_DOWNLOAD,
+        title=title,
+        metadata=metadata,
+        items=items,
+        total=total,
+      )
+    except Exception as e:
+      get_logger().error(
+        "owner task mirror: strict create failed for job {}: {}".format(job_id, e)
+      )
+      raise TaskCreationUnavailable(NOT_CREATED_MESSAGE)
+
+    if task is None:
+      raise TaskCreationUnavailable(NOT_CREATED_MESSAGE)
 
     with self._guard:
       self._prune()

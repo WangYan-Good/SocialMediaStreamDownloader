@@ -25,14 +25,23 @@ from backend.src.platform.douyin.douyin_live_downloader import cancel_live_downl
 from backend.src.platform.platform_dispatcher import PlatformDispatcher
 from backend.src.service.direct_post_download_task import DirectPostDownloadTaskService
 from backend.src.service.live_recording_task import LiveRecordingTaskService
+from backend.src.service.task_creation import TaskCreationService
 from backend.src.web.history_routes import build_history_blueprint
-from backend.src.web.owner_routes import build_owner_blueprint
+from backend.src.web.owner_routes import (
+  OWNER_RUNTIME_KEY,
+  OwnerRuntime,
+  build_owner_blueprint,
+)
 from backend.src.web.person_routes import build_person_blueprint
 from backend.src.web.resolve_routes import (
   build_resolve_blueprint,
   install_resolve_service,
 )
-from backend.src.web.task_routes import build_task_blueprint, install_task_service
+from backend.src.web.task_routes import (
+  build_task_blueprint,
+  install_task_creation_service,
+  install_task_service,
+)
 
 def _server_options(config: dict) -> dict:
   server = config.get("server")
@@ -253,7 +262,14 @@ def _new_flask_app(
   ##
   ## owner profile browsing and post batch download
   ##
-  configured_app.register_blueprint(build_owner_blueprint(task_service=task_service))
+  ## Built here rather than inside the blueprint so the unified task api can be
+  ## given the *same* runtime.  It owns the job store, the payload cache and the
+  ## post locks; a second one would let the same post be walked by one and
+  ## downloaded by the other, each unaware of the other's locks.
+  ##
+  owner_runtime = OwnerRuntime(task_service=task_service)
+  configured_app.extensions[OWNER_RUNTIME_KEY] = owner_runtime
+  configured_app.register_blueprint(build_owner_blueprint(runtime=owner_runtime))
 
   ##
   ## marking which accounts belong to the same person, and who works with whom
@@ -275,8 +291,30 @@ def _new_flask_app(
   ## this same instance rather than trusting the browser to hand the identity
   ## back.
   ##
-  install_resolve_service(configured_app)
+  resolve_service = install_resolve_service(configured_app)
   configured_app.register_blueprint(build_resolve_blueprint())
+
+  ##
+  ## Turning a resolution into real work.
+  ##
+  ## Every collaborator is one already built above, never a fresh copy.  A
+  ## creation service holding its own resolve store would answer "expired" to
+  ## every receipt this application ever issued, and one holding its own task
+  ## service would create tasks that ``GET /api/tasks`` could not see.
+  ##
+  ## The owner side arrives as a factory rather than an instance because the
+  ## runtime builds its service lazily - a server that never downloads an owner
+  ## never constructs a platform client.
+  ##
+  install_task_creation_service(
+    configured_app,
+    TaskCreationService(
+      resolve_service=resolve_service,
+      direct_post_service=runtime["direct_post_service"],
+      live_record_service=runtime["live_record_service"],
+      owner_service_factory=owner_runtime.service,
+    ),
+  )
 
   return configured_app
 

@@ -8,17 +8,35 @@ from backend.src.platform.douyin.douyin_aweme_downloader import (
   get_aweme_downloader,
   get_aweme_executor,
 )
+from backend.src.service.task_creation import TaskCreationUnavailable
 from backend.src.task.model import TASK_TYPE_POST_DOWNLOAD
 
 
 ##
 ## Which platform the work ran against, and how the user asked for it.  Both live
 ## in task metadata rather than in the task type: a second platform reuses
-## ``post_download``, and a post reached through the task centre later will reuse
-## it too with a different ``source``.
+## ``post_download``, and the two entry points below reuse it too with different
+## ``source`` values.
 ##
 PLATFORM_DOUYIN = "douyin"
+
+##
+## Pasted into the legacy endpoint and classified by the handler.
+##
 SOURCE_DIRECT = "direct"
+
+##
+## Asked for through ``POST /api/tasks`` against a server-side resolution.  Kept
+## apart from ``direct`` because the two promise different things: one is
+## best-effort telemetry over work that runs regardless, the other is a task the
+## caller was told exists.
+##
+SOURCE_TASK_API = "task_api"
+
+##
+## What a strict creation says when it could not produce a task.
+##
+NOT_CREATED_MESSAGE = "任务创建失败，请稍后重试"
 
 ##
 ## What each ending says to the user.  Stated once because the mapping below and
@@ -259,9 +277,109 @@ class DirectPostDownloadTaskService:
     self._finish(task_id, outcome, message, self._result_metadata(result))
     return result
 
+  def _open_tracked(self, aweme_id, source_url, resolved_url, resolve_id) -> str:
+    """Create the task for a request that was promised one, or refuse.
+
+    The opposite of ``_open``: nothing here is swallowed.  ``POST /api/tasks``
+    answers with a task id, so a caller told the work started must be able to
+    watch it - and if no task exists, the only honest answer is that the request
+    was not accepted.
+    """
+    if not self.enabled:
+      raise TaskCreationUnavailable(NOT_CREATED_MESSAGE)
+
+    try:
+      task = self._task_service.create_task(
+        TASK_TYPE_POST_DOWNLOAD,
+        title=self._title(aweme_id),
+        metadata={
+          "platform": PLATFORM_DOUYIN,
+          "source": SOURCE_TASK_API,
+          ##
+          ## Which receipt this came from, so the record can be traced back to
+          ## the resolution the server made rather than to a url a browser
+          ## claimed.
+          ##
+          "resolve_id": resolve_id,
+          "source_url": source_url,
+          "resolved_url": resolved_url,
+          "aweme_id": aweme_id,
+        },
+        total=1,
+      )
+    except Exception as e:
+      get_logger().error("direct post task: strict create failed: {}".format(e))
+      raise TaskCreationUnavailable(NOT_CREATED_MESSAGE)
+
+    if task is None:
+      raise TaskCreationUnavailable(NOT_CREATED_MESSAGE)
+    return task["task_id"]
+
 ##
 ## >>============================= sub class method =============================>>
 ##
+  def submit_tracked(
+    self,
+    aweme_id=None,
+    resolved_url=None,
+    source_url=None,
+    resolve_id=None,
+  ) -> str:
+    """Run one server-resolved post as a task the caller can watch.
+
+    Strict where ``submit`` is best-effort: the task is created first and the
+    work is scheduled **only** if that succeeded, so a failure to record can
+    never leave a download running that nothing describes.
+
+    Every value comes from the server's own resolution.  The download runs
+    against ``resolved_url``: the short link was already followed once, by the
+    resolver, and handing it over again would repeat both that request and the
+    decision it made.
+    """
+    task_id = self._open_tracked(aweme_id, source_url, resolved_url, resolve_id)
+
+    ##
+    ## Whether the worker ever began.  The production pool hands work to a
+    ## thread, so a failure out of ``submit`` means the work was refused; but an
+    ## executor that runs its target inline would raise the *worker's* exception
+    ## here instead, and reporting that as "never scheduled" would overwrite an
+    ## ending the worker had already recorded correctly.
+    ##
+    began = []
+
+    def worker():
+      began.append(True)
+      return self._run(task_id, token)
+
+    token = {
+      "url": resolved_url,
+      "resolved_url": resolved_url,
+      "aweme_id": aweme_id,
+    }
+
+    try:
+      self._executor_factory(
+        self._downloader_factory().config.concurrency
+      ).submit(worker)
+    except Exception as e:
+      if began:
+        ##
+        ## The download ran and failed, and ``_run`` has already said so on the
+        ## task.  The caller still gets the id: a task that exists and failed is
+        ## exactly what it should be looking at.
+        ##
+        get_logger().info(
+          "direct post task {} failed while running inline: {}".format(task_id, e)
+        )
+      else:
+        get_logger().error(
+          "direct post download was not scheduled for task {}: {}".format(
+            task_id, e
+          )
+        )
+        self._finish(task_id, "failed", NOT_SCHEDULED_MESSAGE, {})
+    return task_id
+
   def submit(self, token: dict):
     """Schedule one confirmed post, returning the future that runs it.
 
