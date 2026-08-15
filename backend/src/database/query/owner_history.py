@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from typing import Any, Mapping, Optional
 
 ## <<Third-Part>>
+from backend.src.database.query.sql_text import escape_like
 from backend.src.library.loglib import get_logger
 
 
@@ -71,15 +72,11 @@ class OwnerHistoryFilterError(ValueError):
   """Raised when request supplied filter arguments cannot be normalised."""
 
 
-def _escape_like(value: str) -> str:
-  ##
-  ## MySQL LIKE treats \ as the default escape character.  Escape it first so the
-  ## wildcards escaped afterwards are not double-processed.
-  ##
-  escaped = value.replace("\\", "\\\\")
-  escaped = escaped.replace("%", "\\%")
-  escaped = escaped.replace("_", "\\_")
-  return "%{}%".format(escaped)
+##
+## Moved to a module of its own once the library query needed the same rule.
+## Kept under the old private name here so nothing else in this file changed.
+##
+_escape_like = escape_like
 
 
 def _optional_text(source: Mapping[str, Any], key: str) -> Optional[str]:
