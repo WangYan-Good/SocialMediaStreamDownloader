@@ -22,6 +22,43 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # config/config.yml holds real credentials and is deliberately untracked,
+      # but parts of the unit suite reach code that loads it - a downloader
+      # built through the legacy dispatch path, for one - and swallow the
+      # failure, which shows up as a test asserting that work was submitted
+      # when none was. Every developer machine has the file, so this only
+      # surfaced once the suite first ran on a clean checkout.
+      #
+      # Materialised from the tracked example and hardened exactly the way
+      # backend/src/unit_test/config_fixture.py hardens it, so CI runs against
+      # the same settings the fixture already considers safe: no database, no
+      # real transfers, no files written into the workspace.
+      - name: Provide a test configuration
+        run: |
+          mkdir -p config
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+
+          config = yaml.safe_load(
+            Path("docs/design/config.yml.example").read_text(encoding="utf-8")
+          )
+          config["database"]["enable"] = False
+          config["download"]["test_mode"] = True
+          config["download"]["save_response"] = False
+          config["download"]["save_error_response"] = False
+          # Outside the workspace, so a stray write cannot masquerade as a
+          # source file or reach the artefact upload.
+          config["download"]["save_path"] = "/tmp/smsd-ci-downloads/"
+          config["log"]["log_save"] = False
+          config["server"]["debug_mode"] = False
+
+          Path("config/config.yml").write_text(
+            yaml.safe_dump(config, allow_unicode=True, sort_keys=False),
+            encoding="utf-8",
+          )
+          PY
+
       # The unit suite only. backend/src/integration_test talks to a real
       # database and is deliberately not part of this job.
       - name: Run unit tests
