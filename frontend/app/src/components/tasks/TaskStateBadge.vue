@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import { TASK_STATE_LABELS } from '@/components/tasks/taskPresentation'
 import type { TaskState } from '@/types/task'
 
 const props = defineProps<{ state: TaskState }>()
@@ -10,16 +11,7 @@ const props = defineProps<{ state: TaskState }>()
 // by hue alone would be unreadable to a good number of people, and invisible in
 // a screenshot pasted into a bug report.
 //
-const LABELS: Record<TaskState, string> = {
-  pending: '排队中',
-  running: '进行中',
-  success: '已完成',
-  partial: '部分完成',
-  failed: '失败',
-  cancelled: '已停止',
-}
-
-const label = computed(() => LABELS[props.state])
+const label = computed(() => TASK_STATE_LABELS[props.state])
 </script>
 
 <template>

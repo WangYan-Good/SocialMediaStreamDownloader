@@ -233,3 +233,36 @@ describe('getTask', () => {
     expect(answered.progress.total).toBeNull()
   })
 })
+
+describe('listTasks with an abort signal', () => {
+  it('passes the signal down to the transport', async () => {
+    const fake = stubFetch({ items: [], total: 0 })
+    const controller = new AbortController()
+
+    await listTasks({ state: 'running' }, controller.signal)
+
+    const { init } = callOf(fake)
+    expect(init.signal).toBe(controller.signal)
+  })
+
+  it('sends no signal when none is given', async () => {
+    //
+    // Backward compatible by omission rather than by passing undefined: every
+    // existing caller keeps the request it had.
+    //
+    const fake = stubFetch({ items: [], total: 0 })
+
+    await listTasks({ state: 'running' })
+
+    expect(callOf(fake).init.signal).toBeUndefined()
+  })
+
+  it('still filters the same way with a signal attached', async () => {
+    const fake = stubFetch({ items: [], total: 0 })
+    const controller = new AbortController()
+
+    await listTasks({ state: 'failed', type: 'live_probe', limit: 25 }, controller.signal)
+
+    expect(callOf(fake).url).toBe('/api/tasks?state=failed&type=live_probe&limit=25')
+  })
+})

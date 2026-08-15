@@ -189,18 +189,24 @@ describe('placeholder views', () => {
   })
 })
 
-describe('the shell asks the backend for nothing', () => {
-  it('makes no request while mounting or navigating', async () => {
+describe('screens with nothing to load ask the backend for nothing', () => {
+  it('makes no request while mounting or navigating between them', async () => {
     //
-    // The line between this stage and the next.  Every screen here is a
-    // placeholder, and a placeholder that quietly polls would make this stage
-    // the beginning of the next one - with none of its tests.
+    // The shell owns no data of its own, and neither do the screens that are
+    // still placeholders. New Download stays in this list deliberately: it has
+    // a whole workflow, but nothing reaches the network until the user pastes
+    // something and presses a button.
+    //
+    // The task centre is deliberately *out* of it. Showing what the server is
+    // doing is that screen's entire purpose, so reading the list on arrival is
+    // correct behaviour - asserted by its own tests rather than forbidden here.
+    // The observation point moved; the rule did not weaken.
     //
     const fetched = vi.fn()
     vi.stubGlobal('fetch', fetched)
 
     const { router } = await mountShell()
-    for (const path of ['/overview', '/new', '/creators', '/library', '/tasks', '/system']) {
+    for (const path of ['/overview', '/new', '/creators', '/library', '/system']) {
       await router.push(path)
       await nextTick()
     }
