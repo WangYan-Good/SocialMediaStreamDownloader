@@ -115,7 +115,10 @@ def _new_flask_app(
     initialize_runtime()
 
   ##
-  ## handle the request from the client
+  ## Legacy compatibility only.  The Vue client never calls this endpoint: it
+  ## uses resolve receipts and ``/api/tasks``.  Root POST remains temporarily so
+  ## the explicit ``/legacy/`` rollback document can still submit work; P16
+  ## owns the audit and removal of this debt.
   ##
   @configured_app.route('/', methods=['POST'])
   def process_request():
@@ -234,8 +237,14 @@ def _new_flask_app(
       "code": 200
     }), 200
 
-  @configured_app.route('/', methods=['GET'])
-  def index():
+  ##
+  ## Exact manual fallback documents.  They stay independent of the Vue build:
+  ## a missing bundle makes GET root visibly fail with 503 while operators can
+  ## still choose this compatibility UI deliberately.
+  ##
+  @configured_app.route('/legacy', methods=['GET'])
+  @configured_app.route('/legacy/', methods=['GET'])
+  def legacy_index():
       return render_template('index.html')
 
   ##
@@ -350,12 +359,13 @@ def _new_flask_app(
   )
 
   ##
-  ## The new interface, served beside the old one rather than in place of it.
+  ## The Vue interface owns GET root after P15.  Registered last so concrete
+  ## API, Legacy and static routes retain their own rules; its catch-all also
+  ## refuses those reserved namespaces before reading the build directory.
   ##
-  ## ``/`` stays the legacy Jinja product while the Vue application catches up
-  ## feature by feature; this mounts the new shell on its own prefix so both -
-  ## and the json api underneath them - answer at the same time.  Registered
-  ## last, and on a prefix, so it can never shadow a route above it.
+  ## GET and POST may legally have different owners on the same path: the SPA
+  ## blueprint registers GET only, while the compatibility handler above keeps
+  ## POST only.
   ##
   configured_app.register_blueprint(build_spa_blueprint())
 

@@ -52,7 +52,7 @@ export const routes: RouteRecordRaw[] = [
   {
     //
     // Anything else lands on the overview rather than on a dead end.  The
-    // server already hands the shell back for every path under the prefix, so
+    // server already hands the shell back for every non-reserved root path, so
     // an unknown one reaches the router; deciding what it means is the router's
     // job, and "start at the beginning" is the honest answer while most of the
     // application is still to come.
@@ -65,7 +65,7 @@ export const routes: RouteRecordRaw[] = [
 export const router = createRouter({
   //
   // Read from the build rather than written twice.  Vite is configured with
-  // base '/app/', and hard-coding the same literal here is how the two drift
+  // its root base, and hard-coding the same literal here is how the two drift
   // apart the first time either one moves.
   //
   history: createWebHistory(import.meta.env.BASE_URL),

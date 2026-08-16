@@ -138,21 +138,20 @@ describe('SidebarNav', () => {
 
   it('offers a way back to the legacy interface', async () => {
     //
-    // The most important link in this stage.  Everything the new interface has
-    // not built yet still exists at /, and a user who lands on a placeholder
-    // needs somewhere to go that is not the back button.
+    // Root belongs to Vue after cutover; the fallback is an explicit Flask
+    // document rather than a route in this client application.
     //
     const { wrapper } = await mountShell()
 
     const legacy = wrapper.find('.sidebar-nav__link--legacy')
     expect(legacy.exists()).toBe(true)
-    expect(legacy.attributes('href')).toBe('/')
+    expect(legacy.attributes('href')).toBe('/legacy/')
   })
 
   it('leaves the application to reach the legacy interface', async () => {
     //
-    // A plain anchor, not a RouterLink: / is served by Flask, not by this
-    // router, so a client-side navigation there would resolve to nothing.
+    // A plain anchor, not a RouterLink: /legacy/ is served by Flask, not by
+    // this router, so client-side navigation would wrongly stay in the SPA.
     //
     const { wrapper } = await mountShell()
 

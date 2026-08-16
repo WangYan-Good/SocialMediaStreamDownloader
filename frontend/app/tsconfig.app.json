@@ -28,7 +28,7 @@
   },
   //
   // vite.config.ts is listed here as well as in tsconfig.node.json: a test
-  // imports it to assert the build's own contract - the /app/ base that nothing
+  // imports it to assert the build's own contract - the root base that nothing
   // else in this suite can see - and a file has to belong to a project to be
   // importable from it.
   //

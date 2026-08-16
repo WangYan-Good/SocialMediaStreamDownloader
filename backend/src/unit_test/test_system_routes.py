@@ -398,16 +398,18 @@ class ServerWiringTest(unittest.TestCase):
     ):
       self.assertIn(existing, rules)
 
-  def test_the_root_route_still_belongs_to_the_legacy_interface(self):
+  def test_root_vue_and_legacy_fallback_are_both_wired(self):
     ##
-    ## The vue application stays under /app. Moving the root is a cutover
-    ## decision that needs an overview worth landing on first.
+    ## GET root belongs to Vue after cutover; the exact fallback routes remain
+    ## separate Flask documents and POST root remains a compatibility method.
     ##
     import server
 
     rules = {str(rule) for rule in server.app.url_map.iter_rules()}
 
     self.assertIn("/", rules)
+    self.assertIn("/legacy", rules)
+    self.assertIn("/legacy/", rules)
 
   def test_an_application_built_from_a_configuration_reports_that_one(self):
     ##

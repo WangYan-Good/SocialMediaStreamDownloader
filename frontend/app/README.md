@@ -1,15 +1,17 @@
 # 前端应用（Vue 3 + Vite + TypeScript）
 
-新界面。与 `frontend/src/` 下的旧版 Jinja 界面**并行存在**，不是替换关系。
+默认 Vue 界面。`frontend/src/` 下的旧版 Jinja 界面在 P15 后作为显式回滚入口保留。
 
 ```
-/          旧版 Jinja 界面（目前仍是完整可用的产品）
-/app/      本应用
-/api/*     两者共用的 JSON 接口
+/              本应用
+/legacy[/]     旧版 Jinja fallback
+/app/*         到对应 root 路径的临时兼容重定向
+/api/*         两者共用的 JSON 接口
+/assets/*      Vue 构建产物
+/static/*      旧版静态资源
 ```
 
-新界面按阶段逐屏接入，在达到功能对等之前，旧版界面保持为正式入口。侧边栏底部
-的「旧版界面」链接就是为此存在的。
+侧边栏底部的「旧版界面」使用普通链接进入 `/legacy/`，不属于 Vue Router。
 
 ## 环境要求
 
@@ -22,7 +24,7 @@ Node **24**（与 `package.json` 的 `engines`、`Dockerfile` 的 builder 阶段
 cd frontend/app
 
 npm ci             # 按 package-lock.json 严格安装，不解析新版本
-npm run dev        # 开发服务器，默认 http://localhost:5173/app/
+npm run dev        # 开发服务器，默认 http://localhost:5173/
 npm run typecheck  # vue-tsc，strict 模式
 npm run test:run   # Vitest 单次运行
 npm run test       # Vitest watch 模式
@@ -48,11 +50,12 @@ VITE_DEV_API_TARGET=http://127.0.0.1:5000 npm run dev
 
 ```bash
 npm run build          # 生成 frontend/app/dist
-python ./server.py     # Flask 从 dist 提供 /app/
+python ./server.py     # Flask 从 dist 提供 root Vue 页面
 ```
 
-未执行过 `npm run build` 时，`/app/` 会返回 503 并说明需要构建；`/` 和 `/api/*`
-不受影响。
+未执行过 `npm run build` 时，`/` 和 Vue deep link 会明确返回 503；不会自动回退
+旧界面。`/legacy/` 与 `/api/*` 仍可独立访问，因此坏镜像保持可见且人工 fallback
+仍然存在。
 
 ## 目录
 

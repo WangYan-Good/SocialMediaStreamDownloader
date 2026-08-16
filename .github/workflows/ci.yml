@@ -189,24 +189,90 @@ jobs:
             echo "ok   $1 -> ${code}"
           }
 
-          # The legacy interface still owns the root. Cutting it over is a
-          # separate, reversible change; this asserts it has not happened by
-          # accident.
+          expect_redirect() {
+            path="$1"
+            target="$2"
+            headers="/tmp/smsd-smoke/redirect-headers.txt"
+            code="$(curl -s -o /dev/null -D "${headers}" -w '%{http_code}' "${BASE}${path}")"
+            location="$(awk 'tolower($1) == "location:" { sub(/\r$/, "", $2); print $2; exit }' "${headers}")"
+            if [ "${code}" != "302" ] || [ "${location}" != "${target}" ]; then
+              echo "FAIL ${path} -> ${code} Location=${location}, expected 302 ${target}"
+              exit 1
+            fi
+            echo "ok   ${path} -> 302 ${location}"
+          }
+
+          expect_not_vue() {
+            path="$1"
+            expect "${path}" 404
+            if curl -s "${BASE}${path}" | grep -q '<div id="app">'; then
+              echo "FAIL ${path} was swallowed by the Vue shell"
+              exit 1
+            fi
+          }
+
+          # Vue owns root, and the emitted document must agree with the Flask
+          # root asset mount rather than carrying the retired /app/ base.
           expect / 200
-          curl -s "${BASE}/" | grep -q 'sidebar-menu-text' \
-            || { echo "FAIL / no longer serves the legacy interface"; exit 1; }
+          curl -fsS "${BASE}/" > /tmp/smsd-smoke/root.html
+          grep -q '<div id="app">' /tmp/smsd-smoke/root.html \
+            || { echo "FAIL / is not the Vue shell"; exit 1; }
+          if grep -q 'sidebar-menu-text\|/app/assets/' /tmp/smsd-smoke/root.html; then
+            echo "FAIL / contains Legacy markup or the old asset base"
+            exit 1
+          fi
 
           # Every deep link returns the shell, so a refresh inside the
           # application does not 404.
-          expect /app/ 200
           for path in overview new creators library tasks system; do
-            expect "/app/${path}" 200
+            expect "/${path}" 200
+            curl -s "${BASE}/${path}" | grep -q '<div id="app">' \
+              || { echo "FAIL /${path} is not the Vue shell"; exit 1; }
           done
+
+          # Fetch a real emitted script. Root html alone can be healthy while
+          # its base or Flask asset mount is broken.
+          ASSET_PATH="$(grep -oE 'src="/assets/[^"]+\.js"' /tmp/smsd-smoke/root.html | head -1 | cut -d '"' -f 2)"
+          test -n "${ASSET_PATH}" || { echo "FAIL no root JS asset found"; exit 1; }
+          curl -fsS -D /tmp/smsd-smoke/asset-headers.txt \
+            -o /tmp/smsd-smoke/app.js "${BASE}${ASSET_PATH}"
+          grep -qiE '^content-type: (application|text)/javascript' /tmp/smsd-smoke/asset-headers.txt \
+            || { echo "FAIL ${ASSET_PATH} is not JavaScript"; exit 1; }
+
+          # Legacy is explicit and independently usable, including its static
+          # files and unchanged root POST compatibility endpoint.
+          for path in /legacy /legacy/; do
+            expect "${path}" 200
+            curl -s "${BASE}${path}" > /tmp/smsd-smoke/legacy.html
+            grep -q 'sidebar-menu-text' /tmp/smsd-smoke/legacy.html \
+              || { echo "FAIL ${path} is not Legacy"; exit 1; }
+            if grep -q '<div id="app">' /tmp/smsd-smoke/legacy.html; then
+              echo "FAIL ${path} returned the Vue shell"
+              exit 1
+            fi
+          done
+          expect /static/js/submit.js 200
+          code="$(curl -s -o /tmp/smsd-smoke/post.json -w '%{http_code}' \
+            -H 'Content-Type: application/json' -d '{}' "${BASE}/")"
+          test "${code}" = "400" || { echo "FAIL POST / -> ${code}"; exit 1; }
+
+          # Old bookmarks remain reversible temporary redirects. Query text is
+          # preserved, and doubled slashes cannot create an external Location.
+          expect_redirect /app /
+          expect_redirect /app/ /
+          expect_redirect /app/tasks /tasks
+          expect_redirect '/app/tasks?state=running' '/tasks?state=running'
+          expect_redirect "/app${ASSET_PATH}" "${ASSET_PATH}"
+          expect_redirect /app//evil.example/path /evil.example/path
 
           # A missing asset must 404 rather than fall back to index.html -
           # otherwise a broken bundle reference silently returns html and the
           # failure surfaces as a syntax error in the browser.
-          expect /app/assets/definitely-does-not-exist.js 404
+          expect /assets/definitely-does-not-exist.js 404
+
+          expect_not_vue /api/definitely-does-not-exist
+          expect_not_vue /legacy/definitely-does-not-exist
+          expect_not_vue /static/definitely-does-not-exist.css
 
           expect "/api/tasks?limit=1" 200
 

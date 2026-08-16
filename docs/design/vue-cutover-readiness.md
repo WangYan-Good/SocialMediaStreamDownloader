@@ -1,7 +1,8 @@
-# Vue Cutover Readiness
+# Vue Cutover Readiness and Execution Record
 
-Re-audited at stage P14, on `feat/parity-closure` based on `develop` at
-`eb1617f` (P13 merged).
+Cutover executed at stage P15 on `feat/legacy-cutover`, based on `develop` at
+`6a5d0c9` (P14 merged). The parity audit below remains the evidence that
+authorised that action.
 
 This document answers one question: **can `GET /` stop serving the legacy Jinja
 interface and start serving the Vue application?**
@@ -12,9 +13,10 @@ has — a database write, a downloaded file, a background thread — rather than
 the button that starts it. Where the two interfaces differ, the difference is
 recorded even when it is inconvenient.
 
-At this stage `GET /` still returns the legacy interface and the Vue application
-is served under `/app/`. Nothing in this document changes that; the decision at
-the end is what a later stage would act on.
+Current ownership is now explicit: `GET /` and root deep links serve Vue,
+`GET /legacy` and `GET /legacy/` serve the retained Legacy fallback, and
+`GET /app/*` temporarily redirects to the equivalent root path. `POST /`
+remains the unchanged Legacy compatibility endpoint until P16.
 
 ## How to read the status column
 
@@ -156,8 +158,9 @@ not belong at the same risk level as 1.3.
 | **Blocking** | No |
 
 The Vue interface deliberately does not offer the legacy shape. Reintroducing it
-for the sake of "api parity" would undo the resolver. `POST /` itself is
-untouched by this stage and still serves the legacy page.
+for the sake of "api parity" would undo the resolver. `POST /` remains only so
+the explicit `/legacy/` fallback can submit during the stabilization period;
+the Vue client never calls it.
 
 ### 1.8 Non-douyin platforms
 
@@ -270,7 +273,7 @@ restriction that prevents a real defect, not a legacy capability being lost.
 | | |
 | --- | --- |
 | **Legacy evidence** | `frontend/src/templates/index.html:176` — `<p>Log</p>`; `:180` — `<p>Settings</p>`. Sidebar entries at `:98` and `:111`. There is no viewer, no editor and no endpoint behind either. |
-| **Vue evidence** | `/app/system` — database schema state, safe runtime/download/logging summary, built from an explicit whitelist |
+| **Vue evidence** | `/system` — database schema state, safe runtime/download/logging summary, built from an explicit whitelist |
 | **Status** | `SUPERSEDED` |
 | **Blocking** | No |
 
@@ -290,13 +293,13 @@ what is at risk.
 
 | Capability | Where | Note |
 | --- | --- | --- |
-| Unified task centre | `/app/tasks`, `backend/src/service/task_*` | Every kind of work in one record, with progress and per-item state. The legacy interface has a per-page job poller for owner downloads and nothing at all for the rest. |
+| Unified task centre | `/tasks`, `backend/src/service/task_*` | Every kind of work in one record, with progress and per-item state. The legacy interface has a per-page job poller for owner downloads and nothing at all for the rest. |
 | Hardened resolver | `backend/src/web/resolve_routes.py` | Host allow list, redirect validation, hop limit, single-use receipt. The legacy path follows short links inside each handler. |
-| Media library | `/app/library` | An index of downloaded posts, live observations and collaboration associations. No legacy equivalent. |
-| Safe system status | `/app/system` | Database schema state and a whitelisted configuration summary. The legacy sections are headings. |
+| Media library | `/library` | An index of downloaded posts, live observations and collaboration associations. No legacy equivalent. |
+| Safe system status | `/system` | Database schema state and a whitelisted configuration summary. The legacy sections are headings. |
 | Stale-response protection | creators, library, tasks, system, overview stores | Generation tokens and abort controllers across every asynchronous path. The legacy pages write whichever response lands last. |
 | Explicit destructive confirmations | whole-catalogue download, person delete, account move | The legacy interface performs the equivalent actions without asking. |
-| Safe multi-resource workflow | `/app/new` batch mode | Resolve-many and per-owner confirmation preserve the goal without immediate legacy dispatch; each task remains independent. |
+| Safe multi-resource workflow | `/new` batch mode | Resolve-many and per-owner confirmation preserve the goal without immediate legacy dispatch; each task remains independent. |
 | Direct creator preferences | Creator Account overview | Known History accounts can persist or remove `favorite_owner` metadata without coupling it to a download submission. |
 | Recorded-vs-current language | library and overview | Cached and historical values are labelled as such; the present tense is reserved for a live probe. |
 
@@ -358,21 +361,48 @@ six deep links returned 200, a missing asset returned 404, and the tasks and
 system-status endpoints returned 200 with persistence correctly reported as
 disabled.
 
+P15 executed the authorised ownership change and repeated the gate against the
+production image:
+
+| P15 smoke check | Result |
+| --- | --- |
+| `GET /` and six root deep links | 200, Vue shell, no Legacy marker |
+| emitted `/assets/*.js` | root path, fetched successfully as JavaScript |
+| `GET /legacy` and `/legacy/` | 200, Legacy marker |
+| Legacy `/static/js/submit.js` | 200 |
+| `GET /app/*` | 302 to safe root equivalent, query preserved |
+| missing Vue asset | 404, no shell fallback |
+| unknown `/api/*`, `/static/*`, `/legacy/*` | 404, never Vue HTML |
+| safe empty `POST /` | 400, compatibility route present, no platform request |
+| tasks and system-status APIs | 200, database disabled reported honestly |
+
+If the Vue index is absent, root and Vue deep links return an explicit 503.
+They do not fall back automatically, while `/legacy/` remains independently
+available. This makes a broken deployment visible without removing the manual
+rollback surface.
+
 ---
 
-## Decision
+## Decision and execution
 
 ```
-READY
+EXECUTED
 ```
 
-**Cutover Ready: YES.**
+- **Default UI:** Vue.
+- **Legacy fallback:** available at `/legacy/`.
+- **Old Vue URLs:** temporary 302 from `/app/*`.
+- **Legacy POST:** temporarily retained.
 
 The P13 favourite/score and multi-resource blockers are both closed, no new
 blocking gap was found, the full backend and frontend suites pass, and the
-production image serves the legacy root plus every Vue route. The remaining
+production image serves the Legacy entry plus every Vue route. The remaining
 clipboard gap is a non-blocking convenience.
 
-This decision authorises P15 planning; it does not perform the cutover. `GET /`,
-`POST /`, the legacy frontend and its favourite token support remain unchanged
-in P14.
+The P14 `READY` decision has now been acted on. P15 changes routing ownership
+only: no migration, business data, resolver, task model, preference semantics
+or downloader changed. Legacy source, static files, dispatcher support and root
+POST remain intentional rollback compatibility debt.
+
+After a stabilization period, P16 may audit and retire those surfaces. P15 does
+not delete them.
