@@ -1,5 +1,9 @@
 # 系统设计文档
 
+> **历史文档（P16 前）**：以下 Legacy Jinja、root `POST /` 与 Dispatcher 描述仅
+> 作为迁移/审计证据保留；这些公开路由和模块已经退休。当前契约见
+> `docs/design/legacy-retirement.md`，现代 Vue/API 架构见阶段设计文档。
+
 ## 1. 设计目标
 
 SocialMediaStreamDownloader（SMSD）用于处理社交媒体分享链接，完成平台识别、数据抓取、直播流下载和数据落库。

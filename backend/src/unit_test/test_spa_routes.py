@@ -138,7 +138,11 @@ class ReservedNamespaceTest(unittest.TestCase):
   def test_unknown_reserved_paths_are_not_vue_routes(self):
     for path in (
       "/api/definitely-not-an-endpoint",
+      "/static",
+      "/static/",
       "/static/definitely-not-found.css",
+      "/legacy",
+      "/legacy/",
       "/legacy/definitely-not-a-page",
     ):
       with self.subTest(path=path):
@@ -260,25 +264,15 @@ class CoexistenceTest(unittest.TestCase):
     from backend.src.unit_test.config_fixture import unified_config
     from unittest.mock import patch
 
-    class FakeDispatcher:
-      dispatched = []
-
-      def register(self):
-        pass
-
-      def dispatch(self, payload, context=None):
-        self.dispatched.append(payload)
-
     selected = self.dist if dist is None else dist
     with patch("backend.src.web.spa_routes.SPA_DIST_DIR", selected.path):
       app = server.create_app(
-        unified_config(),
-        FakeDispatcher(),
+        config=unified_config(),
         schema_guard_factory=lambda config: object(),
       )
     return app
 
-  def test_root_vue_and_exact_legacy_documents_have_distinct_ownership(self):
+  def test_root_is_vue_and_retired_legacy_documents_are_tombstones(self):
     app = self.build_full_app()
     client = app.test_client()
 
@@ -290,12 +284,11 @@ class CoexistenceTest(unittest.TestCase):
     for path in ("/legacy", "/legacy/"):
       with self.subTest(path=path):
         legacy = client.get(path)
-        self.assertEqual(200, legacy.status_code)
+        self.assertEqual(404, legacy.status_code)
         body = legacy.get_data(as_text=True)
-        self.assertIn("sidebar-menu-text", body)
         self.assertNotIn(SHELL_MARKER, body)
 
-  def test_api_static_and_vue_assets_coexist(self):
+  def test_api_and_vue_assets_coexist_while_legacy_static_is_retired(self):
     app = self.build_full_app()
     client = app.test_client()
 
@@ -304,8 +297,11 @@ class CoexistenceTest(unittest.TestCase):
     self.assertEqual("success", listing.get_json()["status"])
 
     self.assertEqual(APP_JS, client.get("/assets/app.js").get_data(as_text=True))
-    self.assertEqual(200, client.get("/static/css/index.css").status_code)
-    self.assertEqual(200, client.get("/static/js/submit.js").status_code)
+    for path in ("/static/css/index.css", "/static/js/submit.js"):
+      with self.subTest(path=path):
+        response = client.get(path)
+        self.assertEqual(404, response.status_code)
+        self.assertNotIn(SHELL_MARKER, response.get_data(as_text=True))
 
   def test_unknown_reserved_paths_remain_real_404s(self):
     app = self.build_full_app()
@@ -321,16 +317,15 @@ class CoexistenceTest(unittest.TestCase):
         self.assertEqual(404, response.status_code)
         self.assertNotIn(SHELL_MARKER, response.get_data(as_text=True))
 
-  def test_root_post_remains_the_legacy_compatibility_endpoint(self):
+  def test_root_post_has_no_legacy_replacement(self):
     app = self.build_full_app()
     client = app.test_client()
 
     response = client.post("/", json={})
 
-    self.assertEqual(400, response.status_code)
-    self.assertEqual("error", response.get_json()["status"])
+    self.assertEqual(405, response.status_code)
 
-  def test_missing_vue_build_is_visible_while_legacy_remains_available(self):
+  def test_missing_vue_build_is_visible_and_legacy_remains_retired(self):
     missing = DistDirectory(with_index=False, with_assets=False)
     self.addCleanup(missing.cleanup)
     app = self.build_full_app(missing)
@@ -339,8 +334,20 @@ class CoexistenceTest(unittest.TestCase):
     self.assertEqual(503, client.get("/").status_code)
     self.assertEqual(503, client.get("/tasks").status_code)
     legacy = client.get("/legacy/")
-    self.assertEqual(200, legacy.status_code)
-    self.assertIn("sidebar-menu-text", legacy.get_data(as_text=True))
+    self.assertEqual(404, legacy.status_code)
+    self.assertNotIn(SHELL_MARKER, legacy.get_data(as_text=True))
+
+  def test_retired_flask_surfaces_are_absent_from_the_url_map(self):
+    app = self.build_full_app()
+    rules = list(app.url_map.iter_rules())
+
+    self.assertNotIn("static", {rule.endpoint for rule in rules})
+    self.assertNotIn("legacy_index", {rule.endpoint for rule in rules})
+    self.assertFalse(any(str(rule) in ("/legacy", "/legacy/") for rule in rules))
+    root_methods = set().union(
+      *(rule.methods for rule in rules if str(rule) == "/")
+    )
+    self.assertNotIn("POST", root_methods)
 
 
 if __name__ == "__main__":

@@ -339,16 +339,8 @@ class ApplicationFactoryTest(unittest.TestCase):
     import server
     from backend.src.unit_test.config_fixture import unified_config
 
-    class FakeDispatcher:
-      def register(self):
-        pass
-
-      def dispatch(self, payload, context=None):
-        pass
-
     return server.create_app(
-      unified_config(),
-      FakeDispatcher(),
+      config=unified_config(),
       schema_guard_factory=lambda config: object(),
     )
 

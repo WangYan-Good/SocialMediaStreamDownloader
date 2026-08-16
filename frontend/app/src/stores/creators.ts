@@ -343,9 +343,9 @@ export const useCreatorsStore = defineStore('creators', () => {
   /**
    * Record what a started download can be followed by.
    *
-   * The legacy job id is deliberately ignored. It is the old page's
-   * compatibility surface, and a new client that read it would end up building
-   * a second progress view beside the task centre - and polling it.
+   * The public response contains only this task id. Internal job correlation
+   * belongs to the server; reading it here would create a second progress view
+   * beside Task Center.
    */
   function noteStartedDownload(taskId: string | null) {
     if (taskId === null) {

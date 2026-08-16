@@ -9,29 +9,24 @@ from backend.src.platform.douyin import douyin_live_downloader as live_module
 import server
 
 
-class FakeDispatcher:
-  def __init__(self, failure=None):
-    self.failure = failure
-    self.received = []
-    self.contexts = []
-    self.register_calls = 0
-
-  def register(self):
-    self.register_calls += 1
-
-  def dispatch(self, payload, context=None):
-    self.received.append(payload)
-    self.contexts.append(context)
-    if self.failure is not None:
-      raise self.failure
-
-
-class FalseyDispatcher(FakeDispatcher):
-  def __bool__(self):
-    return False
-
-
 class ServerConfigTest(unittest.TestCase):
+  def test_create_app_needs_no_legacy_dispatcher_or_template_tree(self):
+    config = unified_config()
+
+    with patch.object(
+      server,
+      "PlatformDispatcher",
+      side_effect=AssertionError("retired dispatcher must not be constructed"),
+      create=True,
+    ):
+      app = server.create_app(
+        config=config,
+        schema_guard_factory=lambda received: object(),
+      )
+
+    self.assertIsNone(app.static_folder)
+    self.assertIsNone(app.template_folder)
+
   def test_cancel_live_downloads_does_not_construct_when_none_exists(self):
     cancel = getattr(live_module, "cancel_live_downloads", None)
     self.assertIsNotNone(cancel)
@@ -67,14 +62,9 @@ class ServerConfigTest(unittest.TestCase):
     get_downloader.assert_not_called()
     self.assertEqual(["cancel"], cancel_calls)
 
-  def test_create_app_initializes_schema_guard_before_dispatcher(self):
+  def test_create_app_initializes_the_schema_guard(self):
     config = unified_config()
     events = []
-
-    class OrderedDispatcher(FakeDispatcher):
-      def register(self):
-        events.append("dispatcher")
-        super().register()
 
     guard = object()
 
@@ -84,12 +74,11 @@ class ServerConfigTest(unittest.TestCase):
       return guard
 
     app = server.create_app(
-      config,
-      OrderedDispatcher(),
+      config=config,
       schema_guard_factory=guard_factory,
     )
 
-    self.assertEqual(["guard", "dispatcher"], events)
+    self.assertEqual(["guard"], events)
     self.assertIs(guard, app.extensions["smsd_schema_guard"])
 
   def test_create_app_gives_probing_and_downloading_the_one_task_service(self):
@@ -120,8 +109,7 @@ class ServerConfigTest(unittest.TestCase):
     with patch.object(server, "build_history_blueprint", capture_history):
       with patch.object(server, "build_owner_blueprint", capture_owner):
         app = server.create_app(
-          unified_config(),
-          FakeDispatcher(),
+          config=unified_config(),
           schema_guard_factory=lambda unused: object(),
         )
 
@@ -130,145 +118,42 @@ class ServerConfigTest(unittest.TestCase):
     self.assertIs(installed, captured["history"])
     self.assertIs(installed, captured["owner"])
 
-  def test_a_dispatch_carries_the_applications_own_post_runner(self):
-    dispatcher = FakeDispatcher()
-    app = server.create_app(
-      unified_config(),
-      dispatcher,
-      schema_guard_factory=lambda unused: object(),
-    )
-
-    client = app.test_client()
-    response = client.post("/", json={"urls": ["https://v.douyin.com/abc/"]})
-
-    self.assertEqual(200, response.status_code)
-    self.assertEqual(1, len(dispatcher.contexts))
-    runner = dispatcher.contexts[0]["direct_post_service"]
-    ##
-    ## The runner reports into this application's store, which is what keeps two
-    ## applications in one interpreter from sharing a task centre.
-    ##
-    self.assertIs(app.extensions["smsd_task_service"], runner._task_service)
-
-  def test_a_dispatch_carries_the_applications_own_recorder(self):
-    dispatcher = FakeDispatcher()
-    app = server.create_app(
-      unified_config(),
-      dispatcher,
-      schema_guard_factory=lambda unused: object(),
-    )
-
-    app.test_client().post("/", json={"urls": ["https://v.douyin.com/abc/"]})
-
-    recorder = dispatcher.contexts[0]["live_record_service"]
-    self.assertIs(app.extensions["smsd_task_service"], recorder._task_service)
-
-  def test_two_applications_get_their_own_recorders(self):
-    first_dispatcher = FakeDispatcher()
-    second_dispatcher = FakeDispatcher()
+  def test_two_applications_get_their_own_modern_task_runners(self):
     first = server.create_app(
-      unified_config(), first_dispatcher, schema_guard_factory=lambda u: object()
+      config=unified_config(), schema_guard_factory=lambda unused: object()
     )
     second = server.create_app(
-      unified_config(), second_dispatcher, schema_guard_factory=lambda u: object()
+      config=unified_config(), schema_guard_factory=lambda unused: object()
     )
 
-    first.test_client().post("/", json={"urls": ["https://v.douyin.com/abc/"]})
-    second.test_client().post("/", json={"urls": ["https://v.douyin.com/abc/"]})
+    first_creation = first.extensions["smsd_task_creation_service"]
+    second_creation = second.extensions["smsd_task_creation_service"]
+    for attribute in ("_direct_post_service", "_live_record_service"):
+      first_runner = getattr(first_creation, attribute)
+      second_runner = getattr(second_creation, attribute)
+      self.assertIsNot(first_runner, second_runner)
+      self.assertIs(first.extensions["smsd_task_service"], first_runner._task_service)
+      self.assertIs(second.extensions["smsd_task_service"], second_runner._task_service)
 
-    first_recorder = first_dispatcher.contexts[0]["live_record_service"]
-    second_recorder = second_dispatcher.contexts[0]["live_record_service"]
-    ##
-    ## Both the dispatcher and the live downloader are process-wide singletons,
-    ## so the only thing keeping two applications apart is that the dependency
-    ## travels with the dispatch.
-    ##
-    self.assertIsNot(first_recorder, second_recorder)
-    self.assertIs(first.extensions["smsd_task_service"], first_recorder._task_service)
-    self.assertIs(second.extensions["smsd_task_service"], second_recorder._task_service)
-
-  def test_two_applications_get_their_own_post_runners(self):
-    first_dispatcher = FakeDispatcher()
-    second_dispatcher = FakeDispatcher()
-    first = server.create_app(
-      unified_config(), first_dispatcher, schema_guard_factory=lambda u: object()
-    )
-    second = server.create_app(
-      unified_config(), second_dispatcher, schema_guard_factory=lambda u: object()
-    )
-
-    first.test_client().post("/", json={"urls": ["https://v.douyin.com/abc/"]})
-    second.test_client().post("/", json={"urls": ["https://v.douyin.com/abc/"]})
-
-    first_runner = first_dispatcher.contexts[0]["direct_post_service"]
-    second_runner = second_dispatcher.contexts[0]["direct_post_service"]
-    self.assertIsNot(first_runner, second_runner)
-    self.assertIs(first.extensions["smsd_task_service"], first_runner._task_service)
-    self.assertIs(second.extensions["smsd_task_service"], second_runner._task_service)
-
-  def test_a_submission_answers_exactly_as_it_always_did(self):
-    dispatcher = FakeDispatcher()
-    app = server.create_app(
-      unified_config(),
-      dispatcher,
-      schema_guard_factory=lambda unused: object(),
-    )
-
-    response = app.test_client().post(
-      "/", json={"urls": ["https://v.douyin.com/abc/"]}
-    )
-
-    ##
-    ## No task id is added here, and the shape is asserted whole so one cannot be
-    ## added by accident.  When this thread answers, the share link has not been
-    ## followed and nobody knows whether it is a post at all.
-    ##
-    self.assertEqual(200, response.status_code)
-    self.assertEqual(
-      {"status": "success", "message": "请求已开始处理", "code": 200},
-      response.get_json(),
-    )
-
-  def test_lazy_app_guard_failure_state_does_not_block_dispatch(self):
+  def test_wsgi_app_lazily_initializes_once_on_first_api_get(self):
     config = unified_config()
-    dispatcher = FakeDispatcher()
-    guard = object()
-    app = server._new_flask_app(
-      lazy_config=True,
-      schema_guard_factory=lambda unused: guard,
-    )
-
-    with patch.object(server, "load_config", return_value=config), patch.object(
-      server, "PlatformDispatcher", return_value=dispatcher
-    ):
-      response = app.test_client().post(
-        "/", json={"urls": ["https://v.douyin.com/guard/"]}
-      )
-
-    self.assertEqual(200, response.status_code)
-    self.assertEqual(1, dispatcher.register_calls)
-    self.assertIs(guard, app.extensions["smsd_schema_guard"])
-
-  def test_wsgi_app_lazily_initializes_once_on_first_get(self):
-    config = unified_config()
-    dispatcher = FakeDispatcher()
 
     with patch(
       "backend.src.library.configlib.load_config", return_value=config
-    ) as load, patch(
-      "backend.src.platform.platform_dispatcher.PlatformDispatcher",
-      return_value=dispatcher,
-    ) as dispatcher_type:
+    ) as load:
       wsgi_server = importlib.reload(server)
 
-      first_response = wsgi_server.app.test_client().get("/")
-      second_response = wsgi_server.app.test_client().get("/")
+      ##
+      ## Use an API endpoint whose response does not depend on a prior Vue
+      ## build.  The backend CI job deliberately does not build frontend/app,
+      ## while missing root assets correctly make GET / return 503.
+      ##
+      first_response = wsgi_server.app.test_client().get("/api/tasks?limit=1")
+      second_response = wsgi_server.app.test_client().get("/api/tasks?limit=1")
 
       self.assertEqual(first_response.status_code, 200)
       self.assertEqual(second_response.status_code, 200)
       self.assertEqual(load.call_count, 1)
-      self.assertEqual(dispatcher_type.call_count, 1)
-      self.assertEqual(dispatcher.register_calls, 1)
 
     importlib.reload(server)
 
@@ -278,103 +163,15 @@ class ServerConfigTest(unittest.TestCase):
 
     with patch(
       "backend.src.library.configlib.load_config", return_value=invalid_config
-    ) as load, patch(
-      "backend.src.platform.platform_dispatcher.PlatformDispatcher"
-    ) as dispatcher_type:
+    ) as load:
       wsgi_server = importlib.reload(server)
 
       response = wsgi_server.app.test_client().get("/")
 
       self.assertEqual(response.status_code, 500)
       self.assertEqual(load.call_count, 1)
-      self.assertEqual(dispatcher_type.call_count, 0)
 
     importlib.reload(server)
-
-  def test_wsgi_app_lazily_initializes_on_first_valid_post(self):
-    config = unified_config()
-    config["server"]["debug_mode"] = True
-    dispatcher = FakeDispatcher()
-
-    with patch(
-      "backend.src.library.configlib.load_config", return_value=config
-    ) as load, patch(
-      "backend.src.platform.platform_dispatcher.PlatformDispatcher",
-      return_value=dispatcher,
-    ) as dispatcher_type:
-      wsgi_server = importlib.reload(server)
-      self.assertEqual(load.call_count, 0)
-      self.assertEqual(dispatcher_type.call_count, 0)
-
-      response = wsgi_server.app.test_client().post(
-        "/", json={"urls": ["https://v.douyin.com/wsgi/"]}
-      )
-
-      self.assertEqual(response.status_code, 200)
-      self.assertTrue(wsgi_server.app.debug)
-      self.assertEqual(load.call_count, 1)
-      self.assertEqual(dispatcher_type.call_count, 1)
-      self.assertEqual(dispatcher.register_calls, 1)
-      self.assertEqual(dispatcher.received, [{
-        "urls": ["https://v.douyin.com/wsgi/"],
-      }])
-
-    importlib.reload(server)
-
-  def test_create_app_keeps_dispatcher_and_debug_state_isolated(self):
-    production_config = unified_config()
-    production_config["server"]["debug_mode"] = False
-    production_dispatcher = FakeDispatcher(RuntimeError("production boom"))
-    production_app = server.create_app(production_config, production_dispatcher)
-
-    debug_config = unified_config()
-    debug_config["server"]["debug_mode"] = True
-    debug_dispatcher = FakeDispatcher(RuntimeError("debug boom"))
-    debug_app = server.create_app(debug_config, debug_dispatcher)
-
-    production_response = production_app.test_client().post(
-      "/", json={"urls": ["https://live.douyin.com/production"]}
-    )
-    debug_response = debug_app.test_client().post(
-      "/", json={"urls": ["https://live.douyin.com/debug"]}
-    )
-
-    self.assertIsNot(production_app, debug_app)
-    self.assertNotIn("traceback", production_response.get_json())
-    self.assertIn("traceback", debug_response.get_json())
-    self.assertEqual(production_dispatcher.received, [{
-      "urls": ["https://live.douyin.com/production"],
-    }])
-    self.assertEqual(debug_dispatcher.received, [{
-      "urls": ["https://live.douyin.com/debug"],
-    }])
-
-  def test_create_app_honors_a_falsey_dispatcher(self):
-    config = unified_config()
-    dispatcher = FalseyDispatcher()
-    app = server.create_app(config, dispatcher)
-
-    response = app.test_client().post(
-      "/", json={"urls": ["https://example.com/"]}
-    )
-
-    self.assertEqual(response.status_code, 200)
-    self.assertEqual(dispatcher.register_calls, 1)
-    self.assertEqual(dispatcher.received, [{
-      "urls": ["https://example.com/"],
-    }])
-
-  def test_create_app_uses_yaml_debug_for_error_responses(self):
-    config = unified_config()
-    config["server"]["debug_mode"] = True
-    app = server.create_app(config, FakeDispatcher(RuntimeError("boom")))
-
-    response = app.test_client().post(
-      "/", json={"urls": ["https://live.douyin.com/1"]}
-    )
-
-    self.assertEqual(response.status_code, 500)
-    self.assertIn("traceback", response.get_json())
 
   def test_run_server_ignores_configuration_environment_variables(self):
     config = unified_config()
@@ -597,17 +394,3 @@ class ServerConfigTest(unittest.TestCase):
       prior_handlers[signal.SIGTERM],
       active_handlers[signal.SIGTERM],
     )
-
-  def test_successful_web_request_dispatches_the_frontend_urls(self):
-    config = unified_config()
-    dispatcher = FakeDispatcher()
-    app = server.create_app(config, dispatcher)
-
-    response = app.test_client().post(
-      "/", json={"urls": ["https://v.douyin.com/example/"]}
-    )
-
-    self.assertEqual(response.status_code, 200)
-    self.assertEqual(dispatcher.received, [{
-      "urls": ["https://v.douyin.com/example/"],
-    }])

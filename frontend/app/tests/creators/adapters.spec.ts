@@ -264,7 +264,7 @@ describe('owner: starting downloads', () => {
     // The payloads themselves stay on the server, in its own cache. The browser
     // says which posts, never what they contain.
     //
-    const fake = stubFetch({ job_id: 'J', task_id: 'T' })
+    const fake = stubFetch({ task_id: 'T' })
 
     await startOwnerSelectedDownload(['1', '2'])
 
@@ -275,7 +275,7 @@ describe('owner: starting downloads', () => {
   })
 
   it('carries a share url when there is one', async () => {
-    const fake = stubFetch({ job_id: 'J', task_id: 'T' })
+    const fake = stubFetch({ task_id: 'T' })
 
     await startOwnerSelectedDownload(['1'], 'https://v.douyin.com/abc/')
 
@@ -286,7 +286,7 @@ describe('owner: starting downloads', () => {
   })
 
   it('asks for everything by owner id, not by listing ids', async () => {
-    const fake = stubFetch({ job_id: 'J', task_id: 'T' })
+    const fake = stubFetch({ task_id: 'T' })
 
     await startOwnerAllDownload('MS4w')
 

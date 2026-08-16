@@ -1,17 +1,15 @@
 # 前端应用（Vue 3 + Vite + TypeScript）
 
-默认 Vue 界面。`frontend/src/` 下的旧版 Jinja 界面在 P15 后作为显式回滚入口保留。
+默认且唯一的网页界面。P16 已删除旧版 Jinja 前端及其公开路由。
 
 ```
 /              本应用
-/legacy[/]     旧版 Jinja fallback
 /app/*         到对应 root 路径的临时兼容重定向
-/api/*         两者共用的 JSON 接口
+/api/*         JSON 接口
 /assets/*      Vue 构建产物
-/static/*      旧版静态资源
+/legacy*       404 tombstone，不进入 Vue fallback
+/static*       404 tombstone，不进入 Vue fallback
 ```
-
-侧边栏底部的「旧版界面」使用普通链接进入 `/legacy/`，不属于 Vue Router。
 
 ## 环境要求
 
@@ -54,8 +52,7 @@ python ./server.py     # Flask 从 dist 提供 root Vue 页面
 ```
 
 未执行过 `npm run build` 时，`/` 和 Vue deep link 会明确返回 503；不会自动回退
-旧界面。`/legacy/` 与 `/api/*` 仍可独立访问，因此坏镜像保持可见且人工 fallback
-仍然存在。
+到旧界面。`/legacy*` 与 `/static*` 始终保持 404，因此坏镜像不会被退休页面掩盖。
 
 ## 目录
 

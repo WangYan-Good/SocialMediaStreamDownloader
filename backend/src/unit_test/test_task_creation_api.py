@@ -367,16 +367,8 @@ def configured_app():
   import server
   from backend.src.unit_test.config_fixture import unified_config
 
-  class FakeDispatcher:
-    def register(self):
-      pass
-
-    def dispatch(self, payload, context=None):
-      pass
-
   return server.create_app(
-    unified_config(),
-    FakeDispatcher(),
+    config=unified_config(),
     schema_guard_factory=lambda config: object(),
   )
 
@@ -753,18 +745,10 @@ class RefusalsStartNothingTest(unittest.TestCase):
     )
 
 
-class LegacyEndpointsUnchangedTest(unittest.TestCase):
-  """P6 adds a road; it does not close any of the existing ones."""
+class AdjacentEndpointsTest(unittest.TestCase):
+  """Modern owner and resolve APIs remain alongside task creation."""
 
-  def test_the_legacy_paste_endpoint_still_answers(self):
-    app, _ = offline_app()
-
-    response = app.test_client().post("/", json={"urls": [POST_URL]})
-
-    self.assertEqual(response.status_code, 200)
-    self.assertEqual(response.get_json()["status"], "success")
-
-  def test_the_legacy_owner_download_endpoint_still_validates_as_before(self):
+  def test_the_owner_download_endpoint_still_validates(self):
     app, _ = offline_app()
 
     response = app.test_client().post("/api/owner/download", json={})
