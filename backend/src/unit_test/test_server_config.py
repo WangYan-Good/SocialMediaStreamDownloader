@@ -135,7 +135,7 @@ class ServerConfigTest(unittest.TestCase):
       self.assertIs(first.extensions["smsd_task_service"], first_runner._task_service)
       self.assertIs(second.extensions["smsd_task_service"], second_runner._task_service)
 
-  def test_wsgi_app_lazily_initializes_once_on_first_get(self):
+  def test_wsgi_app_lazily_initializes_once_on_first_api_get(self):
     config = unified_config()
 
     with patch(
@@ -143,8 +143,13 @@ class ServerConfigTest(unittest.TestCase):
     ) as load:
       wsgi_server = importlib.reload(server)
 
-      first_response = wsgi_server.app.test_client().get("/")
-      second_response = wsgi_server.app.test_client().get("/")
+      ##
+      ## Use an API endpoint whose response does not depend on a prior Vue
+      ## build.  The backend CI job deliberately does not build frontend/app,
+      ## while missing root assets correctly make GET / return 503.
+      ##
+      first_response = wsgi_server.app.test_client().get("/api/tasks?limit=1")
+      second_response = wsgi_server.app.test_client().get("/api/tasks?limit=1")
 
       self.assertEqual(first_response.status_code, 200)
       self.assertEqual(second_response.status_code, 200)
