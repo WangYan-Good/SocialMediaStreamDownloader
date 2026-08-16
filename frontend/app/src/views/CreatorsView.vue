@@ -53,6 +53,9 @@ const {
   actionError,
   actionNotice,
   lastStartedTaskId,
+  preferenceBusy,
+  preferenceError,
+  preferenceNotice,
 } = storeToRefs(store)
 
 const peopleStore = usePeopleStore()
@@ -311,6 +314,9 @@ function record() {
         :loaded-post-count="loadedPostCount"
         :selected-aweme-ids="selectedAwemeIds"
         :action-busy="actionBusy"
+        :preference-busy="preferenceBusy"
+        :preference-error="preferenceError"
+        :preference-notice="preferenceNotice"
         @open-sessions="selectedOwnerUserId && store.loadSessions(selectedOwnerUserId)"
         @open-posts="openPosts"
         @load-more="store.loadMorePosts()"
@@ -320,6 +326,7 @@ function record() {
         @download-selected="store.downloadSelectedPosts()"
         @download-all="store.downloadAllPosts()"
         @record="record"
+        @save-preference="selectedOwnerUserId && store.savePreference(selectedOwnerUserId, $event)"
         @close="store.clearOwnerSelection()"
       />
     </template>

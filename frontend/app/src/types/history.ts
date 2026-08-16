@@ -32,6 +32,16 @@ export interface HistoryOwnerPage {
   items: HistoryOwner[]
 }
 
+export type OwnerPreferenceUpdate =
+  | { favorite: true; score: number }
+  | { favorite: false }
+
+export interface OwnerPreferenceResult {
+  owner_user_id: string
+  favorite: boolean
+  score: number | null
+}
+
 export const LAST_LIVE_WINDOWS = ['1h', '24h', '7d', '30d', 'never'] as const
 export type LastLiveWindow = (typeof LAST_LIVE_WINDOWS)[number]
 

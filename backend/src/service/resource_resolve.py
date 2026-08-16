@@ -10,10 +10,12 @@ from backend.src.platform.douyin.douyin_resource_resolver import (
   DouyinResourceResolver,
 )
 from backend.src.platform.resource_resolution import (
+  BatchTooLarge,
   InputMissing,
   MultipleUrls,
   NoUrlFound,
   ResourceResolution,
+  ResourceResolveError,
   UnsupportedPlatform,
   extract_urls,
 )
@@ -25,6 +27,7 @@ from backend.src.platform.resource_resolution import (
 ## running does not keep a record of every link anyone ever pasted.
 ##
 DEFAULT_RETENTION_SECONDS = 600.0
+MAX_BATCH_RESOURCES = 20
 
 
 class ResolveStore:
@@ -133,6 +136,29 @@ class ResolveRecord:
   resolution: ResourceResolution
 
 
+@dataclass(frozen=True)
+class BatchResolvedItem:
+  index: int
+  status: str
+  record: ResolveRecord
+
+
+@dataclass(frozen=True)
+class BatchFailedItem:
+  index: int
+  status: str
+  error_kind: str
+  error_message: str
+
+
+@dataclass(frozen=True)
+class BatchResolveRecord:
+  total: int
+  resolved_count: int
+  failed_count: int
+  items: tuple
+
+
 class ResourceResolveService:
   """Answers "what is this thing the user pasted?" and remembers the answer.
 
@@ -206,6 +232,48 @@ class ResourceResolveService:
     resolution = self._resolver_for(url).resolve(url)
     return ResolveRecord(
       resolve_id=self._store.put(resolution), resolution=resolution
+    )
+
+  def resolve_many(self, input_text) -> BatchResolveRecord:
+    """Resolve each distinct URL independently, in first-seen order."""
+    if not isinstance(input_text, str) or not input_text.strip():
+      raise InputMissing("请粘贴至少一个链接")
+
+    urls = extract_urls(input_text)
+    if not urls:
+      raise NoUrlFound("没有找到可解析的链接，请粘贴分享链接")
+    if len(urls) > MAX_BATCH_RESOURCES:
+      raise BatchTooLarge(
+        "一次最多解析 {} 个不同链接".format(MAX_BATCH_RESOURCES)
+      )
+
+    items = []
+    resolved_count = 0
+    for index, url in enumerate(urls):
+      try:
+        resolution = self._resolver_for(url).resolve(url)
+      except ResourceResolveError as e:
+        items.append(
+          BatchFailedItem(
+            index=index,
+            status="failed",
+            error_kind=e.kind,
+            error_message=str(e),
+          )
+        )
+        continue
+
+      record = ResolveRecord(
+        resolve_id=self._store.put(resolution), resolution=resolution
+      )
+      resolved_count += 1
+      items.append(BatchResolvedItem(index=index, status="resolved", record=record))
+
+    return BatchResolveRecord(
+      total=len(urls),
+      resolved_count=resolved_count,
+      failed_count=len(urls) - resolved_count,
+      items=tuple(items),
     )
 
   def get(self, resolve_id: str):

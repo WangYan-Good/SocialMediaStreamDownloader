@@ -1,6 +1,7 @@
 # Vue Cutover Readiness
 
-Audited at stage P13, against `develop` at `ce7e95e` (P12 merged).
+Re-audited at stage P14, on `feat/parity-closure` based on `develop` at
+`eb1617f` (P13 merged).
 
 This document answers one question: **can `GET /` stop serving the legacy Jinja
 interface and start serving the Vue application?**
@@ -53,31 +54,40 @@ follows it itself. Same user goal, stronger mechanism — see 1.7.
 | | |
 | --- | --- |
 | **Legacy evidence** | `submit.js::processLink` — `link.match(/https?:\/\/[^\s]+/g)` returns **every** url in the pasted text, and `submit.js:15-22` posts the whole array as `{urls: [...]}`. `platform_dispatcher.py` iterates the list. |
-| **Vue evidence** | `POST /api/resolve` answers about one resource; `useNewDownloadFlow` holds a single `resolution` and creates one task from it. |
-| **Status** | `DECISION_REQUIRED` |
-| **Blocking** | **Yes, until decided** |
+| **Vue evidence** | Explicit batch mode in `NewDownloadView.vue` → `POST /api/resolve/batch`; `ResourceResolveService.resolve_many()` reuses `extract_urls()`, the installed platform resolver and `ResolveStore`; `useBatchDownloadFlow.ts` reviews/selects results and calls the existing `POST /api/tasks` once per selected receipt. |
+| **Status** | `SUPERSEDED` |
+| **Blocking** | No |
 
-A user who pastes five links into the legacy box starts five downloads. The same
-paste in the Vue interface resolves one resource.
+The multi-resource goal is retained and its unsafe immediate-execution semantics
+are replaced deliberately. The user selects batch mode explicitly, the backend
+extracts and deduplicates at most 20 links, and expected failures stay on their
+own rows without reflecting the failed URL. Every success has its own ordinary
+P5 receipt. Posts and live rooms are selected by default; each owner is opt-in
+and requires its own whole-catalogue confirmation.
 
-This is not obviously a defect to fix by implementing bulk submission. The
-legacy behaviour accepts an arbitrary mix of resource kinds with no confirmation
-of what it is about to do, which is part of what the resolve step was introduced
-to end. But it is equally not something to drop silently: somebody may be using
-it daily.
+Creation then proceeds in input order through the existing task endpoint. A
+failure does not roll back tasks already created, and there is no parent task,
+batch task or second task poller: progress remains the Task Centre's job.
 
-**The decision needed:** is arbitrary multi-resource submission a workflow the
-product keeps? If yes, it needs a resolve-many/confirm-many design. If no, the
-removal should be deliberate and announced, not a side effect of a cutover.
+**Performance boundary / follow-up.** Batch resolution currently processes at
+most 20 resources sequentially. This avoids cross-call shared-state risk, keeps
+response ordering natural and applies the lowest pressure to platform
+endpoints. The trade-off is that several slow or failing short links can make
+network timeouts accumulate linearly. If real usage shows that wait to be a
+problem, the next optimisation should be bounded concurrency (at most 2–3
+resolves) while restoring results to input order; unbounded fan-out must not be
+introduced. The current resolver keeps per-resolution redirect state local and
+`ResolveStore` protects receipt writes with its lock, so that direction can be
+evaluated without changing the batch contract, but it is not part of P14.
 
 ### 1.3 Favourite + score
 
 | | |
 | --- | --- |
 | **Legacy evidence** | `submit.js::isFavorite` / `::processScoring` → `POST /` `{favorite, score}` → `platform_dispatcher.py:151-152` sets `token.$.score` and `token.$.favorite` → `douyin_live_downloader.py:577-585` `insert_owner_score` / `update_owner_score` → `douyin_live_downloader.py:1036 download_live_stream_by_score()` reads `get_douyin_favorite_live_url()` |
-| **Vue evidence** | `frontend/app/src/api/history.ts:27-29` sends `favorite`, `score_min`, `score_max` as **filters**. No write adapter exists; `grep` over `frontend/app/src/api/` finds no favourite or score write, and no endpoint under `/api` accepts one. |
-| **Status** | `GAP` |
-| **Blocking** | **Yes** |
+| **Vue evidence** | Creator Account overview → `CreatorPreferenceEditor.vue` → `creators.ts::savePreference()` → `PATCH /api/history/owners/<owner_user_id>/preference` → `OwnerPreferenceService` → guarded parameterised upsert/delete on `favorite_owner`. |
+| **Status** | `SUPERSEDED` |
+| **Blocking** | No |
 
 This is the most consequential row in the document, and the easiest to
 underestimate, because on screen it looks like a checkbox and a slider.
@@ -92,16 +102,19 @@ user sets favorite + score on a submission
   → automated live listening / recording for those owners
 ```
 
-The Vue interface can **read** the result of this chain — the creators directory
-shows `favorite` and `score` and can filter and sort by them — but it has no way
-to set them, and neither does any `/api` route. Cutting `/` over today would
-leave every existing favourite in place while removing the only way to add,
-change or remove one, and the automated listener would keep running on a list
-nobody can edit.
+The Vue interface now manages that persistent account fact directly rather than
+requiring another live submission. Only an account already present in
+`share_url` may be changed, the platform is fixed server-side to `douyin`,
+`score=0` remains a favourite, and cancelling removes only that account's
+`favorite_owner` preference. Writes pass the schema guard and use a single
+`INSERT ... ON DUPLICATE KEY UPDATE` or a scoped `DELETE`.
 
-**Not fixed in this stage, deliberately.** Whether favourite/score continues as
-the preference-and-listening mechanism is a product question, and implementing a
-write path here would be answering it by default.
+After a successful write, the current filtered History page is read again, so
+the server remains the displayed authority and an account naturally leaves the
+page when it no longer matches. This does not claim a live reconcile contract:
+the score-based listener reads the ordered preference list when its entrypoint
+builds `ListenerItem`s, but this page does not rebuild a listener already
+running.
 
 ### 1.4 Clipboard button
 
@@ -283,31 +296,20 @@ what is at risk.
 | Safe system status | `/app/system` | Database schema state and a whitelisted configuration summary. The legacy sections are headings. |
 | Stale-response protection | creators, library, tasks, system, overview stores | Generation tokens and abort controllers across every asynchronous path. The legacy pages write whichever response lands last. |
 | Explicit destructive confirmations | whole-catalogue download, person delete, account move | The legacy interface performs the equivalent actions without asking. |
+| Safe multi-resource workflow | `/app/new` batch mode | Resolve-many and per-owner confirmation preserve the goal without immediate legacy dispatch; each task remains independent. |
+| Direct creator preferences | Creator Account overview | Known History accounts can persist or remove `favorite_owner` metadata without coupling it to a download submission. |
 | Recorded-vs-current language | library and overview | Cached and historical values are labelled as such; the present tense is reserved for a live probe. |
 
 ---
 
 ## 7. Blocking items
 
-Two, both from section 1.
+None found in the P14 re-audit.
 
-### 7.1 Favourite / score write path — `GAP`, blocking
-
-Cutting over removes the only way to set a favourite or a score while leaving
-the automated live listener running on the existing list. Read access remains;
-write access disappears entirely.
-
-Closing it requires a product decision first (does this mechanism continue?),
-then a backend write endpoint and a Vue affordance.
-
-### 7.2 Multi-resource submission — `DECISION_REQUIRED`, blocking until decided
-
-The legacy box starts one download per url found in the pasted text. The Vue
-flow handles one resource per submission. Either answer is defensible; what is
-not defensible is discovering the difference after the cutover.
-
-Everything else in this document is `PARITY`, `SUPERSEDED` or
-`NON_FUNCTIONAL_LEGACY`, and none of it blocks.
+The two P13 blockers are closed as deliberate supersessions: creator preference
+management is independent account metadata, and multi-resource submission is a
+receipt-based review-and-create workflow. The clipboard convenience remains a
+`GAP`, explicitly non-blocking, and was not expanded into P14.
 
 ---
 
@@ -350,25 +352,27 @@ After the fix, with a database-disabled test configuration:
 This is now part of CI: the image job builds and then runs the image against a
 generated safe configuration.
 
+P14 repeated the production gate against image `smsd:p14`. The build completed,
+the container reached ready, root still returned legacy markup, `/app/` and all
+six deep links returned 200, a missing asset returned 404, and the tasks and
+system-status endpoints returned 200 with persistence correctly reported as
+disabled.
+
 ---
 
 ## Decision
 
 ```
-NOT_READY
+READY
 ```
 
-Blocking:
+**Cutover Ready: YES.**
 
-1. **Favourite / score write path** (`GAP`) — removes a working capability and
-   strands an automated listener. Section 1.3.
-2. **Multi-resource submission** (`DECISION_REQUIRED`) — changes what an
-   existing workflow does. Section 1.2.
+The P13 favourite/score and multi-resource blockers are both closed, no new
+blocking gap was found, the full backend and frontend suites pass, and the
+production image serves the legacy root plus every Vue route. The remaining
+clipboard gap is a non-blocking convenience.
 
-Nothing else found in this audit blocks a cutover. The Vue interface reaches or
-supersedes the legacy interface everywhere else examined, the production image
-now starts and serves every route, and `GET /` is unchanged.
-
-This is the intended kind of outcome for this stage: the goal was a trustworthy
-answer, not a favourable one. The next stage should close section 7 rather than
-attempt the cutover.
+This decision authorises P15 planning; it does not perform the cutover. `GET /`,
+`POST /`, the legacy frontend and its favourite token support remain unchanged
+in P14.

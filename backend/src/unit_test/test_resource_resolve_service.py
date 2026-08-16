@@ -5,17 +5,20 @@ from backend.src.platform.resource_resolution import (
   RESOURCE_TYPE_LIVE,
   RESOURCE_TYPE_OWNER,
   RESOURCE_TYPE_POST,
+  BatchTooLarge,
   InputMissing,
   MultipleUrls,
   NoUrlFound,
   ResourceResolution,
   ResourceResolveError,
+  ShortLinkUnavailable,
   UnsupportedPlatform,
   UnsupportedResource,
   extract_urls,
 )
 from backend.src.platform.douyin.douyin_owner_url import extract_url
 from backend.src.service.resource_resolve import (
+  MAX_BATCH_RESOURCES,
   ResolveStore,
   ResourceResolveService,
 )
@@ -555,6 +558,98 @@ class ResolveServiceStorageTest(unittest.TestCase):
     for url, record in zip(answers.keys(), records):
       with self.subTest(url=url):
         self.assertEqual(service.get(record.resolve_id).resolved_url, url)
+
+
+class BatchResolveServiceTest(unittest.TestCase):
+  def test_missing_and_url_free_input_are_whole_batch_errors(self):
+    service, resolver = build_service()
+
+    for value, error in ((None, InputMissing), ("   ", InputMissing), ("没有链接", NoUrlFound)):
+      with self.subTest(value=value):
+        with self.assertRaises(error):
+          service.resolve_many(value)
+
+    self.assertEqual([], resolver.resolved)
+
+  def test_one_url_and_many_urls_are_answered_in_input_order(self):
+    first = "https://www.douyin.com/video/100"
+    second = "https://www.douyin.com/video/200"
+    resolver = RecordingResolver(
+      {
+        first: post_resolution("100"),
+        second: post_resolution("200"),
+      }
+    )
+    service, _ = build_service(resolver)
+
+    one = service.resolve_many(first)
+    many = service.resolve_many(second + "\n" + first)
+
+    self.assertEqual(1, one.total)
+    self.assertEqual(["200", "100"], [
+      item.record.resolution.identity["aweme_id"] for item in many.items
+    ])
+
+  def test_duplicate_exact_urls_produce_one_item_and_one_receipt(self):
+    store = ResolveStore()
+    service, _ = build_service(store=store)
+
+    batch = service.resolve_many(SHORT_LINK + "\n" + SHORT_LINK)
+
+    self.assertEqual(1, batch.total)
+    self.assertEqual(1, batch.resolved_count)
+    self.assertEqual(1, store.tracked())
+
+  def test_twenty_are_accepted_and_twenty_one_are_rejected_without_truncation(self):
+    urls = ["https://www.douyin.com/video/{}".format(index) for index in range(21)]
+    answers = {url: post_resolution(str(index)) for index, url in enumerate(urls)}
+    store = ResolveStore()
+    service, resolver = build_service(RecordingResolver(answers), store=store)
+
+    accepted = service.resolve_many("\n".join(urls[:MAX_BATCH_RESOURCES]))
+
+    self.assertEqual(20, accepted.resolved_count)
+    self.assertEqual(20, store.tracked())
+    with self.assertRaises(BatchTooLarge):
+      service.resolve_many("\n".join(urls))
+    self.assertEqual(20, len(resolver.resolved))
+
+  def test_expected_item_failures_are_partial_and_store_only_successes(self):
+    good = "https://www.douyin.com/video/100"
+    unsupported_resource = "https://www.douyin.com/not-a-resource"
+    unsupported_platform = "https://example.test/private?signature=secret"
+    store = ResolveStore()
+    service, resolver = build_service(
+      RecordingResolver({good: post_resolution("100")}), store=store
+    )
+
+    batch = service.resolve_many(
+      "\n".join((good, unsupported_resource, unsupported_platform))
+    )
+
+    self.assertEqual((3, 1, 2), (
+      batch.total, batch.resolved_count, batch.failed_count
+    ))
+    self.assertEqual(["resolved", "failed", "failed"], [
+      item.status for item in batch.items
+    ])
+    self.assertEqual("unsupported_resource", batch.items[1].error_kind)
+    self.assertEqual("unsupported_platform", batch.items[2].error_kind)
+    self.assertFalse(hasattr(batch.items[1], "source_url"))
+    self.assertNotIn("signature=secret", repr(batch.items[2]))
+    self.assertEqual(1, store.tracked())
+
+  def test_short_link_unavailability_is_an_item_failure(self):
+    resolver = RecordingResolver(
+      error=ShortLinkUnavailable("上游暂时不可用")
+    )
+    service, _ = build_service(resolver)
+
+    batch = service.resolve_many(SHORT_LINK)
+
+    self.assertEqual(0, batch.resolved_count)
+    self.assertEqual(1, batch.failed_count)
+    self.assertEqual("short_link_unavailable", batch.items[0].error_kind)
 
 
 if __name__ == "__main__":

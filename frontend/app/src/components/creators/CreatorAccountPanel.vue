@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 
 import CreatorPostTable from '@/components/creators/CreatorPostTable.vue'
+import CreatorPreferenceEditor from '@/components/creators/CreatorPreferenceEditor.vue'
 import {
   PROBE_STATE_LABELS,
   credentialNotice,
@@ -12,7 +13,12 @@ import {
 } from '@/components/creators/creatorPresentation'
 import { formatTaskTime } from '@/components/tasks/taskPresentation'
 import { isHttpUrl } from '@/utils/url'
-import type { HistoryOwner, LiveProbeItem, LiveSession } from '@/types/history'
+import type {
+  HistoryOwner,
+  LiveProbeItem,
+  LiveSession,
+  OwnerPreferenceUpdate,
+} from '@/types/history'
 import type { OwnerPost, OwnerRead } from '@/types/owner'
 
 const props = defineProps<{
@@ -29,6 +35,9 @@ const props = defineProps<{
   loadedPostCount: number
   selectedAwemeIds: string[]
   actionBusy: boolean
+  preferenceBusy: boolean
+  preferenceError: string | null
+  preferenceNotice: string | null
 }>()
 
 const emit = defineEmits<{
@@ -41,6 +50,7 @@ const emit = defineEmits<{
   downloadSelected: []
   downloadAll: []
   record: []
+  savePreference: [OwnerPreferenceUpdate]
   close: []
 }>()
 
@@ -135,6 +145,14 @@ const allDownloadConfirmed = ref(false)
         <div class="facts__row"><dt>最后已知状态</dt><dd>{{ lastKnownLiveLabel(owner.last_live_status) }}</dd></div>
         <div class="facts__row"><dt>最后检查</dt><dd>{{ formatTaskTime(owner.last_checked_at) }}</dd></div>
       </dl>
+      <CreatorPreferenceEditor
+        v-if="owner"
+        :owner="owner"
+        :busy="preferenceBusy"
+        :error="preferenceError"
+        :notice="preferenceNotice"
+        @save="emit('savePreference', $event)"
+      />
     </section>
 
     <section v-else-if="section === 'live'">

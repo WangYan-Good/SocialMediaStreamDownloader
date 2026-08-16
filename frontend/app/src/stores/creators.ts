@@ -2,7 +2,13 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import { ApiError } from '@/api/client'
-import { getLiveProbe, listHistoryOwners, listOwnerSessions, submitLiveProbe } from '@/api/history'
+import {
+  getLiveProbe,
+  listHistoryOwners,
+  listOwnerSessions,
+  submitLiveProbe,
+  updateOwnerPreference,
+} from '@/api/history'
 import {
   readOwner,
   readOwnerPosts,
@@ -16,6 +22,7 @@ import type {
   HistoryOwner,
   LiveProbeItem,
   LiveSession,
+  OwnerPreferenceUpdate,
 } from '@/types/history'
 import type { OwnerPost, OwnerRead } from '@/types/owner'
 
@@ -305,6 +312,11 @@ export const useCreatorsStore = defineStore('creators', () => {
   //
   let creatorGeneration = 0
 
+  const preferenceBusy = ref(false)
+  const preferenceError = ref<string | null>(null)
+  const preferenceNotice = ref<string | null>(null)
+  let preferenceGeneration = 0
+
   const actionBusy = ref(false)
   const actionError = ref<string | null>(null)
   //
@@ -368,6 +380,9 @@ export const useCreatorsStore = defineStore('creators', () => {
    */
   function beginCreatorContext(): number {
     creatorGeneration += 1
+    preferenceGeneration += 1
+    preferenceError.value = null
+    preferenceNotice.value = null
     profileGeneration += 1
     openedProfile.value = null
     profileError.value = null
@@ -388,6 +403,7 @@ export const useCreatorsStore = defineStore('creators', () => {
   }
 
   function clearOwnerSelection() {
+    beginCreatorContext()
     selectedOwnerUserId.value = null
   }
 
@@ -464,6 +480,53 @@ export const useCreatorsStore = defineStore('creators', () => {
     selectOwner,
     clearOwnerSelection,
     loadOwners,
+
+    preferenceBusy,
+    preferenceError,
+    preferenceNotice,
+
+    async savePreference(
+      ownerUserId: string,
+      payload: OwnerPreferenceUpdate,
+    ): Promise<void> {
+      if (
+        preferenceBusy.value ||
+        selectedOwnerUserId.value !== ownerUserId
+      ) {
+        return
+      }
+
+      const context = preferenceGeneration
+      preferenceBusy.value = true
+      preferenceError.value = null
+      preferenceNotice.value = null
+
+      try {
+        await updateOwnerPreference(ownerUserId, payload)
+      } catch (caught) {
+        if (
+          context === preferenceGeneration &&
+          selectedOwnerUserId.value === ownerUserId
+        ) {
+          preferenceError.value =
+            caught instanceof ApiError
+              ? `偏好保存失败：${caught.message}`
+              : '偏好保存失败，请稍后重试'
+        }
+        preferenceBusy.value = false
+        return
+      }
+
+      await loadOwners()
+      if (context !== preferenceGeneration) {
+        preferenceBusy.value = false
+        return
+      }
+      preferenceNotice.value = ownersError.value
+        ? '偏好已保存，但列表暂时无法刷新'
+        : '偏好已保存'
+      preferenceBusy.value = false
+    },
 
     posts,
     postsSecUserId,

@@ -4,7 +4,13 @@ from datetime import datetime
 from flask import Flask
 
 from backend.src.database.query.owner_history import OwnerHistoryPage
+from backend.src.database.schema_guard import DatabaseWriteBlocked
 from backend.src.service.live_probe import ProbeBatchError
+from backend.src.service.owner_preference import (
+  OwnerNotFound,
+  OwnerPreferenceResult,
+  OwnerPreferenceValidationError,
+)
 from backend.src.web.history_routes import (
   HistoryRuntime,
   HistoryUnavailable,
@@ -54,10 +60,30 @@ class FakeProbeService:
     return self._task_id if batch_id == "batch-1" else None
 
 
+class FakePreferenceService:
+  def __init__(self, result=None, error=None):
+    self.result = result
+    self.error = error
+    self.calls = []
+
+  def update(self, owner_user_id, payload):
+    self.calls.append((owner_user_id, payload))
+    if self.error is not None:
+      raise self.error
+    return self.result
+
+
 class FakeRuntime:
-  def __init__(self, query=None, probe_service=None, unavailable=None):
+  def __init__(
+    self,
+    query=None,
+    probe_service=None,
+    preference_service=None,
+    unavailable=None,
+  ):
     self._query = query
     self._probe_service = probe_service
+    self._preference_service = preference_service
     self._unavailable = unavailable
 
   def page_size_limit(self):
@@ -72,6 +98,11 @@ class FakeRuntime:
     if self._unavailable is not None:
       raise self._unavailable
     return self._probe_service
+
+  def preference_service(self):
+    if self._unavailable is not None:
+      raise self._unavailable
+    return self._preference_service
 
 
 def build_client(runtime):
@@ -174,6 +205,120 @@ class HistorySessionsApiTest(unittest.TestCase):
 
     self.assertEqual(400, client.get("/api/history/owners/1/sessions?limit=0").status_code)
     self.assertEqual(400, client.get("/api/history/owners/1/sessions?limit=x").status_code)
+
+
+class OwnerPreferenceApiTest(unittest.TestCase):
+  def build_preference_client(self, result=None, error=None):
+    service = FakePreferenceService(result=result, error=error)
+    return build_client(FakeRuntime(preference_service=service)), service
+
+  def test_score_zero_is_returned_as_a_favorite(self):
+    client, service = self.build_preference_client(
+      OwnerPreferenceResult("owner-1", True, 0)
+    )
+
+    response = client.patch(
+      "/api/history/owners/owner-1/preference",
+      json={"favorite": True, "score": 0},
+    )
+
+    self.assertEqual(200, response.status_code)
+    self.assertEqual(
+      {"owner_user_id": "owner-1", "favorite": True, "score": 0},
+      response.get_json()["data"],
+    )
+    self.assertEqual(
+      [("owner-1", {"favorite": True, "score": 0})], service.calls
+    )
+
+  def test_removal_returns_a_null_score(self):
+    client, unused = self.build_preference_client(
+      OwnerPreferenceResult("owner-1", False, None)
+    )
+
+    body = client.patch(
+      "/api/history/owners/owner-1/preference", json={"favorite": False}
+    ).get_json()
+
+    self.assertFalse(body["data"]["favorite"])
+    self.assertIsNone(body["data"]["score"])
+
+  def test_non_json_and_non_mapping_bodies_are_rejected(self):
+    client, unused = self.build_preference_client()
+
+    self.assertEqual(
+      400,
+      client.patch(
+        "/api/history/owners/owner-1/preference",
+        data="x",
+        content_type="text/plain",
+      ).status_code,
+    )
+    self.assertEqual(
+      400,
+      client.patch(
+        "/api/history/owners/owner-1/preference", json=["not", "a", "mapping"]
+      ).status_code,
+    )
+
+  def test_validation_and_unknown_owner_are_mapped_to_400_and_404(self):
+    invalid, unused = self.build_preference_client(
+      error=OwnerPreferenceValidationError("favorite 必须是 boolean")
+    )
+    missing, unused = self.build_preference_client(
+      error=OwnerNotFound("主播账号不存在或尚未进入历史记录")
+    )
+
+    self.assertEqual(
+      400,
+      invalid.patch(
+        "/api/history/owners/owner-1/preference", json={"favorite": "false"}
+      ).status_code,
+    )
+    self.assertEqual(
+      404,
+      missing.patch(
+        "/api/history/owners/missing/preference", json={"favorite": False}
+      ).status_code,
+    )
+
+  def test_schema_and_database_unavailability_are_service_unavailable(self):
+    blocked, unused = self.build_preference_client(
+      error=DatabaseWriteBlocked("schema state is behind")
+    )
+    unavailable = build_client(
+      FakeRuntime(unavailable=HistoryUnavailable("数据库暂时不可用"))
+    )
+
+    self.assertEqual(
+      503,
+      blocked.patch(
+        "/api/history/owners/owner-1/preference", json={"favorite": False}
+      ).status_code,
+    )
+    self.assertEqual(
+      503,
+      unavailable.patch(
+        "/api/history/owners/owner-1/preference", json={"favorite": False}
+      ).status_code,
+    )
+
+  def test_unexpected_failure_is_generic_and_methods_are_patch_only(self):
+    client, unused = self.build_preference_client(
+      error=RuntimeError("database password leaked")
+    )
+
+    response = client.patch(
+      "/api/history/owners/owner-1/preference", json={"favorite": False}
+    )
+
+    self.assertEqual(500, response.status_code)
+    self.assertNotIn("password", response.get_json()["message"])
+    for method in (client.get, client.post, client.delete):
+      with self.subTest(method=method.__name__):
+        self.assertEqual(
+          405, method("/api/history/owners/owner-1/preference").status_code
+        )
 
 
 class LiveProbeApiTest(unittest.TestCase):

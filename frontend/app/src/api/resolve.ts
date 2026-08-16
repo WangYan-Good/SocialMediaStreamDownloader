@@ -1,5 +1,9 @@
 import { request } from './client'
-import type { ResolveRequest, ResolvedResource } from '@/types/resolution'
+import type {
+  BatchResolveResult,
+  ResolveRequest,
+  ResolvedResource,
+} from '@/types/resolution'
 
 /**
  * Ask the server what a pasted link is.
@@ -10,4 +14,9 @@ import type { ResolveRequest, ResolvedResource } from '@/types/resolution'
 export function resolveResource(input: string): Promise<ResolvedResource> {
   const body: ResolveRequest = { input }
   return request<ResolvedResource>('/resolve', { method: 'POST', body })
+}
+
+export function resolveResources(input: string): Promise<BatchResolveResult> {
+  const body: ResolveRequest = { input }
+  return request<BatchResolveResult>('/resolve/batch', { method: 'POST', body })
 }
