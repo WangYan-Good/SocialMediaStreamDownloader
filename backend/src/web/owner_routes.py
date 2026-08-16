@@ -277,13 +277,14 @@ class OwnerRuntime:
 
 
 def _started(service, job_id: str) -> dict:
-  """What a started batch download answers with.
+  """Expose only the unified progress identity of a started owner download.
 
-  ``job_id`` is the field the current page reads and keeps its meaning exactly.
-  ``task_id`` is added beside it for the unified task centre; it is ``null``
-  when nothing is mirroring, so the shape never changes.
+  The service still returns and uses its internal job id to coordinate
+  JobStore with OwnerTaskMirror.  That implementation identity is deliberately
+  consumed here rather than published as a second browser polling contract.
+  ``task_id`` remains nullable for the existing degraded no-mirror mode.
   """
-  return {"job_id": job_id, "task_id": service.task_id_for(job_id)}
+  return {"task_id": service.task_id_for(job_id)}
 
 
 def build_owner_blueprint(runtime: OwnerRuntime = None, task_service=None) -> Blueprint:
@@ -411,12 +412,5 @@ def build_owner_blueprint(runtime: OwnerRuntime = None, task_service=None) -> Bl
     except ValueError as e:
       return _error(str(e), 400)
     return _success(_started(service, job_id))
-
-  @blueprint.route("/owner/download/<job_id>", methods=["GET"])
-  def read_owner_download(job_id):
-    snapshot = runtime.service().store.snapshot(job_id)
-    if snapshot is None:
-      return _error("下载任务不存在或已过期", 404)
-    return _success(snapshot)
 
   return blueprint

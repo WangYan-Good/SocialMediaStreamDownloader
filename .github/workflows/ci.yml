@@ -22,13 +22,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # config/config.yml holds real credentials and is deliberately untracked,
-      # but parts of the unit suite reach code that loads it - a downloader
-      # built through the legacy dispatch path, for one - and swallow the
-      # failure, which shows up as a test asserting that work was submitted
-      # when none was. Every developer machine has the file, so this only
-      # surfaced once the suite first ran on a clean checkout.
-      #
+      # config/config.yml holds real credentials and is deliberately untracked.
+      # A few service-level tests still exercise configuration-backed modern
+      # task execution, so CI materialises the tracked safe example.
       # Materialised from the tracked example and hardened exactly the way
       # backend/src/unit_test/config_fixture.py hardens it, so CI runs against
       # the same settings the fixture already considers safe: no database, no
@@ -239,22 +235,28 @@ jobs:
           grep -qiE '^content-type: (application|text)/javascript' /tmp/smsd-smoke/asset-headers.txt \
             || { echo "FAIL ${ASSET_PATH} is not JavaScript"; exit 1; }
 
-          # Legacy is explicit and independently usable, including its static
-          # files and unchanged root POST compatibility endpoint.
-          for path in /legacy /legacy/; do
-            expect "${path}" 200
-            curl -s "${BASE}${path}" > /tmp/smsd-smoke/legacy.html
-            grep -q 'sidebar-menu-text' /tmp/smsd-smoke/legacy.html \
-              || { echo "FAIL ${path} is not Legacy"; exit 1; }
-            if grep -q '<div id="app">' /tmp/smsd-smoke/legacy.html; then
-              echo "FAIL ${path} returned the Vue shell"
-              exit 1
-            fi
+          # P16 retires the public Legacy surface. These namespaces remain
+          # tombstones so removing their old Flask routes cannot make the Vue
+          # catch-all claim them.
+          for path in /legacy /legacy/ /legacy/definitely-does-not-exist \
+                      /static /static/ /static/js/submit.js \
+                      /static/definitely-does-not-exist.css; do
+            expect_not_vue "${path}"
           done
-          expect /static/js/submit.js 200
+
+          # The old raw-url dispatcher trust boundary is gone. Flask naturally
+          # reports method-not-allowed; there is no redirect/replacement route.
           code="$(curl -s -o /tmp/smsd-smoke/post.json -w '%{http_code}' \
             -H 'Content-Type: application/json' -d '{}' "${BASE}/")"
-          test "${code}" = "400" || { echo "FAIL POST / -> ${code}"; exit 1; }
+          test "${code}" = "405" || { echo "FAIL POST / -> ${code}, expected 405"; exit 1; }
+
+          # Production retirement is an image property, not just a source-tree
+          # grep. The runtime image must not contain the deleted Legacy UI or
+          # its dispatcher modules.
+          docker exec smsd-ci-smoke test ! -d /app/frontend/src
+          docker exec smsd-ci-smoke test ! -e /app/backend/src/platform/platform_dispatcher.py
+          docker exec smsd-ci-smoke test ! -e /app/backend/src/platform/douyin/douyin_handler.py
+          docker exec smsd-ci-smoke test ! -e /app/backend/src/platform/other/other_handler.py
 
           # Old bookmarks remain reversible temporary redirects. Query text is
           # preserved, and doubled slashes cannot create an external Location.
@@ -271,9 +273,6 @@ jobs:
           expect /assets/definitely-does-not-exist.js 404
 
           expect_not_vue /api/definitely-does-not-exist
-          expect_not_vue /legacy/definitely-does-not-exist
-          expect_not_vue /static/definitely-does-not-exist.css
-
           expect "/api/tasks?limit=1" 200
 
           # The status endpoint answers even with persistence switched off, and

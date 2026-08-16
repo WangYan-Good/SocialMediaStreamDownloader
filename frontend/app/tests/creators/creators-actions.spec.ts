@@ -362,7 +362,7 @@ describe('starting downloads', () => {
   it('sends only the ticked ids', async () => {
     const { startOwnerSelectedDownload } = await import('../../src/api/owners')
     const mockedSelected = vi.mocked(startOwnerSelectedDownload)
-    mockedSelected.mockResolvedValue({ job_id: 'J-1', task_id: 'T-1' })
+    mockedSelected.mockResolvedValue({ task_id: 'T-1' })
     const store = useCreatorsStore()
     store.adoptPostsFromOwnerRead(
       ownerRead({
@@ -397,7 +397,6 @@ describe('starting downloads', () => {
     //
     const { startOwnerSelectedDownload } = await import('../../src/api/owners')
     vi.mocked(startOwnerSelectedDownload).mockResolvedValue({
-      job_id: 'J-1',
       task_id: 'T-9',
     })
     const store = useCreatorsStore()
@@ -430,7 +429,6 @@ describe('starting downloads', () => {
   it('says so when the unified record is missing rather than falling back', async () => {
     const { startOwnerSelectedDownload } = await import('../../src/api/owners')
     vi.mocked(startOwnerSelectedDownload).mockResolvedValue({
-      job_id: 'J-1',
       task_id: null,
     })
     const store = useCreatorsStore()
@@ -519,7 +517,7 @@ describe('starting downloads', () => {
   it('asks for everything by owner id', async () => {
     const { startOwnerAllDownload } = await import('../../src/api/owners')
     const mockedAll = vi.mocked(startOwnerAllDownload)
-    mockedAll.mockResolvedValue({ job_id: 'J-1', task_id: 'T-2' })
+    mockedAll.mockResolvedValue({ task_id: 'T-2' })
     const store = useCreatorsStore()
     store.adoptPostsFromOwnerRead(ownerRead({ sec_user_id: SEC_UID }))
 
@@ -537,7 +535,7 @@ describe('starting downloads', () => {
     const { startOwnerAllDownload, startOwnerSelectedDownload } = await import(
       '../../src/api/owners'
     )
-    vi.mocked(startOwnerAllDownload).mockResolvedValue({ job_id: 'J', task_id: 'T' })
+    vi.mocked(startOwnerAllDownload).mockResolvedValue({ task_id: 'T' })
     const mockedSelected = vi.mocked(startOwnerSelectedDownload)
     mockedSelected.mockClear()
     const store = useCreatorsStore()
@@ -718,7 +716,7 @@ describe('a write action cannot be submitted twice', () => {
   it('does not start a second download job for the same click', async () => {
     const { startOwnerSelectedDownload } = await import('../../src/api/owners')
     const mockedSelected = vi.mocked(startOwnerSelectedDownload)
-    const pending = deferred<{ job_id: string; task_id: string }>()
+    const pending = deferred<{ task_id: string | null }>()
     mockedSelected.mockReturnValue(pending.promise)
     const store = useCreatorsStore()
     store.adoptPostsFromOwnerRead(
@@ -749,7 +747,7 @@ describe('a write action cannot be submitted twice', () => {
 
     expect(mockedSelected).toHaveBeenCalledTimes(1)
 
-    pending.settle({ job_id: 'J', task_id: 'T' })
+    pending.settle({ task_id: 'T' })
     await first
   })
 
@@ -764,11 +762,11 @@ describe('a write action cannot be submitted twice', () => {
     )
     const mockedSelected = vi.mocked(startOwnerSelectedDownload)
     const mockedAll = vi.mocked(startOwnerAllDownload)
-    const pending = deferred<{ job_id: string; task_id: string }>()
+    const pending = deferred<{ task_id: string | null }>()
     mockedSelected.mockClear()
     mockedAll.mockClear()
     mockedSelected.mockReturnValue(pending.promise)
-    mockedAll.mockResolvedValue({ job_id: 'J2', task_id: 'T2' })
+    mockedAll.mockResolvedValue({ task_id: 'T2' })
     const store = useCreatorsStore()
     store.adoptPostsFromOwnerRead(
       ownerRead({
@@ -798,7 +796,7 @@ describe('a write action cannot be submitted twice', () => {
 
     expect(mockedAll).not.toHaveBeenCalled()
 
-    pending.settle({ job_id: 'J', task_id: 'T' })
+    pending.settle({ task_id: 'T' })
     await first
   })
 
@@ -806,7 +804,7 @@ describe('a write action cannot be submitted twice', () => {
     const { startOwnerAllDownload } = await import('../../src/api/owners')
     const mockedAll = vi.mocked(startOwnerAllDownload)
     mockedAll.mockClear()
-    mockedAll.mockResolvedValue({ job_id: 'J', task_id: 'T' })
+    mockedAll.mockResolvedValue({ task_id: 'T' })
     const store = useCreatorsStore()
     store.adoptPostsFromOwnerRead(ownerRead({ sec_user_id: SEC_UID }))
 

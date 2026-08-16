@@ -9,7 +9,7 @@
 GET  /api/history/owners            按条件筛选历史主播（纯数据库，不发网络请求）
 POST /api/live/probe                对筛选结果发真实请求，判定此刻是否在播
 GET  /api/live/probe/<batch_id>     轮询探测进度
-POST /                              对探测到在播的主播触发下载（复用既有入口）
+POST /api/resolve + POST /api/tasks  对在播资源创建现代录制任务
 ```
 
 筛选与判定是两件事：数据库只负责把历史主播缩到一页（默认上限 10 条），
@@ -21,35 +21,15 @@ POST /                              对探测到在播的主播触发下载（�
 
 <!-- INITIALIZED: v0.1 - 完整的 API 契约 -->
 
-## 2.1 `POST /`
+## 2.1 已退休的 root `POST /`
 
-**URL:** `POST /`
-**权限:** TODO：已认证用户
+P16 已删除这个 Legacy raw-URL dispatcher endpoint；请求自然返回 `405 Method
+Not Allowed`，没有重定向或替代 route。现代客户端先通过 `/api/resolve`（或
+`/api/resolve/batch`）取得 receipt，再通过 `/api/tasks` 创建独立任务。
 
-**Query Parameters:**
-
-| 参数 | 类型 | 必填 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| `urls` | list | 是 | null | 逗号分隔的 living 分享 URL |
-| `score` | integer | 否 | 0 | 对分享的 urls 的喜好程度，范围在0-100 |
-| `favorite` | bool | 否 | false | `score` 的标记位，为 `true` 表明 `score` 有效 |
-
-**Response 200:**
-```json
-{
-  "status": "error",
-  "message": "请求必须是 JSON 格式",
-  "code": 400
-}
-```
-
-**错误码:**
-
-| HTTP Code | error.code | error.message |
-|-----------|------------|---------------|
-| 401(TODO) | `unauthorized` | 未认证或 token 无效 |
-| 400 | `invalid_params` | 查询参数格式错误 |
-| 500 | `internal_error` | 服务器内部错误 |
+主播的 `favorite` / `score` 是 Creator Account 独立持久化属性，不属于任务创建
+payload。多资源提交也不会创建 batch task；每个成功解析项继续使用自己的 receipt
+创建普通任务。
 
 ## 2.2 `GET /api/history/owners`
 
@@ -196,4 +176,3 @@ POST /                              对探测到在播的主播触发下载（�
 
 > 批次保存在进程内存中，仅适用于当前的单进程部署；换成多 worker 的 WSGI 需要替换
 > `ProbeBatchStore` 的实现。
-

@@ -7,9 +7,8 @@ from werkzeug.exceptions import NotFound
 
 
 ##
-## Where ``vite build`` leaves the application shell.  The new frontend lives
-## beside the legacy one rather than replacing it - see the blueprint below for
-## why - so this points into ``frontend/app`` and never into ``frontend/src``.
+## Where ``vite build`` leaves the application shell.  P16 removed the old
+## ``frontend/src`` tree; the runtime serves only this production bundle.
 ##
 SPA_DIST_DIR = Path(__file__).resolve().parents[3] / "frontend" / "app" / "dist"
 
@@ -21,7 +20,9 @@ INDEX_FILE = "index.html"
 ##
 ## These namespaces belong to other Flask surfaces.  The check happens before
 ## any dist lookup so an accidentally emitted ``dist/api/...`` file can never
-## impersonate an API response (and likewise for Legacy documents/assets).
+## impersonate an API response. ``static`` and ``legacy`` remain retired
+## namespace tombstones: deleting their old Flask routes must never turn them
+## into Vue client routes.
 ## ``app`` is handled separately as a temporary compatibility redirect.
 ##
 RESERVED_PREFIXES = frozenset(("api", "static", "legacy"))
@@ -68,8 +69,8 @@ def build_spa_blueprint(dist_dir=None) -> Blueprint:
       ##
       ## Root ownership remains Vue even when its deployment is broken.  A
       ## visible 503 is intentional: silently rendering Legacy here would hide
-      ## a bad image from both CI and operators.  The exact ``/legacy/`` route
-      ## remains independently available.
+      ## a bad image from both CI and operators.  P16 retired the Legacy
+      ## fallback, so recovery now requires an image/code rollback.
       ##
       return (
         jsonify({"status": "error", "message": NOT_BUILT_MESSAGE, "code": 503}),

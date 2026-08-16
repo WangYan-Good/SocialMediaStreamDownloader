@@ -381,7 +381,7 @@ class StartDownloadTest(unittest.TestCase):
     )
 
     self.assertEqual(response.status_code, 200)
-    self.assertIn("job_id", response.get_json()["data"])
+    self.assertEqual({"task_id": None}, response.get_json()["data"])
     self.assertEqual(service.selected, [(["1", "2"], "https://share/")])
 
   def test_download_everything_is_submitted(self):
@@ -443,27 +443,20 @@ class StartDownloadTest(unittest.TestCase):
     self.assertEqual(response.status_code, 400)
 
 
-class ReadDownloadProgressTest(unittest.TestCase):
-  def test_progress_is_served(self):
-    service = StubService()
-    job_id = service.store.create(["1", "2"])
-    runtime = StubRuntime(service=service)
-    patch_fetchers(self, runtime)
-
-    response = build_client(runtime).get("/api/owner/download/" + job_id)
-    body = response.get_json()
-
-    self.assertEqual(response.status_code, 200)
-    self.assertEqual(body["data"]["total"], 2)
-    self.assertEqual(body["data"]["finished"], 0)
-
-  def test_an_unknown_job_is_a_not_found(self):
+class RetiredDownloadProgressTest(unittest.TestCase):
+  def test_public_job_polling_route_is_not_registered(self):
     runtime = StubRuntime()
     patch_fetchers(self, runtime)
+    app = Flask(__name__)
+    app.register_blueprint(build_owner_blueprint(runtime))
 
-    response = build_client(runtime).get("/api/owner/download/nope")
-
-    self.assertEqual(response.status_code, 404)
+    rules = list(app.url_map.iter_rules())
+    self.assertFalse(
+      any(
+        str(rule).startswith("/api/owner/download/") and "GET" in rule.methods
+        for rule in rules
+      )
+    )
 
 
 if __name__ == "__main__":

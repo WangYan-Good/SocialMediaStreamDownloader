@@ -656,16 +656,8 @@ class ApplicationFactoryTest(unittest.TestCase):
     import server
     from backend.src.unit_test.config_fixture import unified_config
 
-    class FakeDispatcher:
-      def register(self):
-        pass
-
-      def dispatch(self, payload, context=None):
-        pass
-
     return server.create_app(
-      unified_config(),
-      FakeDispatcher(),
+      config=unified_config(),
       schema_guard_factory=lambda config: object(),
     )
 
@@ -776,16 +768,6 @@ class ResolveStartsNothingTest(unittest.TestCase):
           self.assertEqual(post_resolve(app, {"input": url}).status_code, 200)
 
     never.assert_not_called()
-
-  def test_the_legacy_entry_point_is_untouched(self):
-    """``POST /`` keeps dispatching exactly as it did; P5 adds a road, not a detour."""
-    app = self.build_app()
-
-    response = app.test_client().post("/", json={"urls": [POST_URL]})
-
-    self.assertEqual(response.status_code, 200)
-    self.assertEqual(response.get_json()["status"], "success")
-
 
 if __name__ == "__main__":
   unittest.main()

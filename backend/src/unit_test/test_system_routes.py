@@ -398,18 +398,18 @@ class ServerWiringTest(unittest.TestCase):
     ):
       self.assertIn(existing, rules)
 
-  def test_root_vue_and_legacy_fallback_are_both_wired(self):
+  def test_root_vue_is_wired_without_legacy_fallback(self):
     ##
-    ## GET root belongs to Vue after cutover; the exact fallback routes remain
-    ## separate Flask documents and POST root remains a compatibility method.
+    ## GET root belongs to Vue; P16 retires the public Legacy documents while
+    ## their namespace stays a SPA tombstone.
     ##
     import server
 
     rules = {str(rule) for rule in server.app.url_map.iter_rules()}
 
     self.assertIn("/", rules)
-    self.assertIn("/legacy", rules)
-    self.assertIn("/legacy/", rules)
+    self.assertNotIn("/legacy", rules)
+    self.assertNotIn("/legacy/", rules)
 
   def test_an_application_built_from_a_configuration_reports_that_one(self):
     ##
@@ -421,7 +421,6 @@ class ServerWiringTest(unittest.TestCase):
 
     built = server.create_app(
       config=_wiring_config(debug=True, test_mode=True),
-      dispatcher=_NullDispatcher(),
       schema_guard_factory=lambda config: FakeGuard(),
     )
 
@@ -435,12 +434,10 @@ class ServerWiringTest(unittest.TestCase):
 
     quiet = server.create_app(
       config=_wiring_config(debug=False, test_mode=False),
-      dispatcher=_NullDispatcher(),
       schema_guard_factory=lambda config: FakeGuard(),
     )
     loud = server.create_app(
       config=_wiring_config(debug=True, test_mode=True),
-      dispatcher=_NullDispatcher(),
       schema_guard_factory=lambda config: FakeGuard(),
     )
 
@@ -455,21 +452,12 @@ class ServerWiringTest(unittest.TestCase):
 
     built = server.create_app(
       config=_wiring_config(debug=False, test_mode=False, with_secrets=True),
-      dispatcher=_NullDispatcher(),
       schema_guard_factory=lambda config: FakeGuard(),
     )
 
     serialized = built.test_client().get("/api/system/status").data.decode("utf-8")
 
     self.assertNotIn("SECRET", serialized)
-
-
-class _NullDispatcher:
-  def register(self):
-    return None
-
-  def dispatch(self, *unused, **also_unused):
-    return None
 
 
 def _wiring_config(debug: bool, test_mode: bool, with_secrets: bool = False) -> dict:

@@ -37,16 +37,6 @@ defineEmits<{ navigate: [] }>()
       </li>
     </ul>
 
-    <div class="sidebar-nav__legacy">
-      <!--
-        The explicit rollback surface after cutover.  A plain anchor, not a
-        RouterLink: /legacy/ belongs to Flask and leaves the SPA entirely.
-      -->
-      <a class="sidebar-nav__link sidebar-nav__link--legacy" href="/legacy/">
-        <span class="sidebar-nav__label">旧版界面</span>
-        <span class="sidebar-nav__hint">Legacy fallback</span>
-      </a>
-    </div>
   </nav>
 </template>
 
@@ -100,9 +90,4 @@ defineEmits<{ navigate: [] }>()
   color: var(--color-muted);
 }
 
-.sidebar-nav__legacy {
-  margin-top: auto;
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
-}
 </style>

@@ -69,6 +69,10 @@ def task_of(service, job_id):
   return service.task_service.get_task(service.task_id_for(job_id))
 
 
+def internal_job_id_for_task(service, task_id):
+  return service.task_service.get_task(task_id)["metadata"]["legacy_job_id"]
+
+
 class SelectedTaskTest(OfflineTestCase):
   """The posts the user ticked, mirrored onto the unified task."""
 
@@ -537,9 +541,9 @@ def build_client(service):
 
 
 class OwnerDownloadApiTest(OfflineTestCase):
-  """The legacy endpoints keep their shape and gain one forward-looking field."""
+  """The public API exposes unified tasks while internal jobs keep executing."""
 
-  def test_starting_a_selected_download_returns_both_ids(self):
+  def test_starting_a_selected_download_returns_only_the_task_id(self):
     service = build_service()
     service.cache.remember([post_item("1"), post_item("2")])
 
@@ -549,10 +553,10 @@ class OwnerDownloadApiTest(OfflineTestCase):
     data = response.get_json()["data"]
 
     self.assertEqual(response.status_code, 200)
-    self.assertIn("job_id", data)
-    self.assertEqual(data["task_id"], service.task_id_for(data["job_id"]))
+    self.assertEqual({"task_id"}, set(data))
+    self.assertIsNotNone(data["task_id"])
 
-  def test_starting_a_full_download_returns_both_ids(self):
+  def test_starting_a_full_download_returns_only_the_task_id(self):
     service = build_service(api=StubApi(pages=[page(["1"], 100, 0)]))
 
     response = build_client(service).post(
@@ -561,7 +565,7 @@ class OwnerDownloadApiTest(OfflineTestCase):
     data = response.get_json()["data"]
 
     self.assertEqual(response.status_code, 200)
-    self.assertIn("job_id", data)
+    self.assertEqual({"task_id"}, set(data))
     self.assertIsNotNone(data["task_id"])
 
   def test_the_new_task_is_readable_through_the_task_api(self):
@@ -579,7 +583,8 @@ class OwnerDownloadApiTest(OfflineTestCase):
     self.assertEqual(task["state"], "success")
     self.assertEqual(task["progress"], {"current": 2, "total": 2})
     self.assertEqual(task["metadata"]["platform"], PLATFORM_DOUYIN)
-    self.assertEqual(task["metadata"]["legacy_job_id"], data["job_id"])
+    self.assertIsInstance(task["metadata"]["legacy_job_id"], str)
+    self.assertNotEqual(task["metadata"]["legacy_job_id"], data["task_id"])
     self.assertEqual(
       [item["key"] for item in task["items"]], ["1", "2"]
     )
@@ -594,37 +599,15 @@ class OwnerDownloadApiTest(OfflineTestCase):
 
     self.assertEqual(listed["total"], 1)
 
-  def test_the_legacy_job_endpoint_is_unchanged(self):
-    """The current page polls this and must not notice the migration."""
-    service = build_service(downloader=StubDownloader(skips=["2"]))
-    service.cache.remember([post_item("1"), post_item("2")])
-    client = build_client(service)
-
-    job_id = client.post(
-      "/api/owner/download", json={"aweme_ids": ["1", "2"]}
-    ).get_json()["data"]["job_id"]
-    body = client.get("/api/owner/download/" + job_id).get_json()
-
-    self.assertEqual(body["status"], "success")
-    self.assertEqual(body["code"], 200)
-    self.assertEqual(
-      set(body["data"]),
-      {"job_id", "state", "message", "total", "finished", "items"},
-    )
-    self.assertEqual(body["data"]["state"], JOB_DONE)
-    self.assertEqual(body["data"]["total"], 2)
-    self.assertEqual(body["data"]["finished"], 2)
-    self.assertEqual(
-      [item["state"] for item in body["data"]["items"]],
-      [STATE_DONE, STATE_SKIPPED],
-    )
-
-  def test_the_legacy_job_endpoint_still_reports_unknown_jobs(self):
+  def test_the_public_job_polling_route_is_not_registered(self):
     service = build_service()
+    app = Flask(__name__)
+    app.register_blueprint(build_owner_blueprint(DownloadRuntime(service)))
 
-    response = build_client(service).get("/api/owner/download/nope")
-
-    self.assertEqual(response.status_code, 404)
+    self.assertFalse(any(
+      str(rule).startswith("/api/owner/download/") and "GET" in rule.methods
+      for rule in app.url_map.iter_rules()
+    ))
 
   def test_a_runtime_without_task_wiring_still_starts_downloads(self):
     """task_id is absent, not fatal, when nothing is mirroring."""
@@ -643,8 +626,7 @@ class OwnerDownloadApiTest(OfflineTestCase):
       "/api/owner/download", json={"aweme_ids": ["1"]}
     ).get_json()["data"]
 
-    self.assertIn("job_id", data)
-    self.assertIsNone(data["task_id"])
+    self.assertEqual({"task_id": None}, data)
 
 
 class MirrorLifetimeTest(OfflineTestCase):
@@ -663,7 +645,8 @@ class MirrorLifetimeTest(OfflineTestCase):
     ## Read outside any request context at all: nothing about the association
     ## may depend on Flask being mid-request.
     ##
-    self.assertEqual(service.task_id_for(data["job_id"]), data["task_id"])
+    job_id = internal_job_id_for_task(service, data["task_id"])
+    self.assertEqual(service.task_id_for(job_id), data["task_id"])
 
   def test_the_map_survives_across_several_requests(self):
     service = build_service()
@@ -680,9 +663,9 @@ class MirrorLifetimeTest(OfflineTestCase):
       "/api/owner/download", json={"aweme_ids": ["3"]}
     ).get_json()["data"]
 
-    self.assertEqual(service.task_id_for(first["job_id"]), first["task_id"])
-    self.assertEqual(service.task_id_for(second["job_id"]), second["task_id"])
-    self.assertEqual(service.task_id_for(third["job_id"]), third["task_id"])
+    for started in (first, second, third):
+      job_id = internal_job_id_for_task(service, started["task_id"])
+      self.assertEqual(service.task_id_for(job_id), started["task_id"])
     self.assertEqual(len({first["task_id"], second["task_id"], third["task_id"]}), 3)
 
   def test_an_earlier_task_is_still_readable_after_later_ones_start(self):

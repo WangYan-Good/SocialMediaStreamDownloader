@@ -64,9 +64,8 @@ export interface OwnerRead extends OwnerPostPage {
 
 export interface OwnerDownloadStarted {
   //
-  // The legacy job record. Kept in the response for the old page; the new
-  // interface reads `task_id` and hands the user to the task centre.
+  // The only public progress identity. Internal owner jobs still coordinate
+  // execution on the server, but the browser follows the unified task centre.
   //
-  job_id: string
   task_id: string | null
 }

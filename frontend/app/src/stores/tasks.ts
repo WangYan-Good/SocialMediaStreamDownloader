@@ -202,8 +202,8 @@ export const useTaskStore = defineStore('tasks', () => {
    *
    * Unlike the single-task poll in New Download, this does not stop when
    * everything on screen has finished: the next task routinely arrives from
-   * somewhere else - New Download, the legacy interface, another browser, a
-   * probe started from history - and a loop that stopped would never see it.
+   * somewhere else - New Download, Creators, another browser, or a probe - and
+   * a loop that stopped would never see it.
    */
   async function poll(session: number): Promise<void> {
     if (session !== pollSession) {

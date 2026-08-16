@@ -7,13 +7,10 @@ sys.path.append(os.getcwd())
 ## <<Base>>
 import os
 import signal
-import traceback
-import logging
 import threading
 
 ## <<Extension>>
-from flask import Flask, request, jsonify, render_template
-from werkzeug.exceptions import BadRequest
+from flask import Flask
 
 ## <<Third-Part>>
 from backend.src.library.loglib    import get_logger
@@ -22,7 +19,6 @@ from backend.src.base.log import LoggerManager
 from backend.src.database.schema_guard import initialize_schema_guard
 from backend.src.platform.douyin.douyin_aweme_downloader import shutdown_aweme_downloads
 from backend.src.platform.douyin.douyin_live_downloader import cancel_live_downloads
-from backend.src.platform.platform_dispatcher import PlatformDispatcher
 from backend.src.service.direct_post_download_task import DirectPostDownloadTaskService
 from backend.src.service.live_recording_task import LiveRecordingTaskService
 from backend.src.service.task_creation import TaskCreationService
@@ -66,20 +62,16 @@ def _server_options(config: dict) -> dict:
 
 
 def _new_flask_app(
-  dispatcher=None,
-  request_logger=None,
   lazy_config=False,
   schema_guard_factory=initialize_schema_guard,
   initial_schema_guard=None,
 ):
   configured_app = Flask(
     __name__,
-    static_folder="./frontend/src/static",
-    template_folder="./frontend/src/templates",
+    static_folder=None,
+    template_folder=None,
   )
   runtime = {
-    "dispatcher": dispatcher,
-    "logger": request_logger or logging.getLogger("bootstrap"),
     "initialized": not lazy_config,
   }
   if initial_schema_guard is not None:
@@ -96,10 +88,6 @@ def _new_flask_app(
       options = _server_options(source)
       LoggerManager(source["log"])
       schema_guard = schema_guard_factory(source)
-      configured_dispatcher = PlatformDispatcher()
-      configured_dispatcher.register()
-      runtime["dispatcher"] = configured_dispatcher
-      runtime["logger"] = get_logger()
       configured_app.debug = options["debug"]
       configured_app.extensions["smsd_schema_guard"] = schema_guard
       ##
@@ -115,139 +103,6 @@ def _new_flask_app(
     initialize_runtime()
 
   ##
-  ## Legacy compatibility only.  The Vue client never calls this endpoint: it
-  ## uses resolve receipts and ``/api/tasks``.  Root POST remains temporarily so
-  ## the explicit ``/legacy/`` rollback document can still submit work; P16
-  ## owns the audit and removal of this debt.
-  ##
-  @configured_app.route('/', methods=['POST'])
-  def process_request():
-    try:
-      ##
-      ## 校验请求数据
-      ##
-      if not request.is_json:
-        return jsonify({
-          "status": "error",
-          "message": "请求必须是 JSON 格式",
-          "code": 400
-        }), 400
-
-      json_data = request.get_json(silent=True)
-      if json_data is None:
-        return jsonify({
-          "status": "error",
-          "message": "请求体为空或格式错误",
-          "code": 400
-        }), 400
-
-      ##
-      ## 校验必需字段
-      ##
-      urls = json_data.get('urls')
-      if not urls or not isinstance(urls, list) or len(urls) == 0:
-        return jsonify({
-          "status": "error",
-          "message": "缺少必需字段: urls（必须是非空数组）",
-          "code": 400
-        }), 400
-
-      ##
-      ## 校验 URL 格式（可选，根据业务需求调整）
-      ##
-      for idx, url in enumerate(urls):
-        if not isinstance(url, str) or not url.startswith(('http://', 'https://')):
-          return jsonify({
-            "status": "error",
-            "message": f"第 {idx + 1} 个 URL 格式无效",
-            "code": 400
-          }), 400
-
-      ##
-      ## 处理请求
-      ##
-      ##
-      ## The reply below is deliberately unchanged, and deliberately carries no
-      ## task id.  Whether these links are posts or live rooms is not known yet -
-      ## the share links have not been followed - so any id invented here would
-      ## either be a guess or force this thread to wait on the network.  The
-      ## tasks appear in the task centre as soon as the handler confirms what
-      ## each link is.
-      ##
-      runtime["dispatcher"].dispatch(
-        json_data,
-        context={
-          "direct_post_service": runtime.get("direct_post_service"),
-          "live_record_service": runtime.get("live_record_service"),
-        },
-      )
-
-    except BadRequest as e:
-      ##
-      ## 客户端请求格式错误（Flask 自动抛出）
-      ##
-      runtime["logger"].warning(f"无效的请求格式: {str(e)}")
-      return jsonify({
-        "status": "error",
-        "message": "请求格式无效",
-        "code": 400
-      }), 400
-
-    except ValueError as e:
-      ##
-      ## 业务逻辑校验错误
-      ##
-      runtime["logger"].warning(f"参数校验失败: {str(e)}")
-      return jsonify({
-        "status": "error",
-        "message": f"参数错误: {str(e)}",
-        "code": 400
-      }), 400
-
-    except Exception as e:
-      ##
-      ## 服务器内部错误
-      ##
-      error_traceback = traceback.format_exc()
-      runtime["logger"].error(f"请求处理失败 - 异常: {str(e)}\n{error_traceback}")
-
-      ##
-      ## 生产环境返回通用错误，开发环境返回详细错误
-      ##
-      if configured_app.debug:
-        return jsonify({
-          "status": "error",
-          "message": f"服务器内部错误: {str(e)}",
-          "traceback": error_traceback.split('\n'),
-          "code": 500
-        }), 500
-      else:
-        return jsonify({
-          "status": "error",
-          "message": "服务器内部错误，请稍后重试",
-          "code": 500
-        }), 500
-
-    ##
-    ## 响应成功
-    ##
-    return jsonify({
-      "status": "success",
-      "message": "请求已开始处理",
-      "code": 200
-    }), 200
-
-  ##
-  ## Exact manual fallback documents.  They stay independent of the Vue build:
-  ## a missing bundle makes GET root visibly fail with 503 while operators can
-  ## still choose this compatibility UI deliberately.
-  ##
-  @configured_app.route('/legacy', methods=['GET'])
-  @configured_app.route('/legacy/', methods=['GET'])
-  def legacy_index():
-      return render_template('index.html')
-
-  ##
   ## the unified background task record.  Installed on the app rather than kept
   ## as a module global so every request of this process reads the one store,
   ## and two apps in one interpreter - the lazy wsgi app and a test's app - do
@@ -261,10 +116,9 @@ def _new_flask_app(
   ##
   ## The runner that turns a pasted post link into a task of this application.
   ##
-  ## Held here, on the per-application runtime, and handed to the dispatcher one
-  ## dispatch at a time.  The dispatcher is a process-wide singleton, so storing
-  ## it there instead would let a second application overwrite the first one's
-  ## task store and each would report the other's downloads.
+  ## These are modern TaskCreationService dependencies.  They remain
+  ## application-scoped so every task they create is visible through this
+  ## application's task centre.
   ##
   runtime["direct_post_service"] = DirectPostDownloadTaskService(
     task_service=task_service
@@ -359,13 +213,9 @@ def _new_flask_app(
   )
 
   ##
-  ## The Vue interface owns GET root after P15.  Registered last so concrete
-  ## API, Legacy and static routes retain their own rules; its catch-all also
-  ## refuses those reserved namespaces before reading the build directory.
-  ##
-  ## GET and POST may legally have different owners on the same path: the SPA
-  ## blueprint registers GET only, while the compatibility handler above keeps
-  ## POST only.
+  ## The Vue interface owns GET root.  Registered last so concrete API routes
+  ## retain their own rules; its catch-all refuses active API and retired
+  ## Legacy/static tombstone namespaces before reading the build directory.
   ##
   configured_app.register_blueprint(build_spa_blueprint())
 
@@ -377,20 +227,13 @@ app = _new_flask_app(lazy_config=True)
 
 def create_app(
   config: dict = None,
-  dispatcher=None,
   schema_guard_factory=initialize_schema_guard,
 ):
   source = load_config() if config is None else config
   options = _server_options(source)
   LoggerManager(source["log"])
   schema_guard = schema_guard_factory(source)
-  configured_dispatcher = (
-    dispatcher if dispatcher is not None else PlatformDispatcher()
-  )
-  configured_dispatcher.register()
   configured_app = _new_flask_app(
-    configured_dispatcher,
-    get_logger(),
     initial_schema_guard=schema_guard,
   )
   configured_app.debug = options["debug"]

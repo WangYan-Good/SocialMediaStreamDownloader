@@ -120,7 +120,8 @@ export interface CreatedTask {
 //
 // `selected` is absent on purpose - the backend refuses it, since an owner
 // resolution carries only a sec_user_id and not the post payloads that mode
-// needs.  The legacy owner page still serves that flow.
+// needs.  The Creators posts flow serves selected-download through the owner
+// endpoint after it has loaded those payloads.
 //
 export type CreateTaskRequest =
   | {

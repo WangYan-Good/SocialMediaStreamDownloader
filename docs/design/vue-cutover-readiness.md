@@ -4,6 +4,15 @@ Cutover executed at stage P15 on `feat/legacy-cutover`, based on `develop` at
 `6a5d0c9` (P14 merged). The parity audit below remains the evidence that
 authorised that action.
 
+P16 subsequently retired the public Legacy surface. Current state is: Vue owns
+root; `/legacy*` and `/static*` are 404 tombstones; root `POST /` returns 405;
+public owner job polling is absent; and temporary `/app/*` 302 compatibility is
+retained. `JobStore`, `PostDownloadJobService`, `OwnerTaskMirror`, live probe
+polling and modern direct/live task services remain active.
+
+> Historical evidence below describes the pre-P16 Legacy surface and is
+> retained as migration/audit history; those routes are no longer available.
+
 This document answers one question: **can `GET /` stop serving the legacy Jinja
 interface and start serving the Vue application?**
 
@@ -13,10 +22,9 @@ has — a database write, a downloaded file, a background thread — rather than
 the button that starts it. Where the two interfaces differ, the difference is
 recorded even when it is inconvenient.
 
-Current ownership is now explicit: `GET /` and root deep links serve Vue,
-`GET /legacy` and `GET /legacy/` serve the retained Legacy fallback, and
-`GET /app/*` temporarily redirects to the equivalent root path. `POST /`
-remains the unchanged Legacy compatibility endpoint until P16.
+At the time of the P15 decision, `GET /legacy`, Legacy static files and root
+`POST /` were deliberately retained. References to that state below are
+historical evidence for the later P16 caller audit, not current routing.
 
 ## How to read the status column
 
@@ -376,10 +384,28 @@ production image:
 | safe empty `POST /` | 400, compatibility route present, no platform request |
 | tasks and system-status APIs | 200, database disabled reported honestly |
 
+That table records the historical P15 rollback surface. P16 repeated the gate
+against `smsd:p16-review` after retiring it:
+
+| P16 smoke check | Result |
+| --- | --- |
+| image builds and container reaches ready | yes |
+| `GET /` and six root deep links | 200, Vue shell |
+| emitted `/assets/*.js` | fetched successfully; missing asset is 404 |
+| `/legacy`, `/legacy/`, `/legacy/foo` | 404, never Vue HTML |
+| `/static`, `/static/`, `/static/foo.js` | 404, never Vue HTML |
+| root `POST /` | 405 |
+| `/app/*` | 302, safe root target and query preserved |
+| unknown `/api/*` | 404, never Vue HTML |
+| tasks and system-status APIs | 200, database disabled reported honestly |
+| Flask owner URL map | no `GET /api/owner/download/<job_id>` rule |
+| Flask built-in static/templates | both disabled (`None`) |
+| `/app/frontend/src` in runtime image | absent |
+| retired dispatcher/handler modules in runtime image | absent |
+
 If the Vue index is absent, root and Vue deep links return an explicit 503.
-They do not fall back automatically, while `/legacy/` remains independently
-available. This makes a broken deployment visible without removing the manual
-rollback surface.
+They do not fall back automatically or manually to Legacy. This makes a broken
+deployment visible; recovery is an image/code rollback, not an in-image route.
 
 ---
 
@@ -390,19 +416,20 @@ EXECUTED
 ```
 
 - **Default UI:** Vue.
-- **Legacy fallback:** available at `/legacy/`.
-- **Old Vue URLs:** temporary 302 from `/app/*`.
-- **Legacy POST:** temporarily retained.
+- **Legacy UI:** retired.
+- **Legacy/static namespaces:** 404 tombstones.
+- **Root POST:** retired; 405.
+- **Owner public job polling:** retired.
+- **Old Vue URLs:** temporary 302 from `/app/*` retained.
+- **Owner internal job execution and live probe polling:** retained.
 
-The P13 favourite/score and multi-resource blockers are both closed, no new
+The P13 favourite/score and multi-resource blockers remain closed, no new
 blocking gap was found, the full backend and frontend suites pass, and the
-production image serves the Legacy entry plus every Vue route. The remaining
-clipboard gap is a non-blocking convenience.
+production image serves Vue while proving the retired files are absent. The
+historical clipboard gap remains a non-blocking convenience.
 
-The P14 `READY` decision has now been acted on. P15 changes routing ownership
-only: no migration, business data, resolver, task model, preference semantics
-or downloader changed. Legacy source, static files, dispatcher support and root
-POST remain intentional rollback compatibility debt.
-
-After a stabilization period, P16 may audit and retire those surfaces. P15 does
-not delete them.
+The P14 `READY` decision was acted on by P15. P16 then removed the audited
+public Legacy source, routes, dispatcher modules and owner polling endpoint
+without changing database data, the resolver, task model, preferences,
+downloader or owner internal job execution. The detailed P16 dependency and
+test ledger is in `docs/design/legacy-retirement.md`.

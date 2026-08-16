@@ -136,29 +136,12 @@ describe('SidebarNav', () => {
     expect(active[0].text()).toContain('媒体库')
   })
 
-  it('offers a way back to the legacy interface', async () => {
-    //
-    // Root belongs to Vue after cutover; the fallback is an explicit Flask
-    // document rather than a route in this client application.
-    //
+  it('does not advertise the retired legacy interface', async () => {
     const { wrapper } = await mountShell()
 
-    const legacy = wrapper.find('.sidebar-nav__link--legacy')
-    expect(legacy.exists()).toBe(true)
-    expect(legacy.attributes('href')).toBe('/legacy/')
-  })
-
-  it('leaves the application to reach the legacy interface', async () => {
-    //
-    // A plain anchor, not a RouterLink: /legacy/ is served by Flask, not by
-    // this router, so client-side navigation would wrongly stay in the SPA.
-    //
-    const { wrapper } = await mountShell()
-
-    expect(wrapper.find('a.sidebar-nav__link--legacy').element.tagName).toBe('A')
-    expect(wrapper.find('.sidebar-nav__link--legacy').classes()).not.toContain(
-      'router-link-active',
-    )
+    expect(wrapper.find('.sidebar-nav__legacy').exists()).toBe(false)
+    expect(wrapper.find('[href="/legacy/"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Legacy fallback')
   })
 })
 
