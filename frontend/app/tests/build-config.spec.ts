@@ -27,14 +27,13 @@ describe('vite base', () => {
   it('is the prefix Flask serves the application from', async () => {
     const config = await resolvedConfig()
 
-    expect(config.base).toBe('/app/')
+    expect(config.base).toBe('/')
   })
 
   it('keeps the trailing slash', async () => {
     //
     // Vite joins asset paths onto this string directly.  Without the slash the
-    // emitted urls become '/appassets/...', which is a 404 that reads like a
-    // typo nobody made.
+    // The root base is itself the slash asset urls are joined against.
     //
     const config = await resolvedConfig()
 

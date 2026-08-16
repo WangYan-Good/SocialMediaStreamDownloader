@@ -39,14 +39,12 @@ defineEmits<{ navigate: [] }>()
 
     <div class="sidebar-nav__legacy">
       <!--
-        The way back.  Until the new interface reaches feature parity the legacy
-        one is still the working product, and every screen here that says "later"
-        needs somewhere to send the user in the meantime.  A plain anchor, not a
-        RouterLink: it leaves the single-page application entirely.
+        The explicit rollback surface after cutover.  A plain anchor, not a
+        RouterLink: /legacy/ belongs to Flask and leaves the SPA entirely.
       -->
-      <a class="sidebar-nav__link sidebar-nav__link--legacy" href="/">
+      <a class="sidebar-nav__link sidebar-nav__link--legacy" href="/legacy/">
         <span class="sidebar-nav__label">旧版界面</span>
-        <span class="sidebar-nav__hint">Legacy UI</span>
+        <span class="sidebar-nav__hint">Legacy fallback</span>
       </a>
     </div>
   </nav>

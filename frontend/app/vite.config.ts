@@ -5,11 +5,11 @@ import vue from '@vitejs/plugin-vue'
 import { defineConfig, loadEnv } from 'vite'
 
 //
-// The application is served from /app/ in production, beside the legacy
-// interface at / and the json api at /api/.  Stated here once: the router reads
-// it back through import.meta.env.BASE_URL rather than repeating the literal.
+// The application owns root in production after P15.  Stated here once: the
+// router reads it back through import.meta.env.BASE_URL rather than repeating
+// the literal; built assets therefore live at /assets/.
 //
-const BASE = '/app/'
+const BASE = '/'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')

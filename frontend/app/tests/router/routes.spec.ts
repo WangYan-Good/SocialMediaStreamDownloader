@@ -84,13 +84,13 @@ describe('route map', () => {
 describe('router base', () => {
   it('is taken from the build rather than written out again', async () => {
     //
-    // Vite is configured with base '/app/', and the router has to read it back
+    // Vite owns the deployment base, and the router has to read it back
     // rather than repeat the literal: two copies drift apart the first time
     // either one moves, and the symptom would be every deep link 404ing in
     // production only - where nothing that runs here would have caught it.
     //
-    // Asserted against whatever base this build carries, not against '/app/'.
-    // Under test that is '/', so a hard-coded '/app/' shows up immediately.
+    // Asserted against whatever base this build carries rather than copying it.
+    // Under test and production P15 that is '/'.
     //
     const { router } = await import('../../src/router')
 
