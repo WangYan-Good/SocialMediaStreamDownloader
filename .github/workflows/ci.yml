@@ -98,7 +98,7 @@ jobs:
         run: npm run build
 
   image:
-    name: Docker build
+    name: Docker build and runtime smoke
     runs-on: ubuntu-latest
     # Only once both halves pass: the image contains both, so building it before
     # either is verified would only ever fail slower.
@@ -106,7 +106,119 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Build only. Running the container needs a real config and a database,
-      # neither of which belongs in CI.
       - name: Build image
         run: docker build -t smsd:ci .
+
+      # A build that passes proves the image assembles, and nothing about
+      # whether it starts. It did not, for a while: the entrypoint validates the
+      # mounted configuration against docs/design/config.yml.example before
+      # staging it, and .dockerignore excluded docs/ - so every build was green
+      # and every container exited immediately. Only running it finds that.
+      - name: Generate a safe smoke configuration
+        run: |
+          mkdir -p /tmp/smsd-smoke
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+
+          config = yaml.safe_load(
+            Path("docs/design/config.yml.example").read_text(encoding="utf-8")
+          )
+          # No database, no real transfers, nothing written into the workspace.
+          # The smoke proves the image starts and serves; it must never need a
+          # credential, a database or the platform.
+          config["database"]["enable"] = False
+          config["download"]["test_mode"] = True
+          config["download"]["save_response"] = False
+          config["download"]["save_error_response"] = False
+          config["download"]["save_path"] = "/tmp/smsd-smoke-downloads/"
+          config["log"]["log_save"] = False
+          config["server"]["debug_mode"] = False
+          config["server"]["host"] = "0.0.0.0"
+
+          Path("/tmp/smsd-smoke/config.yml").write_text(
+            yaml.safe_dump(config, allow_unicode=True, sort_keys=False),
+            encoding="utf-8",
+          )
+          PY
+
+      - name: Runtime smoke
+        run: |
+          set -euo pipefail
+
+          # Logs on the way out, whatever happened, and always remove the
+          # container - a failed smoke must not leave one behind or wedge the
+          # job.
+          cleanup() {
+            echo "::group::container logs"
+            docker logs smsd-ci-smoke 2>&1 || true
+            echo "::endgroup::"
+            docker rm -f smsd-ci-smoke >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          # Docker picks the host port. A fixed one collides with whatever else
+          # a runner happens to be holding.
+          docker run -d --name smsd-ci-smoke \
+            -p 127.0.0.1::5000 \
+            -v /tmp/smsd-smoke/config.yml:/run/secrets/config.yml:ro \
+            smsd:ci
+
+          PORT="$(docker port smsd-ci-smoke 5000/tcp | head -1 | sed 's/.*://')"
+          BASE="http://127.0.0.1:${PORT}"
+          echo "smoke base: ${BASE}"
+
+          for attempt in $(seq 1 60); do
+            if [ "$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/" || true)" = "200" ]; then
+              echo "ready after ${attempt}s"
+              break
+            fi
+            if [ "${attempt}" = "60" ]; then
+              echo "container never became ready"
+              exit 1
+            fi
+            sleep 1
+          done
+
+          expect() {
+            code="$(curl -s -o /dev/null -w '%{http_code}' "${BASE}$1")"
+            if [ "${code}" != "$2" ]; then
+              echo "FAIL $1 -> ${code}, expected $2"
+              exit 1
+            fi
+            echo "ok   $1 -> ${code}"
+          }
+
+          # The legacy interface still owns the root. Cutting it over is a
+          # separate, reversible change; this asserts it has not happened by
+          # accident.
+          expect / 200
+          curl -s "${BASE}/" | grep -q 'sidebar-menu-text' \
+            || { echo "FAIL / no longer serves the legacy interface"; exit 1; }
+
+          # Every deep link returns the shell, so a refresh inside the
+          # application does not 404.
+          expect /app/ 200
+          for path in overview new creators library tasks system; do
+            expect "/app/${path}" 200
+          done
+
+          # A missing asset must 404 rather than fall back to index.html -
+          # otherwise a broken bundle reference silently returns html and the
+          # failure surfaces as a syntax error in the browser.
+          expect /app/assets/definitely-does-not-exist.js 404
+
+          expect "/api/tasks?limit=1" 200
+
+          # The status endpoint answers even with persistence switched off, and
+          # says so rather than pretending the schema is fine.
+          curl -s "${BASE}/api/system/status" > /tmp/smsd-smoke/status.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = json.loads(Path("/tmp/smsd-smoke/status.json").read_text())
+          assert payload["status"] == "success", payload
+          assert payload["data"]["database"]["state"] == "disabled", payload
+          print("ok   /api/system/status -> success, database disabled")
+          PY
