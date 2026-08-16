@@ -2,7 +2,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiError } from '../../src/api/client'
-import { listHistoryOwners } from '../../src/api/history'
+import { listHistoryOwners, updateOwnerPreference } from '../../src/api/history'
 import { useCreatorsStore } from '../../src/stores/creators'
 import type { HistoryOwner, HistoryOwnerPage } from '../../src/types/history'
 
@@ -11,9 +11,11 @@ vi.mock('../../src/api/history', () => ({
   listOwnerSessions: vi.fn(),
   submitLiveProbe: vi.fn(),
   getLiveProbe: vi.fn(),
+  updateOwnerPreference: vi.fn(),
 }))
 
 const mockedList = vi.mocked(listHistoryOwners)
+const mockedUpdatePreference = vi.mocked(updateOwnerPreference)
 
 export function owner(overrides: Partial<HistoryOwner> = {}): HistoryOwner {
   return {
@@ -72,6 +74,7 @@ beforeEach(() => {
   setActivePinia(createPinia())
   mockedList.mockReset()
   mockedList.mockResolvedValue(page([]))
+  mockedUpdatePreference.mockReset()
 })
 
 describe('initial state', () => {
@@ -405,5 +408,93 @@ describe('selecting an account', () => {
 
     expect(store.selectedOwnerUserId).toBeNull()
     expect(store.selectedOwner).toBeNull()
+  })
+})
+
+describe('saving an account preference', () => {
+  const listed = [owner({ owner_user_id: 'A' }), owner({ owner_user_id: 'B' })]
+
+  beforeEach(() => {
+    mockedList.mockResolvedValue(page(listed))
+  })
+
+  it('preserves score zero and refreshes the current server page after the write', async () => {
+    mockedUpdatePreference.mockResolvedValue({
+      owner_user_id: 'A',
+      favorite: true,
+      score: 0,
+    })
+    const store = useCreatorsStore()
+    await store.loadOwners()
+    store.selectOwner('A')
+
+    await store.savePreference('A', { favorite: true, score: 0 })
+
+    expect(mockedUpdatePreference).toHaveBeenCalledWith('A', {
+      favorite: true,
+      score: 0,
+    })
+    expect(mockedList).toHaveBeenCalledTimes(2)
+    expect(store.preferenceError).toBeNull()
+  })
+
+  it('allows only one preference write at a time', async () => {
+    const pending = deferred<{
+      owner_user_id: string
+      favorite: boolean
+      score: number | null
+    }>()
+    mockedUpdatePreference.mockReturnValue(pending.promise)
+    const store = useCreatorsStore()
+    await store.loadOwners()
+    store.selectOwner('A')
+
+    const first = store.savePreference('A', { favorite: true, score: 80 })
+    const second = store.savePreference('A', { favorite: true, score: 90 })
+
+    expect(mockedUpdatePreference).toHaveBeenCalledTimes(1)
+    pending.settle({ owner_user_id: 'A', favorite: true, score: 80 })
+    await Promise.all([first, second])
+  })
+
+  it('does not call a successful write a failure when the refresh fails', async () => {
+    mockedUpdatePreference.mockResolvedValue({
+      owner_user_id: 'A',
+      favorite: false,
+      score: null,
+    })
+    const store = useCreatorsStore()
+    await store.loadOwners()
+    store.selectOwner('A')
+    mockedList.mockRejectedValueOnce(
+      new ApiError({ kind: 'network', status: null, code: null, message: 'offline' }),
+    )
+
+    await store.savePreference('A', { favorite: false })
+
+    expect(store.preferenceError).toBeNull()
+    expect(store.preferenceNotice).toContain('已保存')
+    expect(store.preferenceNotice).toContain('无法刷新')
+  })
+
+  it('does not attach a late result for A to B', async () => {
+    const pending = deferred<{
+      owner_user_id: string
+      favorite: boolean
+      score: number | null
+    }>()
+    mockedUpdatePreference.mockReturnValue(pending.promise)
+    const store = useCreatorsStore()
+    await store.loadOwners()
+    store.selectOwner('A')
+
+    const saving = store.savePreference('A', { favorite: true, score: 90 })
+    store.selectOwner('B')
+    pending.settle({ owner_user_id: 'A', favorite: true, score: 90 })
+    await saving
+
+    expect(store.selectedOwnerUserId).toBe('B')
+    expect(store.preferenceError).toBeNull()
+    expect(store.preferenceNotice).toBeNull()
   })
 })

@@ -60,6 +60,10 @@ class MultipleUrls(ResourceResolveError):
   kind = "multiple_urls"
 
 
+class BatchTooLarge(ResourceResolveError):
+  kind = "batch_too_large"
+
+
 class UnsupportedScheme(ResourceResolveError):
   kind = "unsupported_scheme"
 

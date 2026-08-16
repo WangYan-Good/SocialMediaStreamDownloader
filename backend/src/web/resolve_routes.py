@@ -110,4 +110,63 @@ def build_resolve_blueprint(service: ResourceResolveService = None) -> Blueprint
     )
     return _success(_serialize(record, int(active.retention_seconds)))
 
+  @blueprint.route("/resolve/batch", methods=["POST"])
+  def resolve_resources():
+    active = service if service is not None else resolve_service()
+    if active is None:
+      return _error("解析服务未初始化", 503)
+
+    if not request.is_json:
+      return _error("请求必须是 JSON 格式", 400)
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+      return _error("请求体为空或格式错误", 400)
+
+    try:
+      batch = active.resolve_many(payload.get("input"))
+    except ResourceResolveError as e:
+      get_logger().info("batch resolve refused: {}".format(e.kind))
+      return _error(str(e), e.status_code)
+    except Exception as e:
+      get_logger().error(
+        "batch resolve failed: {}: {}".format(type(e).__name__, e)
+      )
+      return _error("服务器内部错误，请稍后重试", 500)
+
+    items = []
+    for item in batch.items:
+      if item.status == "resolved":
+        items.append(
+          {
+            "index": item.index,
+            "status": "resolved",
+            "resolution": _serialize(
+              item.record, int(active.retention_seconds)
+            ),
+          }
+        )
+      else:
+        get_logger().info(
+          "batch resolve item refused: {}".format(item.error_kind)
+        )
+        items.append(
+          {
+            "index": item.index,
+            "status": "failed",
+            "error": {
+              "kind": item.error_kind,
+              "message": item.error_message,
+            },
+          }
+        )
+
+    return _success(
+      {
+        "total": batch.total,
+        "resolved_count": batch.resolved_count,
+        "failed_count": batch.failed_count,
+        "items": items,
+      }
+    )
+
   return blueprint

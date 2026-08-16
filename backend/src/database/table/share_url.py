@@ -407,6 +407,54 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       get_logger().error("search owner user id {} failed {}".format(owner_user_id, e))
       raise e
 
+  def owner_exists(self, owner_user_id: str) -> bool:
+    """Whether an account is already a local History account."""
+    sql = '''
+          SELECT owner_user_id
+          FROM share_url
+          WHERE owner_user_id = %s
+          LIMIT 1
+          '''
+    with self.get_connection() as connector:
+      with connector.cursor() as cursor:
+        cursor.execute(sql, (owner_user_id,))
+        return cursor.fetchone() is not None
+
+  def upsert_owner_preference(
+    self,
+    owner_user_id: str,
+    score: int,
+    platform: str = "douyin",
+  ) -> None:
+    """Atomically create or replace one account preference."""
+    self.require_write_ready()
+    sql = '''
+          INSERT INTO favorite_owner (owner_user_id, platform, score)
+          VALUES (%s, %s, %s)
+          ON DUPLICATE KEY UPDATE score = VALUES(score)
+          '''
+    with self.get_connection() as connector:
+      with connector.cursor() as cursor:
+        cursor.execute(sql, (owner_user_id, platform, score))
+        connector.commit()
+
+  def delete_owner_preference(
+    self,
+    owner_user_id: str,
+    platform: str = "douyin",
+  ) -> None:
+    """Remove preference metadata without touching creator or media history."""
+    self.require_write_ready()
+    sql = '''
+          DELETE FROM favorite_owner
+          WHERE owner_user_id = %s
+            AND platform = %s
+          '''
+    with self.get_connection() as connector:
+      with connector.cursor() as cursor:
+        cursor.execute(sql, (owner_user_id, platform))
+        connector.commit()
+
   ##
   ## increment live actived count
   ##

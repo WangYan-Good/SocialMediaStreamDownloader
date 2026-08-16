@@ -4,6 +4,8 @@ import type {
   HistoryOwnerPage,
   LiveProbeBatch,
   LiveSession,
+  OwnerPreferenceResult,
+  OwnerPreferenceUpdate,
 } from '@/types/history'
 
 /**
@@ -50,6 +52,16 @@ export function listOwnerSessions(
       query: { limit: options.limit },
       ...(signal ? { signal } : {}),
     },
+  )
+}
+
+export function updateOwnerPreference(
+  ownerUserId: string,
+  payload: OwnerPreferenceUpdate,
+): Promise<OwnerPreferenceResult> {
+  return request<OwnerPreferenceResult>(
+    `/history/owners/${encodeURIComponent(ownerUserId)}/preference`,
+    { method: 'PATCH', body: payload },
   )
 }
 

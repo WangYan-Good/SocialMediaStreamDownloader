@@ -101,6 +101,10 @@ def post_resolve(app, body):
   return app.test_client().post("/api/resolve", json=body)
 
 
+def post_batch_resolve(app, body):
+  return app.test_client().post("/api/resolve/batch", json=body)
+
+
 class FakeClock:
   def __init__(self):
     self.mono = 0.0
@@ -321,6 +325,104 @@ class ResolveBadRequestTest(unittest.TestCase):
     response = app.test_client().post("/api/resolve", json=["a"])
 
     self.assertEqual(response.status_code, 400)
+
+
+class BatchResolveApiTest(unittest.TestCase):
+  def test_non_json_and_non_object_bodies_are_rejected(self):
+    app, _ = build_app()
+    client = app.test_client()
+
+    responses = (
+      client.post("/api/resolve/batch", data="input=x"),
+      client.post("/api/resolve/batch", json=["a"]),
+    )
+
+    for response in responses:
+      with self.subTest(response=response):
+        self.assertEqual(400, response.status_code)
+        self.assertEqual("error", response.get_json()["status"])
+
+  def test_successes_keep_the_existing_receipt_shape(self):
+    app, service = build_app()
+
+    response = post_batch_resolve(app, {"input": POST_URL + "\n" + OWNER_URL})
+    body = response.get_json()
+
+    self.assertEqual(200, response.status_code)
+    self.assertEqual((2, 2, 0), (
+      body["data"]["total"],
+      body["data"]["resolved_count"],
+      body["data"]["failed_count"],
+    ))
+    items = body["data"]["items"]
+    self.assertEqual([0, 1], [item["index"] for item in items])
+    self.assertEqual(["resolved", "resolved"], [item["status"] for item in items])
+    for item in items:
+      resolution_data = item["resolution"]
+      self.assertTrue(resolution_data["resolve_id"])
+      self.assertIsNotNone(service.get(resolution_data["resolve_id"]))
+
+  def test_partial_and_all_failed_batches_still_answer_200(self):
+    app, _ = build_app()
+    private = "https://example.test/private?signature=secret"
+
+    partial = post_batch_resolve(app, {"input": POST_URL + "\n" + private})
+    failed = post_batch_resolve(app, {"input": private})
+
+    self.assertEqual(200, partial.status_code)
+    self.assertEqual(1, partial.get_json()["data"]["failed_count"])
+    self.assertEqual(200, failed.status_code)
+    item = failed.get_json()["data"]["items"][0]
+    self.assertEqual("failed", item["status"])
+    self.assertEqual("unsupported_platform", item["error"]["kind"])
+    self.assertNotIn("source_url", item)
+    self.assertNotIn("signature=secret", str(item))
+
+  def test_missing_no_url_and_too_many_are_whole_request_errors(self):
+    app, _ = build_app()
+    too_many = "\n".join(
+      "https://www.douyin.com/video/{}".format(index) for index in range(21)
+    )
+
+    for payload in ({}, {"input": "没有链接"}, {"input": too_many}):
+      with self.subTest(payload=payload):
+        self.assertEqual(400, post_batch_resolve(app, payload).status_code)
+
+  def test_missing_service_and_unexpected_failure_are_503_and_generic_500(self):
+    missing = Flask(__name__)
+    missing.register_blueprint(build_resolve_blueprint())
+
+    class BrokenService:
+      retention_seconds = 600
+
+      def resolve_many(self, unused):
+        raise RuntimeError("private input leaked")
+
+    broken, unused = build_app(service=BrokenService())
+
+    self.assertEqual(
+      503,
+      post_batch_resolve(missing, {"input": POST_URL}).status_code,
+    )
+    response = post_batch_resolve(broken, {"input": POST_URL})
+    self.assertEqual(500, response.status_code)
+    self.assertNotIn("private", str(response.get_json()))
+
+  def test_only_post_is_accepted(self):
+    app, _ = build_app()
+    client = app.test_client()
+
+    for method in (client.get, client.patch, client.delete):
+      with self.subTest(method=method.__name__):
+        self.assertEqual(405, method("/api/resolve/batch").status_code)
+
+  def test_single_resolve_still_rejects_two_distinct_urls(self):
+    app, _ = build_app()
+
+    response = post_resolve(app, {"input": POST_URL + "\n" + OWNER_URL})
+
+    self.assertEqual(400, response.status_code)
+    self.assertIn("一次只能解析一个链接", response.get_json()["message"])
 
 
 class ResolveFailureMappingTest(unittest.TestCase):

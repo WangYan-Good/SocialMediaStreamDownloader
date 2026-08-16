@@ -5,6 +5,7 @@ import {
   listHistoryOwners,
   listOwnerSessions,
   submitLiveProbe,
+  updateOwnerPreference,
 } from '../../src/api/history'
 import {
   readOwner,
@@ -25,6 +26,7 @@ import {
   searchAccounts,
   updatePerson,
 } from '../../src/api/people'
+import { resolveResources } from '../../src/api/resolve'
 
 //
 // Every adapter is checked against the exact request the backend expects: the
@@ -148,6 +150,51 @@ describe('history: one account sessions', () => {
     await listOwnerSessions('../secret')
 
     expect(callOf(fake).url).toContain('%2F')
+  })
+})
+
+describe('history: owner preference', () => {
+  it('patches the encoded History account with the exact discriminated payload', async () => {
+    const fake = stubFetch({
+      owner_user_id: '../owner',
+      favorite: true,
+      score: 0,
+    })
+
+    await updateOwnerPreference('../owner', { favorite: true, score: 0 })
+
+    const call = callOf(fake)
+    expect(call.url).toBe('/api/history/owners/..%2Fowner/preference')
+    expect(call.method).toBe('PATCH')
+    expect(call.body).toEqual({ favorite: true, score: 0 })
+  })
+
+  it('removes a preference without inventing a score', async () => {
+    const fake = stubFetch({ owner_user_id: 'owner-1', favorite: false, score: null })
+
+    await updateOwnerPreference('owner-1', { favorite: false })
+
+    expect(callOf(fake).body).toEqual({ favorite: false })
+  })
+})
+
+describe('resolve: batch', () => {
+  it('sends the complete pasted input for server-side extraction', async () => {
+    const fake = stubFetch({
+      total: 0,
+      resolved_count: 0,
+      failed_count: 0,
+      items: [],
+    })
+    const input = '分享 A https://v.douyin.com/A/\n分享 B https://v.douyin.com/B/'
+
+    await resolveResources(input)
+
+    expect(callOf(fake)).toMatchObject({
+      url: '/api/resolve/batch',
+      method: 'POST',
+      body: { input },
+    })
   })
 })
 

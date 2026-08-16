@@ -65,6 +65,13 @@ def build_table(rows=()):
   return table, cursor
 
 
+def build_guarded_table(rows=()):
+  table, cursor = build_table(rows)
+  guard_calls = []
+  table.require_write_ready = lambda: guard_calls.append(True)
+  return table, cursor, guard_calls
+
+
 class ShareUrlSqlSafetyTest(unittest.TestCase):
   def test_no_sql_statement_is_built_by_string_interpolation(self):
     source = SHARE_URL_SOURCE.read_text(encoding="utf-8")
@@ -153,6 +160,40 @@ class ShareUrlSqlSafetyTest(unittest.TestCase):
         sql, params = cursor.calls[-1]
         self.assertIn("%s", sql)
         self.assertEqual((argument,), params)
+
+  def test_owner_preference_existence_is_checked_in_share_url(self):
+    table, cursor = build_table(rows=[{"owner_user_id": "owner-1"}])
+
+    self.assertTrue(table.owner_exists("owner-1"))
+
+    sql, params = cursor.calls[-1]
+    self.assertIn("FROM share_url", sql)
+    self.assertIn("owner_user_id = %s", sql)
+    self.assertEqual(("owner-1",), params)
+
+  def test_owner_preference_upsert_is_one_guarded_parameterized_statement(self):
+    table, cursor, guard_calls = build_guarded_table()
+
+    table.upsert_owner_preference("owner-1", 0)
+
+    self.assertEqual([True], guard_calls)
+    self.assertEqual(1, len(cursor.calls))
+    sql, params = cursor.calls[0]
+    self.assertIn("INSERT INTO favorite_owner", sql)
+    self.assertIn("ON DUPLICATE KEY UPDATE", sql)
+    self.assertEqual(("owner-1", "douyin", 0), params)
+
+  def test_owner_preference_delete_is_guarded_and_scoped_to_platform(self):
+    table, cursor, guard_calls = build_guarded_table()
+
+    table.delete_owner_preference("owner-1")
+
+    self.assertEqual([True], guard_calls)
+    sql, params = cursor.calls[-1]
+    self.assertIn("DELETE FROM favorite_owner", sql)
+    self.assertIn("owner_user_id = %s", sql)
+    self.assertIn("platform = %s", sql)
+    self.assertEqual(("owner-1", "douyin"), params)
 
 
 if __name__ == "__main__":

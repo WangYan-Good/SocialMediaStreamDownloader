@@ -60,3 +60,27 @@ export interface ResolveRequest {
   //
   input: string
 }
+
+export interface BatchResolvedItem {
+  index: number
+  status: 'resolved'
+  resolution: ResolvedResource
+}
+
+export interface BatchFailedItem {
+  index: number
+  status: 'failed'
+  error: {
+    kind: string
+    message: string
+  }
+}
+
+export type BatchResolveItem = BatchResolvedItem | BatchFailedItem
+
+export interface BatchResolveResult {
+  total: number
+  resolved_count: number
+  failed_count: number
+  items: BatchResolveItem[]
+}

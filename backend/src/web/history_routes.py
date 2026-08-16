@@ -10,6 +10,7 @@ from datetime import datetime
 
 ## <<Extension>>
 from flask import Blueprint, jsonify, request
+import pymysql
 
 ## <<Third-Part>>
 from backend.src.database.query.owner_history import (
@@ -17,11 +18,17 @@ from backend.src.database.query.owner_history import (
   OwnerHistoryFilterError,
   OwnerHistoryQuery,
 )
+from backend.src.database.schema_guard import DatabaseWriteBlocked
 from backend.src.database.table.share_url import DouyinShareUrlTable
 from backend.src.library.configlib import load_config
 from backend.src.library.baselib import get_dict_attr
 from backend.src.library.loglib import get_logger
 from backend.src.service.live_probe import LiveProbeService, ProbeBatchStore, ProbeBatchError
+from backend.src.service.owner_preference import (
+  OwnerNotFound,
+  OwnerPreferenceService,
+  OwnerPreferenceValidationError,
+)
 
 
 class HistoryUnavailable(RuntimeError):
@@ -102,8 +109,10 @@ class HistoryRuntime:
     self._task_service = task_service
     self._lock = threading.Lock()
     self._config = None
+    self._database = None
     self._query = None
     self._probe_service = None
+    self._preference_service = None
 
   def _settings(self) -> dict:
     if self._config is None:
@@ -114,14 +123,14 @@ class HistoryRuntime:
     limit = get_dict_attr(self._settings(), "$.history.page_size_limit")
     return 10 if limit is None else int(limit)
 
-  def query(self) -> OwnerHistoryQuery:
+  def database(self):
     settings = self._settings()
     if get_dict_attr(settings, "$.database.enable") is not True:
       raise HistoryUnavailable("历史功能需要启用数据库")
     with self._lock:
-      if self._query is None:
+      if self._database is None:
         try:
-          database = DouyinShareUrlTable(
+          self._database = DouyinShareUrlTable(
             host=get_dict_attr(settings, "$.database.host"),
             user=get_dict_attr(settings, "$.database.username"),
             passwd=get_dict_attr(settings, "$.database.password"),
@@ -130,8 +139,21 @@ class HistoryRuntime:
         except Exception as e:
           get_logger().warning("history database unavailable: {}".format(e))
           raise HistoryUnavailable("数据库暂时不可用")
+      return self._database
+
+  def query(self) -> OwnerHistoryQuery:
+    database = self.database()
+    with self._lock:
+      if self._query is None:
         self._query = OwnerHistoryQuery(database)
       return self._query
+
+  def preference_service(self) -> OwnerPreferenceService:
+    database = self.database()
+    with self._lock:
+      if self._preference_service is None:
+        self._preference_service = OwnerPreferenceService(database)
+      return self._preference_service
 
   def probe_service(self) -> LiveProbeService:
     settings = self._settings()
@@ -243,6 +265,41 @@ def build_history_blueprint(
       return _error("服务器内部错误，请稍后重试", 500)
 
     return _success({"items": [_serialize_session(row) for row in sessions]})
+
+  @blueprint.route(
+    "/history/owners/<owner_user_id>/preference", methods=["PATCH"]
+  )
+  def update_owner_preference(owner_user_id):
+    if not request.is_json:
+      return _error("请求必须是 JSON 格式", 400)
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+      return _error("请求体为空或格式错误", 400)
+
+    try:
+      result = runtime.preference_service().update(owner_user_id, payload)
+    except OwnerPreferenceValidationError as e:
+      return _error(str(e), 400)
+    except OwnerNotFound as e:
+      return _error(str(e), 404)
+    except (HistoryUnavailable, DatabaseWriteBlocked, pymysql.MySQLError) as e:
+      get_logger().warning(
+        "owner preference unavailable: {}".format(type(e).__name__)
+      )
+      return _error("偏好保存服务暂时不可用", 503)
+    except Exception as e:
+      get_logger().error(
+        "owner preference update failed: {}: {}".format(type(e).__name__, e)
+      )
+      return _error("服务器内部错误，请稍后重试", 500)
+
+    return _success(
+      {
+        "owner_user_id": result.owner_user_id,
+        "favorite": result.favorite,
+        "score": result.score,
+      }
+    )
 
   @blueprint.route("/live/probe", methods=["POST"])
   def submit_probe():
