@@ -47,6 +47,17 @@ config/export/
 
 # Documentation
 docs/
+#
+# One exception, and it is not documentation: the container entrypoint
+# validates the mounted configuration against this file before staging it, so
+# an image without it cannot start at all - `docker build` passes and
+# `docker run` exits immediately.
+#
+# Re-included rather than copied elsewhere. The contract has fifteen references
+# across the runtime, the tests, CI and the docs; a second copy beside the image
+# would be a second source of truth that nothing keeps in step.
+#
+!docs/design/config.yml.example
 README.md
 LICENSE
 

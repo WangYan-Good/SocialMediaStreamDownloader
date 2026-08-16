@@ -1,0 +1,374 @@
+# Vue Cutover Readiness
+
+Audited at stage P13, against `develop` at `ce7e95e` (P12 merged).
+
+This document answers one question: **can `GET /` stop serving the legacy Jinja
+interface and start serving the Vue application?**
+
+It is an audit, not a summary of the roadmap. Every row was produced by reading
+the code on both sides and following each capability to the effect it actually
+has — a database write, a downloaded file, a background thread — rather than to
+the button that starts it. Where the two interfaces differ, the difference is
+recorded even when it is inconvenient.
+
+At this stage `GET /` still returns the legacy interface and the Vue application
+is served under `/app/`. Nothing in this document changes that; the decision at
+the end is what a later stage would act on.
+
+## How to read the status column
+
+| Status | Meaning |
+| --- | --- |
+| `PARITY` | The Vue interface does the same thing, with the same effect. |
+| `SUPERSEDED` | The Vue interface reaches the same goal by a different, deliberate mechanism. Not a gap. |
+| `NON_FUNCTIONAL_LEGACY` | The legacy interface appears to offer this, but the code does nothing. Nothing to match. |
+| `GAP` | The legacy interface has a real capability the Vue interface does not. |
+| `DECISION_REQUIRED` | The capabilities differ in a way that needs a product decision before either can be called correct. |
+
+"Blocking" means: cutting `/` over to Vue would remove a working capability
+from users, or silently change what an existing workflow does.
+
+---
+
+## 1. Download submission (legacy home page)
+
+The legacy home page is one text box, a favourite checkbox, a 0–100 slider and a
+submit button, wired by `frontend/src/static/js/submit.js`.
+
+### 1.1 Single URL download
+
+| | |
+| --- | --- |
+| **Legacy evidence** | `frontend/src/static/js/submit.js::processLink` → `POST /` with `{urls, score, favorite}`; `server.py::process_request` → `runtime["dispatcher"].dispatch(...)` |
+| **Vue evidence** | `frontend/app/src/views/NewDownloadView.vue`, `src/composables/useNewDownloadFlow.ts` → `POST /api/resolve` then `POST /api/tasks` |
+| **Status** | `SUPERSEDED` |
+| **Blocking** | No |
+
+The Vue path resolves the pasted text into a receipt first and creates a task
+from that receipt. The legacy path hands the raw string to a handler which
+follows it itself. Same user goal, stronger mechanism — see 1.7.
+
+### 1.2 Multiple URLs in one submission
+
+| | |
+| --- | --- |
+| **Legacy evidence** | `submit.js::processLink` — `link.match(/https?:\/\/[^\s]+/g)` returns **every** url in the pasted text, and `submit.js:15-22` posts the whole array as `{urls: [...]}`. `platform_dispatcher.py` iterates the list. |
+| **Vue evidence** | `POST /api/resolve` answers about one resource; `useNewDownloadFlow` holds a single `resolution` and creates one task from it. |
+| **Status** | `DECISION_REQUIRED` |
+| **Blocking** | **Yes, until decided** |
+
+A user who pastes five links into the legacy box starts five downloads. The same
+paste in the Vue interface resolves one resource.
+
+This is not obviously a defect to fix by implementing bulk submission. The
+legacy behaviour accepts an arbitrary mix of resource kinds with no confirmation
+of what it is about to do, which is part of what the resolve step was introduced
+to end. But it is equally not something to drop silently: somebody may be using
+it daily.
+
+**The decision needed:** is arbitrary multi-resource submission a workflow the
+product keeps? If yes, it needs a resolve-many/confirm-many design. If no, the
+removal should be deliberate and announced, not a side effect of a cutover.
+
+### 1.3 Favourite + score
+
+| | |
+| --- | --- |
+| **Legacy evidence** | `submit.js::isFavorite` / `::processScoring` → `POST /` `{favorite, score}` → `platform_dispatcher.py:151-152` sets `token.$.score` and `token.$.favorite` → `douyin_live_downloader.py:577-585` `insert_owner_score` / `update_owner_score` → `douyin_live_downloader.py:1036 download_live_stream_by_score()` reads `get_douyin_favorite_live_url()` |
+| **Vue evidence** | `frontend/app/src/api/history.ts:27-29` sends `favorite`, `score_min`, `score_max` as **filters**. No write adapter exists; `grep` over `frontend/app/src/api/` finds no favourite or score write, and no endpoint under `/api` accepts one. |
+| **Status** | `GAP` |
+| **Blocking** | **Yes** |
+
+This is the most consequential row in the document, and the easiest to
+underestimate, because on screen it looks like a checkbox and a slider.
+
+It is a complete business chain:
+
+```
+user sets favorite + score on a submission
+  → score persisted against the owner (favorite_owner)
+  → owner joins the favourite list
+  → download_live_stream_by_score() reads that list
+  → automated live listening / recording for those owners
+```
+
+The Vue interface can **read** the result of this chain — the creators directory
+shows `favorite` and `score` and can filter and sort by them — but it has no way
+to set them, and neither does any `/api` route. Cutting `/` over today would
+leave every existing favourite in place while removing the only way to add,
+change or remove one, and the automated listener would keep running on a list
+nobody can edit.
+
+**Not fixed in this stage, deliberately.** Whether favourite/score continues as
+the preference-and-listening mechanism is a product question, and implementing a
+write path here would be answering it by default.
+
+### 1.4 Clipboard button
+
+| | |
+| --- | --- |
+| **Legacy evidence** | `frontend/src/static/js/clipboard.js:7` — `navigator.clipboard.readText()`, wired in `index.html:196` |
+| **Vue evidence** | None. The Vue input is typed or pasted into normally. |
+| **Status** | `GAP` |
+| **Blocking** | No |
+
+A convenience with no persistent effect. Recorded so it is not lost, but it does
+not belong at the same risk level as 1.3.
+
+### 1.5 Live download from a share link
+
+| | |
+| --- | --- |
+| **Legacy evidence** | `submit.js` → `POST /` → `douyin_handler.py` → live downloader |
+| **Vue evidence** | `POST /api/resolve` → `resource_type === 'live'` → `POST /api/tasks {task_type: 'live_record'}`; also from the creators workspace after a live probe |
+| **Status** | `PARITY` |
+| **Blocking** | No |
+
+### 1.6 Post download from a share link
+
+| | |
+| --- | --- |
+| **Legacy evidence** | `submit.js` → `POST /` → `douyin_handler.py` post path |
+| **Vue evidence** | resolve → `POST /api/tasks {task_type: 'post_download'}` |
+| **Status** | `PARITY` |
+| **Blocking** | No |
+
+### 1.7 The root POST security model
+
+| | |
+| --- | --- |
+| **Legacy evidence** | `server.py::process_request` accepts `{urls: [...]}` and dispatches; each handler follows short links itself |
+| **Vue evidence** | `backend/src/web/resolve_routes.py` — host allow list, redirect validation, hop limit, then a receipt redeemed by `POST /api/tasks` |
+| **Status** | `SUPERSEDED` |
+| **Blocking** | No |
+
+The Vue interface deliberately does not offer the legacy shape. Reintroducing it
+for the sake of "api parity" would undo the resolver. `POST /` itself is
+untouched by this stage and still serves the legacy page.
+
+### 1.8 Non-douyin platforms
+
+| | |
+| --- | --- |
+| **Legacy evidence** | `backend/src/platform/other/other_handler.py` — the function body is `pass` |
+| **Vue evidence** | `POST /api/resolve` refuses hosts outside the allow list |
+| **Status** | `NON_FUNCTIONAL_LEGACY` |
+| **Blocking** | No |
+
+The legacy interface accepts such a url and does nothing with it. Accepting a
+url is not support, and there is no working behaviour here for the Vue interface
+to match.
+
+---
+
+## 2. History (legacy) → Creators · Accounts (Vue)
+
+Legacy: `frontend/src/static/js/owner_history.js`, rendered by
+`frontend/src/templates/content/history/*`.
+Vue: `frontend/app/src/views/CreatorsView.vue` accounts tab,
+`src/stores/creators.ts`, `src/components/creators/*`.
+
+Both call the same backend, which is why most of this section is `PARITY`: P10
+did not reimplement history, it re-presented it.
+
+| Capability | Legacy evidence | Vue evidence | Status | Blocking |
+| --- | --- | --- | --- | --- |
+| Owner list | `owner_history.js:128` `GET /api/history/owners` | `src/api/history.ts::listHistoryOwners` | `PARITY` | No |
+| Keyword search `q` | `owner_history.js::filterParams` | `history.ts:26` `q` | `PARITY` | No |
+| Favourite filter | `filterParams` | `history.ts:27` `favorite` (three-state) | `PARITY` | No |
+| Score range | `filterParams` | `history.ts:28-29` `score_min` / `score_max` | `PARITY` | No |
+| Last-live window | `filterParams` | `history.ts:30` `last_live_within` | `PARITY` | No |
+| User status | `filterParams` | `history.ts:31` `user_status` | `PARITY` | No |
+| Sorting | `filterParams` | `history.ts:32-33` `sort` / `order` | `PARITY` | No |
+| Server pagination | `filterParams` | `history.ts:34-35`; `creators.ts` uses the server `total` | `PARITY` | No |
+| Live sessions | `owner_history.js:346` `GET .../sessions?limit=20` | `history.ts::listOwnerSessions` | `PARITY` | No |
+| Live probe submit | `owner_history.js:224` `POST /api/live/probe` | `history.ts::submitLiveProbe` | `PARITY` | No |
+| Live probe poll | `owner_history.js:256` `GET /api/live/probe/<id>` | `history.ts::getLiveProbe`, recursive timeout, one read in flight | `PARITY` | No |
+| Start recording from history | `owner_history.js:314` — `POST /` `{urls: [share_url], score: 0, favorite: false}` | `creators.ts::startRecording` — resolve → `POST /api/tasks {task_type: 'live_record'}` | `SUPERSEDED` | No |
+
+Two rows deserve a note rather than a tick.
+
+**Probe semantics.** The legacy page read "nothing ticked" as "check the whole
+page". The Vue page offers two explicit actions instead. That is a deliberate
+behaviour change, not a missing capability: a probe is one real platform
+conversation per account.
+
+**Recording from history.** The legacy button reuses the root POST shape with
+`score: 0, favorite: false` hard-coded — which is worth noticing in the context
+of 1.3, because it means the legacy recording button *cannot* set a favourite
+either. The Vue equivalent goes through the resolver. Superseded, not missing.
+
+---
+
+## 3. Posts (legacy) → Creators · Posts (Vue)
+
+Legacy: `frontend/src/static/js/owner_posts.js`.
+Vue: creators workspace posts section plus the task centre.
+
+| Capability | Legacy evidence | Vue evidence | Status | Blocking |
+| --- | --- | --- | --- | --- |
+| Open an owner by url | `owner_posts.js:102` `GET /api/owner?url=` | `creators.ts::openProfile` — resolve first, then `readOwner(resolution.resolved_url)` | `SUPERSEDED` | No |
+| Profile details | `owner_posts.js:102` response | `CreatorAccountPanel.vue` profile card | `PARITY` | No |
+| Post pagination | `owner_posts.js:134` `GET /api/owner/posts` with cursor | `owners.ts::readOwnerPosts`, `next_cursor` / `has_more`, deduplicated by `aweme_id` | `PARITY` | No |
+| Selected post download | `owner_posts.js:365` `POST /api/owner/download` | `owners.ts::startOwnerSelectedDownload` — same endpoint, ids only | `PARITY` | No |
+| Whole-catalogue download | same endpoint, `{all: true}` | `owners.ts::startOwnerAllDownload`, behind an explicit confirmation | `PARITY` | No |
+| Expired payload cache | legacy reports the failure | `creators.ts` clears the selection and asks for a re-read | `PARITY` | No |
+| Download progress | `owner_posts.js:392` polls `GET /api/owner/download/<job_id>` | `task_id` from the same response → task centre | `SUPERSEDED` | No |
+
+**Why the progress row is superseded rather than a gap.** The legacy page polls
+a job record that exists only for that page. The same endpoint now also returns
+`task_id`, and the unified task service records the work alongside every other
+kind. The Vue interface uses that and deliberately does not implement the job
+poll — one progress model, not two. The legacy job endpoint is untouched and
+still answers.
+
+---
+
+## 4. Person (legacy) → Creators · People (Vue)
+
+Legacy: `frontend/src/static/js/person_manager.js`.
+Vue: creators workspace people tab, `src/stores/people.ts`.
+
+| Capability | Legacy evidence | Vue evidence | Status | Blocking |
+| --- | --- | --- | --- | --- |
+| List people | `person_manager.js:82` `GET /api/person` | `people.ts::listPeople` | `PARITY` | No |
+| Create | `person_manager.js:263` `POST /api/person` | `people.ts::createPerson` | `PARITY` | No |
+| Edit | `PATCH /api/person/<id>` | `people.ts::updatePerson`, changed fields only | `PARITY` | No |
+| Delete | `person_manager.js:131` `DELETE /api/person/<id>` | `people.ts::deletePerson`, behind a confirmation naming what is not deleted | `PARITY` | No |
+| Person detail | `person_manager.js:159` `GET /api/person/<id>/detail` | `people.ts::getPersonDetail` | `PARITY` | No |
+| Search known accounts | `person_manager.js:316` `GET /api/person/accounts` | `people.ts::searchAccounts` | `PARITY` | No |
+| Attach account | `person_manager.js:346` `POST /api/person/account` | `people.ts::attachAccount` | `PARITY` | No |
+| Move an attached account | same endpoint (upsert) | same endpoint, behind an explicit "this moves it" confirmation | `PARITY` | No |
+| Detach | `person_manager.js:363` `DELETE /api/person/account` | `people.ts::detachAccount` | `PARITY` | No |
+| Attach by link | `person_manager.js:299` `POST /api/person/account/by-link` with the raw paste | `people.ts::attachAccountByLink` with `resolution.resolved_url` | `SUPERSEDED` | No |
+| Collaboration | `person_manager.js:244` `POST /api/person/collaboration` | `people.ts::addCollaboration`, direction named rather than positional | `PARITY` | No |
+| Person works | `person_manager.js:202` `GET /api/person/<id>/works` | `people.ts::getPersonWorks`, shown in the library with an attribution disclaimer | `PARITY` | No |
+
+One Vue-side rule has no legacy counterpart and is worth recording as a
+behaviour difference: the Vue interface refuses to attach a second `main`
+account to a person, because the folder resolver joins on `role = 'main'` and
+takes `LIMIT 1` with no ordering. The legacy page allows it. This is a Vue
+restriction that prevents a real defect, not a legacy capability being lost.
+
+---
+
+## 5. Log and Settings (legacy)
+
+| | |
+| --- | --- |
+| **Legacy evidence** | `frontend/src/templates/index.html:176` — `<p>Log</p>`; `:180` — `<p>Settings</p>`. Sidebar entries at `:98` and `:111`. There is no viewer, no editor and no endpoint behind either. |
+| **Vue evidence** | `/app/system` — database schema state, safe runtime/download/logging summary, built from an explicit whitelist |
+| **Status** | `SUPERSEDED` |
+| **Blocking** | No |
+
+The legacy sections are headings. The Vue system page is the first
+implementation of either idea in this project, and it deliberately stops short
+of a log viewer — see `backend/src/web/system_routes.py` and the reasoning in
+`backend/src/service/system_status.py`.
+
+---
+
+## 6. Vue supersets and improvements
+
+These are not parity requirements. They are recorded separately so that a
+reader comparing the two interfaces does not mistake them for obligations the
+legacy side has, and so that a cutover plan can list what is gained as well as
+what is at risk.
+
+| Capability | Where | Note |
+| --- | --- | --- |
+| Unified task centre | `/app/tasks`, `backend/src/service/task_*` | Every kind of work in one record, with progress and per-item state. The legacy interface has a per-page job poller for owner downloads and nothing at all for the rest. |
+| Hardened resolver | `backend/src/web/resolve_routes.py` | Host allow list, redirect validation, hop limit, single-use receipt. The legacy path follows short links inside each handler. |
+| Media library | `/app/library` | An index of downloaded posts, live observations and collaboration associations. No legacy equivalent. |
+| Safe system status | `/app/system` | Database schema state and a whitelisted configuration summary. The legacy sections are headings. |
+| Stale-response protection | creators, library, tasks, system, overview stores | Generation tokens and abort controllers across every asynchronous path. The legacy pages write whichever response lands last. |
+| Explicit destructive confirmations | whole-catalogue download, person delete, account move | The legacy interface performs the equivalent actions without asking. |
+| Recorded-vs-current language | library and overview | Cached and historical values are labelled as such; the present tense is reserved for a live probe. |
+
+---
+
+## 7. Blocking items
+
+Two, both from section 1.
+
+### 7.1 Favourite / score write path — `GAP`, blocking
+
+Cutting over removes the only way to set a favourite or a score while leaving
+the automated live listener running on the existing list. Read access remains;
+write access disappears entirely.
+
+Closing it requires a product decision first (does this mechanism continue?),
+then a backend write endpoint and a Vue affordance.
+
+### 7.2 Multi-resource submission — `DECISION_REQUIRED`, blocking until decided
+
+The legacy box starts one download per url found in the pasted text. The Vue
+flow handles one resource per submission. Either answer is defensible; what is
+not defensible is discovering the difference after the cutover.
+
+Everything else in this document is `PARITY`, `SUPERSEDED` or
+`NON_FUNCTIONAL_LEGACY`, and none of it blocks.
+
+---
+
+## 8. Production runtime verification
+
+Performed at this stage, because a readiness answer that has never seen the
+image start is not an answer.
+
+| Check | Result |
+| --- | --- |
+| `docker build` on `develop` (`ce7e95e`) | **passes** |
+| `docker run` on that same image | **fails — container exits immediately** |
+| Root cause | `FileNotFoundError: /app/docs/design/config.yml.example` |
+
+The container entrypoint validates the mounted configuration against the
+canonical example before staging it — `scripts/runtime_config.py:55`
+(`stage_container_config`) → `:103` (`validate_runtime_config`) — and
+`.dockerignore` excluded `docs/`. The image therefore built cleanly and could
+never start, which build-only CI could not detect.
+
+**Fix.** One exception in `.dockerignore` for that single file. Verified by
+listing the image contents: `/app/docs/design/config.yml.example` is present and
+it is the only file under `/app/docs`. The alternative — moving the contract to
+a runtime-owned path — was rejected: it has fifteen references across the
+runtime, the unit tests, CI, the README and `docs/security.md`, and a second
+copy beside the image would be a second source of truth that nothing keeps in
+step.
+
+After the fix, with a database-disabled test configuration:
+
+| Smoke check | Result |
+| --- | --- |
+| container reaches ready | yes, ~4s |
+| `GET /` | 200, legacy markup, not the Vue bundle |
+| `GET /app/` and all six deep links | 200 |
+| `GET /app/assets/<missing>.js` | 404, no index.html fallback |
+| `GET /api/system/status` | 200, `success`, `database.state = disabled` |
+| `GET /api/tasks?limit=1` | 200 |
+
+This is now part of CI: the image job builds and then runs the image against a
+generated safe configuration.
+
+---
+
+## Decision
+
+```
+NOT_READY
+```
+
+Blocking:
+
+1. **Favourite / score write path** (`GAP`) — removes a working capability and
+   strands an automated listener. Section 1.3.
+2. **Multi-resource submission** (`DECISION_REQUIRED`) — changes what an
+   existing workflow does. Section 1.2.
+
+Nothing else found in this audit blocks a cutover. The Vue interface reaches or
+supersedes the legacy interface everywhere else examined, the production image
+now starts and serves every route, and `GET /` is unchanged.
+
+This is the intended kind of outcome for this stage: the goal was a trustworthy
+answer, not a favourable one. The next stage should close section 7 rather than
+attempt the cutover.

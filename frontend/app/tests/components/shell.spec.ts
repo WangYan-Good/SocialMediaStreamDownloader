@@ -12,9 +12,14 @@ import SidebarNav from '../../src/components/layout/SidebarNav.vue'
 import { routes } from '../../src/router'
 import { useAppStore } from '../../src/stores/app'
 
-async function mountShell(component: Component = App) {
+//
+// `startAt` matters now that the overview reads on arrival: a test about
+// screens that ask for nothing has to begin on one of them, or the landing
+// page's own reads are what it measures.
+//
+async function mountShell(component: Component = App, startAt = '/overview') {
   const router: Router = createRouter({ history: createMemoryHistory(), routes })
-  await router.push('/overview')
+  await router.push(startAt)
   await router.isReady()
 
   const wrapper = mount(component, {
@@ -175,46 +180,79 @@ describe('placeholder views', () => {
     expect(wrapper.find('h1').text()).toBe(title)
   })
 
-  it('says which stage fills each screen in', async () => {
-    //
-    // Asserted against the one screen that is still a placeholder. Every other
-    // entry in the sidebar has been filled in by now, which is why this has
-    // walked all the way to the overview - and why the overview is what stands
-    // between this application and replacing the legacy root.
-    //
-    const { wrapper, router } = await mountShell()
-
-    await router.push('/overview')
-    await nextTick()
-
-    expect(wrapper.text()).toContain('P13')
-  })
+  //
+  // There used to be an assertion here that each unfinished screen announced
+  // which stage would fill it in, and it walked from one placeholder to the
+  // next as the stages landed. The overview was the last one; with it
+  // implemented there is no placeholder route left to observe, so the assertion
+  // has been removed rather than pointed at a real screen it would say nothing
+  // about. PlaceholderView itself stays - it is a perfectly good component for
+  // whatever comes next. Everything else this file guarantees about the shell -
+  // navigation, titles, deep links, and which screens read on arrival - is
+  // unchanged below.
+  //
 })
 
 describe('screens with nothing to load ask the backend for nothing', () => {
   it('makes no request while mounting or navigating between them', async () => {
     //
-    // The shell owns no data of its own, and neither do the screens that are
-    // still placeholders. New Download stays in this list deliberately: it has
-    // a whole workflow, but nothing reaches the network until the user pastes
-    // something and presses a button.
+    // The shell owns no data of its own. New Download is the last screen in
+    // this list, and stays deliberately: it has a whole workflow, but nothing
+    // reaches the network until the user pastes something and presses a button.
     //
-    // The task centre, the creators workspace, the library and now the system
-    // page are deliberately *out* of it. Showing what the server is doing,
-    // which accounts it knows about, what it has already downloaded and how it
-    // is configured is those screens' entire purpose - so reading on arrival is
-    // correct behaviour, asserted by their own tests rather than forbidden
-    // here. The observation point moved; the rule did not weaken.
+    // Every other screen is now out of it - the task centre, the creators
+    // workspace, the library, the system page, and with this stage the overview
+    // too. Showing what the server is doing, which accounts it knows about,
+    // what it has downloaded, how it is configured, and a summary of all four
+    // is those screens' entire purpose, so reading on arrival is correct
+    // behaviour and is asserted by their own tests rather than forbidden here.
+    // The observation point moved each time; the rule never weakened.
     //
     const fetched = vi.fn()
     vi.stubGlobal('fetch', fetched)
 
-    const { router } = await mountShell()
-    for (const path of ['/overview', '/new']) {
+    const { router } = await mountShell(App, '/new')
+    for (const path of ['/new']) {
       await router.push(path)
       await nextTick()
     }
 
     expect(fetched).not.toHaveBeenCalled()
+  })
+})
+
+describe('every screen in the sidebar is now a real one', () => {
+  it('leaves no view still standing in for a later stage', async () => {
+    //
+    // Read from the sources rather than rendered, because what is being
+    // asserted is that no screen *is* a placeholder - not that a particular
+    // string is missing from a particular render.
+    //
+    // PlaceholderView itself is deliberately not forbidden: it is a perfectly
+    // good component for whatever screen comes next. What must not happen is a
+    // route in the sidebar quietly reverting to one.
+    //
+    const views = import.meta.glob('../../src/views/*View.vue', {
+      query: '?raw',
+      import: 'default',
+      eager: true,
+    }) as Record<string, string>
+
+    const routed = [
+      'OverviewView.vue',
+      'NewDownloadView.vue',
+      'CreatorsView.vue',
+      'LibraryView.vue',
+      'TasksView.vue',
+      'SystemView.vue',
+    ]
+
+    for (const name of routed) {
+      const entry = Object.entries(views).find(([path]) => path.endsWith(name))
+      expect(entry, `${name} was not found`).toBeDefined()
+      expect(entry?.[1], `${name} still renders a placeholder`).not.toContain(
+        'PlaceholderView',
+      )
+    }
   })
 })
