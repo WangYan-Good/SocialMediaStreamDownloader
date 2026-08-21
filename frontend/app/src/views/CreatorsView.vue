@@ -7,10 +7,12 @@ import CreatorAccountPanel from '@/components/creators/CreatorAccountPanel.vue'
 import CreatorDirectory from '@/components/creators/CreatorDirectory.vue'
 import CreatorFilters from '@/components/creators/CreatorFilters.vue'
 import PeopleList from '@/components/people/PeopleList.vue'
+import PersonAssignmentCard from '@/components/people/PersonAssignmentCard.vue'
 import PersonDetailPanel from '@/components/people/PersonDetailPanel.vue'
 import { useCreatorsStore } from '@/stores/creators'
 import { usePeopleStore } from '@/stores/people'
 import type { CollaborationRequest } from '@/stores/people'
+import type { PersonAssignmentResult } from '@/types/person'
 
 //
 // Two views of the same workspace: the accounts a platform knows about, and the
@@ -75,8 +77,6 @@ const {
 } = storeToRefs(peopleStore)
 
 const tab = ref<Tab>('accounts')
-const newPersonName = ref('')
-const newPersonNote = ref('')
 
 //
 // People are read when the tab is opened, not on arrival: somebody who came
@@ -89,12 +89,6 @@ function showTab(next: Tab) {
   }
 }
 
-function attachByLink(request: { url: string; role: 'main' | 'alt' | 'matrix' }) {
-  if (selectedPersonId.value !== null) {
-    void peopleStore.attachAccountByLink(request.url, selectedPersonId.value, request.role)
-  }
-}
-
 function attach(request: { owner_user_id: string; role: 'main' | 'alt' | 'matrix' }) {
   if (selectedPersonId.value !== null) {
     void peopleStore.attachAccount({
@@ -102,6 +96,28 @@ function attach(request: { owner_user_id: string; role: 'main' | 'alt' | 'matrix
       person_id: selectedPersonId.value,
       role: request.role,
     })
+  }
+}
+
+//
+// After an assignment, the server is the authority on what changed - a person
+// may have been created, an account may have moved, and the folder alignment
+// may have rewritten rows nothing on screen is watching. So the list and the
+// detail are re-read rather than patched.
+//
+// Awaited, and allowed to throw: the card turns a failed re-read into "added,
+// but the list could not be refreshed" rather than into "adding failed", which
+// would send the user back to do it a second time.
+//
+async function refreshAfterAssignment(result: PersonAssignmentResult | null) {
+  await peopleStore.loadPeople()
+  if (peopleStore.peopleError !== null) {
+    throw new Error(peopleStore.peopleError)
+  }
+  if (result !== null) {
+    await peopleStore.selectPerson(result.person_id)
+  } else if (selectedPersonId.value !== null) {
+    await peopleStore.loadDetail(selectedPersonId.value)
   }
 }
 
@@ -332,24 +348,16 @@ function record() {
     </template>
 
     <template v-else>
-      <div class="creators__open">
-        <label class="creators__field">
-          <span class="creators__label">新建人物</span>
-          <input v-model="newPersonName" class="creators__input" type="text" placeholder="人物名称" />
-        </label>
-        <label class="creators__field">
-          <span class="creators__label">备注</span>
-          <input v-model="newPersonNote" class="creators__input" type="text" />
-        </label>
-        <button
-          type="button"
-          class="creators__action"
-          :disabled="!newPersonName.trim() || mutating"
-          @click="peopleStore.createPerson({ display_name: newPersonName, note: newPersonNote })"
-        >
-          创建
-        </button>
-      </div>
+      <!--
+        The way in. A person is created as part of adding their first account,
+        rather than as a step before it - so the name, which is optional, can be
+        decided when the account it describes is already known.
+      -->
+      <PersonAssignmentCard
+        :people="people"
+        :refresh="refreshAfterAssignment"
+        @open-person="peopleStore.selectPerson($event)"
+      />
 
       <p v-if="mutationError" class="creators__notice" role="alert">{{ mutationError }}</p>
 
@@ -360,7 +368,7 @@ function record() {
 
       <p v-if="!hasLoadedPeople && !peopleError" class="creators__placeholder">正在读取人物…</p>
       <p v-else-if="hasLoadedPeople && !people.length" class="creators__placeholder">
-        还没有人物。可以先创建一个，再把账号归并到它下面。
+        还没有人物。在上面粘贴一个账号链接，即可创建人物或归并到已有人物。
       </p>
       <PeopleList
         v-else-if="people.length"
@@ -380,11 +388,13 @@ function record() {
         :candidates="peopleStore.collaborationCandidates"
         :mutating="mutating"
         :moves-from="(candidate) => peopleStore.movesAccountFrom(candidate, selectedPersonId ?? -1)"
+        :people="people"
+        @open-person="peopleStore.selectPerson($event)"
+        @assigned="peopleStore.refreshAttachments()"
         @edit="selectedPersonId !== null && peopleStore.updatePerson(selectedPersonId, $event)"
         @remove="selectedPersonId !== null && peopleStore.deletePerson(selectedPersonId)"
         @search="peopleStore.searchAccounts($event)"
         @attach="attach"
-        @attach-by-link="attachByLink"
         @detach="peopleStore.detachAccount($event)"
         @add-collaboration="collaborate"
         @remove-collaboration="uncollaborate"

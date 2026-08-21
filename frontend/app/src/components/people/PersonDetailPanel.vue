@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
+import PersonAssignmentCard from './PersonAssignmentCard.vue'
+
 import { ROLE_LABELS, directoryLabel } from '@/components/people/personPresentation'
 import { PERSON_ROLES } from '@/types/person'
 import type {
@@ -25,15 +27,33 @@ const props = defineProps<{
   // taken. Computed by the store, which knows the current person.
   //
   movesFrom: (candidate: AccountSearchResult) => number | null
+  //
+  // Passed straight through to the assignment card, which needs them only for
+  // its "merge into an existing person" picker - a picker this panel's card
+  // never shows, because its target is fixed. Handed over anyway rather than
+  // making the card's props conditional on how it is being used.
+  //
+  people: PersonSummaryItem[]
 }>()
+
+//
+// Awaited by the card, so a re-read that fails is reported as "added, but the
+// list could not be refreshed" rather than as a failed assignment.
+//
+async function refreshAfterAssignment(): Promise<void> {
+  emit('assigned')
+}
 
 const emit = defineEmits<{
   edit: [{ display_name?: string; note?: string }]
   remove: []
   search: [string]
   attach: [{ owner_user_id: string; role: PersonRole }]
-  attachByLink: [{ url: string; role: PersonRole }]
   detach: [string]
+  /** Somebody else already holds the account that was just pasted. */
+  openPerson: [personId: number]
+  /** The assignment changed rows this panel is showing; re-read them. */
+  assigned: []
   addCollaboration: [CollaborationRequest]
   removeCollaboration: [CollaborationRequest]
   close: []
@@ -43,8 +63,6 @@ const editName = ref(props.person.display_name)
 const editNote = ref(props.person.note ?? '')
 const keyword = ref('')
 const attachRole = ref<PersonRole>('alt')
-const linkInput = ref('')
-const linkRole = ref<PersonRole>('alt')
 const collaborationDirection = ref<'shot' | 'shotBy'>('shot')
 const collaborationOther = ref<number | null>(null)
 const collaborationNote = ref('')
@@ -187,24 +205,22 @@ const canAddCollaboration = computed(
         </li>
       </ul>
 
-      <div class="panel__row">
-        <label class="field field--grow"><span class="field__label">按分享链接添加</span>
-          <input v-model="linkInput" class="field__input" type="text" placeholder="粘贴主页、作品或直播链接" />
-        </label>
-        <label class="field"><span class="field__label">身份</span>
-          <select v-model="linkRole" class="field__input">
-            <option v-for="role in PERSON_ROLES" :key="role" :value="role">{{ ROLE_LABELS[role] }}</option>
-          </select>
-        </label>
-        <button
-          type="button"
-          class="panel__action"
-          :disabled="!linkInput.trim() || mutating"
-          @click="emit('attachByLink', { url: linkInput, role: linkRole })"
-        >
-          按链接添加
-        </button>
-      </div>
+      <!--
+        The same card, and the same endpoint, as the tab's own paste box - with
+        the target fixed to this person because that is what having this panel
+        open means.
+
+        It used to be a second link workflow calling `/person/account/by-link`,
+        with its own idea of what a main is and no idea about moves at all. One
+        set of rules is the point: a conflict here now reads exactly as it does
+        over there, because it is the same conflict.
+      -->
+      <PersonAssignmentCard
+        :people="people"
+        :fixed-person-id="person.person_id"
+        :refresh="refreshAfterAssignment"
+        @open-person="emit('openPerson', $event)"
+      />
     </section>
 
     <section v-if="detail" class="panel__section">

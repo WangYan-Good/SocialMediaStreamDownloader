@@ -168,9 +168,9 @@ export const usePeopleStore = defineStore('people', () => {
 
   function mainConflictMessage(clash: PersonAccount | 'unverifiable'): string {
     if (clash === 'unverifiable') {
-      return '尚未读取到该人物详情，暂时无法确认是否已有主号，请稍后重试。'
+      return '尚未读取到该人物详情，暂时无法确认是否已有大号，请稍后重试。'
     }
-    return `该人物已有主号 ${clash.nickname ?? clash.owner_user_id}。请先解除或调整现有主号，再设置新的主号。`
+    return `该人物已有大号 ${clash.nickname ?? clash.owner_user_id}。请先解除或调整现有大号，再设置新的大号。`
   }
 
   async function loadPeople(): Promise<void> {

@@ -24,6 +24,7 @@ vi.mock('../../src/api/people', () => ({
   searchAccounts: vi.fn(),
   attachAccount: vi.fn(),
   attachAccountByLink: vi.fn(),
+  assignPersonAccount: vi.fn(),
   detachAccount: vi.fn(),
   addCollaboration: vi.fn(),
   removeCollaboration: vi.fn(),
@@ -426,7 +427,7 @@ describe('a person may hold only one main account', () => {
     await store.attachAccount({ owner_user_id: 'B', person_id: 7, role: 'main' })
 
     expect(store.mutationError).toContain('甲')
-    expect(store.mutationError).toContain('主号')
+    expect(store.mutationError).toContain('大号')
   })
 
   it('writes nothing at all when it refuses', async () => {
@@ -481,7 +482,7 @@ describe('a person may hold only one main account', () => {
 
     expect(mockedResolve).not.toHaveBeenCalled()
     expect(mockedAttachByLink).not.toHaveBeenCalled()
-    expect(store.mutationError).toContain('主号')
+    expect(store.mutationError).toContain('大号')
   })
 
   it('still attaches a pasted link under another role', async () => {

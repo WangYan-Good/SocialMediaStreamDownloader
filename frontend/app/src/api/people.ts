@@ -5,6 +5,8 @@ import type {
   AttachAccountPayload,
   CollaborationPayload,
   CreatePersonPayload,
+  PersonAssignmentRequest,
+  PersonAssignmentResult,
   PersonDetail,
   PersonSummaryItem,
   PersonWork,
@@ -110,6 +112,23 @@ export function attachAccountByLink(
     '/person/account/by-link',
     { method: 'POST', body: payload },
   )
+}
+
+/**
+ * Create or find a person and attach one resolved account to them, in one call.
+ *
+ * The link-first way in, and the only one that can create a person and attach
+ * an account together - which is what makes "create an empty person first" stop
+ * being a step. The account is named by the receipt alone; see
+ * `PersonAssignmentRequest` for why nothing here describes it.
+ */
+export function assignPersonAccount(
+  payload: PersonAssignmentRequest,
+): Promise<PersonAssignmentResult> {
+  return request<PersonAssignmentResult>('/person/assignment', {
+    method: 'POST',
+    body: payload,
+  })
 }
 
 export function detachAccount(ownerUserId: string): Promise<{ owner_user_id: string }> {

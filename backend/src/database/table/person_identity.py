@@ -1,5 +1,5 @@
 ## <<Third-Part>>
-from backend.src.database.orm.models.person import ACCOUNT_ROLES
+from backend.src.database.orm.models.person import ACCOUNT_ROLES, ROLE_MAIN
 from backend.src.database.social_media_stream_database import (
   SocialMediaStreamDataBase,
 )
@@ -9,12 +9,271 @@ from backend.src.library.loglib import get_logger
 PLATFORM = "douyin"
 
 
+##
+## Only alt and matrix.  Demoting the old main *to* main is the two-main state
+## written out in full, so the value is refused rather than being allowed to
+## mean "leave it alone".
+##
+_DEMOTABLE_ROLES = tuple(role for role in ACCOUNT_ROLES if role != ROLE_MAIN)
+
+##
+## The statements the assignment transaction runs, named so its steps read as
+## steps.  Every one of them binds its values; only the two lock reads differ
+## from the statements the single-purpose methods above already use, and they
+## differ only by FOR UPDATE.
+##
+_LOCK_PERSON_SQL = '''SELECT person_id, display_name
+             FROM person
+             WHERE person_id = %s
+             FOR UPDATE;
+          '''
+
+##
+## Which person an account currently belongs to, read *without* a lock.
+##
+## Deliberately unlocked, and deliberately first.  The account row is what says
+## which person a request touches, but the person has to be locked before the
+## account is - otherwise two requests take the same pair of locks in opposite
+## orders and deadlock.  So the person is discovered here, locked next, and the
+## account is then locked and re-checked against what this read said.  The
+## unlocked read is safe precisely because nothing is decided on it: it only
+## chooses which rows to lock, and the re-check catches it if it chose wrongly.
+##
+_FIND_ATTACHMENT_SQL = '''SELECT person_id, role
+             FROM person_account
+             WHERE platform = %s AND owner_user_id = %s;
+          '''
+
+_LOCK_ATTACHMENT_SQL = '''SELECT person_id, role
+             FROM person_account
+             WHERE platform = %s AND owner_user_id = %s
+             FOR UPDATE;
+          '''
+
+_LOCK_MAIN_SQL = '''SELECT owner_user_id, platform
+             FROM person_account
+             WHERE person_id = %s AND role = 'main'
+             FOR UPDATE;
+          '''
+
+##
+## Read only to describe a refusal, so no lock: the answer is shown to a user
+## and nothing is written on the strength of it.
+##
+##
+## How many accounts this person holds, and how many of them are mains.
+##
+## No FOR UPDATE of its own: the person row is already locked, and every write
+## path that could change these numbers takes that lock first, so the counts
+## cannot move underneath this transaction.  ``role = %s`` binds rather than
+## naming 'main' inline so the statement stays one question about a parameter
+## instead of two statements that happen to differ by a literal.
+##
+_COUNT_PERSON_ACCOUNTS_SQL = '''SELECT COUNT(*) AS account_count,
+                    SUM(CASE WHEN role = %s THEN 1 ELSE 0 END) AS main_count
+             FROM person_account
+             WHERE person_id = %s;
+          '''
+
+_DETACH_ACCOUNT_SQL = '''DELETE FROM person_account
+             WHERE platform = %s AND owner_user_id = %s;
+          '''
+
+_NAME_PERSON_SQL = '''SELECT display_name FROM person WHERE person_id = %s;'''
+
+_NAME_ACCOUNT_SQL = '''SELECT nickname FROM share_url WHERE owner_user_id = %s;'''
+
+_UPSERT_IDENTITY_SQL = '''INSERT INTO share_url
+               (owner_user_id, sec_user_id, nickname)
+             VALUES (%s, %s, %s)
+             ON DUPLICATE KEY UPDATE
+               sec_user_id = COALESCE(VALUES(sec_user_id), sec_user_id),
+               nickname    = COALESCE(VALUES(nickname), nickname);
+          '''
+
+_INSERT_PERSON_SQL = '''INSERT INTO person (display_name, note)
+             VALUES (%s, %s);
+          '''
+
+_DEMOTE_MAIN_SQL = '''UPDATE person_account SET role = %s
+             WHERE platform = %s AND owner_user_id = %s;
+          '''
+
+_ATTACH_ACCOUNT_SQL = '''INSERT INTO person_account
+               (platform, owner_user_id, person_id, role)
+             VALUES (%s, %s, %s, %s)
+             ON DUPLICATE KEY UPDATE
+               person_id = VALUES(person_id),
+               role      = VALUES(role);
+          '''
+
+##
+## Shared by ``align_accounts_to_main`` and by the assignment transaction, which
+## has to run the very same statement inside its own connection.  A second copy
+## would be a second answer to "where do this person's sub-accounts file", and
+## the two would drift the first time either was corrected.
+##
+## Note ``sub.role <> 'main'``: the main account's own row is never written.
+## That exclusion is what makes losing the last main unrecoverable for the
+## *others* and harmless for a person who holds only the main - which is the
+## whole basis of _guarded_main_departure below.
+##
+_ALIGN_TO_MAIN_SQL = '''UPDATE share_url AS s
+             JOIN person_account AS sub
+               ON sub.owner_user_id = s.owner_user_id AND sub.platform = %s
+             JOIN person_account AS main_account
+               ON main_account.person_id = sub.person_id
+              AND main_account.role = 'main'
+             JOIN share_url AS m
+               ON m.owner_user_id = main_account.owner_user_id
+             SET s.directory_name = m.directory_name
+             WHERE sub.person_id = %s
+               AND sub.role <> 'main'
+               AND m.directory_name IS NOT NULL
+               AND TRIM(m.directory_name) <> '';
+          '''
+
+
 class UnknownRole(ValueError):
   """Raised when an account is attached with a role nobody defined.
 
   Its own type so a caller can turn it into a field-level message rather than a
   generic failure: the user picked something from a list, and the list is short.
   """
+
+
+class AssignmentConflict(Exception):
+  """An assignment refused because of what the database already says.
+
+  Not a failure: nothing malfunctioned and the request was well formed.  It
+  describes a state the user has to decide about, so each subclass carries the
+  facts the page needs to offer that decision - and nothing else, because this
+  reaches a browser.
+
+  One base class so a caller that only cares that the assignment was refused
+  catches one thing, while the two below stay distinguishable: the answer to
+  one is ``allow_move`` and the answer to the other is ``replace_main``, and a
+  page that could not tell them apart could offer neither.
+  """
+
+
+class AccountAttachedElsewhere(AssignmentConflict):
+  """The account already belongs to a different person.
+
+  ``person_account`` is keyed on the account, so attaching it here really does
+  take it away from whoever holds it - and every download of theirs changes
+  folder the moment it happens.  That is a decision, so it is asked for rather
+  than assumed.
+  """
+
+  def __init__(self, person_id, display_name=None) -> None:
+    super().__init__(
+      "account already belongs to person {}".format(person_id)
+    )
+    self.person_id = person_id
+    self.display_name = display_name
+
+
+class MainAlreadyAssigned(AssignmentConflict):
+  """The person already has a main account, and it is not this one.
+
+  Zero or one, never two.  Nothing in the schema forbids the second - the
+  column is a plain string and the page that used to be the only guard is a
+  browser, which cannot be one - so the invariant lives in the transaction that
+  writes it.
+  """
+
+  def __init__(self, owner_user_id, nickname=None) -> None:
+    super().__init__(
+      "person already has main account {}".format(owner_user_id)
+    )
+    self.owner_user_id = owner_user_id
+    self.nickname = nickname
+
+
+class LastMainRemoval(AssignmentConflict):
+  """The person's only main account was about to stop being their main.
+
+  Refused because the damage is not reversible.  ``align_accounts_to_main``
+  copies the main's folder onto the person's *other* accounts, and the download
+  path writes ``directory_name = COALESCE(directory_name, VALUES(...))`` - the
+  stored value wins - so the folder those accounts used to file under is no
+  longer written down anywhere.  Take the main away and they fall back to "their
+  own" recorded folder, which is now the ex-main's, with no person left to
+  explain it.
+
+  Deliberately *not* "a person must always have a main".  A person who never had
+  one never had a folder copied off one, and creating a person from their spare
+  account is the ordinary way this feature is used.  The rule is only that an
+  established folder relationship may not be dismantled from underneath the
+  accounts that were aligned to it - so it applies exactly when the person still
+  holds other accounts.
+
+  ``replace_main`` remains the way through: it demotes and promotes in one
+  transaction, so there is no moment in between.
+  """
+
+  def __init__(
+    self,
+    person_id,
+    display_name=None,
+    owner_user_id=None,
+    nickname=None,
+  ) -> None:
+    super().__init__(
+      "person {} would be left without a main account".format(person_id)
+    )
+    self.person_id = person_id
+    self.display_name = display_name
+    self.owner_user_id = owner_user_id
+    self.nickname = nickname
+
+
+class AssignmentRaced(AssignmentConflict):
+  """The account moved between being looked up and being locked.
+
+  The narrow window the discovery read leaves open.  Whoever won it holds locks
+  this transaction does not, so carrying on would mean deciding the last-main
+  question against a person nobody here has locked - which is the whole thing
+  the ordering exists to prevent.
+
+  Refused rather than retried in place: taking the other person's lock now would
+  mean holding two out of order, which is the deadlock this design avoids.  The
+  caller retries the request instead, and the second attempt discovers the new
+  owner and locks it properly.
+  """
+
+  def __init__(self, owner_user_id) -> None:
+    super().__init__(
+      "account {} changed hands while being assigned".format(owner_user_id)
+    )
+    self.owner_user_id = owner_user_id
+
+
+class NotAttached(AssignmentConflict):
+  """The account is not marked as belonging to anybody.
+
+  Reported rather than answered as a success: "removed nothing" and "removed the
+  thing you meant" look identical to a page that is only told it worked, and the
+  difference matters when the id was mistyped.
+  """
+
+  def __init__(self, owner_user_id) -> None:
+    super().__init__("account {} is not attached".format(owner_user_id))
+    self.owner_user_id = owner_user_id
+
+
+class PersonMissing(AssignmentConflict):
+  """The person named by the request does not exist.
+
+  Checked rather than left to the foreign key: a constraint violation answers
+  500 and tells the page nothing it can act on, and the id it was given may
+  simply be stale.
+  """
+
+  def __init__(self, person_id) -> None:
+    super().__init__("person {} does not exist".format(person_id))
+    self.person_id = person_id
 
 
 class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
@@ -282,6 +541,515 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
       )
       raise e
 
+  def account_exists(self, owner_user_id: str) -> bool:
+    """Whether this program has ever heard of this account.
+
+    ``share_url`` is the register of accounts this server knows: a download, a
+    live probe or a marking puts a row there.  The endpoints that take an
+    ``owner_user_id`` straight from a client check it here first, so a made-up
+    id is refused rather than quietly minting a row for an account that does not
+    exist - which is what the identity upsert inside an assignment would
+    otherwise do.
+    """
+    if not isinstance(owner_user_id, str) or not owner_user_id.strip():
+      return False
+
+    sql = '''SELECT 1 AS present
+             FROM share_url
+             WHERE owner_user_id = %s
+             LIMIT 1;
+          '''
+    try:
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql, (owner_user_id.strip(),))
+          row = cursor.fetchone()
+    except Exception as e:
+      get_logger().error(
+        "look up account {} failed: {}".format(owner_user_id, e)
+      )
+      raise e
+    return bool(row)
+
+  def account_directory_name(self, owner_user_id: str):
+    """The folder this one account is recorded under, exactly as stored.
+
+    Reported raw - blanks and the literal text ``"None"`` that older rows carry
+    are left in - because what counts as an unusable value is a question about
+    what the caller wants the value *for*, and the only caller wants it as a
+    fallback name for a person.  Deciding that here would put half the policy
+    in the wrong place.
+    """
+    sql = '''SELECT directory_name
+             FROM share_url
+             WHERE owner_user_id = %s;
+          '''
+    try:
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql, (owner_user_id,))
+          row = cursor.fetchone()
+    except Exception as e:
+      get_logger().error(
+        "look up folder for {} failed: {}".format(owner_user_id, e)
+      )
+      raise e
+    return None if not row else row.get("directory_name")
+
+##
+## >>============================= assignment =============================>>
+##
+  def assign_account(
+    self,
+    owner_user_id: str,
+    role: str,
+    platform: str = PLATFORM,
+    person_id: int = None,
+    display_name: str = None,
+    note: str = None,
+    sec_user_id: str = None,
+    nickname: str = None,
+    allow_move: bool = False,
+    demote_main_to: str = None,
+  ) -> dict:
+    """Create or find a person, attach one account to them, in one transaction.
+
+    Done as separate calls - ``create_person``, ``upsert_account_identity``,
+    ``attach_account``, ``align_accounts_to_main``, each committing its own work
+    - this operation has four middles.  A person exists holding nothing and the
+    attach that was meant to follow has already failed; an account is attached
+    but the folders still point somewhere else; a main is demoted and its
+    replacement never arrives, so the person has no main at all.  Nobody ever
+    goes back to clean those up, so the invariant has to be that they cannot
+    happen: one connection, one transaction, one commit.
+
+    Two things are decided here rather than above, because both are read-then-
+    write and only a lock makes that safe:
+
+    * whether the account already belongs to somebody else, and
+    * whether the person already has a main account.
+
+    ``person_account`` has no unique constraint that would forbid a second main
+    - ``role`` is a plain string, chosen so that which account is the main one
+    stays a judgement call - so the rows are locked while the decision is made.
+    A person is locked before their accounts are, always in that order, so two
+    of these running at once cannot deadlock against each other.
+
+    Nothing here talks to a platform.  Every identity value arrives already
+    resolved, because a request made between BEGIN and COMMIT would hold every
+    lock this transaction has taken for as long as douyin takes to answer.
+    """
+    if role not in ACCOUNT_ROLES:
+      ##
+      ## Before the guard and before the connection: a bad role is wrong
+      ## whatever the database is doing, and finding that out after taking locks
+      ## would be a transaction opened for nothing.
+      ##
+      raise UnknownRole(
+        "role must be one of {}, got {!r}".format(ACCOUNT_ROLES, role)
+      )
+    if demote_main_to is not None and demote_main_to not in _DEMOTABLE_ROLES:
+      ##
+      ## ``main`` in particular.  Demoting the old main *to* main is the
+      ## two-main state written out in full.
+      ##
+      raise UnknownRole(
+        "demote_main_to must be one of {}, got {!r}".format(
+          _DEMOTABLE_ROLES, demote_main_to
+        )
+      )
+    if not isinstance(owner_user_id, str) or not owner_user_id.strip():
+      raise ValueError("owner_user_id is required")
+    if person_id is None and (
+      not isinstance(display_name, str) or not display_name.strip()
+    ):
+      raise ValueError("display_name is required to create a person")
+
+    owner_user_id = owner_user_id.strip()
+    self.require_write_ready()
+
+    with self.get_connection() as connector:
+      connector.begin()
+      try:
+        result = self._assign_within_transaction(
+          connector,
+          owner_user_id=owner_user_id,
+          role=role,
+          platform=platform,
+          person_id=person_id,
+          display_name=display_name,
+          note=note,
+          sec_user_id=sec_user_id,
+          nickname=nickname,
+          allow_move=allow_move,
+          demote_main_to=demote_main_to,
+        )
+        connector.commit()
+      except Exception as e:
+        ##
+        ## Issued here rather than left to whoever hands out the connection.
+        ## The transaction is opened in this method, so it is closed in it too:
+        ## a caller that one day reaches for the connection differently must not
+        ## silently lose the only thing keeping these rows consistent.
+        ##
+        connector.rollback()
+        if not isinstance(e, AssignmentConflict):
+          get_logger().error(
+            "assign {} to person {} failed: {}".format(
+              owner_user_id, person_id, e
+            )
+          )
+        raise
+    return result
+
+  def detach_account_guarded(
+    self,
+    platform: str,
+    owner_user_id: str,
+  ) -> dict:
+    """Unmark an account, unless doing so strands the ones aligned to it.
+
+    The guarded twin of ``detach_account``.  That one is a bare DELETE and stays
+    that way for callers that already know what they are removing; this is the
+    one an http request reaches, because a person page has an "unmark" button
+    beside every account and it reaches the same rows by a shorter road than the
+    assignment endpoint does.
+
+    Same transaction shape and the same rule as an assignment: the account is
+    read first - it is the row that says which person this is - then the person
+    is locked, then the decision is made and written.
+    """
+    if not isinstance(owner_user_id, str) or not owner_user_id.strip():
+      raise ValueError("owner_user_id is required")
+
+    owner_user_id = owner_user_id.strip()
+    self.require_write_ready()
+
+    with self.get_connection() as connector:
+      connector.begin()
+      try:
+        result = self._detach_within_transaction(
+          connector, platform, owner_user_id
+        )
+        connector.commit()
+      except Exception as e:
+        connector.rollback()
+        if not isinstance(e, AssignmentConflict):
+          get_logger().error(
+            "detach account {} failed: {}".format(owner_user_id, e)
+          )
+        raise
+    return result
+
+  def _detach_within_transaction(
+    self,
+    connector,
+    platform: str,
+    owner_user_id: str,
+  ) -> dict:
+    with connector.cursor() as cursor:
+      ##
+      ## 1. Which person this account belongs to - read without a lock.
+      ##
+      ## The account row is what names the person, and the person must be locked
+      ## first.  Locking the account here to find out, as this used to, gave
+      ## detach the order account -> person while every assignment takes
+      ## person -> account: two requests on the same pair of rows would each
+      ## hold what the other was waiting for.
+      ##
+      cursor.execute(_FIND_ATTACHMENT_SQL, (platform, owner_user_id))
+      observed = cursor.fetchone()
+      if not observed:
+        raise NotAttached(owner_user_id)
+      person_id = observed.get("person_id")
+
+      ##
+      ## 2. The person, before anything is decided or written, so the counts the
+      ## guard reads cannot move underneath this transaction.
+      ##
+      cursor.execute(_LOCK_PERSON_SQL, (person_id,))
+      cursor.fetchone()
+
+      ##
+      ## 3. The account, locked - and confirmed still to belong to the person
+      ## just locked.  Between the two reads it could have been moved, and the
+      ## person holding it now is one this transaction has not locked.
+      ##
+      cursor.execute(_LOCK_ATTACHMENT_SQL, (platform, owner_user_id))
+      current = cursor.fetchone()
+      if not current:
+        raise NotAttached(owner_user_id)
+      if current.get("person_id") != person_id:
+        raise AssignmentRaced(owner_user_id)
+
+      self._guarded_main_departure(
+        cursor, person_id, owner_user_id, current.get("role")
+      )
+
+      cursor.execute(_DETACH_ACCOUNT_SQL, (platform, owner_user_id))
+
+    return {
+      "owner_user_id": owner_user_id,
+      "person_id": person_id,
+      "role": current.get("role"),
+    }
+
+  def _guarded_main_departure(
+    self,
+    cursor,
+    person_id,
+    owner_user_id: str,
+    current_role,
+  ) -> None:
+    """Refuse to take a person's last main away from the accounts aligned to it.
+
+    Called wherever an account stops being somebody's main - demoted in place,
+    moved to another person, or unmarked altogether - so the three cannot answer
+    the question differently.
+
+    Two conditions, both read inside the transaction while the person row is
+    held: this account is the person's *only* main, and the person still holds
+    other accounts.  The second is what keeps the rule honest.  Align writes
+    only rows with ``role <> 'main'``, so a person holding nothing but this
+    account has never had a folder copied anywhere - not even onto this one -
+    and letting it go leaves its own recorded folder exactly as it was.
+    """
+    if current_role != ROLE_MAIN or person_id is None:
+      return
+
+    cursor.execute(_COUNT_PERSON_ACCOUNTS_SQL, (ROLE_MAIN, person_id))
+    counts = cursor.fetchone() or {}
+    account_count = int(counts.get("account_count") or 0)
+    ##
+    ## Rows written before this rule existed can hold two mains.  Demoting one
+    ## of them still leaves a main behind, so the relationship the rule protects
+    ## survives - and refusing would make that pre-existing mess impossible to
+    ## tidy up.
+    ##
+    main_count = int(counts.get("main_count") or 0)
+    if main_count > 1 or account_count <= 1:
+      return
+
+    cursor.execute(_NAME_PERSON_SQL, (person_id,))
+    person = cursor.fetchone()
+    cursor.execute(_NAME_ACCOUNT_SQL, (owner_user_id,))
+    named = cursor.fetchone()
+    raise LastMainRemoval(
+      person_id,
+      display_name=None if not person else person.get("display_name"),
+      owner_user_id=owner_user_id,
+      nickname=None if not named else named.get("nickname"),
+    )
+
+  def _assign_within_transaction(
+    self,
+    connector,
+    owner_user_id: str,
+    role: str,
+    platform: str,
+    person_id,
+    display_name,
+    note,
+    sec_user_id,
+    nickname,
+    allow_move: bool,
+    demote_main_to,
+  ) -> dict:
+    """The body of the transaction.  Every statement runs on ``connector``."""
+    with connector.cursor() as cursor:
+      target_display_name = display_name.strip() if display_name else None
+
+      ##
+      ## 1. Which people this touches, discovered without a lock.
+      ##
+      ## A move touches two: the person named by the request, and whoever holds
+      ## the account today.  Both have to be locked, and the second one is only
+      ## knowable by reading the account - which is exactly the row that must be
+      ## locked *after* the people.  So it is read unlocked here, purely to
+      ## choose what to lock, and re-checked in step 3.
+      ##
+      cursor.execute(_FIND_ATTACHMENT_SQL, (platform, owner_user_id))
+      observed = cursor.fetchone()
+      observed_person_id = None if not observed else observed.get("person_id")
+
+      ##
+      ## 2. The people, locked lowest id first.
+      ##
+      ## For a person that already exists this is also the serialisation point
+      ## for their single main slot: two requests each promoting a different
+      ## account of one person find no main row to lock, so without this both
+      ## would see "no main" and both would write one.  A person created below
+      ## needs no such lock - nobody else can see them yet - and holds the row
+      ## from the insert onwards.
+      ##
+      ## Ascending id rather than "target then source".  Two moves swapping a
+      ## pair of accounts between two people would otherwise take the same two
+      ## locks in opposite orders, which is a deadlock that only shows up under
+      ## real traffic.
+      ##
+      involved = set()
+      if person_id is not None:
+        involved.add(person_id)
+      if observed_person_id is not None:
+        involved.add(observed_person_id)
+
+      locked = {}
+      for each in sorted(involved):
+        cursor.execute(_LOCK_PERSON_SQL, (each,))
+        row = cursor.fetchone()
+        if row:
+          locked[each] = row
+
+      if person_id is not None:
+        if person_id not in locked:
+          raise PersonMissing(person_id)
+        target_display_name = locked[person_id].get("display_name")
+
+      ##
+      ## 3. The account, locked - and confirmed to be where the unlocked read
+      ## said it was.  If it changed hands in between, the person now holding it
+      ## is one this transaction has not locked, and the last-main question
+      ## below would be decided against rows nobody is holding still.
+      ##
+      cursor.execute(_LOCK_ATTACHMENT_SQL, (platform, owner_user_id))
+      current = cursor.fetchone()
+      settled_person_id = None if not current else current.get("person_id")
+      if settled_person_id != observed_person_id:
+        raise AssignmentRaced(owner_user_id)
+
+      ##
+      ## 4. Whether this is a move, and whether the move was asked for.
+      ##
+      held_by = None if not current else current.get("person_id")
+      current_role = None if not current else current.get("role")
+      moving = held_by is not None and held_by != person_id
+      if moving and not allow_move:
+        cursor.execute(_NAME_PERSON_SQL, (held_by,))
+        holder = cursor.fetchone()
+        raise AccountAttachedElsewhere(
+          held_by, None if not holder else holder.get("display_name")
+        )
+      if moving:
+        ##
+        ## ``allow_move`` answers "may this account leave its person".  It does
+        ## not answer "may that person be left with no main", which is a
+        ## question about the person being left behind - and one nobody asked.
+        ##
+        self._guarded_main_departure(
+          cursor, held_by, owner_user_id, current_role
+        )
+
+      ##
+      ## 5. Whether the relationship being asked for is already the one on
+      ## record.  A browser retrying a request it never saw the answer to must
+      ## not turn into a second, different state, so nothing below moves the
+      ## account, changes its role, or creates anybody.
+      ##
+      ## Note what this does *not* cover: who the account *is*.  That is a
+      ## different fact in a different table, and it arrived from a resolution
+      ## made seconds ago - very possibly newer than what ``share_url`` holds.
+      ## See step 6.
+      ##
+      relationship_unchanged = (
+        not moving and current is not None and current.get("role") == role
+      )
+
+      ##
+      ## 6. The person's current main, locked, and what to do about it - in both
+      ## directions.  Gaining a second main and losing the only one are the same
+      ## invariant seen from either end.
+      ##
+      if not relationship_unchanged and not moving and role != ROLE_MAIN:
+        ##
+        ## The same account, same person, new role.  If it was the main, this is
+        ## the invariant's other direction: not "two mains" but "none", and the
+        ## accounts aligned to it are just as stranded either way.
+        ##
+        self._guarded_main_departure(
+          cursor, person_id, owner_user_id, current_role
+        )
+
+      demoted = None
+      if (
+        not relationship_unchanged
+        and role == ROLE_MAIN
+        and person_id is not None
+      ):
+        cursor.execute(_LOCK_MAIN_SQL, (person_id,))
+        main = cursor.fetchone()
+        held_main = None if not main else main.get("owner_user_id")
+        if held_main is not None and held_main != owner_user_id:
+          if demote_main_to is None:
+            cursor.execute(_NAME_ACCOUNT_SQL, (held_main,))
+            named = cursor.fetchone()
+            raise MainAlreadyAssigned(
+              held_main, None if not named else named.get("nickname")
+            )
+          demoted = held_main
+
+      ##
+      ## 7. Identity - refreshed on every accepted assignment, including one
+      ## that changes no relationship at all.  It is also what lets the page
+      ## name an account that has never been
+      ## downloaded - ``share_url`` gets a row from a download or from here, and
+      ## an owner with neither is invisible to the account search.
+      ##
+      ## ``directory_name`` is deliberately not among the columns: it belongs to
+      ## the download paths and to the alignment below, and the person's folder
+      ## wins over it regardless.
+      ##
+      cursor.execute(
+        _UPSERT_IDENTITY_SQL, (owner_user_id, sec_user_id, nickname)
+      )
+
+      if relationship_unchanged:
+        ##
+        ## Who the account belongs to is unchanged; who the account *is* has
+        ## just been refreshed.  Returning before this upsert instead - which is
+        ## what "repeating an assignment writes nothing" used to mean - left a
+        ## user re-pasting a link, watching it succeed, and still seeing the
+        ## nickname the account had a year ago, or no sec_user_id at all for one
+        ## marked by link before it was ever downloaded.
+        ##
+        ## The person is deliberately *not* renamed to follow the nickname.  A
+        ## name somebody typed is theirs; renaming is PATCH /api/person/<id>.
+        ##
+        return {
+          "person_id": person_id,
+          "created_person": False,
+          "owner_user_id": owner_user_id,
+          "role": role,
+          "display_name": target_display_name,
+        }
+
+      created_person = False
+      if person_id is None:
+        cursor.execute(_INSERT_PERSON_SQL, (target_display_name, note))
+        person_id = cursor.lastrowid
+        created_person = True
+
+      if demoted is not None:
+        cursor.execute(_DEMOTE_MAIN_SQL, (demote_main_to, platform, demoted))
+
+      cursor.execute(
+        _ATTACH_ACCOUNT_SQL, (platform, owner_user_id, person_id, role)
+      )
+
+      ##
+      ## Inside the same transaction.  Aligning afterwards would leave a window
+      ## in which the account is attached and the folders still say something
+      ## else, and whoever downloaded during it would file in the wrong place.
+      ##
+      cursor.execute(_ALIGN_TO_MAIN_SQL, (platform, person_id))
+
+    return {
+      "person_id": person_id,
+      "created_person": created_person,
+      "owner_user_id": owner_user_id,
+      "role": role,
+      "display_name": target_display_name,
+    }
+
   def find_person_folder(self, owner_user_id: str, platform: str = PLATFORM):
     """Return this account's person folder and the id that discriminates it.
 
@@ -373,20 +1141,7 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
     a main account that has no folder yet copies nothing, rather than blanking
     what the sub-accounts already had.
     """
-    sql = '''UPDATE share_url AS s
-             JOIN person_account AS sub
-               ON sub.owner_user_id = s.owner_user_id AND sub.platform = %s
-             JOIN person_account AS main_account
-               ON main_account.person_id = sub.person_id
-              AND main_account.role = 'main'
-             JOIN share_url AS m
-               ON m.owner_user_id = main_account.owner_user_id
-             SET s.directory_name = m.directory_name
-             WHERE sub.person_id = %s
-               AND sub.role <> 'main'
-               AND m.directory_name IS NOT NULL
-               AND TRIM(m.directory_name) <> '';
-          '''
+    sql = _ALIGN_TO_MAIN_SQL
     self.require_write_ready()
     try:
       with self.get_connection() as connector:

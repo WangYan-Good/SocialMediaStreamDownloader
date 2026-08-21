@@ -12,9 +12,14 @@ from backend.src.database.table.person_identity import (
 )
 from backend.src.library.configlib import load_config
 from backend.src.library.loglib import get_logger
+from backend.src.platform.douyin.douyin_owner_identity import (
+  DouyinOwnerIdentityReader,
+)
+from backend.src.service.person_assignment import (
+  PersonAssignmentError,
+  PersonAssignmentService,
+)
 
-
-PLATFORM = "douyin"
 
 
 def _error(message: str, code: int):
@@ -23,6 +28,27 @@ def _error(message: str, code: int):
 
 def _ok(data: dict):
   return jsonify({"status": "success", "code": 200, "data": data}), 200
+
+
+def _refusal(error: PersonAssignmentError):
+  """Answer one expected refusal with the status and kind it carries.
+
+  ``kind`` reaches the browser here, unlike the resolve and task endpoints where
+  it only reaches the log.  It has to: both conflicts answer 409, and the page's
+  next move is ``allow_move`` for one and ``replace_main`` for the other.  A
+  client that could not tell them apart could offer neither.
+
+  ``details`` is whatever the user needs in order to make that choice - who
+  holds the account, what the current main is called - and nothing else.
+  """
+  body = {
+    "status": "error",
+    "message": str(error),
+    "code": error.status_code,
+    "kind": error.kind,
+  }
+  body.update(error.details())
+  return jsonify(body), error.status_code
 
 
 class PersonRuntime:
@@ -37,6 +63,7 @@ class PersonRuntime:
     self._table_factory = table_factory
     self._table = None
     self._owner_runtime = None
+    self._identity_reader = None
     self._lock = Lock()
 
   def settings(self) -> dict:
@@ -76,7 +103,9 @@ class PersonRuntime:
 
     A share link names an owner whichever kind it is - their profile, one of
     their posts, or their live room - so all three are accepted.  The link is
-    followed once and the resolved url decides how the owner is read out of it.
+    followed once, here, and the resolved url is then read by the same reader
+    the assignment endpoint uses; that endpoint arrives with the url already
+    followed, which is the only difference between the two paths.
 
     The answer is always keyed on ``owner_user_id``.  The link itself is never
     an identity: douyin issues different short links for the same post, so
@@ -85,73 +114,70 @@ class PersonRuntime:
     resolved = self.owner_runtime().follow_share_link(url)
     if not resolved:
       return None
+    return self.identity_reader().from_resolved_url(resolved)
 
-    from backend.src.platform.douyin.douyin_owner_url import classify_owner_url
+  def identity_reader(self) -> DouyinOwnerIdentityReader:
+    """The one reader that turns a named resource into an owner.
 
-    sec_user_id = classify_owner_url(resolved)
-    if sec_user_id is not None:
-      owner = self.owner_detail(sec_user_id)
-      return {
-        "owner_user_id": (getattr(owner, "uid", "") or "").strip(),
-        "sec_user_id": getattr(owner, "sec_user_id", None) or sec_user_id,
-        "nickname": getattr(owner, "nickname", None),
-      }
-
-    from backend.src.platform.douyin.douyin_aweme_url import classify_aweme_url
-
-    aweme_id = classify_aweme_url(resolved)
-    if aweme_id is not None:
-      return self._identity_from_post(resolved, aweme_id)
-
-    from backend.src.platform.douyin.douyin_url_hosts import (
-      host_of,
-      is_live_host,
-    )
-
-    if is_live_host(host_of(resolved)):
-      return self._identity_from_live(resolved)
-    return None
-
-  def _identity_from_post(self, url: str, aweme_id: str):
-    """Read the owner out of a post.
-
-    The post payload already carries the author's id, sec id and nickname, so
-    resolving the post answers the whole question - no second request for the
-    profile.
+    Built from this runtime's own collaborators so the profile lookup goes
+    through the owner api this runtime already holds, rather than a second one
+    with its own headers and its own cookie.
     """
+    if self._identity_reader is None:
+      with self._lock:
+        if self._identity_reader is None:
+          self._identity_reader = DouyinOwnerIdentityReader(
+            owner_detail=self.owner_detail,
+            post_resolution=self._post_resolution,
+            live_probe=self._live_probe,
+          )
+    return self._identity_reader
+
+  def _post_resolution(self, url: str, aweme_id: str = None):
+    """Resolve one post.  Its payload already carries the author's id, sec id
+    and nickname, so this answers the whole question - no second request for
+    the profile."""
     from backend.src.platform.douyin.douyin_aweme_downloader import (
       get_aweme_downloader,
     )
 
-    resolution = get_aweme_downloader().resolver.resolve(url, aweme_id=aweme_id)
-    if not getattr(resolution, "ok", False) or resolution.detail is None:
-      return None
-    detail = resolution.detail
-    return {
-      "owner_user_id": (getattr(detail, "owner_user_id", "") or "").strip(),
-      "sec_user_id": getattr(detail, "sec_user_id", None),
-      "nickname": getattr(detail, "nickname", None),
-    }
+    return get_aweme_downloader().resolver.resolve(url, aweme_id=aweme_id)
 
-  def _identity_from_live(self, url: str):
-    """Read the owner out of a live room, open or not.
-
-    The probe reports the room's owner either way, so a marked owner does not
-    have to be streaming at the moment you mark them.
-    """
+  def _live_probe(self, url: str):
+    """Probe one live room, open or not.  The probe reports the room's owner
+    either way, so a marked owner does not have to be streaming at the moment
+    you mark them."""
     from backend.src.platform.douyin.douyin_live_downloader import (
       get_live_downloader,
     )
 
-    probe = get_live_downloader().prober.probe(url)
-    owner_user_id = (getattr(probe, "owner_user_id", "") or "").strip()
-    if not owner_user_id:
+    return get_live_downloader().prober.probe(url)
+
+  def assignment_service(self, require_receipts: bool = True):
+    """The assignment service for the request being handled.
+
+    Built per request rather than once, because the store it redeems receipts
+    against belongs to the *application* - and this blueprint is registered
+    before that store is installed.  Reading it from ``current_app`` is what
+    keeps the lazy wsgi app and a test's app from redeeming each other's
+    receipts.  Building one costs nothing: it holds a factory, not a connection.
+
+    ``require_receipts`` is what the older endpoints pass.  They name an account
+    the server already knows, or one they resolved themselves, so a missing
+    resolve store is no reason to refuse them - answering 503 there would break
+    a page that never used receipts in the first place.  They still get the same
+    service, and the same guarded transaction underneath it.
+    """
+    from backend.src.web.resolve_routes import resolve_service
+
+    store = resolve_service()
+    if store is None and require_receipts:
       return None
-    return {
-      "owner_user_id": owner_user_id,
-      "sec_user_id": getattr(probe, "sec_user_id", None),
-      "nickname": getattr(probe, "nickname", None),
-    }
+    return PersonAssignmentService(
+      resolve_service=store,
+      table_factory=self.table,
+      identity_reader=self.identity_reader(),
+    )
 
   def owner_detail(self, sec_user_id: str):
     """Fetch the owner's profile, which is where ``uid`` comes from."""
@@ -336,27 +362,34 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
       return _error("缺少必需字段: person_id", 400)
 
     try:
-      runtime.table().attach_account(
-        PLATFORM,
-        owner_user_id,
-        person_id,
-        body.get("role"),
-      )
       ##
-      ## Their downloads all land in the main account's folder, so every
-      ## sub-account's own row is pointed at it too - one answer, not two.
+      ## Through the guarded transaction, not ``attach_account`` followed by
+      ## ``align_accounts_to_main``.  Those were two commits with a gap between
+      ## them and no check in either, so this endpoint could put a second main
+      ## on a person - or take their only one away - while the newer one refused
+      ## to.  A rule a browser can walk around is not a rule.
       ##
-      runtime.table().align_accounts_to_main(person_id)
+      result = runtime.assignment_service(require_receipts=False)\
+        .assign_known_account(
+          owner_user_id=owner_user_id,
+          person_id=person_id,
+          role=body.get("role"),
+        )
+    except PersonAssignmentError as e:
+      get_logger().info("attach account refused: {}".format(e.kind))
+      return _refusal(e)
     except UnknownRole as e:
-      ##
-      ## The role came from a list of three, so a bad one is a field problem the
-      ## page can point at - not a failure of the request.
-      ##
       return _error(str(e), 400)
     except Exception as e:
       get_logger().error("attach account failed: {}".format(e))
       return _error("挂载账号失败", 502)
-    return _ok({"owner_user_id": owner_user_id, "person_id": person_id})
+    ##
+    ## The success shape is unchanged - the page that calls this reads these two
+    ## fields, and hardening a route is no reason to move them.
+    ##
+    return _ok({
+      "owner_user_id": result.owner_user_id, "person_id": result.person_id
+    })
 
   @blueprint.route("/person/account/by-link", methods=["POST"])
   def attach_account_by_link():
@@ -406,27 +439,100 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
     nickname = identity.get("nickname")
     try:
       ##
-      ## Identity first: attaching an account the rest of the program has never
-      ## heard of would leave the page showing a bare id until the first
-      ## download filled it in.
+      ## The link has been followed above, outside the transaction, and what it
+      ## said is carried in.  Recording the identity and the attachment as two
+      ## separate commits - which is what this route used to do - left an
+      ## identity row able to survive an attach that failed, and checked nothing
+      ## about mains on the way through.
       ##
-      runtime.table().upsert_account_identity(
-        owner_user_id,
-        identity.get("sec_user_id"),
-        nickname,
-      )
-      runtime.table().attach_account(PLATFORM, owner_user_id, person_id, role)
-      runtime.table().align_accounts_to_main(person_id)
+      result = runtime.assignment_service(require_receipts=False)\
+        .assign_resolved_account(
+          identity=identity,
+          person_id=person_id,
+          role=role,
+        )
+    except PersonAssignmentError as e:
+      get_logger().info("attach by link refused: {}".format(e.kind))
+      return _refusal(e)
     except UnknownRole as e:
       return _error(str(e), 400)
     except Exception as e:
       get_logger().error("attach by link failed: {}".format(e))
       return _error("挂载账号失败", 502)
 
+    ##
+    ## Unchanged for the page that calls it, nickname included.
+    ##
     return _ok({
-      "owner_user_id": owner_user_id,
-      "person_id": person_id,
+      "owner_user_id": result.owner_user_id,
+      "person_id": result.person_id,
       "nickname": nickname,
+    })
+
+  @blueprint.route("/person/assignment", methods=["POST"])
+  def assign_account():
+    """Paste a link, and end up with one person holding one more account.
+
+    The whole operation, in one request: create the person or merge into an
+    existing one, record who the account is, attach it in the role that was
+    asked for, and point the folders at the main account - all in one
+    transaction, so there is no state in which half of it happened.
+
+    This route does http and nothing else.  What the link names, what the person
+    should be called, whether the account may be taken from somebody else and
+    whether the person already has a main are all decided by the service, where
+    they can be tested without a request context - and where they are decided
+    once rather than once here and once again in a browser.
+    """
+    service = runtime.assignment_service()
+    if service is None:
+      ##
+      ## The resolve store is what receipts are redeemed against, so without it
+      ## every request would answer "expired" - which reads as the user's fault
+      ## and is not.
+      ##
+      return _error("解析服务未初始化", 503)
+
+    body = _payload()
+    if body is None:
+      return _error("请求必须是 JSON 格式", 400)
+
+    try:
+      ##
+      ## Handed over whole.  Validating it here as well as in the service is how
+      ## the two come to disagree, and the disagreement would be a hole.
+      ##
+      result = service.assign(body)
+    except PersonAssignmentError as e:
+      ##
+      ## The category, never the request.  A refusal has to be diagnosable from
+      ## the log without the log holding what a client sent - a resolve id names
+      ## a link somebody pasted, and a share link can carry a signature.
+      ##
+      get_logger().info("person assignment refused: {}".format(e.kind))
+      return _refusal(e)
+    except Exception as e:
+      ##
+      ## Logged in full here, answered generically there: the message of an
+      ## unexpected failure carries paths and internals that belong in the log
+      ## and not in a browser.
+      ##
+      get_logger().error(
+        "person assignment failed: {}: {}".format(type(e).__name__, e)
+      )
+      return _error("服务器内部错误，请稍后重试", 500)
+
+    get_logger().info(
+      "assigned an account as {} to person {}".format(
+        result.role, result.person_id
+      )
+    )
+    return _ok({
+      "person_id": result.person_id,
+      "owner_user_id": result.owner_user_id,
+      "role": result.role,
+      "created_person": result.created_person,
+      "display_name": result.display_name,
     })
 
   @blueprint.route("/person/account", methods=["DELETE"])
@@ -435,7 +541,18 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
     if not owner_user_id:
       return _error("缺少必需参数: owner_user_id", 400)
     try:
-      runtime.table().detach_account(PLATFORM, owner_user_id)
+      ##
+      ## Unmarking is not the harmless inverse of marking.  The folders of every
+      ## account aligned to a main are not restored when that main stops being
+      ## one, so this is the shortest road to the same damage a demotion would
+      ## do - and it answers to the same rule.
+      ##
+      runtime.assignment_service(require_receipts=False).detach_account(
+        owner_user_id
+      )
+    except PersonAssignmentError as e:
+      get_logger().info("detach account refused: {}".format(e.kind))
+      return _refusal(e)
     except Exception as e:
       get_logger().error("detach account failed: {}".format(e))
       return _error("解除挂载失败", 502)
