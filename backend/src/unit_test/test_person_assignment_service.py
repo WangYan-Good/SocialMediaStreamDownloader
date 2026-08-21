@@ -1112,24 +1112,84 @@ class NoRealNetworkTest(unittest.TestCase):
   the ones with a platform call one refactor away.
   """
 
+  ##
+  ## An address literal, never a hostname.
+  ##
+  ## A name has to be resolved before anything is connected, so on a machine
+  ## whose resolver does not answer for it the request dies in DNS having
+  ## proved nothing about this gate - which is exactly what happened on CI,
+  ## where the first version of these tests passed locally and failed there.
+  ## 192.0.2.0/24 is the documentation range: reserved, never routed, and
+  ## resolvable without asking anybody.
+  ##
+  UNROUTABLE = ("192.0.2.1", 80)
+
+  ##
+  ## Short, and present on every call that could reach a socket.
+  ##
+  ## With the block armed nothing waits - the connection is refused before it is
+  ## attempted - so this only matters when the block is *not* armed, which is
+  ## precisely the case these tests exist to catch.  Without it a broken gate
+  ## makes the suite hang on an unroutable address until the operating system
+  ## gives up, and a hung CI job says far less than a failed one.
+  ##
+  TIMEOUT = 0.25
+
+  @staticmethod
+  def _refused_by_the_gate(error) -> bool:
+    """Whether ``error`` was caused by the block, however it was wrapped.
+
+    Walks the chain rather than matching the message: the text belongs to
+    whichever library was in the way, and asserting on it is how a test ends up
+    passing for a reason that has nothing to do with what it checks.
+    """
+    from backend.src.unit_test.no_network import RealNetworkAccessDenied
+
+    seen = set()
+    while error is not None and id(error) not in seen:
+      if isinstance(error, RealNetworkAccessDenied):
+        return True
+      seen.add(id(error))
+      error = error.__cause__ or error.__context__
+    return False
+
   def test_opening_a_socket_is_refused(self):
     import socket
 
-    from backend.src.unit_test.conftest import RealNetworkAccessDenied
+    from backend.src.unit_test.no_network import RealNetworkAccessDenied
 
     with self.assertRaises(RealNetworkAccessDenied):
-      socket.create_connection(("example.test", 80))
+      socket.create_connection(self.UNROUTABLE, timeout=self.TIMEOUT)
+
+  def test_connecting_a_socket_directly_is_refused(self):
+    """The other half of the block.
+
+    ``create_connection`` is a module-level helper; a client that builds its own
+    socket goes through the method instead, and urllib3 is one of those.
+    """
+    import socket
+
+    from backend.src.unit_test.no_network import RealNetworkAccessDenied
+
+    opened = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    opened.settimeout(self.TIMEOUT)
+    with self.assertRaises(RealNetworkAccessDenied):
+      opened.connect(self.UNROUTABLE)
 
   def test_an_http_client_cannot_get_out_either(self):
     """Through the library the platform code actually uses, not just the
     primitive underneath it."""
     import requests
 
-    from backend.src.unit_test.conftest import RealNetworkAccessDenied
+    with self.assertRaises(Exception) as caught:
+      requests.get("http://192.0.2.1/", timeout=self.TIMEOUT)
 
-    with self.assertRaises((RealNetworkAccessDenied, Exception)) as caught:
-      requests.get("http://example.test/", timeout=1)
-    self.assertIn("real network connection", str(caught.exception))
+    self.assertTrue(
+      self._refused_by_the_gate(caught.exception),
+      "the request failed, but not because the gate stopped it: {!r}".format(
+        caught.exception
+      ),
+    )
 
   def test_reading_an_identity_needs_no_network_of_its_own(self):
     """The reader's collaborators are all injected, so nothing it does could
