@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import { assignPersonAccount } from '../../src/api/people'
 import { resolveResource } from '../../src/api/resolve'
 import { createTask, getTask, listTasks } from '../../src/api/tasks'
+import type { PersonAssignmentResult } from '../../src/types/person'
 import type { ResolvedResource } from '../../src/types/resolution'
 import type { CreatedTask, Task, TaskList } from '../../src/types/task'
 
@@ -264,5 +266,96 @@ describe('listTasks with an abort signal', () => {
     await listTasks({ state: 'failed', type: 'live_probe', limit: 25 }, controller.signal)
 
     expect(callOf(fake).url).toBe('/api/tasks?state=failed&type=live_probe&limit=25')
+  })
+})
+
+
+describe('assignPersonAccount', () => {
+  //
+  // The one endpoint that creates a person and attaches an account together.
+  // What it must never carry is an identity: the account is named by the
+  // receipt, and a request that could describe it itself would let this browser
+  // attach an owner the server never resolved.
+  //
+
+  it('posts to /api/person/assignment', async () => {
+    const fake = stubFetch({})
+
+    await assignPersonAccount({
+      resolve_id: 'receipt-1',
+      target: { kind: 'new' },
+      role: 'alt',
+    })
+
+    const { url, init } = callOf(fake)
+    expect(url).toBe('/api/person/assignment')
+    expect(init.method).toBe('POST')
+  })
+
+  it('sends a new-person target exactly as given', async () => {
+    const fake = stubFetch({})
+
+    await assignPersonAccount({
+      resolve_id: 'receipt-1',
+      target: { kind: 'new', display_name: '张三', note: '备注' },
+      role: 'matrix',
+    })
+
+    expect(callOf(fake).body).toEqual({
+      resolve_id: 'receipt-1',
+      target: { kind: 'new', display_name: '张三', note: '备注' },
+      role: 'matrix',
+    })
+  })
+
+  it('sends an existing-person target exactly as given', async () => {
+    const fake = stubFetch({})
+
+    await assignPersonAccount({
+      resolve_id: 'receipt-1',
+      target: { kind: 'existing', person_id: 12 },
+      role: 'main',
+    })
+
+    expect(callOf(fake).body).toEqual({
+      resolve_id: 'receipt-1',
+      target: { kind: 'existing', person_id: 12 },
+      role: 'main',
+    })
+  })
+
+  it('carries the two confirmations when they are given', async () => {
+    const fake = stubFetch({})
+
+    await assignPersonAccount({
+      resolve_id: 'receipt-1',
+      target: { kind: 'existing', person_id: 12 },
+      role: 'main',
+      allow_move: true,
+      replace_main: { demote_to: 'alt' },
+    })
+
+    const { body } = callOf(fake)
+    expect(body.allow_move).toBe(true)
+    expect(body.replace_main).toEqual({ demote_to: 'alt' })
+  })
+
+  it('hands back what the server decided', async () => {
+    const result: PersonAssignmentResult = {
+      person_id: 12,
+      owner_user_id: 'acc-9',
+      role: 'alt',
+      created_person: true,
+      display_name: '张三',
+    }
+    stubFetch(result)
+
+    await expect(
+      assignPersonAccount({
+        resolve_id: 'receipt-1',
+        target: { kind: 'new' },
+        role: 'alt',
+      }),
+    ).resolves.toEqual(result)
   })
 })

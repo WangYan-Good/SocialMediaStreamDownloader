@@ -40,6 +40,7 @@ vi.mock('../../src/api/people', () => ({
   searchAccounts: vi.fn(),
   attachAccount: vi.fn(),
   attachAccountByLink: vi.fn(),
+  assignPersonAccount: vi.fn(),
   detachAccount: vi.fn(),
   addCollaboration: vi.fn(),
   removeCollaboration: vi.fn(),
@@ -121,7 +122,7 @@ describe('the people list', () => {
 
     const wrapper = await openPeople()
 
-    expect(wrapper.text()).toContain('尚未由主号确定目录')
+    expect(wrapper.text()).toContain('尚未由大号确定目录')
   })
 
   it('never claims there are no people when the read failed', async () => {
@@ -335,7 +336,7 @@ describe('a searched account', () => {
       },
     ])
 
-    expect(wrapper.find('aside').text()).toContain('尚未由主号确定目录')
+    expect(wrapper.find('aside').text()).toContain('尚未由大号确定目录')
   })
 })
 
@@ -464,5 +465,57 @@ describe('the identity screen stays out of the library', () => {
     expect(text).not.toContain('浏览作品')
     expect(text).not.toContain('查看作品')
     expect(buttonSaying(wrapper, '作品列表')).toBeUndefined()
+  })
+})
+
+// >>============================= link-first is the way in =============================>>
+
+describe('CreatorsView - the people tab opens on a link box', () => {
+  //
+  // The tab used to open with "name a person, press create". That asked for a
+  // decision - what to call somebody - before the information needed to make it
+  // existed, and left the account still to be attached in a second place.
+  //
+
+  it('offers the assignment card', async () => {
+    mockedList.mockResolvedValue([])
+    const wrapper = await openPeople()
+
+    expect(wrapper.find('[data-test="assignment-input"]').exists()).toBe(true)
+  })
+
+  it('no longer asks for a person name up front', async () => {
+    mockedList.mockResolvedValue([])
+    const wrapper = await openPeople()
+
+    //
+    // The old form's own control, found by its exact label so the assignment
+    // card's optional name field is not mistaken for it.
+    //
+    expect(buttonExactly(wrapper, '创建')).toBeUndefined()
+    expect(wrapper.text()).not.toContain('新建人物')
+  })
+
+  it('never calls the empty-person endpoint from this tab', async () => {
+    mockedList.mockResolvedValue([])
+    const { createPerson } = await import('../../src/api/people')
+    vi.mocked(createPerson).mockClear()
+
+    await openPeople()
+
+    expect(vi.mocked(createPerson)).not.toHaveBeenCalled()
+  })
+
+  it('tells an empty workspace to paste a link, not to create a person', async () => {
+    mockedList.mockResolvedValue([])
+    const wrapper = await openPeople()
+
+    const text = wrapper.text()
+    expect(text).toContain('还没有人物')
+    expect(text).toContain('链接')
+    //
+    // The old copy advertised the two-step flow it no longer does.
+    //
+    expect(text).not.toContain('可以先创建一个')
   })
 })

@@ -20,6 +20,7 @@ vi.mock('../../src/api/people', () => ({
   searchAccounts: vi.fn(),
   attachAccount: vi.fn(),
   attachAccountByLink: vi.fn(),
+  assignPersonAccount: vi.fn(),
   detachAccount: vi.fn(),
   addCollaboration: vi.fn(),
   removeCollaboration: vi.fn(),

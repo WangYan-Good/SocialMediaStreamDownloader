@@ -1,4 +1,4 @@
-import type { ApiEnvelope, ApiErrorKind } from '@/types/api'
+import type { ApiEnvelope, ApiErrorKind, ApiFailure } from '@/types/api'
 
 //
 // The one place that talks to the backend.
@@ -23,12 +23,44 @@ export interface ApiErrorFields {
   //
   code: number | null
   message: string
+  //
+  // Both optional, because only `backend` failures can have them and because
+  // every existing construction of this class predates them.  Making them
+  // required would have been a rename wearing the costume of an addition.
+  //
+  backendKind?: string | null
+  details?: Record<string, unknown> | null
 }
 
+//
+// The envelope's own fields, which are already carried as named properties.
+// Repeating them inside `details` would leave two readings of the same fact,
+// and the one nobody expected would eventually be the one somebody read.
+//
+const ENVELOPE_FIELDS = new Set(['status', 'code', 'message', 'kind', 'data'])
+
 export class ApiError extends Error {
+  //
+  // How the request failed: it never arrived, it arrived somewhere that is not
+  // this api, or this api refused it.  Unchanged, and deliberately so - every
+  // existing caller branches on this, and none of them should have to learn a
+  // new vocabulary because the person endpoints grew a richer one.
+  //
   readonly kind: ApiErrorKind
   readonly status: number | null
   readonly code: number | null
+  //
+  // What the *backend* called the refusal, when it said.  A different question
+  // from `kind` and therefore a different field: `kind` is about the transport,
+  // this is about the decision.
+  //
+  readonly backendKind: string | null
+  //
+  // The rest of what the refusal carried, unread and untyped here.  Whoever
+  // knows which refusal this is knows what shape to expect; this layer's job is
+  // only to stop throwing it away.
+  //
+  readonly details: Record<string, unknown> | null
 
   constructor(fields: ApiErrorFields) {
     super(fields.message)
@@ -36,6 +68,35 @@ export class ApiError extends Error {
     this.kind = fields.kind
     this.status = fields.status
     this.code = fields.code
+    this.backendKind = fields.backendKind ?? null
+    this.details = fields.details ?? null
+  }
+}
+
+/**
+ * Read the machine-readable half of a failure envelope.
+ *
+ * Both halves are validated rather than believed. A `kind` that is not a string
+ * is not a kind, and an envelope carrying nothing beyond its own fields gets
+ * `null` rather than an empty object - so "this refusal said nothing extra" and
+ * "this refusal said something I have not read yet" stay distinguishable.
+ */
+function refusalExtras(payload: ApiFailure): {
+  backendKind: string | null
+  details: Record<string, unknown> | null
+} {
+  const raw = (payload as Record<string, unknown>).kind
+  const backendKind = typeof raw === 'string' && raw.trim() ? raw : null
+
+  const details: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(payload)) {
+    if (!ENVELOPE_FIELDS.has(key)) {
+      details[key] = value
+    }
+  }
+  return {
+    backendKind,
+    details: Object.keys(details).length ? details : null,
   }
 }
 
@@ -171,6 +232,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       status: response.status,
       code: payload.code,
       message: payload.message,
+      ...refusalExtras(payload),
     })
   }
 

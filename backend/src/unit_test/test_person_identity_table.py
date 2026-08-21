@@ -166,6 +166,59 @@ class PersonDirectoryLookupTest(unittest.TestCase):
     self.assertIsNone(table.find_person_directory_name("owner-1"))
 
 
+class PersonWithoutMainAccountTest(unittest.TestCase):
+  """A person may hold only a spare or a matrix account, and now really does.
+
+  ``POST /api/person/assignment`` creates people from whichever link the user
+  had to hand, and that link is often the spare - which is *why* they are
+  marking it.  So "person with no main account" stopped being a transient state
+  during setup and became an ordinary, lasting one.
+
+  Everything the download paths ask about such a person has to answer the same
+  way it answered before people existed, because that is what makes their files
+  keep landing where they already are.
+  """
+
+  def test_the_download_path_finds_no_person_folder(self):
+    """Which sends the resolver back to the account's own recorded folder -
+    exactly what an unmarked account gets."""
+    table, _ = build_table(rows=[])
+
+    self.assertIsNone(table.find_person_folder("alt-1"))
+
+  def test_the_folder_lookup_finds_nothing_either(self):
+    table, _ = build_table(rows=[])
+
+    self.assertIsNone(table.find_person_directory_name("alt-1"))
+
+  def test_both_lookups_require_a_main_account_to_answer_at_all(self):
+    """Stated against the sql, because "no rows came back" would also be true
+    of a fake that simply never returns any."""
+    table, cursor = build_table(rows=[])
+
+    table.find_person_folder("alt-1")
+    table.find_person_directory_name("alt-1")
+
+    for sql, _ in cursor.calls:
+      self.assertIn("role = 'main'", sql)
+
+  def test_aligning_a_person_with_no_main_copies_nothing(self):
+    """A no-op rather than a blanking.  Copying "no folder" onto the spare
+    accounts would move files that are already filed correctly."""
+    table, cursor = build_table()
+
+    table.align_accounts_to_main(12)
+
+    sql, params = cursor.calls[0]
+    ##
+    ## The statement can only match rows that have a main account to copy from,
+    ## and only when that main account has a folder worth copying.
+    ##
+    self.assertIn("main_account.role = 'main'", sql)
+    self.assertIn("m.directory_name IS NOT NULL", sql)
+    self.assertEqual(params, ("douyin", 12))
+
+
 class CollaborationTest(unittest.TestCase):
   def test_a_collaboration_is_recorded_in_one_direction(self):
     table, cursor = build_table()

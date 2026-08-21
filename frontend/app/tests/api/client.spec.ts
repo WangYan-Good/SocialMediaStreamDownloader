@@ -107,6 +107,144 @@ describe('request - success', () => {
   })
 })
 
+describe('request - what a refusal carries beyond its message', () => {
+  //
+  // The person endpoints answer 409 with a machine-readable `kind` and the
+  // facts the page needs to offer a next step - who already holds an account,
+  // what the current main is called.  Both sit at the top level of the
+  // envelope, beside `status`, because a failure envelope has no `data`.
+  //
+  // Before this, the client threw all of it away and kept the Chinese prose.
+  // A screen that has to tell "this account belongs to somebody else" from
+  // "this person already has a main" - two 409s whose answers are opposite -
+  // would have had to match on that prose.
+  //
+
+  it('keeps the backend kind separately from the transport kind', async () => {
+    stubFetch(
+      jsonResponse(
+        {
+          status: 'error',
+          code: 409,
+          message: '该人物已经有大号了',
+          kind: 'main_account_conflict',
+        },
+        409,
+      ),
+    )
+
+    const error = await failureOf(request('/person/assignment', { method: 'POST' }))
+
+    //
+    // `kind` still says how the request failed, which is what every existing
+    // caller branches on.  What the backend called it is a different question
+    // and gets a different field.
+    //
+    expect(error.kind).toBe('backend')
+    expect(error.backendKind).toBe('main_account_conflict')
+  })
+
+  it('keeps the extra fields a conflict carries', async () => {
+    stubFetch(
+      jsonResponse(
+        {
+          status: 'error',
+          code: 409,
+          message: '该账号已归属其他人物',
+          kind: 'account_already_attached',
+          current_person: { person_id: 7, display_name: '原来的人' },
+        },
+        409,
+      ),
+    )
+
+    const error = await failureOf(request('/person/assignment', { method: 'POST' }))
+
+    expect(error.details).toEqual({
+      current_person: { person_id: 7, display_name: '原来的人' },
+    })
+  })
+
+  it('leaves the envelope\'s own fields out of the details', async () => {
+    //
+    // `status`, `code`, `message` and `kind` are already carried as their own
+    // properties.  Repeating them inside `details` would invite two readings of
+    // the same fact.
+    //
+    stubFetch(
+      jsonResponse(
+        {
+          status: 'error',
+          code: 409,
+          message: '冲突',
+          kind: 'main_account_conflict',
+          current_main: { owner_user_id: 'acc-1', nickname: '主号' },
+        },
+        409,
+      ),
+    )
+
+    const error = await failureOf(request('/person/assignment', { method: 'POST' }))
+
+    expect(Object.keys(error.details ?? {}).sort()).toEqual(['current_main'])
+  })
+
+  it('says there was no backend kind when the envelope carried none', async () => {
+    //
+    // Most endpoints answer without one.  `null` rather than `undefined` so a
+    // caller can tell "asked and there was none" from "never populated".
+    //
+    stubFetch(jsonResponse({ status: 'error', code: 400, message: '缺少字段' }, 400))
+
+    const error = await failureOf(request('/person', { method: 'POST' }))
+
+    expect(error.backendKind).toBeNull()
+    expect(error.details).toBeNull()
+  })
+
+  it('ignores a kind that is not a string', async () => {
+    stubFetch(
+      jsonResponse({ status: 'error', code: 400, message: 'x', kind: 42 }, 400),
+    )
+
+    const error = await failureOf(request('/person', { method: 'POST' }))
+
+    expect(error.backendKind).toBeNull()
+  })
+
+  it('carries nothing extra on a network failure', async () => {
+    stubFetch(new TypeError('Failed to fetch'))
+
+    const error = await failureOf(request('/person'))
+
+    expect(error.kind).toBe('network')
+    expect(error.backendKind).toBeNull()
+    expect(error.details).toBeNull()
+  })
+
+  it('carries nothing extra on a malformed response', async () => {
+    stubFetch(textResponse('<html>502</html>', 502))
+
+    const error = await failureOf(request('/person'))
+
+    expect(error.kind).toBe('malformed')
+    expect(error.backendKind).toBeNull()
+    expect(error.details).toBeNull()
+  })
+
+  it('can still be constructed without them', async () => {
+    //
+    // Every existing `new ApiError({...})` in this codebase and its tests omits
+    // the two new fields.  Making them required would have been a rename
+    // wearing the costume of an addition.
+    //
+    const error = new ApiError({ kind: 'backend', status: 400, code: 400, message: 'x' })
+
+    expect(error.backendKind).toBeNull()
+    expect(error.details).toBeNull()
+  })
+})
+
 describe('request - backend refusals', () => {
   it('turns a 400 envelope into an ApiError', async () => {
     stubFetch(

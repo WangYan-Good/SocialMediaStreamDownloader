@@ -18,6 +18,23 @@ export interface ApiFailure {
   status: 'error'
   code: number
   message: string
+  //
+  // What the backend called this refusal.  Present only where the endpoint has
+  // more than one way to say no and the difference changes what the page should
+  // offer - the person assignment conflicts are the reason it exists: two of
+  // them answer 409 and their remedies are opposite.
+  //
+  // A category, never prose.  The `message` is Chinese written for a person and
+  // free to be rewritten; branching on it would break the moment somebody
+  // improved the wording.
+  //
+  kind?: string
+  //
+  // Whatever else that particular refusal carries - who already holds an
+  // account, what the current main is called.  Top level beside `status`,
+  // because a failure envelope has no `data` to put it in.
+  //
+  [extra: string]: unknown
 }
 
 export type ApiEnvelope<T> = ApiSuccess<T> | ApiFailure
