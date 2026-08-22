@@ -8,6 +8,7 @@ import type {
   PersonAssignmentRequest,
   PersonAssignmentResult,
   PersonDetail,
+  PersonIdentityInspection,
   PersonSummaryItem,
   PersonWork,
   UpdatePersonFields,
@@ -128,6 +129,38 @@ export function assignPersonAccount(
   return request<PersonAssignmentResult>('/person/assignment', {
     method: 'POST',
     body: payload,
+  })
+}
+
+/**
+ * Ask who a resolved link turns out to be, and whether this server has them.
+ *
+ * Runs straight after `/api/resolve` and before any form is offered, which is
+ * the whole point: the only thing that used to notice a duplicate was the
+ * assignment itself, so a user pasting an account they added last month named a
+ * person and pressed confirm before being told it was already there.
+ *
+ * Read-only, and not authority. What it reports is a hint for the interface -
+ * the assignment discovers ownership again inside its own transaction and
+ * refuses on what it finds there, however long the user spent reading the
+ * screen in between.
+ *
+ * The receipt is the only thing sent, and it survives being read: the resolve
+ * store is a TTL store rather than a consume-once one, so the same `resolveId`
+ * still assigns afterwards.
+ */
+export function inspectPersonAssignment(
+  resolveId: string,
+): Promise<PersonIdentityInspection> {
+  return request<PersonIdentityInspection>('/person/inspect', {
+    method: 'POST',
+    //
+    // By receipt alone. This answer decides whether a "create a new person"
+    // button appears, so a body able to name the account would let this browser
+    // choose which account gets checked - and the backend refuses any such
+    // field rather than ignoring it.
+    //
+    body: { resolve_id: resolveId },
   })
 }
 

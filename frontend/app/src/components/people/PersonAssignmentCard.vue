@@ -57,6 +57,9 @@ const flow = usePersonAssignmentFlow({
 const {
   rawInput,
   resolution,
+  inspection,
+  inspectError,
+  heldByFixedPerson,
   targetKind,
   selectedPersonId,
   displayName,
@@ -99,6 +102,75 @@ const RESOURCE_LABELS: Readonly<Record<string, string>> = {
 //
 const previewLabel = computed(() =>
   resolution.value === null ? '' : (RESOURCE_LABELS[resolution.value.resource_type] ?? '链接'),
+)
+
+//
+// Who already holds the pasted account, or `null` when nobody does.
+//
+const existingAssignment = computed(() => inspection.value?.assignment ?? null)
+
+//
+// The account as the platform describes it now - shown instead of inventing one
+// from the resolution, which names a resource rather than an owner.
+//
+const accountLabel = computed(() => {
+  const owner = inspection.value?.owner ?? null
+  if (owner === null) {
+    return ''
+  }
+  //
+  // The id when there is no nickname: genuinely absent for an account nobody
+  // has downloaded, and an empty line would look like a rendering fault.
+  //
+  return owner.nickname ?? owner.owner_user_id
+})
+
+//
+// Which of the three sentences this is.
+//
+// Written out rather than derived in the template, because the difference
+// between them is the whole point of the step: "already yours", "known but
+// unfiled" and "new" lead to three different offers, and the middle one is the
+// commonest and the easiest to mistake for the first.
+//
+const identityNotice = computed(() => {
+  if (existingAssignment.value !== null) {
+    return heldByFixedPerson.value
+      ? '该账号已经在这个人物下。'
+      : '该账号已经存在，无需重复添加。'
+  }
+  if (inspection.value?.known_account) {
+    //
+    // A `share_url` row means a download happened, not that anybody was
+    // created. Saying "this person already exists" here would be false and
+    // would leave the account unfilable.
+    //
+    return '该账号已经存在，但尚未归入人物。'
+  }
+  if (inspection.value !== null) {
+    return `已识别账号：${accountLabel.value}`
+  }
+  return ''
+})
+
+//
+// The form is for filing an account. It stays away while the check is still
+// running - so "we have not asked" never looks like "it is new" - and while the
+// answer is that somebody already holds it.
+//
+// It also stays away when the check *failed*, for the same reason rather than a
+// different one: an unanswered check leaves "is this already filed?" unknown,
+// and a form offering 创建新人物 turns that unknown into an invitation. The
+// 解析 button above re-runs the check.
+//
+const formVisible = computed(
+  () =>
+    resolution.value !== null &&
+    inspectError.value === null &&
+    (phase.value === 'resolved' ||
+      phase.value === 'submitting' ||
+      phase.value === 'conflict' ||
+      phase.value === 'failed'),
 )
 
 //
@@ -183,12 +255,78 @@ const successText = computed(() => {
       {{ resolveError }}
     </p>
 
-    <template v-if="resolution && phase !== 'success'">
+    <!--
+      The check failed, and the form below is about to offer "create a new
+      person" without anything having verified that it is new. The backend still
+      refuses a duplicate inside its transaction, so this costs a caution rather
+      than the whole operation - but the caution has to be visible, because
+      "could not check" and "it is new" look identical once the warning is gone.
+    -->
+    <p v-if="inspectError" data-test="assignment-inspect-error" class="card__notice" role="alert">
+      {{ inspectError }}
+    </p>
+
+    <p v-if="phase === 'inspecting'" data-test="assignment-inspecting" class="card__preview">
+      正在确认该账号是否已经存在…
+    </p>
+
+    <template v-if="resolution && phase !== 'success' && phase !== 'inspecting'">
       <p data-test="assignment-preview" class="card__preview">
-        已识别资源：{{ previewLabel }}
+        <!--
+          The account, then the kind of link it came from. Before the check
+          existed this could only say "已识别资源：直播", because a resolution
+          names a resource and not an owner - the nickname is read by the
+          server during the inspection, so it is a fact by the time it appears
+          here rather than a guess.
+        -->
+        {{ identityNotice }}<span v-if="identityNotice"> </span>（{{ previewLabel }}）
       </p>
 
-      <template v-if="fixedPersonId === undefined">
+      <div
+        v-if="existingAssignment"
+        data-test="assignment-existing"
+        class="card__existing"
+      >
+        <dl class="card__facts card__facts--stacked">
+          <div><dt>账号</dt><dd>{{ accountLabel }}</dd></div>
+          <div><dt>账号 ID</dt><dd>{{ inspection?.owner.owner_user_id }}</dd></div>
+          <!--
+            Both names are shown, unreconciled. A streamer who renamed
+            themselves legitimately reads "账号：程小程 / 人物：程儿": the
+            person keeps the name somebody typed, because renaming is its own
+            deliberate operation.
+          -->
+          <div><dt>人物</dt><dd>{{ existingAssignment.display_name }}</dd></div>
+          <div><dt>账号类型</dt><dd>{{ ROLE_LABELS[existingAssignment.role] }}</dd></div>
+          <div><dt>状态</dt><dd>已归入人物</dd></div>
+        </dl>
+        <div class="card__actions">
+          <button
+            type="button"
+            data-test="assignment-open-existing"
+            class="card__action"
+            @click="emit('open-person', existingAssignment.person_id)"
+          >
+            打开人物
+          </button>
+          <!--
+            Secondary, and deliberately so. Pasting a filed account is usually a
+            duplicate; occasionally it is a spare being promoted or an account
+            being moved. Offering the form by default is what put the duplicate
+            one click away in the first place.
+          -->
+          <button
+            type="button"
+            data-test="assignment-adjust"
+            class="card__action"
+            @click="flow.adjustAssignment()"
+          >
+            调整归属
+          </button>
+        </div>
+      </div>
+
+      <template v-if="fixedPersonId === undefined && formVisible">
         <fieldset class="card__group">
           <legend class="field__label">归属</legend>
           <label class="card__choice">
@@ -234,27 +372,42 @@ const successText = computed(() => {
         </label>
       </template>
 
-      <label class="field">
-        <span class="field__label">账号类型</span>
-        <select v-model="roleValue" data-test="assignment-role" class="field__input">
-          <option value="">请选择</option>
-          <option value="main">{{ ROLE_LABELS.main }}</option>
-          <option value="alt">{{ ROLE_LABELS.alt }}</option>
-          <option value="matrix">{{ ROLE_LABELS.matrix }}</option>
-        </select>
-      </label>
+      <template v-if="formVisible">
+        <label class="field">
+          <span class="field__label">账号类型</span>
+          <select v-model="roleValue" data-test="assignment-role" class="field__input">
+            <option value="">请选择</option>
+            <option value="main">{{ ROLE_LABELS.main }}</option>
+            <option value="alt">{{ ROLE_LABELS.alt }}</option>
+            <option value="matrix">{{ ROLE_LABELS.matrix }}</option>
+          </select>
+        </label>
 
-      <div class="card__actions">
-        <button
-          type="button"
-          data-test="assignment-submit"
-          class="card__action card__action--primary"
-          :disabled="!canSubmit"
-          @click="flow.submit()"
-        >
-          {{ phase === 'submitting' ? '提交中…' : '确认添加' }}
-        </button>
-      </div>
+        <div class="card__actions">
+          <button
+            type="button"
+            data-test="assignment-submit"
+            class="card__action card__action--primary"
+            :disabled="!canSubmit"
+            @click="flow.submit()"
+          >
+            {{ phase === 'submitting' ? '提交中…' : '确认添加' }}
+          </button>
+          <!--
+            Only ever shown having arrived here from the existing state, so
+            "cancel" has somewhere to go back to.
+          -->
+          <button
+            v-if="existingAssignment"
+            type="button"
+            data-test="assignment-cancel-adjust"
+            class="card__action"
+            @click="flow.cancelAdjustment()"
+          >
+            取消
+          </button>
+        </div>
+      </template>
     </template>
 
     <div v-if="conflict" data-test="assignment-conflict" class="card__conflict" role="alert">
@@ -448,6 +601,7 @@ const successText = computed(() => {
   color: var(--danger, #b3261e);
 }
 
+.card__existing,
 .card__conflict,
 .card__success {
   display: flex;
@@ -464,6 +618,20 @@ const successText = computed(() => {
   gap: 1.5rem;
   margin: 0;
   font-size: 0.85rem;
+}
+
+/*
+  Five labelled rows rather than the success card's two, so they stack into a
+  grid instead of running off the edge of a narrow panel.
+*/
+.card__facts--stacked {
+  display: grid;
+  grid-template-columns: 5rem 1fr;
+  gap: 0.25rem 0.75rem;
+}
+
+.card__facts--stacked > div {
+  display: contents;
 }
 
 .card__facts dt {

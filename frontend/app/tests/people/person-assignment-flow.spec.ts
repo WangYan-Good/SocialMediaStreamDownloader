@@ -256,7 +256,10 @@ describe('readAssignmentConflict', () => {
 import { nextTick } from 'vue'
 
 import { usePersonAssignmentFlow } from '../../src/composables/usePersonAssignmentFlow'
-import type { PersonAssignmentResult } from '../../src/types/person'
+import type {
+  PersonAssignmentResult,
+  PersonIdentityInspection,
+} from '../../src/types/person'
 import type { ResolvedResource } from '../../src/types/resolution'
 
 const SEC_UID = 'MS4wLjABAAAAGZkW5n1EHZD_TFyQ-QiaISBPemtKFxVVdhLSeoXhh-U'
@@ -273,6 +276,18 @@ function ownerResolution(resolveId = 'receipt-1'): ResolvedResource {
   }
 }
 
+//
+// The default answer: an account this server has never heard of, which is the
+// state the whole create-a-person flow is written for.
+//
+function unknownAccount(): PersonIdentityInspection {
+  return {
+    owner: { owner_user_id: 'acc-9', sec_user_id: SEC_UID, nickname: '\u7a0b\u513f' },
+    known_account: false,
+    assignment: null,
+  }
+}
+
 function assigned(overrides: Partial<PersonAssignmentResult> = {}): PersonAssignmentResult {
   return {
     person_id: 12,
@@ -286,6 +301,11 @@ function assigned(overrides: Partial<PersonAssignmentResult> = {}): PersonAssign
 
 interface Harness {
   resolveCalls: string[]
+  //
+  // Every receipt the flow asked about. Resolving now runs an inspection of its
+  // own, so a harness that did not stub it would reach the network.
+  //
+  inspectCalls: string[]
   assignCalls: PersonAssignmentRequestSpy[]
   //
   // `null` when the re-read was asked for because something changed under the
@@ -297,17 +317,29 @@ type PersonAssignmentRequestSpy = ReturnType<typeof buildPersonAssignmentRequest
 
 function build(options: {
   resolve?: (input: string) => Promise<ResolvedResource>
+  inspect?: (resolveId: string) => Promise<PersonIdentityInspection>
   assign?: (request: PersonAssignmentRequestSpy) => Promise<PersonAssignmentResult>
   onPeopleChanged?: (result: PersonAssignmentResult | null) => Promise<void>
   fixedPersonId?: number
 } = {}) {
-  const harness: Harness = { resolveCalls: [], assignCalls: [], refreshed: [] }
+  const harness: Harness = {
+    resolveCalls: [],
+    inspectCalls: [],
+    assignCalls: [],
+    refreshed: [],
+  }
 
   const flow = usePersonAssignmentFlow({
     api: {
       resolveResource: (input: string) => {
         harness.resolveCalls.push(input)
         return options.resolve ? options.resolve(input) : Promise.resolve(ownerResolution())
+      },
+      inspectPersonAssignment: (resolveId: string) => {
+        harness.inspectCalls.push(resolveId)
+        return options.inspect
+          ? options.inspect(resolveId)
+          : Promise.resolve(unknownAccount())
       },
       assignPersonAccount: (request: PersonAssignmentRequestSpy) => {
         harness.assignCalls.push(request)

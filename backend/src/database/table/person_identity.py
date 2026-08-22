@@ -605,6 +605,70 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
       raise e
     return bool(row)
 
+  def get_account_assignment(self, owner_user_id: str, platform: str = PLATFORM):
+    """Who holds this one account, or ``None`` if this program never saw it.
+
+    The question the page asks *before* offering a form: an account that is
+    already filed does not need to be added again, and an account this server
+    has never heard of is the only one for which "create a new person" is the
+    right offer.
+
+    Keyed on ``owner_user_id`` and nothing else.  ``search_accounts`` next door
+    matches nicknames with LIKE, which is right for a picker and wrong here -
+    the answer decides whether a second person gets created, and a nickname is
+    neither unique nor stable.  The person is likewise reached through the
+    account's own attachment rather than by name: two people may legitimately
+    share a display name, and picking whichever one matched would merge two
+    strangers.
+
+    ``None`` means "no ``share_url`` row", which is this program's register of
+    accounts it has heard of.  A row with ``person_id`` of ``None`` is the
+    different, and commoner, answer: known account, nobody has filed it.
+
+    One row by construction.  ``share_url`` is keyed on the account,
+    ``person_account`` on the platform pair and ``person`` on its id, so nothing
+    here can multiply; the works and the collaborations are deliberately not
+    joined, because either would report one account once per file it produced.
+
+    Nothing is locked.  Nothing is written on the strength of this answer - the
+    assignment transaction discovers ownership again under its own locks - so a
+    lock here would only hold rows still for a question nobody acts on.
+    """
+    if not isinstance(owner_user_id, str) or not owner_user_id.strip():
+      return None
+
+    sql = '''SELECT s.owner_user_id, s.sec_user_id, s.nickname,
+                    pa.person_id, pa.role, p.display_name
+             FROM share_url AS s
+             LEFT JOIN person_account AS pa
+               ON pa.owner_user_id = s.owner_user_id AND pa.platform = %s
+             LEFT JOIN person AS p
+               ON p.person_id = pa.person_id
+             WHERE s.owner_user_id = %s
+             LIMIT 1;
+          '''
+    try:
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(sql, (platform, owner_user_id.strip()))
+          row = cursor.fetchone()
+    except Exception as e:
+      get_logger().error(
+        "look up assignment of {} failed: {}".format(owner_user_id, e)
+      )
+      raise e
+
+    if not row:
+      return None
+    return {
+      "owner_user_id": row.get("owner_user_id"),
+      "sec_user_id": row.get("sec_user_id"),
+      "nickname": row.get("nickname"),
+      "person_id": row.get("person_id"),
+      "role": row.get("role"),
+      "display_name": row.get("display_name"),
+    }
+
   def account_directory_name(self, owner_user_id: str):
     """The folder this one account is recorded under, exactly as stored.
 

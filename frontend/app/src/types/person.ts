@@ -216,6 +216,72 @@ export type PersonAssignmentConflict =
   | LastMainRemovalConflict
   | AssignmentRacedConflict
 
+//
+// >>============================= existing identity =============================>>
+//
+//
+// What `POST /api/person/inspect` answers: who a resolved link turns out to
+// be, and whether this server already holds them.
+//
+// Asked between resolving a link and offering a form. Without it the only thing
+// that ever noticed a duplicate was the assignment itself, so pasting an
+// account added last month meant filling in a form and naming a person before
+// being told it had been there all along - and the obvious reading of that
+// screen was "I must create this person again".
+//
+// Named by the receipt alone, like the assignment. There is deliberately no
+// field here for an owner id: this answer decides whether a "create a new
+// person" button appears, so a request able to name the account would let the
+// browser choose which account gets checked.
+//
+
+/** The account as the platform describes it right now. */
+export interface PersonIdentityOwner {
+  //
+  // The account's identity, and the only key anything here is matched on. A
+  // nickname changes and repeats; a share link differs for the same resource.
+  //
+  owner_user_id: string
+  sec_user_id: string | null
+  //
+  // Null for an account nobody has downloaded and whose profile said nothing.
+  // The id is shown instead.
+  //
+  nickname: string | null
+}
+
+/** Which person holds this account, and as what. */
+export interface PersonIdentityAssignment {
+  person_id: number
+  //
+  // The *person's* name, which somebody typed. It is not updated to follow a
+  // nickname, so a renamed account legitimately reads "账号：程小程 /
+  // 人物：程儿" - and the page shows both rather than reconciling them.
+  //
+  display_name: string
+  role: PersonRole
+}
+
+export interface PersonIdentityInspection {
+  owner: PersonIdentityOwner
+  //
+  // Whether this server has ever heard of the account - a `share_url` row,
+  // which a download, a live probe or an earlier marking creates.
+  //
+  // Kept apart from `assignment` because they are different facts and the page
+  // shows different things for them. An account downloaded months ago that
+  // nobody filed is `known_account: true, assignment: null`: not a duplicate,
+  // just an account waiting to be put under somebody. Collapsing the two would
+  // lose the commonest case there is.
+  //
+  known_account: boolean
+  //
+  // Null when nobody holds the account. Never inferred from a matching
+  // display name: two different people may legitimately share one.
+  //
+  assignment: PersonIdentityAssignment | null
+}
+
 export interface CollaborationPayload {
   photographer_id: number
   subject_id: number

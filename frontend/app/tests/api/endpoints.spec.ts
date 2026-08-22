@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { assignPersonAccount } from '../../src/api/people'
+import { assignPersonAccount, inspectPersonAssignment } from '../../src/api/people'
 import { resolveResource } from '../../src/api/resolve'
 import { createTask, getTask, listTasks } from '../../src/api/tasks'
-import type { PersonAssignmentResult } from '../../src/types/person'
+import type {
+  PersonAssignmentResult,
+  PersonIdentityInspection,
+} from '../../src/types/person'
 import type { ResolvedResource } from '../../src/types/resolution'
 import type { CreatedTask, Task, TaskList } from '../../src/types/task'
 
@@ -357,5 +360,69 @@ describe('assignPersonAccount', () => {
         role: 'alt',
       }),
     ).resolves.toEqual(result)
+  })
+})
+
+
+describe('inspectPersonAssignment', () => {
+  //
+  // The question the page asks between resolving a link and offering a form:
+  // do we already have this account, and does anybody already hold it?
+  //
+  // It carries a receipt and nothing else, for the same reason the assignment
+  // does - but with a sharper consequence. This answer decides whether the user
+  // is shown a "create a new person" button, so a request able to name the
+  // account would let a browser choose which account gets checked.
+  //
+
+  it('posts to /api/person/inspect', async () => {
+    const fake = stubFetch({ owner: { owner_user_id: 'acc-9' }, known_account: false, assignment: null })
+
+    await inspectPersonAssignment('receipt-1')
+
+    const { url, init } = callOf(fake)
+    expect(url).toBe('/api/person/inspect')
+    expect(init.method).toBe('POST')
+  })
+
+  it('sends the receipt and nothing else', async () => {
+    const fake = stubFetch({ owner: { owner_user_id: 'acc-9' }, known_account: false, assignment: null })
+
+    await inspectPersonAssignment('receipt-1')
+
+    expect(callOf(fake).body).toEqual({ resolve_id: 'receipt-1' })
+  })
+
+  it.each(['owner_user_id', 'sec_user_id', 'nickname', 'person_id', 'role'])(
+    'never sends %s',
+    async (field) => {
+      const fake = stubFetch({ owner: { owner_user_id: 'acc-9' }, known_account: false, assignment: null })
+
+      await inspectPersonAssignment('receipt-1')
+
+      expect(JSON.stringify(callOf(fake).body)).not.toContain(field)
+    },
+  )
+
+  it('hands back the account and who holds it', async () => {
+    const answer: PersonIdentityInspection = {
+      owner: { owner_user_id: 'acc-9', sec_user_id: 'MS4wLjABAAAA', nickname: '程儿' },
+      known_account: true,
+      assignment: { person_id: 12, display_name: '程儿', role: 'main' },
+    }
+    stubFetch(answer)
+
+    await expect(inspectPersonAssignment('receipt-1')).resolves.toEqual(answer)
+  })
+
+  it('hands back a known account nobody has filed', async () => {
+    const answer: PersonIdentityInspection = {
+      owner: { owner_user_id: 'acc-9', sec_user_id: null, nickname: '程儿' },
+      known_account: true,
+      assignment: null,
+    }
+    stubFetch(answer)
+
+    await expect(inspectPersonAssignment('receipt-1')).resolves.toEqual(answer)
   })
 })

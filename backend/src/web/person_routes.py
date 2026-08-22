@@ -535,6 +535,90 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
       "display_name": result.display_name,
     })
 
+  @blueprint.route("/person/inspect", methods=["POST"])
+  def inspect_assignment():
+    """Say what a pasted link turns out to be, and whether we already have it.
+
+    The step that was missing between resolving a link and filing it.  Without
+    it the only thing that ever noticed a duplicate was the assignment
+    transaction, so a user pasting an account they added last month filled in a
+    form, named a person and pressed confirm before being told it had been there
+    all along - and the obvious reading of that screen was "I must create this
+    person again".
+
+    Answered 200 with the state, never 409.  "You already have this" is the
+    answer the caller asked for, not a refusal: nothing is being written, and a
+    conflict status would make the page treat a successful check as a failure.
+
+    Same receipt, same service, same identity reader as the assignment that
+    follows it - which is what stops the two disagreeing about who a link names.
+    What this reports is a hint for the interface and nothing more; the
+    assignment discovers ownership again under its own locks and refuses on what
+    it finds there.
+    """
+    service = runtime.assignment_service()
+    if service is None:
+      ##
+      ## Same reason as the assignment route: without the store every receipt
+      ## would read as expired, which looks like the user's fault and is not.
+      ##
+      return _error("解析服务未初始化", 503)
+
+    body = _payload()
+    if body is None:
+      return _error("请求必须是 JSON 格式", 400)
+
+    try:
+      ##
+      ## Handed over whole, unedited.  The field list is the trust boundary
+      ## here - an account named by a client must be *refused*, not quietly
+      ## dropped, because dropping it answers as though the request had said
+      ## something else.
+      ##
+      found = service.inspect(body)
+    except PersonAssignmentError as e:
+      ##
+      ## The category, never the request.  A resolve id names a link somebody
+      ## pasted, and a share link can carry a signature.
+      ##
+      get_logger().info("person inspect refused: {}".format(e.kind))
+      return _refusal(e)
+    except Exception as e:
+      get_logger().error(
+        "person inspect failed: {}: {}".format(type(e).__name__, e)
+      )
+      return _error("服务器内部错误，请稍后重试", 500)
+
+    return _ok({
+      ##
+      ## The account as the platform describes it right now, so the user
+      ## recognises what they just pasted.  No folder and no url: a directory is
+      ## the download paths' business, and a resolved url can carry a signature.
+      ##
+      "owner": {
+        "owner_user_id": found.owner_user_id,
+        "sec_user_id": found.sec_user_id,
+        "nickname": found.nickname,
+      },
+      ##
+      ## Two fields rather than one, because "this program has heard of this
+      ## account" and "somebody has filed it" are different facts and the page
+      ## shows different things for them.  An account downloaded months ago and
+      ## never marked is the commonest case of all, and it is not a duplicate.
+      ##
+      "known_account": found.known_account,
+      "assignment": None if found.person_id is None else {
+        "person_id": found.person_id,
+        ##
+        ## The person's name, which is a name somebody typed.  It is not
+        ## updated to follow a nickname, so a renamed account legitimately
+        ## reads "账号：程小程 / 人物：程儿".
+        ##
+        "display_name": found.display_name,
+        "role": found.role,
+      },
+    })
+
   @blueprint.route("/person/account", methods=["DELETE"])
   def detach_account():
     owner_user_id = (request.args.get("owner_user_id") or "").strip()
