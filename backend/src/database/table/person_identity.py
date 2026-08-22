@@ -1,5 +1,9 @@
 ## <<Third-Part>>
-from backend.src.database.orm.models.person import ACCOUNT_ROLES, ROLE_MAIN
+from backend.src.database.orm.models.person import (
+  ACCOUNT_ROLES,
+  MAIN_UNIQUE_NAME,
+  ROLE_MAIN,
+)
 from backend.src.database.social_media_stream_database import (
   SocialMediaStreamDataBase,
 )
@@ -132,6 +136,36 @@ _ALIGN_TO_MAIN_SQL = '''UPDATE share_url AS s
                AND m.directory_name IS NOT NULL
                AND TRIM(m.directory_name) <> '';
           '''
+
+
+##
+## MySQL's duplicate-key error number.
+##
+## The number and the index's own name are what this classifies on - both are
+## stable and one of them is ours.  The driver's message is English prose
+## written by MySQL; deciding a business outcome by matching on it would break
+## silently the day it is reworded.
+##
+_MYSQL_DUPLICATE_KEY = 1062
+
+
+def _is_duplicate_main(error) -> bool:
+  """Whether ``error`` is the unique index refusing a second main account.
+
+  The transaction below already refuses one, so this fires only for a write that
+  reached the database another way - or for a check that failed to hold.  Either
+  way the user is better served by the sentence that describes their situation
+  than by a generic failure.
+  """
+  arguments = getattr(error, "args", ()) or ()
+  if not arguments or arguments[0] != _MYSQL_DUPLICATE_KEY:
+    return False
+  ##
+  ## The primary key raises 1062 as well, so the index has to be named.  Reading
+  ## every duplicate as "this person already has a main" would explain the wrong
+  ## thing to somebody who attached the same account twice.
+  ##
+  return MAIN_UNIQUE_NAME in "".join(str(one) for one in arguments)
 
 
 class UnknownRole(ValueError):
@@ -693,6 +727,23 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
         ## silently lose the only thing keeping these rows consistent.
         ##
         connector.rollback()
+        if _is_duplicate_main(e):
+          ##
+          ## The schema said no.  Raised as the conflict this method raises
+          ## itself, so every caller above already knows what to do with it -
+          ## without the two answers to one situation reading differently
+          ## depending on which layer noticed.
+          ##
+          ## Which account currently holds the main is not reported: the
+          ## transaction is gone and there is nothing left to read it from.
+          ## Absent rather than guessed - the page then shows the plain refusal
+          ## and offers no "replace the main" action, which is correct, because
+          ## there is nothing here to replace against.
+          ##
+          get_logger().warning(
+            "database refused a second main for person {}".format(person_id)
+          )
+          raise MainAlreadyAssigned(None, None) from e
         if not isinstance(e, AssignmentConflict):
           get_logger().error(
             "assign {} to person {} failed: {}".format(

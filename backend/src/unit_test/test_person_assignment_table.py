@@ -441,6 +441,34 @@ class FakeConnection:
 
   def stage_account(self, key, row):
     self._overlay_account[key] = row
+    self._enforce_one_main(row)
+
+  def _enforce_one_main(self, written):
+    """The unique index the schema now carries, checked the way MySQL checks it.
+
+    Per statement, not per transaction. That distinction is the whole reason
+    the assignment demotes the outgoing main *before* promoting the incoming
+    one: both orders leave the same rows at COMMIT, but only one of them avoids
+    a moment where two rows project the same person into ``main_person_id``.
+    Without this the fake would happily accept the wrong order and the
+    reordering would only be discovered against a real database.
+    """
+    if written is _DELETED or written["role"] != "main":
+      return
+    mains = [
+      row for row in self.accounts_of(written["person_id"])
+      if row["role"] == "main"
+    ]
+    if len(mains) > 1:
+      import pymysql
+
+      raise pymysql.err.IntegrityError(
+        1062,
+        "Duplicate entry '{}' for key "
+        "'person_account.uq_person_account_main_person'".format(
+          written["person_id"]
+        ),
+      )
 
   def stage_identity(self, owner_user_id, row):
     self._overlay_identity[owner_user_id] = row
@@ -1597,6 +1625,115 @@ class GuardedDetachTest(unittest.TestCase):
 
     self.assertEqual(connection.begins, 1)
     self.assertEqual(connection.commits, 1)
+
+
+##
+## >>============================= the database's own refusal =============================>>
+##
+class DatabaseMainConstraintTest(unittest.TestCase):
+  """What happens when the schema, not this method, is the one that says no.
+
+  The transaction below already refuses a second main, so in normal running the
+  unique index never fires.  It fires for the writes this method did not make -
+  and for anything that manages to slip past the checks - and when it does, the
+  user should still get the sentence that explains their situation rather than
+  "server error".
+
+  Classified by the index's own name, which is ours and stable.  Not by the
+  driver's message text: that is English prose written by MySQL, it differs
+  between versions, and a business decision taken by matching on it would break
+  silently the day it was reworded.
+  """
+
+  DUPLICATE_KEY = 1062
+
+  def failing_table(self, errno, message):
+    import pymysql
+
+    table, database, connection = build_table()
+    seed_person(database, 12)
+
+    real_execute = FakeCursor.execute
+
+    def execute(cursor, sql, params=None):
+      if " ".join(sql.split()).startswith("INSERT INTO person_account"):
+        raise pymysql.err.IntegrityError(errno, message)
+      real_execute(cursor, sql, params)
+
+    FakeCursor.execute = execute
+    self.addCleanup(setattr, FakeCursor, "execute", real_execute)
+    return table, database, connection
+
+  def test_a_duplicate_main_from_the_database_reads_as_a_main_conflict(self):
+    table, _, connection = self.failing_table(
+      self.DUPLICATE_KEY,
+      "Duplicate entry '12' for key "
+      "'person_account.uq_person_account_main_person'",
+    )
+
+    with self.assertRaises(MainAlreadyAssigned):
+      table.assign_account(owner_user_id="acc-2", role="main", person_id=12)
+
+    self.assertEqual(connection.rollbacks, 1)
+
+  def test_it_says_nothing_it_does_not_know(self):
+    """The transaction is gone, so which account holds the main cannot be read.
+
+    Reported as absent rather than guessed: the page shows the plain refusal and
+    offers no "replace the main" button, because it has nothing to replace
+    against.
+    """
+    table, _, _ = self.failing_table(
+      self.DUPLICATE_KEY,
+      "Duplicate entry '12' for key "
+      "'person_account.uq_person_account_main_person'",
+    )
+
+    with self.assertRaises(MainAlreadyAssigned) as caught:
+      table.assign_account(owner_user_id="acc-2", role="main", person_id=12)
+
+    self.assertIsNone(caught.exception.owner_user_id)
+    self.assertIsNone(caught.exception.nickname)
+
+  def test_a_duplicate_on_a_different_key_is_not_a_main_conflict(self):
+    """The primary key fires 1062 too.  Reading every duplicate as "this person
+    already has a main" would explain the wrong thing."""
+    import pymysql
+
+    table, _, _ = self.failing_table(
+      self.DUPLICATE_KEY,
+      "Duplicate entry 'douyin-acc-2' for key 'person_account.PRIMARY'",
+    )
+
+    with self.assertRaises(pymysql.err.IntegrityError):
+      table.assign_account(owner_user_id="acc-2", role="main", person_id=12)
+
+  def test_another_integrity_failure_is_not_reinterpreted(self):
+    """A foreign key violation is not a main conflict, and pretending otherwise
+    would send somebody looking at the wrong thing."""
+    import pymysql
+
+    table, _, _ = self.failing_table(
+      1452, "Cannot add or update a child row: a foreign key constraint fails"
+    )
+
+    with self.assertRaises(pymysql.err.IntegrityError):
+      table.assign_account(owner_user_id="acc-2", role="main", person_id=12)
+
+  def test_the_failure_is_never_swallowed(self):
+    """However it is classified, it is still a failure - nothing may report the
+    assignment as done."""
+    table, database, connection = self.failing_table(
+      self.DUPLICATE_KEY,
+      "Duplicate entry '12' for key "
+      "'person_account.uq_person_account_main_person'",
+    )
+
+    with self.assertRaises(Exception):
+      table.assign_account(owner_user_id="acc-2", role="main", person_id=12)
+
+    self.assertEqual(connection.commits, 0)
+    self.assertEqual(database.person_account, {})
 
 
 ##

@@ -31,12 +31,26 @@ class FakeInspector:
           reflected_type.charset = (
             getattr(column.type, "charset", None) or options["charset"]
           )
+        ##
+        ## A generated column is reflected the way MySQL reports one: the
+        ## expression under "computed", and no plain default.
+        ##
+        generated = column.computed is not None
         self.columns[table_name].append({
           "name": column.name,
           "type": reflected_type,
           "nullable": column.nullable,
-          "default": None if column.server_default is None else str(column.server_default.arg),
+          "default": (
+            None
+            if generated or column.server_default is None
+            else str(column.server_default.arg)
+          ),
           "autoincrement": column.autoincrement is True,
+          **(
+            {"computed": {"sqltext": str(column.computed.sqltext), "persisted": False}}
+            if generated
+            else {}
+          ),
         })
       self.primary_keys[table_name] = {
         "name": table.primary_key.name,
@@ -222,6 +236,55 @@ class SchemaCompareTest(unittest.TestCase):
     self.assertIn("a_table", lines[0])
     self.assertIn("z_table", lines[1])
 
+
+
+class GeneratedColumnCompareTest(unittest.TestCase):
+  """A generated column is compared as generated, not as a default.
+
+  It occupies the ``server_default`` slot on the model and the ``computed`` slot
+  in what MySQL reflects, so reading it as a default is an AttributeError rather
+  than a difference - which is how adding one took the whole comparison down.
+  """
+
+  def report_for(self, mutate):
+    inspector = FakeInspector()
+    mutate(inspector)
+    from backend.src.database.schema_compare import compare_managed_schema
+
+    with patch("backend.src.database.schema_compare.inspect", return_value=inspector):
+      return compare_managed_schema(object())
+
+  def test_a_matching_generated_column_is_compatible(self):
+    report = self.report_for(lambda inspector: None)
+
+    self.assertTrue(report.is_compatible, report.format_text())
+
+  def test_a_column_the_database_does_not_generate_is_an_error(self):
+    def drop_computed(inspector):
+      for column in inspector.columns["person_account"]:
+        column.pop("computed", None)
+
+    report = self.report_for(drop_computed)
+
+    self.assertFalse(report.is_compatible)
+    self.assertIn("generated differs", report.format_text())
+
+  def test_the_expression_text_is_not_compared(self):
+    """MySQL re-prints it with backticks and charset introducers, so comparing
+    the text would report drift on a schema that is exactly right - and this
+    comparison gates start-up."""
+    def reprint(inspector):
+      for column in inspector.columns["person_account"]:
+        if "computed" in column:
+          column["computed"] = {
+            "sqltext": "(case when (`role` = _utf8mb4'main') "
+                       "then `person_id` else NULL end)",
+            "persisted": False,
+          }
+
+    report = self.report_for(reprint)
+
+    self.assertTrue(report.is_compatible, report.format_text())
 
 if __name__ == "__main__":
   unittest.main()
