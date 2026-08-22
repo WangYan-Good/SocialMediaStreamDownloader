@@ -1,13 +1,17 @@
 import { computed, ref, watch } from 'vue'
 
 import { ApiError } from '@/api/client'
-import { assignPersonAccount as defaultAssignPersonAccount } from '@/api/people'
+import {
+  assignPersonAccount as defaultAssignPersonAccount,
+  inspectPersonAssignment as defaultInspectPersonAssignment,
+} from '@/api/people'
 import { resolveResource as defaultResolveResource } from '@/api/resolve'
 import type {
   DemotedRole,
   PersonAssignmentConflict,
   PersonAssignmentRequest,
   PersonAssignmentResult,
+  PersonIdentityInspection,
   PersonRole,
 } from '@/types/person'
 import type { ResolvedResource } from '@/types/resolution'
@@ -182,7 +186,20 @@ export function readAssignmentConflict(caught: unknown): PersonAssignmentConflic
 export type PersonAssignmentPhase =
   | 'idle'
   | 'resolving'
+  //
+  // Resolved, and now asking whether this server already holds the account.
+  // Its own phase rather than part of `resolving`, because "we have not asked
+  // yet" and "we asked and it is new" look identical on screen and lead to
+  // opposite offers - so a late answer has to be distinguishable from no
+  // answer.
+  //
+  | 'inspecting'
   | 'resolved'
+  //
+  // Somebody already holds this account. Not a form and not a success: nothing
+  // was written, and there is nothing here to add.
+  //
+  | 'existing'
   | 'submitting'
   | 'conflict'
   | 'success'
@@ -190,6 +207,12 @@ export type PersonAssignmentPhase =
 
 export interface PersonAssignmentApi {
   resolveResource: (input: string) => Promise<ResolvedResource>
+  //
+  // Runs straight after the resolve, on its receipt. Deliberately not a second
+  // button: a check performed only by the users who thought to look for it is
+  // not a check.
+  //
+  inspectPersonAssignment: (resolveId: string) => Promise<PersonIdentityInspection>
   assignPersonAccount: (request: PersonAssignmentRequest) => Promise<PersonAssignmentResult>
 }
 
@@ -230,6 +253,8 @@ function messageOf(caught: unknown, fallback: string): string {
 export function usePersonAssignmentFlow(options: PersonAssignmentFlowOptions = {}) {
   const api: PersonAssignmentApi = {
     resolveResource: options.api?.resolveResource ?? defaultResolveResource,
+    inspectPersonAssignment:
+      options.api?.inspectPersonAssignment ?? defaultInspectPersonAssignment,
     assignPersonAccount: options.api?.assignPersonAccount ?? defaultAssignPersonAccount,
   }
   const fixedPersonId = options.fixedPersonId ?? null
@@ -246,6 +271,24 @@ export function usePersonAssignmentFlow(options: PersonAssignmentFlowOptions = {
   // than one this screen makes quietly on their behalf.
   //
   const role = ref<PersonRole | null>(null)
+
+  //
+  // What the server already knows about the account this receipt names, or
+  // `null` when nothing has been asked or the answer did not arrive.
+  //
+  // Held apart from `resolution` because the two say different things: a
+  // resolution is what the *link* is, and survives being unable to reach the
+  // person tables at all. This is who the account turns out to *be*.
+  //
+  const inspection = ref<PersonIdentityInspection | null>(null)
+  //
+  // Set when the check itself failed, which is not the same as the account
+  // being new - the backend answers 503 rather than an empty result for
+  // exactly that reason. Shown as a warning beside a form that still works:
+  // the assignment refuses a duplicate inside its own transaction either way,
+  // so a failed check costs a caution rather than the whole operation.
+  //
+  const inspectError = ref<string | null>(null)
 
   const phase = ref<PersonAssignmentPhase>('idle')
   const resolveError = ref<string | null>(null)
@@ -308,6 +351,13 @@ export function usePersonAssignmentFlow(options: PersonAssignmentFlowOptions = {
 
   function discardResolution(): void {
     resolution.value = null
+    //
+    // The inspection describes the account that receipt named, so it goes when
+    // the receipt does. Left behind, it would announce that the link now in
+    // the box "already exists" while naming somebody else's person.
+    //
+    inspection.value = null
+    inspectError.value = null
     resolvedFrom.value = null
     resolvingFrom.value = null
     submittedDraft.value = null
@@ -316,6 +366,26 @@ export function usePersonAssignmentFlow(options: PersonAssignmentFlowOptions = {
     result.value = null
     assignmentError.value = null
     refreshWarning.value = null
+  }
+
+  /**
+   * Put the target back to what it is before anybody has chosen anything.
+   *
+   * A draft is about one account. `adjustAssignment` in particular fills it in
+   * from whichever account was just inspected, so carrying it across a link
+   * change would aim a stranger's receipt at a person the user picked for
+   * somebody else - and, with the role already set, leave it one click from
+   * being written.
+   *
+   * A fixed-person card returns to its own person rather than to nobody: there
+   * is no "create a new person" there to fall back to.
+   */
+  function clearDraftTarget(): void {
+    targetKind.value = fixedPersonId === null ? 'new' : 'existing'
+    selectedPersonId.value = fixedPersonId
+    role.value = null
+    displayName.value = ''
+    note.value = ''
   }
 
   watch(rawInput, () => {
@@ -341,16 +411,28 @@ export function usePersonAssignmentFlow(options: PersonAssignmentFlowOptions = {
       //
       return
     }
-    if (phase.value === 'resolving') {
+    if (phase.value === 'resolving' || phase.value === 'inspecting') {
       //
       // Abandon the answer nobody is waiting for any more, rather than holding
       // the button hostage until it arrives.
+      //
+      // `inspecting` counts, and has to: the receipt has already arrived by
+      // then, so without this the generation would never move and a late
+      // inspection of link A would land on a screen showing link B - announcing
+      // that B already belongs to a person who has never held it.
       //
       resolveGeneration += 1
       resolvingFrom.value = null
     }
     if (resolution.value !== null || phase.value !== 'idle') {
       discardResolution()
+      //
+      // The target goes with it. The receipt and the person it was going to
+      // were chosen together, about one account; keeping the second after
+      // throwing away the first is how a new link ends up aimed at the last
+      // link's person.
+      //
+      clearDraftTarget()
       resolveError.value = null
       phase.value = 'idle'
     }
@@ -417,7 +499,42 @@ export function usePersonAssignmentFlow(options: PersonAssignmentFlowOptions = {
     () =>
       rawInput.value.trim().length > 0 &&
       phase.value !== 'resolving' &&
+      phase.value !== 'inspecting' &&
       phase.value !== 'submitting',
+  )
+
+  /**
+   * Whether the draft describes exactly the attachment already on record.
+   *
+   * Only ever true after an inspection found one, so it cannot suppress a
+   * submission the user has not already been shown the result of.
+   *
+   * The backend is idempotent about this - it refreshes the identity and
+   * returns - so nothing would break by sending it. What would break is the
+   * impression: a screen that has just said "this is already added" would then
+   * say "submitting…" and "added", which is the exact confusion this step
+   * exists to remove.
+   */
+  const unchangedAssignment = computed(() => {
+    const current = inspection.value?.assignment ?? null
+    if (current === null) {
+      return false
+    }
+    return (
+      targetKind.value === 'existing' &&
+      selectedPersonId.value === current.person_id &&
+      role.value === current.role
+    )
+  })
+
+  /**
+   * Whether the pasted account is already held by the person this card is
+   * fixed to - the detail panel's case, where there is nothing at all to do.
+   */
+  const heldByFixedPerson = computed(
+    () =>
+      fixedPersonId !== null &&
+      (inspection.value?.assignment?.person_id ?? null) === fixedPersonId,
   )
 
   const canSubmit = computed(() => {
@@ -425,6 +542,32 @@ export function usePersonAssignmentFlow(options: PersonAssignmentFlowOptions = {
       return false
     }
     if (phase.value === 'submitting' || phase.value === 'success') {
+      return false
+    }
+    if (phase.value === 'inspecting' || phase.value === 'existing') {
+      //
+      // Nothing may be sent while the answer is still coming, and nothing needs
+      // sending once it says the account is filed. Reaching the form from there
+      // is a deliberate act - see `adjustAssignment`.
+      //
+      return false
+    }
+    if (inspectError.value !== null) {
+      //
+      // The check did not answer, so whether this account is already filed is
+      // unknown - and "unknown" must not be offered as "new". During a person
+      // lookup outage every pasted link would otherwise read as a fresh
+      // account with 创建新人物 preselected, which is precisely the screen
+      // this step exists to stop showing.
+      //
+      // Nothing corrupt could be written either way - the assignment
+      // transaction refuses a genuine duplicate on its own - but the page must
+      // not invite the attempt. Resolving again re-runs the check, so the way
+      // forward is one click rather than a re-paste.
+      //
+      return false
+    }
+    if (unchangedAssignment.value) {
       return false
     }
     return targetKind.value === 'new' || selectedPersonId.value !== null
@@ -461,7 +604,14 @@ export function usePersonAssignmentFlow(options: PersonAssignmentFlowOptions = {
       resolution.value = answer
       resolvedFrom.value = submitted
       resolvingFrom.value = null
-      phase.value = 'resolved'
+      phase.value = 'inspecting'
+      //
+      // One click, two questions. Asking who the account is only when the user
+      // presses a second button would mean the duplicate is caught by whoever
+      // thought to look for it - which is nobody, because the whole reason they
+      // are pasting is that they do not remember adding it.
+      //
+      await inspectResolved(answer.resolve_id, submitted, generation)
     } catch (caught) {
       if (disposed || generation !== resolveGeneration) {
         return
@@ -469,6 +619,59 @@ export function usePersonAssignmentFlow(options: PersonAssignmentFlowOptions = {
       resolvingFrom.value = null
       resolveError.value = messageOf(caught, '解析失败，请稍后重试')
       phase.value = 'idle'
+    }
+  }
+
+  /**
+   * Ask whether this server already holds the account the receipt names.
+   *
+   * Never throws. It runs inside `resolve`'s own `try`, and letting a failed
+   * check surface there would report "解析失败" for a link that resolved
+   * perfectly well - throwing away a receipt that is still good.
+   *
+   * Guarded by the *resolve* generation rather than one of its own. This is the
+   * second half of one question, so there is one answer to "which question is
+   * current"; a second counter would be a second opinion, and the two would
+   * disagree the first time a user edited the box mid-check.
+   */
+  async function inspectResolved(
+    resolveId: string,
+    submitted: string,
+    generation: number,
+  ): Promise<void> {
+    try {
+      const found = await api.inspectPersonAssignment(resolveId)
+      if (disposed || generation !== resolveGeneration) {
+        return
+      }
+      if (rawInput.value.trim() !== submitted.trim()) {
+        return
+      }
+      inspection.value = found
+      inspectError.value = null
+      //
+      // The one decision this makes. An account nobody holds goes to the
+      // ordinary form - including one this server has merely downloaded before,
+      // which is not a duplicate and still needs filing. An account somebody
+      // holds needs no form at all.
+      //
+      phase.value = found.assignment === null ? 'resolved' : 'existing'
+    } catch (caught) {
+      if (disposed || generation !== resolveGeneration) {
+        return
+      }
+      if (rawInput.value.trim() !== submitted.trim()) {
+        return
+      }
+      //
+      // Left null rather than filled in as "new". "We could not ask" and "this
+      // account is new" lead to opposite actions, and the second one invites a
+      // duplicate person - so the page says it could not check and lets the
+      // transaction stay the thing that refuses.
+      //
+      inspection.value = null
+      inspectError.value = messageOf(caught, '暂时无法确认该账号的归属，请稍后重试')
+      phase.value = 'resolved'
     }
   }
 
@@ -570,9 +773,62 @@ export function usePersonAssignmentFlow(options: PersonAssignmentFlowOptions = {
     assignmentError.value = messageOf(caught, '添加账号失败，请稍后重试')
   }
 
+  /**
+   * Open the form on an account somebody already holds.
+   *
+   * The escape hatch, and deliberately not the default. Pasting a filed account
+   * is usually a duplicate, but sometimes it is a spare being promoted to main
+   * or an account being moved to the right person - so the form is reachable in
+   * one click rather than unreachable.
+   *
+   * It starts from where the account already is, so the first thing on screen is
+   * the truth and any change is one the user chose. Starting from "create a new
+   * person" would put the duplicate back one click away, which is where it was
+   * before any of this.
+   *
+   * Nothing is agreed to here. A move still needs `allow_move` and a main still
+   * needs `replace_main`, both after their own refusal: knowing who holds an
+   * account is not the same as consenting to take it from them.
+   */
+  function adjustAssignment(): void {
+    const current = inspection.value?.assignment ?? null
+    if (current === null) {
+      return
+    }
+    targetKind.value = 'existing'
+    //
+    // The fixed person wins, where there is one. This card is open inside their
+    // panel, so "adjust" there means "put it under this person" - the account's
+    // current holder is who it would be taken *from*.
+    //
+    selectedPersonId.value = fixedPersonId ?? current.person_id
+    role.value = current.role
+    conflict.value = null
+    confirmation.value = {}
+    assignmentError.value = null
+    phase.value = 'resolved'
+  }
+
+  /** Go back to reading the existing assignment, having changed nothing. */
+  function cancelAdjustment(): void {
+    if ((inspection.value?.assignment ?? null) === null) {
+      return
+    }
+    conflict.value = null
+    confirmation.value = {}
+    assignmentError.value = null
+    phase.value = 'existing'
+  }
+
   return {
     rawInput,
     resolution,
+    inspection,
+    inspectError,
+    unchangedAssignment,
+    heldByFixedPerson,
+    adjustAssignment,
+    cancelAdjustment,
     targetKind,
     selectedPersonId,
     displayName,

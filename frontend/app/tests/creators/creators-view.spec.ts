@@ -35,6 +35,11 @@ vi.mock('../../src/api/people', () => ({
   attachAccount: vi.fn(),
   attachAccountByLink: vi.fn(),
   assignPersonAccount: vi.fn(),
+  //
+  // Resolving now inspects too, so the assignment card reaches for this while
+  // it sets up. Left out, the whole tab fails to mount.
+  //
+  inspectPersonAssignment: vi.fn(),
   detachAccount: vi.fn(),
   addCollaboration: vi.fn(),
   removeCollaboration: vi.fn(),
