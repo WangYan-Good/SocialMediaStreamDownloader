@@ -54,10 +54,10 @@ class AlembicEnvironmentTest(unittest.TestCase):
     scripts = ScriptDirectory.from_config(config)
 
     ##
-    ## one linear chain, one head: 0001 -> 0002 -> 0003 -> 0004 -> 0005
+    ## one linear chain, one head: 0001 -> 0002 -> 0003 -> 0004 -> 0005 -> 0006
     ##
     self.assertEqual(
-      "0005_drop_person_directory",
+      "0006_person_main_unique",
       scripts.get_current_head(),
     )
     baseline = scripts.get_revision("0001_initial_schema")
@@ -73,6 +73,8 @@ class AlembicEnvironmentTest(unittest.TestCase):
     self.assertEqual("0003_aweme_record", person_identity.down_revision)
     moved = scripts.get_revision("0005_drop_person_directory")
     self.assertEqual("0004_person_identity", moved.down_revision)
+    main_unique = scripts.get_revision("0006_person_main_unique")
+    self.assertEqual("0005_drop_person_directory", main_unique.down_revision)
 
   def test_the_person_migration_creates_all_three_tables_and_drops_them(self):
     """纯 DDL，无回填——此前没有任何版本记录过这些关系。"""
@@ -101,6 +103,90 @@ class AlembicEnvironmentTest(unittest.TestCase):
     ## 而删表本就会带走它的索引——真实往返测出来的，文本断言看不出。
     ##
     self.assertNotIn("op.drop_index", downgrade)
+
+  def main_constraint_source(self) -> str:
+    config = self.load_factory()(unified_config())
+    return (
+      Path(config.get_main_option("script_location"))
+      / "versions"
+      / "0006_person_main_unique.py"
+    ).read_text(encoding="utf-8")
+
+  def test_the_main_constraint_migration_adds_a_generated_column_and_unique(self):
+    """MySQL 没有 partial index，"只在 role='main' 的行里唯一"只能写成
+    生成列 + 普通 UNIQUE：main 行取 person_id，其余取 NULL，而 MySQL 的
+    唯一索引允许任意多个 NULL——正好是「0 个或 1 个，绝不能 2 个」。
+    """
+    source = self.main_constraint_source()
+    upgrade = source.split("def upgrade()", 1)[1].split("def downgrade()", 1)[0]
+
+    ##
+    ## The names are module constants so the migration, the model and MySQL all
+    ## hold one spelling; asserted against the whole file for that reason.
+    ##
+    self.assertIn('COLUMN_NAME = "main_person_id"', source)
+    self.assertIn('INDEX_NAME = "uq_person_account_main_person"', source)
+    self.assertIn("CASE WHEN role = 'main' THEN person_id ELSE NULL END", source)
+    self.assertIn("Computed", upgrade)
+    self.assertIn("unique=True", upgrade)
+    ##
+    ## VIRTUAL, not STORED: derived from two columns of its own row, so there is
+    ## nothing to gain by materialising it.
+    ##
+    self.assertIn("persisted=False", upgrade)
+
+  def test_it_refuses_to_run_on_data_that_already_has_two_mains(self):
+    """迁移不能替用户挑哪个 main 该留下。
+
+    那是业务数据，删掉或降级任何一个都可能是错的。所以先查、查到就明确失败，
+    并报出冲突的 person_id 让人去处理——不静默改数据。
+    """
+    source = self.main_constraint_source()
+    upgrade = source.split("def upgrade()", 1)[1].split("def downgrade()", 1)[0]
+
+    ##
+    ## 先检测，再加约束：顺序反了就会先撞上 UNIQUE，报出一个只有数据库看得懂
+    ## 的错，用户不知道是哪几个人物出了问题。
+    ##
+    self.assertLess(
+      upgrade.index("_DUPLICATE_MAINS"), upgrade.index("op.add_column")
+    )
+    self.assertLess(
+      upgrade.index("raise RuntimeError"), upgrade.index("op.create_index")
+    )
+    ##
+    ## 报出的是「哪几个 person 有几个 main」，不是数据库自己的重复键消息
+    ##
+    self.assertIn("GROUP BY person_id", source)
+    self.assertIn("HAVING COUNT(*) > 1", source)
+    self.assertIn("person_id={} has {} main accounts", upgrade)
+    ##
+    ## 不得自动修数据
+    ##
+    self.assertNotIn("UPDATE person_account", upgrade)
+    self.assertNotIn("DELETE FROM person_account", upgrade)
+
+  def test_the_main_constraint_downgrade_removes_both(self):
+    source = self.main_constraint_source()
+    downgrade = source.split("def downgrade()", 1)[1]
+
+    self.assertIn("drop_index", downgrade)
+    self.assertIn("drop_column", downgrade)
+    ##
+    ## Index before column: MySQL will not drop a column an index still refers
+    ## to.
+    ##
+    self.assertLess(downgrade.index("drop_index"), downgrade.index("drop_column"))
+    ##
+    ## 回滚只撤销 schema，不动业务数据
+    ##
+    self.assertNotIn("DELETE", downgrade.upper())
+    self.assertNotIn("drop_table", downgrade)
+
+  def test_the_main_constraint_revision_follows_the_last_one(self):
+    source = self.main_constraint_source()
+
+    self.assertIn('down_revision: Union[str, None] = "0005_drop_person_directory"', source)
 
   def test_baseline_is_an_explicit_immutable_snapshot(self):
     config = self.load_factory()(unified_config())

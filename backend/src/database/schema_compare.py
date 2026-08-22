@@ -2,7 +2,14 @@ from dataclasses import dataclass, field
 import re
 from typing import Literal
 
-from sqlalchemy import ForeignKeyConstraint, MetaData, String, UniqueConstraint, inspect
+from sqlalchemy import (
+  Computed,
+  ForeignKeyConstraint,
+  MetaData,
+  String,
+  UniqueConstraint,
+  inspect,
+)
 from sqlalchemy.engine import Engine
 
 from backend.src.database.orm.models import Base, MANAGED_TABLE_NAMES
@@ -92,6 +99,21 @@ def _normalized_default(value) -> str | None:
   return normalized
 
 
+def _expected_server_default(column):
+  """A column's plain SQL default, or ``None`` when it has none.
+
+  A generated column occupies the same slot - SQLAlchemy exposes its
+  ``Computed`` as ``server_default`` - but it is not a default: MySQL reports
+  the expression under ``computed`` and leaves ``default`` empty.  Read as a
+  default it has no ``.arg`` at all, which is an AttributeError rather than a
+  difference.  Compared separately, just below.
+  """
+  default = column.server_default
+  if default is None or isinstance(default, Computed):
+    return None
+  return default.arg
+
+
 def _named_columns(items, column_key="column_names") -> dict[str | None, tuple[str, ...]]:
   return {
     item.get("name"): tuple(item.get(column_key) or ())
@@ -153,7 +175,7 @@ def _compare_columns(report, table_name, table, reflected_columns):
         f"{column_name} nullable differs: expected {expected_column.nullable}",
       )
     expected_default = _normalized_default(
-      None if expected_column.server_default is None else expected_column.server_default.arg
+      _expected_server_default(expected_column)
     )
     actual_default = _normalized_default(actual_column.get("default"))
     if expected_default != actual_default:
@@ -161,6 +183,28 @@ def _compare_columns(report, table_name, table, reflected_columns):
         table_name,
         "column",
         f"{column_name} default differs: expected {expected_default}, found {actual_default}",
+      )
+    ##
+    ## Whether the column is generated, not what it is generated from.
+    ##
+    ## MySQL does not store the expression as it was written: it re-prints it
+    ## with backticks, an introducer on every literal and its own parenthesing,
+    ## so "CASE WHEN role = 'main' ..." comes back as
+    ## "(case when (`role` = _utf8mb4'main') then ... end)".  Comparing the text
+    ## would report drift on a schema that is exactly right, and this comparison
+    ## gates start-up - a false alarm here takes the application down.
+    ##
+    ## Presence still catches what matters: a column the model thinks is
+    ## generated and the database thinks is ordinary, or the reverse.  The
+    ## expression itself is pinned by the migration that writes it.
+    ##
+    expected_generated = expected_column.computed is not None
+    actual_generated = bool(actual_column.get("computed"))
+    if expected_generated != actual_generated:
+      report.add_error(
+        table_name,
+        "column",
+        f"{column_name} generated differs: expected {expected_generated}",
       )
     expected_autoincrement = expected_column.autoincrement is True
     actual_autoincrement = actual_column.get("autoincrement") is True

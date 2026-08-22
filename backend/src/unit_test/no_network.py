@@ -52,6 +52,15 @@ def _refuse(*unused_args, **unused_kwargs):
 ##
 _installed = False
 
+##
+## What was there before, so the block can be lifted deliberately.
+##
+_original = {
+  "connect": socket.socket.connect,
+  "connect_ex": socket.socket.connect_ex,
+  "create_connection": socket.create_connection,
+}
+
 
 def install() -> None:
   """Refuse every outbound connection for the rest of this process.
@@ -72,3 +81,33 @@ def install() -> None:
 
 def is_installed() -> bool:
   return _installed
+
+
+##
+## >>============================= the one way through =============================>>
+##
+##
+## A test that wants a real database has to say so, in words, in its own file.
+##
+## The block exists to catch traffic nobody meant to send - a stubbed seam that
+## quietly stopped being stubbed.  A connection somebody deliberately asked for
+## is a different thing, and there is no way for the socket layer to tell them
+## apart, so the distinction has to be declared rather than inferred.
+##
+## Narrow on purpose: no host allow-list, no "loopback is fine" rule.  Either a
+## test has opted out for its own duration and put its reason next to the call,
+## or nothing gets out.
+##
+
+def permit_real_connections() -> None:
+  """Lift the block.  Pair every call with ``restore_block`` in a teardown."""
+  socket.socket.connect = _original["connect"]
+  socket.socket.connect_ex = _original["connect_ex"]
+  socket.create_connection = _original["create_connection"]
+
+
+def restore_block() -> None:
+  """Put the block back, whatever happened in between."""
+  socket.socket.connect = _refuse
+  socket.socket.connect_ex = _refuse
+  socket.create_connection = _refuse

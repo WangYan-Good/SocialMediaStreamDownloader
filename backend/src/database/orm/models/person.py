@@ -1,12 +1,36 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import ForeignKey, Index, PrimaryKeyConstraint, String
+from sqlalchemy import (
+  Computed,
+  ForeignKey,
+  Index,
+  PrimaryKeyConstraint,
+  String,
+  UniqueConstraint,
+)
 from sqlalchemy.dialects import mysql
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.src.database.orm.base import Base
 from backend.src.database.orm.models.legacy import MYSQL_TABLE_OPTIONS
+
+
+##
+## How "at most one main per person" is expressed to the database.
+##
+## MySQL has no partial index, so the rule is carried by a generated column that
+## is the person's id for a main row and NULL for every other role, plus an
+## ordinary UNIQUE.  MySQL allows any number of NULLs in a unique index, which
+## gives 0-or-1 without saying anything at all about how many spares or matrix
+## accounts a person holds.
+##
+## The string must stay identical to ``MAIN_PROJECTION`` in migration 0006:
+## these two and the DDL MySQL ends up holding are one fact, and the schema
+## comparison at start-up is what notices if they drift.
+##
+MAIN_PROJECTION = "CASE WHEN role = 'main' THEN person_id ELSE NULL END"
+MAIN_UNIQUE_NAME = "uq_person_account_main_person"
 
 
 ##
@@ -75,6 +99,17 @@ class PersonAccountModel(Base):
   __table_args__ = (
     PrimaryKeyConstraint("platform", "owner_user_id"),
     Index("idx_person_account_person_id", "person_id"),
+    ##
+    ## The last line of defence for "at most one main per person".
+    ##
+    ## The service already refuses a second main, in a transaction and holding
+    ## the person's row, and that is what produces a 409 somebody can act on.
+    ## This is for the writes it never sees - a repair script, a console, a
+    ## future path that forgets - because with two mains ``find_person_folder``
+    ## joins on ``role = 'main'`` and takes LIMIT 1 with no ordering, so the
+    ## folder a person's downloads land in becomes whichever row came back.
+    ##
+    UniqueConstraint("main_person_id", name=MAIN_UNIQUE_NAME),
     MYSQL_TABLE_OPTIONS,
   )
 
@@ -101,6 +136,21 @@ class PersonAccountModel(Base):
   ## folder comes from the person, not from the main account.
   ##
   role: Mapped[str] = mapped_column(String(20), nullable=False)
+
+  ##
+  ## Generated, never written.  A column the application could set would be a
+  ## second place for "is this the main account" to live, and the two would
+  ## disagree the first time one was updated without the other.
+  ##
+  ## VIRTUAL rather than STORED: it is derived from two columns of its own row,
+  ## so materialising it would cost space to store what MySQL can read for free,
+  ## and a virtual column is still indexable in MySQL 8.
+  ##
+  main_person_id: Mapped[Optional[int]] = mapped_column(
+    mysql.INTEGER(unsigned=True),
+    Computed(MAIN_PROJECTION, persisted=False),
+    nullable=True,
+  )
 
 
 class PersonCollaborationModel(Base):

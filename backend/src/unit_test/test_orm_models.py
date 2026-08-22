@@ -383,6 +383,70 @@ class PersonIdentityModelTest(unittest.TestCase):
 
     self.assertFalse(table.columns["role"].nullable)
 
+  ##
+  ## >>=================== at most one main, in the schema ===================>>
+  ##
+  ## The application already refuses a second main - in a transaction, holding
+  ## the person's row - and that is what gives the user a 409 they can act on.
+  ## What it cannot do is speak for a write it never sees: a repair script, a
+  ## psql session, a future code path that forgets. The column below exists so
+  ## the database itself can refuse those.
+  ##
+  ## MySQL has no partial index, so "unique among the rows where role='main'"
+  ## has to be spelled as a generated column that is the person's id for a main
+  ## and NULL otherwise, plus a plain UNIQUE. MySQL permits any number of NULLs
+  ## in a unique index, which is exactly the "0 or 1, never 2" shape wanted.
+  ##
+
+  def test_a_main_account_projects_its_person_into_a_unique_column(self):
+    models = load_models()
+    table = models.Base.metadata.tables["person_account"]
+
+    self.assertIn("main_person_id", table.columns)
+    column = table.columns["main_person_id"]
+    ##
+    ## Generated, never written. A column the application could set would be a
+    ## second place for "is this the main account" to be recorded, and the two
+    ## would disagree the first time one was updated without the other.
+    ##
+    self.assertIsNotNone(column.computed)
+    self.assertTrue(column.nullable)
+
+  def test_the_projection_is_the_person_id_only_for_a_main(self):
+    models = load_models()
+    column = models.Base.metadata.tables["person_account"].columns["main_person_id"]
+    expression = str(column.computed.sqltext)
+
+    self.assertIn("role", expression)
+    self.assertIn("main", expression)
+    self.assertIn("person_id", expression)
+    ##
+    ## NULL for everything else, which is what lets a person hold any number of
+    ## alt and matrix accounts while still holding at most one main.
+    ##
+    self.assertIn("NULL", expression.upper())
+
+  def test_the_projection_carries_a_unique_constraint(self):
+    models = load_models()
+    table = models.Base.metadata.tables["person_account"]
+
+    unique = [
+      constraint
+      for constraint in table.constraints
+      if constraint.__class__.__name__ == "UniqueConstraint"
+    ]
+    self.assertEqual(1, len(unique))
+    self.assertEqual(["main_person_id"], [c.name for c in unique[0].columns])
+    self.assertEqual("uq_person_account_main_person", unique[0].name)
+
+  def test_the_role_column_itself_stays_unconstrained(self):
+    """Only *main* is limited. A person may hold as many spares and matrix
+    accounts as they actually have, and nothing here counts them."""
+    models = load_models()
+    table = models.Base.metadata.tables["person_account"]
+
+    self.assertFalse(table.columns["role"].unique or False)
+
   def test_collaboration_is_directed(self):
     """一个人可能既是摄影师又是主播，无向边分不出谁拍谁。"""
     models = load_models()
