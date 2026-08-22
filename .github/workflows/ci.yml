@@ -60,6 +60,103 @@ jobs:
       - name: Run unit tests
         run: python -m pytest backend/src/unit_test -q
 
+  # The schema proof, kept apart from the unit job on purpose.
+  #
+  # Everything this exercises is MySQL-specific and cannot be checked any other
+  # way: a VIRTUAL generated column, a UNIQUE index over it, and MySQL's rule
+  # that a unique index admits any number of NULLs - which together are how
+  # "at most one main account per person" is expressed, since MySQL has no
+  # partial index. A fake cursor cannot disagree with that and SQLite would
+  # agree for different reasons, so neither is evidence.
+  #
+  # Separate rather than folded into `backend` so the ordinary unit suite stays
+  # offline and fast: nobody should need a database to run it, and it still
+  # holds the constraint's *shape* through source-level tests.
+  mysql:
+    name: MySQL schema constraint
+    runs-on: ubuntu-latest
+    # Reads the checkout and nothing else.
+    permissions:
+      contents: read
+    services:
+      mysql:
+        # The version docker-compose already pins. Not `latest`, and not
+        # MariaDB: the collation this schema uses is 8.0-only, and the
+        # generated-column behaviour being proved is MySQL's.
+        image: mysql:8.0
+        env:
+          # Test-only, and only ever reachable from this job's own service
+          # container. Nothing here is a repository secret and nothing here
+          # touches a real database.
+          MYSQL_ROOT_PASSWORD: smsd_test
+          MYSQL_DATABASE: smsd_test
+        ports:
+          - 3306:3306
+        # The tests create and drop their own disposable databases, so the job
+        # must not start until the server genuinely answers. A fixed sleep is
+        # the usual way this becomes flaky on a slow runner.
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -psmsd_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # No config/config.yml is materialised here, and none is needed: these
+      # tests build their connection from the DSN below rather than from the
+      # loaded configuration.
+      #
+      # SMSD_REQUIRE_MYSQL_TESTS is the point of this step. Without it a missing
+      # or unusable database would answer with a green job full of skips - a
+      # proof that quietly stopped happening, which is exactly the failure this
+      # job exists to prevent. With it, that is a hard failure.
+      - name: Run the MySQL schema constraint tests
+        env:
+          SMSD_TEST_MYSQL_DSN: mysql+pymysql://root:smsd_test@127.0.0.1:3306
+          SMSD_REQUIRE_MYSQL_TESTS: '1'
+        run: |
+          python -m pytest \
+            backend/src/unit_test/test_person_main_constraint_mysql.py \
+            -q -rs
+
+      # Belt and braces. The flag above already turns a missing DSN into a
+      # collection error, but a future edit could reintroduce a skip some other
+      # way - a decorator, a marker, an environment check - and a skipped proof
+      # reads exactly like a passing one in the summary.
+      - name: Refuse a run that skipped anything
+        env:
+          SMSD_TEST_MYSQL_DSN: mysql+pymysql://root:smsd_test@127.0.0.1:3306
+          SMSD_REQUIRE_MYSQL_TESTS: '1'
+        run: |
+          set -euo pipefail
+          python -m pytest \
+            backend/src/unit_test/test_person_main_constraint_mysql.py \
+            -q -rs --no-header > /tmp/mysql-tests.txt 2>&1 || {
+              cat /tmp/mysql-tests.txt
+              exit 1
+            }
+          cat /tmp/mysql-tests.txt
+          if grep -qE '[0-9]+ skipped' /tmp/mysql-tests.txt; then
+            echo "FAIL: the MySQL schema tests skipped - they must actually run here"
+            exit 1
+          fi
+          grep -qE '[0-9]+ passed' /tmp/mysql-tests.txt || {
+            echo "FAIL: no tests ran"
+            exit 1
+          }
+
   frontend:
     name: Frontend build and tests
     runs-on: ubuntu-latest
