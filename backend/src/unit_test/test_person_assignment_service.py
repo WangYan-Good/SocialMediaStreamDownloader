@@ -17,6 +17,10 @@ from backend.src.platform.resource_resolution import (
   RESOURCE_TYPE_POST,
   ResourceResolution,
 )
+from backend.src.service.resource_resolve import (
+  ResolveStore,
+  ResourceResolveService,
+)
 from backend.src.service.person_assignment import (
   AccountAlreadyAttached,
   AssignmentUnavailable,
@@ -27,6 +31,7 @@ from backend.src.service.person_assignment import (
   PersonAssignmentError,
   PersonAssignmentResult,
   PersonAssignmentService,
+  PersonLookupUnavailable,
   PersonNotFound,
   ResolutionNotFound,
 )
@@ -139,13 +144,54 @@ class StubIdentityReader:
 
 class StubTable:
   def __init__(self, directory_name=None, failure=None, on_call=None,
-               result=None):
+               result=None, assignment=_DEFAULT, lookup_failure=None,
+               refresh_failure=None):
     self.directory_name = directory_name
     self.failure = failure
     self._on_call = on_call
     self._result = result
+    ##
+    ## ``None`` is the answer for an account this program never saw, so it
+    ## cannot double as "no argument given".
+    ##
+    self._assignment = None if assignment is _DEFAULT else assignment
+    self._lookup_failure = lookup_failure
+    self._refresh_failure = refresh_failure
     self.assignments = []
     self.directory_lookups = []
+    self.assignment_lookups = []
+    self.identity_refreshes = []
+    self.created_people = []
+    self.attachments = []
+
+  def get_account_assignment(self, owner_user_id, platform="douyin"):
+    if self._on_call is not None:
+      self._on_call()
+    self.assignment_lookups.append(owner_user_id)
+    if self._lookup_failure is not None:
+      raise self._lookup_failure
+    return None if self._assignment is None else dict(self._assignment)
+
+  def upsert_account_identity(self, owner_user_id, sec_user_id=None,
+                              nickname=None):
+    self.identity_refreshes.append((owner_user_id, sec_user_id, nickname))
+    if self._refresh_failure is not None:
+      raise self._refresh_failure
+
+  ##
+  ## Present only so a test can prove they were never reached.  An inspection
+  ## that created a person or attached an account would be a read endpoint
+  ## writing the very relationship the user has not confirmed yet.
+  ##
+  def create_person(self, display_name, note=None):
+    self.created_people.append((display_name, note))
+    return 99
+
+  def attach_account(self, platform, owner_user_id, person_id, role):
+    self.attachments.append((platform, owner_user_id, person_id, role))
+
+  def update_person(self, person_id, **fields):
+    raise AssertionError("an inspection must never rename anybody")
 
   def account_directory_name(self, owner_user_id, platform="douyin"):
     ##
@@ -1201,6 +1247,645 @@ class NoRealNetworkTest(unittest.TestCase):
     )
 
     self.assertIsNone(reader.from_resolution(owner_resolution()))
+
+
+##
+## >>============================= inspection =============================>>
+##
+##
+## Reading a receipt back as "who is this, and do we already have them" - the
+## question the page has to be able to ask *before* it offers a form.
+##
+## The trust boundary is exactly the assignment's: the account is named by the
+## receipt this server issued, and by nothing a client sends.  What differs is
+## that nothing here decides anything - the answer is a hint for the interface,
+## and the assignment transaction discovers ownership again under its own locks.
+##
+KNOWN_UNASSIGNED = {
+  "owner_user_id": "acc-9",
+  "sec_user_id": SEC_UID,
+  "nickname": "程儿",
+  "person_id": None,
+  "role": None,
+  "display_name": None,
+}
+
+KNOWN_ASSIGNED = {
+  "owner_user_id": "acc-9",
+  "sec_user_id": SEC_UID,
+  "nickname": "程儿",
+  "person_id": 12,
+  "role": "main",
+  "display_name": "程儿",
+}
+
+
+def inspect_request(**overrides):
+  request = {"resolve_id": RESOLVE_ID}
+  request.update(overrides)
+  return request
+
+
+class InspectionRequestTest(unittest.TestCase):
+  """What an inspection may be asked, which is one field.
+
+  The endpoint answers "does this server already know this account", and the
+  answer decides whether the user is offered a "create a new person" button.  A
+  client that could name the account would be choosing which account gets
+  checked - and could ask about one account while holding a receipt for
+  another.
+  """
+
+  def test_a_receipt_is_all_it_takes(self):
+    service, _ = build_service(
+      table=StubTable(assignment=None)
+    )
+
+    found = service.inspect(inspect_request())
+
+    self.assertEqual(found.owner_user_id, "acc-9")
+
+  def test_the_body_must_be_an_object(self):
+    service, _ = build_service()
+
+    with self.assertRaises(InvalidAssignment):
+      service.inspect(["receipt-1"])
+
+  def test_a_missing_receipt_is_refused(self):
+    service, _ = build_service()
+
+    with self.assertRaises(InvalidAssignment):
+      service.inspect({})
+
+  def test_a_blank_receipt_is_refused(self):
+    service, _ = build_service()
+
+    with self.assertRaises(InvalidAssignment):
+      service.inspect(inspect_request(resolve_id="   "))
+
+  def test_a_client_may_not_name_the_account(self):
+    """The whole point.  Accepting any of these would let a browser ask about
+    an owner this server never resolved - and then be told, authoritatively,
+    that it is free to create a person for it."""
+    for field, value in (
+      ("owner_user_id", "acc-1"),
+      ("sec_user_id", SEC_UID),
+      ("nickname", "程儿"),
+      ("resolved_url", OWNER_URL),
+    ):
+      service, table = build_service(table=StubTable(assignment=None))
+
+      with self.assertRaises(InvalidAssignment):
+        service.inspect(inspect_request(**{field: value}))
+
+      self.assertEqual(table.assignment_lookups, [])
+
+  def test_a_client_may_not_name_a_person_or_a_role(self):
+    """An inspection has no target.  A field for one would read as though the
+    answer depended on it, and the first caller to send it would be wrong."""
+    for field, value in (("person_id", 12), ("role", "main")):
+      service, _ = build_service(table=StubTable(assignment=None))
+
+      with self.assertRaises(InvalidAssignment):
+        service.inspect(inspect_request(**{field: value}))
+
+  def test_the_refused_field_is_named(self):
+    service, _ = build_service()
+
+    with self.assertRaises(InvalidAssignment) as caught:
+      service.inspect(inspect_request(owner_user_id="acc-1"))
+
+    self.assertIn("owner_user_id", str(caught.exception))
+
+  def test_a_field_error_is_decided_before_the_receipt_is_looked_up(self):
+    """A bad field is wrong whatever the receipt says, and answering "your
+    resolution expired" would send the user round a loop that cannot fix it."""
+    store = StubResolveService(resolutions={})
+    service, _ = build_service(resolve_service=store)
+
+    with self.assertRaises(InvalidAssignment):
+      service.inspect(inspect_request(owner_user_id="acc-1"))
+
+    self.assertEqual(store.asked, [])
+
+
+class InspectionStateTest(unittest.TestCase):
+  """Three answers, and the differences between them are the whole feature.
+
+  "Never seen" is the only one for which creating a person is the right offer.
+  "Seen, unfiled" is an account waiting to be filed - common, because a row
+  appears the first time anything is downloaded.  "Filed" needs no form at all.
+  """
+
+  def test_an_account_this_server_never_saw_is_reported_as_new(self):
+    service, table = build_service(table=StubTable(assignment=None))
+
+    found = service.inspect(inspect_request())
+
+    self.assertFalse(found.known_account)
+    self.assertIsNone(found.person_id)
+    self.assertIsNone(found.role)
+    self.assertEqual(table.assignment_lookups, ["acc-9"])
+
+  def test_a_known_account_nobody_filed_is_known_but_unassigned(self):
+    """Two facts, not one.  Telling the user "this person already exists"
+    because a download once created a ``share_url`` row would be false, and
+    would leave them with no way to file the account at all."""
+    service, _ = build_service(table=StubTable(assignment=KNOWN_UNASSIGNED))
+
+    found = service.inspect(inspect_request())
+
+    self.assertTrue(found.known_account)
+    self.assertIsNone(found.person_id)
+    self.assertIsNone(found.role)
+    self.assertIsNone(found.display_name)
+
+  def test_a_filed_account_reports_the_person_holding_it(self):
+    service, _ = build_service(table=StubTable(assignment=KNOWN_ASSIGNED))
+
+    found = service.inspect(inspect_request())
+
+    self.assertTrue(found.known_account)
+    self.assertEqual(found.person_id, 12)
+    self.assertEqual(found.display_name, "程儿")
+    self.assertEqual(found.role, "main")
+
+  def test_the_account_is_looked_up_by_the_id_the_platform_gave(self):
+    """Not by the nickname, which is neither unique nor stable, and not by
+    anything a client said."""
+    service, table = build_service(
+      table=StubTable(assignment=None),
+      reader=StubIdentityReader(
+        identity={
+          "owner_user_id": "acc-42",
+          "sec_user_id": SEC_UID,
+          "nickname": "程儿",
+        }
+      ),
+    )
+
+    service.inspect(inspect_request())
+
+    self.assertEqual(table.assignment_lookups, ["acc-42"])
+
+  def test_two_people_sharing_a_name_do_not_confuse_the_answer(self):
+    """The person comes from the account's own attachment.  Reaching for a name
+    match instead would hand somebody else's account to whichever "小明" the
+    query happened to return first."""
+    service, _ = build_service(
+      table=StubTable(
+        assignment={
+          "owner_user_id": "acc-9",
+          "sec_user_id": SEC_UID,
+          "nickname": "小明",
+          "person_id": 2,
+          "role": "alt",
+          "display_name": "小明",
+        }
+      )
+    )
+
+    found = service.inspect(inspect_request())
+
+    self.assertEqual(found.person_id, 2)
+
+  def test_a_renamed_account_shows_its_current_nickname(self):
+    """The account's nickname is whatever the platform says right now - that is
+    what makes it recognisable to the user who just pasted the link."""
+    service, _ = build_service(
+      table=StubTable(assignment=KNOWN_ASSIGNED),
+      reader=StubIdentityReader(
+        identity={
+          "owner_user_id": "acc-9",
+          "sec_user_id": SEC_UID,
+          "nickname": "程小程",
+        }
+      ),
+    )
+
+    found = service.inspect(inspect_request())
+
+    self.assertEqual(found.nickname, "程小程")
+
+  def test_a_renamed_account_does_not_rename_the_person(self):
+    """A name somebody typed is theirs.  Renaming is PATCH /api/person/<id>,
+    its own deliberate operation - and the stub raises if this is forgotten."""
+    service, table = build_service(
+      table=StubTable(assignment=KNOWN_ASSIGNED),
+      reader=StubIdentityReader(
+        identity={
+          "owner_user_id": "acc-9",
+          "sec_user_id": SEC_UID,
+          "nickname": "程小程",
+        }
+      ),
+    )
+
+    found = service.inspect(inspect_request())
+
+    self.assertEqual(found.display_name, "程儿")
+
+  def test_a_profile_link_is_inspected(self):
+    service, table = build_service(table=StubTable(assignment=KNOWN_ASSIGNED))
+
+    self.assertEqual(service.inspect(inspect_request()).person_id, 12)
+
+  def test_a_post_link_is_inspected(self):
+    """The user pastes whatever they had to hand, and a post names its author
+    just as well as a profile does."""
+    service, _ = build_service(
+      resolve_service=StubResolveService({RESOLVE_ID: post_resolution()}),
+      table=StubTable(assignment=KNOWN_ASSIGNED),
+    )
+
+    self.assertEqual(service.inspect(inspect_request()).person_id, 12)
+
+  def test_a_live_link_is_inspected(self):
+    service, _ = build_service(
+      resolve_service=StubResolveService({RESOLVE_ID: live_resolution()}),
+      table=StubTable(assignment=KNOWN_ASSIGNED),
+    )
+
+    self.assertEqual(service.inspect(inspect_request()).person_id, 12)
+
+
+class InspectionRefusalTest(unittest.TestCase):
+  """An inspection can fail in exactly the ways an assignment's first half can.
+
+  Deliberately the same errors, carrying the same statuses: the two read the
+  receipt and the platform through one implementation, so a link that cannot be
+  inspected cannot be assigned either, and the page is told why once.
+  """
+
+  def test_an_unknown_receipt_is_not_repaired(self):
+    service, _ = build_service(
+      resolve_service=StubResolveService(resolutions={})
+    )
+
+    with self.assertRaises(ResolutionNotFound):
+      service.inspect(inspect_request())
+
+  def test_an_unknown_receipt_answers_404(self):
+    service, _ = build_service(
+      resolve_service=StubResolveService(resolutions={})
+    )
+
+    with self.assertRaises(PersonAssignmentError) as caught:
+      service.inspect(inspect_request())
+
+    self.assertEqual(caught.exception.status_code, 404)
+    self.assertEqual(caught.exception.kind, "resolution_not_found")
+
+  def test_a_link_naming_nobody_is_refused(self):
+    service, table = build_service(
+      table=StubTable(assignment=None),
+      reader=StubIdentityReader(identity=None),
+    )
+
+    with self.assertRaises(OwnerIdentityUnavailable):
+      service.inspect(inspect_request())
+
+    self.assertEqual(table.assignment_lookups, [])
+
+  def test_a_platform_failure_is_refused_rather_than_guessed(self):
+    """"We could not read the link" must not arrive as "this account is new" -
+    the second sentence is an invitation to create a duplicate person."""
+    service, _ = build_service(
+      table=StubTable(assignment=None),
+      reader=StubIdentityReader(failure=RuntimeError("douyin said no")),
+    )
+
+    with self.assertRaises(OwnerIdentityUnavailable) as caught:
+      service.inspect(inspect_request())
+
+    self.assertEqual(caught.exception.status_code, 400)
+
+  def test_a_blank_account_id_is_refused(self):
+    service, _ = build_service(
+      table=StubTable(assignment=None),
+      reader=StubIdentityReader(
+        identity={"owner_user_id": "  ", "sec_user_id": None, "nickname": None}
+      ),
+    )
+
+    with self.assertRaises(OwnerIdentityUnavailable):
+      service.inspect(inspect_request())
+
+
+class InspectionReceiptTest(unittest.TestCase):
+  """The receipt survives being looked at.
+
+  Reading is not acting.  An inspection happens on the way to an assignment -
+  always, now, because the page runs one automatically - so a consuming read
+  would mean every user's first click reported "your resolution expired".
+  """
+
+  def build_store(self):
+    store = ResourceResolveService(store=ResolveStore())
+    return store, store._store.put(owner_resolution())
+
+  def test_the_receipt_still_works_afterwards(self):
+    store, resolve_id = self.build_store()
+    service, _ = build_service(
+      resolve_service=store, table=StubTable(assignment=None)
+    )
+
+    service.inspect({"resolve_id": resolve_id})
+
+    self.assertIsNotNone(store.get(resolve_id))
+
+  def test_an_assignment_can_still_redeem_it(self):
+    """The sequence the page actually performs: resolve, inspect, submit."""
+    store, resolve_id = self.build_store()
+    service, _ = build_service(
+      resolve_service=store, table=StubTable(assignment=None)
+    )
+
+    service.inspect({"resolve_id": resolve_id})
+    result = service.assign({
+      "resolve_id": resolve_id,
+      "target": {"kind": "new", "display_name": "程儿"},
+      "role": "alt",
+    })
+
+    self.assertEqual(result.owner_user_id, "acc-9")
+
+  def test_inspecting_twice_answers_twice(self):
+    store, resolve_id = self.build_store()
+    service, _ = build_service(
+      resolve_service=store, table=StubTable(assignment=KNOWN_ASSIGNED)
+    )
+
+    service.inspect({"resolve_id": resolve_id})
+
+    self.assertEqual(service.inspect({"resolve_id": resolve_id}).person_id, 12)
+
+  def test_no_second_receipt_is_issued(self):
+    """An inspection is not a resolve.  Handing back a fresh id would leave the
+    page holding two receipts for one link and no rule about which to submit."""
+    store, resolve_id = self.build_store()
+    service, _ = build_service(
+      resolve_service=store, table=StubTable(assignment=None)
+    )
+
+    service.inspect({"resolve_id": resolve_id})
+
+    self.assertEqual(store._store.tracked(), 1)
+
+  def test_the_receipt_is_read_rather_than_the_link_followed_again(self):
+    """The identity is read from the resolution this server stored, url and
+    verdict included.  Following ``source_url`` again would repeat the request
+    and the decision, in a place with none of the resolver's checks - and could
+    legitimately name a different resource minutes later."""
+    reader = StubIdentityReader()
+    service, _ = build_service(table=StubTable(assignment=None), reader=reader)
+
+    service.inspect(inspect_request())
+
+    self.assertEqual(len(reader.resolutions), 1)
+    self.assertEqual(reader.resolutions[0].resolved_url, OWNER_URL)
+
+
+class InspectionIdentityRefreshTest(unittest.TestCase):
+  """A nickname may be brought up to date without anybody being re-filed.
+
+  Before this, the only way to refresh a stored nickname was to run the
+  assignment again - which meant clicking "confirm" on a screen that had just
+  said the account was already added.  So the refresh happens here, and it
+  touches identity columns only.
+  """
+
+  def test_a_known_account_has_its_identity_refreshed(self):
+    service, table = build_service(
+      table=StubTable(assignment=KNOWN_ASSIGNED),
+      reader=StubIdentityReader(
+        identity={
+          "owner_user_id": "acc-9",
+          "sec_user_id": SEC_UID,
+          "nickname": "程小程",
+        }
+      ),
+    )
+
+    service.inspect(inspect_request())
+
+    self.assertEqual(table.identity_refreshes, [("acc-9", SEC_UID, "程小程")])
+
+  def test_a_known_unfiled_account_is_refreshed_too(self):
+    service, table = build_service(table=StubTable(assignment=KNOWN_UNASSIGNED))
+
+    service.inspect(inspect_request())
+
+    self.assertEqual(len(table.identity_refreshes), 1)
+
+  def test_an_unknown_account_is_not_written_into_existence(self):
+    """The decisive one.  An upsert here would create the ``share_url`` row this
+    lookup just failed to find, so the next inspection of the same link would
+    report a known account - a read that changes its own answer, and one that
+    files an account somebody merely pasted."""
+    service, table = build_service(table=StubTable(assignment=None))
+
+    found = service.inspect(inspect_request())
+
+    self.assertFalse(found.known_account)
+    self.assertEqual(table.identity_refreshes, [])
+
+  def test_a_refusal_to_write_does_not_lose_the_answer(self):
+    """The lookup succeeded; only the courtesy write failed.  Reporting that as
+    a failed inspection would block the page for a reason that has nothing to
+    do with what it asked."""
+    service, table = build_service(
+      table=StubTable(
+        assignment=KNOWN_ASSIGNED,
+        refresh_failure=DatabaseWriteBlocked("schema not ready"),
+      )
+    )
+
+    found = service.inspect(inspect_request())
+
+    self.assertEqual(found.person_id, 12)
+    self.assertEqual(len(table.identity_refreshes), 1)
+
+  def test_an_unexpected_write_failure_does_not_lose_the_answer_either(self):
+    service, _ = build_service(
+      table=StubTable(
+        assignment=KNOWN_ASSIGNED, refresh_failure=RuntimeError("gone")
+      )
+    )
+
+    self.assertEqual(service.inspect(inspect_request()).person_id, 12)
+
+
+class InspectionLookupUnavailableTest(unittest.TestCase):
+  """"We could not ask" must never arrive as "this account is new".
+
+  The two sentences lead to opposite actions.  The second one tells the user to
+  create a person, and if the account was in fact already filed, that is a
+  duplicate person created by an outage - the exact thing this whole feature
+  exists to prevent.
+  """
+
+  def test_a_database_failure_is_reported_rather_than_answered(self):
+    service, _ = build_service(
+      table=StubTable(lookup_failure=RuntimeError("connection refused"))
+    )
+
+    with self.assertRaises(PersonLookupUnavailable):
+      service.inspect(inspect_request())
+
+  def test_it_answers_503_because_no_request_could_fix_it(self):
+    service, _ = build_service(
+      table=StubTable(lookup_failure=RuntimeError("connection refused"))
+    )
+
+    with self.assertRaises(PersonAssignmentError) as caught:
+      service.inspect(inspect_request())
+
+    self.assertEqual(caught.exception.status_code, 503)
+    self.assertEqual(caught.exception.kind, "person_lookup_unavailable")
+
+  def test_it_never_degrades_into_an_unknown_account(self):
+    service, _ = build_service(
+      table=StubTable(lookup_failure=RuntimeError("connection refused"))
+    )
+
+    with self.assertRaises(PersonAssignmentError) as caught:
+      service.inspect(inspect_request())
+
+    self.assertNotEqual(caught.exception.kind, "account_not_known")
+
+  def test_the_database_message_does_not_reach_the_browser(self):
+    """It carries hosts, users and sql.  The log gets it; the page gets a
+    sentence about what to do."""
+    service, _ = build_service(
+      table=StubTable(
+        lookup_failure=RuntimeError("Access denied for 'smsd'@'10.0.0.4'")
+      )
+    )
+
+    with self.assertRaises(PersonLookupUnavailable) as caught:
+      service.inspect(inspect_request())
+
+    self.assertNotIn("10.0.0.4", str(caught.exception))
+    self.assertNotIn("Access denied", str(caught.exception))
+
+
+class InspectionWritesNothingTest(unittest.TestCase):
+  """An inspection is a hint for the interface, not an authorisation.
+
+  Nothing about who holds what may change on the way to answering it, and
+  nothing it says may be carried into the write: the assignment transaction
+  discovers ownership again, under its own locks, and refuses on what it finds
+  there.
+  """
+
+  def test_no_person_is_created(self):
+    service, table = build_service(table=StubTable(assignment=None))
+
+    service.inspect(inspect_request())
+
+    self.assertEqual(table.created_people, [])
+
+  def test_no_account_is_attached(self):
+    service, table = build_service(table=StubTable(assignment=KNOWN_UNASSIGNED))
+
+    service.inspect(inspect_request())
+
+    self.assertEqual(table.attachments, [])
+
+  def test_no_assignment_transaction_is_run(self):
+    service, table = build_service(table=StubTable(assignment=KNOWN_ASSIGNED))
+
+    service.inspect(inspect_request())
+
+    self.assertEqual(table.assignments, [])
+
+  def test_a_filed_account_is_not_quietly_refiled(self):
+    """Not even to the person it already belongs to.  "Already added" is a
+    thing to report, not a thing to do again."""
+    service, table = build_service(table=StubTable(assignment=KNOWN_ASSIGNED))
+
+    service.inspect(inspect_request())
+
+    self.assertEqual(table.assignments, [])
+    self.assertEqual(table.attachments, [])
+
+
+class InspectionIsNotWriteAuthorityTest(unittest.TestCase):
+  """What the inspection saw has no standing once the write begins.
+
+  The gap between the two is a user reading a screen, which is unbounded.  So
+  every rule is re-decided in the transaction, and an inspection that said
+  "nobody holds this" cannot become permission to take it from somebody who
+  does.
+  """
+
+  def test_an_account_filed_after_the_inspection_still_refuses_the_write(self):
+    """The race the page cannot avoid: inspected as unfiled, filed by somebody
+    else while the user was choosing, then submitted."""
+    table = StubTable(assignment=None)
+    service, _ = build_service(table=table)
+
+    found = service.inspect(inspect_request())
+    self.assertFalse(found.known_account)
+
+    table.failure = AccountAttachedElsewhere(7, "别人")
+    with self.assertRaises(AccountAlreadyAttached):
+      service.assign(existing_request())
+
+  def test_the_write_is_never_sent_with_the_move_already_agreed(self):
+    """An inspection naming the current holder is information, not consent.
+    Filling ``allow_move`` in on the strength of it would take an account away
+    from somebody on the basis of a screen the user only read."""
+    table = StubTable(assignment=KNOWN_ASSIGNED)
+    service, _ = build_service(table=table)
+
+    service.inspect(inspect_request())
+    service.assign(existing_request())
+
+    self.assertFalse(table.assignments[0]["allow_move"])
+
+  def test_a_second_inspection_reports_the_state_of_the_moment(self):
+    """Nothing is remembered between calls.
+
+    An account can change hands while a screen sits open, so an inspection is
+    true of the instant it was taken and of nothing else.  Answering the second
+    question from the first answer would show the user a holder who let go of
+    the account minutes ago.
+    """
+    table = StubTable(assignment=KNOWN_ASSIGNED)
+    service, _ = build_service(table=table)
+    self.assertEqual(service.inspect(inspect_request()).person_id, 12)
+
+    moved = dict(KNOWN_ASSIGNED)
+    moved.update({"person_id": 20, "display_name": "别人", "role": "alt"})
+    table._assignment = moved
+
+    found = service.inspect(inspect_request())
+
+    self.assertEqual(found.person_id, 20)
+    self.assertEqual(found.role, "alt")
+
+  def test_every_inspection_asks_the_database_again(self):
+    table = StubTable(assignment=KNOWN_ASSIGNED)
+    service, _ = build_service(table=table)
+
+    service.inspect(inspect_request())
+    service.inspect(inspect_request())
+
+    self.assertEqual(table.assignment_lookups, ["acc-9", "acc-9"])
+
+  def test_the_person_written_to_is_the_one_the_request_names(self):
+    """Never the one the inspection found.  The user may well be moving the
+    account, and silently writing it back where it already was would carry out
+    the opposite of what they asked."""
+    table = StubTable(assignment=KNOWN_ASSIGNED)
+    service, _ = build_service(table=table)
+
+    service.inspect(inspect_request())
+    service.assign(existing_request())
+
+    self.assertEqual(table.assignments[0]["person_id"], 12)
 
 
 if __name__ == "__main__":

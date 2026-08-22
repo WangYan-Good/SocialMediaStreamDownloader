@@ -1278,5 +1278,265 @@ class AssignmentWiringTest(unittest.TestCase):
 
 
 
+##
+## >>============================= existing identity =============================>>
+##
+class InspectRouteTestCase(RouteTestCase):
+  """Shared wiring, and no tests of its own.
+
+  Split out rather than subclassed from a test class: inheriting one re-runs
+  every test it holds under a second name, which reports the same failure twice
+  and makes the suite's count meaningless.
+  """
+
+  class StubService:
+    def __init__(self, result=None, failure=None):
+      self._result = result
+      self._failure = failure
+      self.requests = []
+
+    def inspect(self, request):
+      self.requests.append(request)
+      if self._failure is not None:
+        raise self._failure
+      return self._result
+
+  def inspection(self, **overrides):
+    from backend.src.service.person_assignment import PersonIdentityInspection
+
+    fields = {
+      "owner_user_id": "acc-9",
+      "sec_user_id": "MS4wLjABAAAA",
+      "nickname": "程儿",
+      "known_account": True,
+      "person_id": 12,
+      "display_name": "程儿",
+      "role": "main",
+    }
+    fields.update(overrides)
+    return PersonIdentityInspection(**fields)
+
+  def build_inspect_client(self, service=None):
+    service = service if service is not None else self.StubService(
+      result=self.inspection()
+    )
+    runtime = PersonRuntime(table_factory=lambda: StubTable())
+    runtime.assignment_service = lambda: service
+    app = Flask(__name__)
+    app.register_blueprint(build_person_blueprint(runtime))
+    return app.test_client(), service
+
+
+class InspectRouteTest(InspectRouteTestCase):
+  """Ask what a receipt names before offering to file it anywhere.
+
+  The route does http and nothing else - reading the body, mapping a refusal to
+  a status, serialising an answer.  What the link names and whether this server
+  already holds it are the service's business, where they can be tested without
+  a request context.
+  """
+
+  def test_a_filed_account_reports_the_person_holding_it(self):
+    client, _ = self.build_inspect_client()
+
+    response = self.post(client, "/api/person/inspect", {
+      "resolve_id": "receipt-1",
+    })
+
+    self.assertEqual(response.status_code, 200)
+    self.assertEqual(self.body(response)["data"], {
+      "owner": {
+        "owner_user_id": "acc-9",
+        "sec_user_id": "MS4wLjABAAAA",
+        "nickname": "程儿",
+      },
+      "known_account": True,
+      "assignment": {
+        "person_id": 12,
+        "display_name": "程儿",
+        "role": "main",
+      },
+    })
+
+  def test_a_known_account_nobody_filed_carries_no_assignment(self):
+    client, _ = self.build_inspect_client(
+      self.StubService(
+        result=self.inspection(person_id=None, display_name=None, role=None)
+      )
+    )
+
+    response = self.post(client, "/api/person/inspect", {
+      "resolve_id": "receipt-1",
+    })
+
+    data = self.body(response)["data"]
+    self.assertTrue(data["known_account"])
+    self.assertIsNone(data["assignment"])
+
+  def test_an_account_this_server_never_saw_is_reported_as_new(self):
+    client, _ = self.build_inspect_client(
+      self.StubService(
+        result=self.inspection(
+          known_account=False, person_id=None, display_name=None, role=None
+        )
+      )
+    )
+
+    data = self.body(
+      self.post(client, "/api/person/inspect", {"resolve_id": "receipt-1"})
+    )["data"]
+
+    self.assertFalse(data["known_account"])
+    self.assertIsNone(data["assignment"])
+    self.assertEqual(data["owner"]["owner_user_id"], "acc-9")
+
+  def test_an_account_that_already_exists_is_not_an_error(self):
+    """The product decision, stated as a test.  The user is looking, not
+    writing, and "you already have this" is the answer they asked for - a 409
+    would make the page treat a successful check as a failure."""
+    client, _ = self.build_inspect_client()
+
+    response = self.post(client, "/api/person/inspect", {
+      "resolve_id": "receipt-1",
+    })
+
+    self.assertEqual(response.status_code, 200)
+    self.assertEqual(self.body(response)["status"], "success")
+
+  def test_the_whole_body_reaches_the_service_unedited(self):
+    """Validating it twice, in two places, is how the two come to disagree -
+    and the field list is the trust boundary here."""
+    client, service = self.build_inspect_client()
+    body = {"resolve_id": "receipt-1"}
+
+    self.post(client, "/api/person/inspect", body)
+
+    self.assertEqual(service.requests, [body])
+
+  def test_a_client_naming_the_account_is_passed_on_to_be_refused(self):
+    """The route does not strip it.  Silently dropping a field a client sent
+    would answer as though the request had said something else."""
+    client, service = self.build_inspect_client()
+
+    self.post(client, "/api/person/inspect", {
+      "resolve_id": "receipt-1",
+      "owner_user_id": "acc-1",
+    })
+
+    self.assertEqual(service.requests[0].get("owner_user_id"), "acc-1")
+
+  def test_nothing_about_folders_or_urls_is_returned(self):
+    """A folder is the download paths' business and a resolved url can carry a
+    signature.  Neither is needed to say "you have already added this"."""
+    client, _ = self.build_inspect_client()
+
+    payload = response = self.post(
+      client, "/api/person/inspect", {"resolve_id": "receipt-1"}
+    )
+
+    text = payload.data.decode("utf-8")
+    for leak in ("directory_name", "resolved_url", "source_url", "save_dir"):
+      self.assertNotIn(leak, text)
+
+  def test_a_body_that_is_not_json_is_refused(self):
+    client, service = self.build_inspect_client()
+
+    response = client.post("/api/person/inspect", data="resolve_id=1")
+
+    self.assertEqual(response.status_code, 400)
+    self.assertEqual(service.requests, [])
+
+  def test_a_body_that_is_not_an_object_is_refused(self):
+    client, service = self.build_inspect_client()
+
+    response = client.post(
+      "/api/person/inspect",
+      data=json.dumps(["receipt-1"]),
+      content_type="application/json",
+    )
+
+    self.assertEqual(response.status_code, 400)
+    self.assertEqual(service.requests, [])
+
+  def test_an_unwired_service_answers_that_it_is_unavailable(self):
+    runtime = PersonRuntime(table_factory=lambda: StubTable())
+    runtime.assignment_service = lambda: None
+    app = Flask(__name__)
+    app.register_blueprint(build_person_blueprint(runtime))
+
+    response = self.post(app.test_client(), "/api/person/inspect", {
+      "resolve_id": "receipt-1",
+    })
+
+    self.assertEqual(response.status_code, 503)
+
+  def test_the_route_is_registered(self):
+    runtime = PersonRuntime(table_factory=lambda: StubTable())
+    app = Flask(__name__)
+    app.register_blueprint(build_person_blueprint(runtime))
+
+    routes = {str(rule) for rule in app.url_map.iter_rules()}
+
+    self.assertIn("/api/person/inspect", routes)
+
+
+class InspectRefusalRouteTest(InspectRouteTestCase):
+  """Each refusal answers with the status it carries, never one derived here."""
+
+  def refuse_with(self, failure):
+    client, _ = self.build_inspect_client(self.StubService(failure=failure))
+    return self.post(client, "/api/person/inspect", {
+      "resolve_id": "receipt-1",
+    })
+
+  def test_a_bad_field_is_a_field_error(self):
+    from backend.src.service.person_assignment import InvalidAssignment
+
+    response = self.refuse_with(InvalidAssignment("不支持的字段: owner_user_id"))
+
+    self.assertEqual(response.status_code, 400)
+    self.assertEqual(self.body(response)["kind"], "invalid_assignment")
+
+  def test_an_expired_receipt_answers_404(self):
+    from backend.src.service.person_assignment import ResolutionNotFound
+
+    response = self.refuse_with(ResolutionNotFound("过期了"))
+
+    self.assertEqual(response.status_code, 404)
+    self.assertEqual(self.body(response)["kind"], "resolution_not_found")
+
+  def test_a_link_naming_nobody_answers_400(self):
+    from backend.src.service.person_assignment import OwnerIdentityUnavailable
+
+    response = self.refuse_with(OwnerIdentityUnavailable("读不到"))
+
+    self.assertEqual(response.status_code, 400)
+    self.assertEqual(self.body(response)["kind"], "owner_identity_unavailable")
+
+  def test_an_unreadable_database_answers_503_rather_than_new(self):
+    """The one that matters.  Answering "unknown account" during an outage is
+    an invitation to create a duplicate person for every link pasted."""
+    from backend.src.service.person_assignment import PersonLookupUnavailable
+
+    response = self.refuse_with(PersonLookupUnavailable("查不了"))
+
+    self.assertEqual(response.status_code, 503)
+    self.assertEqual(self.body(response)["kind"], "person_lookup_unavailable")
+    self.assertNotIn("known_account", self.body(response))
+
+  def test_an_unexpected_failure_is_answered_without_its_message(self):
+    """Its text carries paths and internals that belong in the log."""
+    client, _ = self.build_inspect_client(
+      self.StubService(failure=RuntimeError("/srv/smsd/config.yaml missing"))
+    )
+
+    response = self.post(client, "/api/person/inspect", {
+      "resolve_id": "receipt-1",
+    })
+
+    self.assertEqual(response.status_code, 500)
+    self.assertNotIn("config.yaml", response.data.decode("utf-8"))
+
+
 if __name__ == "__main__":
   unittest.main()

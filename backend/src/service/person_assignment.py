@@ -13,6 +13,7 @@ from backend.src.database.orm.models.person import (
 ##
 PLATFORM = "douyin"
 from backend.src.database.schema_guard import DatabaseWriteBlocked
+from backend.src.library.loglib import get_logger
 from backend.src.database.table.person_identity import (
   AccountAttachedElsewhere,
   AssignmentRaced,
@@ -225,6 +226,23 @@ class AccountNotAttached(PersonAssignmentError):
   status_code = 404
 
 
+class PersonLookupUnavailable(PersonAssignmentError):
+  """Who holds this account could not be read at all.
+
+  503, and deliberately its own refusal rather than an answer.  "This account is
+  unknown" is what the page turns into an invitation to create a person, so an
+  outage reported that way would produce a duplicate person for every account
+  pasted during it - and duplicates of exactly the kind nothing downstream can
+  tell apart afterwards.
+
+  The distinction the whole endpoint rests on: not knowing is not the same as
+  there being nothing to know.
+  """
+
+  kind = "person_lookup_unavailable"
+  status_code = 503
+
+
 class AssignmentUnavailable(PersonAssignmentError):
   """Nothing here can be written at the moment - the schema guard says so.
 
@@ -255,6 +273,34 @@ class PersonAssignmentResult:
   role: str
   created_person: bool
   display_name: str
+
+
+@dataclass(frozen=True)
+class PersonIdentityInspection:
+  """What one link turns out to be, and whether this server already has it.
+
+  Three fields answer the question the page asks, and they are deliberately
+  three rather than one: ``known_account`` says whether this program has ever
+  heard of the account, and ``person_id`` says whether anybody has filed it.
+  Collapsing them would lose the commonest case of all - an account downloaded
+  months ago that nobody has yet put under a person.
+
+  The identity is what the platform says right now, so the user recognises the
+  account they just pasted.  ``display_name`` is what the *person* is called,
+  which is a name somebody typed and is not updated to follow a nickname.
+
+  Nothing here describes a folder, a url or a row id beyond the person's own.
+  A directory is the download paths' business and a resolved url can carry a
+  signature; neither is needed to say "you have already added this".
+  """
+
+  owner_user_id: str
+  sec_user_id: str
+  nickname: str
+  known_account: bool
+  person_id: int
+  display_name: str
+  role: str
 
 
 ##
@@ -466,6 +512,37 @@ def _validated_request(request) -> dict:
     "display_name": target["display_name"],
     "note": target["note"],
   }
+
+
+##
+## The whole of what an inspection may say, which is one field.
+##
+## Shorter than the assignment's list and for a stronger reason.  An inspection
+## answers "does this server already hold this account", and the page turns
+## "no" into an invitation to create a person - so a client able to name the
+## account would be choosing which account gets checked, and could ask about one
+## while holding a receipt for another.  There is no target either: an
+## inspection has nothing to write to, and a field for one would read as though
+## the answer depended on it.
+##
+_INSPECT_REQUEST_FIELDS = ("resolve_id",)
+
+
+def _validated_inspect_request(request) -> str:
+  """Read one inspection request down to the receipt it names.
+
+  Every refusal is a field error decided before the receipt is looked up: an
+  unsupported field is wrong whatever the receipt says, and answering "your
+  resolution expired" would send the user round a loop that cannot fix it.
+  """
+  if not isinstance(request, dict):
+    raise InvalidAssignment("请求体必须是对象")
+
+  unknown = _unknown(request, _INSPECT_REQUEST_FIELDS)
+  if unknown:
+    raise InvalidAssignment("不支持的字段: {}".format(", ".join(unknown)))
+
+  return _text(request.get("resolve_id"), "resolve_id")
 
 
 ##
@@ -720,6 +797,105 @@ class PersonAssignmentService:
       ) from e
     except DatabaseWriteBlocked as e:
       raise AssignmentUnavailable("人物写入暂时不可用，请稍后重试") from e
+
+  def inspect(self, request) -> PersonIdentityInspection:
+    """Say who a receipt names, and whether this server already holds them.
+
+    Read-oriented, and the answer is a hint for the interface rather than an
+    authorisation.  It exists because the only thing that used to notice a
+    duplicate was the assignment transaction, which meant the user filled in a
+    form, named a person and pressed confirm before being told the account had
+    been there all along.
+
+    Two guarantees make it safe to act on in a browser and safe to ignore in a
+    transaction.
+
+    It shares ``_resolution`` and ``_identity`` with the assignment, so the two
+    cannot come to disagree about who a link names: if an inspection says this
+    is account 100, the assignment made from the same receipt attaches account
+    100.
+
+    And it decides nothing.  Nothing it reports is carried into the write - the
+    assignment discovers ownership again, under its own locks, and refuses on
+    what it finds there.  So an inspection that said "nobody holds this" cannot
+    become permission to take it from somebody who does, however long the user
+    spent reading the screen in between.
+
+    The receipt is left intact.  The store is a TTL store rather than a
+    consume-once one, deliberately, and this is now the first thing every
+    assignment does - a consuming read here would report "your resolution
+    expired" on every user's first click.
+    """
+    resolve_id = _validated_inspect_request(request)
+    resolution = self._resolution(resolve_id)
+    identity = self._identity(resolution)
+
+    table = self._table_factory()
+    try:
+      found = table.get_account_assignment(identity["owner_user_id"])
+    except Exception as e:
+      ##
+      ## Logged in full, answered as an outage.  Reporting it as "unknown
+      ## account" would be a lie that reads as an invitation: the page offers to
+      ## create a person for exactly that answer.
+      ##
+      get_logger().error(
+        "person lookup for an inspection failed: {}: {}".format(
+          type(e).__name__, e
+        )
+      )
+      raise PersonLookupUnavailable(
+        "暂时无法确认该账号的归属，请稍后重试"
+      ) from e
+
+    if found is not None:
+      self._refresh_identity(table, identity)
+
+    return PersonIdentityInspection(
+      owner_user_id=identity["owner_user_id"],
+      sec_user_id=identity.get("sec_user_id"),
+      ##
+      ## The platform's current nickname, not the stored one.  It is what the
+      ## user is looking at in the app they copied the link from.
+      ##
+      nickname=identity.get("nickname"),
+      known_account=found is not None,
+      person_id=None if found is None else found.get("person_id"),
+      ##
+      ## The *person's* name, which is a name somebody typed.  It is left alone
+      ## when the account renames itself: "账号：程小程 / 人物：程儿" is the
+      ## honest reading of a streamer who changed their handle.
+      ##
+      display_name=None if found is None else found.get("display_name"),
+      role=None if found is None else found.get("role"),
+    )
+
+  def _refresh_identity(self, table, identity: dict) -> None:
+    """Bring a known account's stored nickname and sec id up to date.
+
+    Only for an account that already has a row.  An upsert for one that does not
+    would create the very row the lookup just failed to find, so the next
+    inspection of the same link would report a known account - a read that
+    changes its own answer, and one that files an account somebody merely
+    pasted into a box.
+
+    Identity columns only, and best effort.  The lookup is what was asked for;
+    a courtesy write failing is no reason to refuse an answer that is already
+    correct, so it is logged and stepped over.  Nothing here touches
+    ``person_account`` - who holds an account is not a thing a read may decide.
+    """
+    try:
+      table.upsert_account_identity(
+        identity["owner_user_id"],
+        sec_user_id=identity.get("sec_user_id"),
+        nickname=identity.get("nickname"),
+      )
+    except Exception as e:
+      get_logger().info(
+        "identity refresh during an inspection was skipped: {}".format(
+          type(e).__name__
+        )
+      )
 
   def assign(self, request) -> PersonAssignmentResult:
     """Attach the account a receipt names to a person, new or existing.
