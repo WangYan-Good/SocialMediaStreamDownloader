@@ -97,11 +97,11 @@ class MigrationService:
     commands=command,
     current_revision_reader: Callable[[Any], str | tuple[str, ...] | None] | None = None,
   ):
-    self.config = config
-    self.database_name = database_name
-    self.engine_factory = engine_factory
-    self.compare_schema = compare_schema
-    self.commands = commands
+    self.config                  = config
+    self.database_name           = database_name
+    self.engine_factory          = engine_factory
+    self.compare_schema          = compare_schema
+    self.commands                = commands
     self.current_revision_reader = current_revision_reader
 
   def _new_engine(self):

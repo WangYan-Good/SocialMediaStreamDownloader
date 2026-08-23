@@ -45,19 +45,45 @@ from backend.src.web.task_routes import (
   install_task_service,
 )
 
+##
+## Parse the field "server" configuraton
+##
 def _server_options(config: dict) -> dict:
+  ##
+  ## "$.server"
+  ##
   server = config.get("server")
   if not isinstance(server, dict):
     raise ValueError("$.server must be a mapping")
+  
+  ##
+  ## "$.server.host"
+  ##
   host = server.get("host")
+  
+  ##
+  ## "$.server.port"
+  ##
   port = server.get("port")
+  
+  ##
+  ## "$.server.debug_mode"
+  ##
   debug_mode = server.get("debug_mode")
+  
+  ##
+  ## check if is valid for those fields above
+  ##
   if not isinstance(host, str) or not host.strip():
     raise ValueError("$.server.host must be a non-empty string")
   if type(port) is not int or not 1 <= port <= 65535:
     raise ValueError("$.server.port must be an integer from 1 to 65535")
   if type(debug_mode) is not bool:
     raise ValueError("$.server.debug_mode must be a boolean")
+  
+  ##
+  ## valid return
+  ##
   return {"host": host, "port": port, "debug": debug_mode}
 
 
@@ -84,12 +110,13 @@ def _new_flask_app(
     with initialization_lock:
       if runtime["initialized"]:
         return
-      source = load_config()
-      options = _server_options(source)
+      source                                         = load_config()
+      options                                        = _server_options(source)
       LoggerManager(source["log"])
-      schema_guard = schema_guard_factory(source)
-      configured_app.debug = options["debug"]
+      schema_guard                                   = schema_guard_factory(source)
+      configured_app.debug                           = options["debug"]
       configured_app.extensions["smsd_schema_guard"] = schema_guard
+
       ##
       ## Reduced to the publishable fields here, at the moment this application
       ## first learns its configuration.  What it stores is already safe, so the
@@ -229,14 +256,26 @@ def create_app(
   config: dict = None,
   schema_guard_factory=initialize_schema_guard,
 ):
-  source = load_config() if config is None else config
+  ##
+  ## load configuration and parse the field "server" segment from source.
+  ##
+  source  = load_config() if config is None else config
   options = _server_options(source)
+  
+  ##
+  ## initialize logger
+  ##
   LoggerManager(source["log"])
+  
+  ##
+  ## initialize DB schema guard
+  ##
   schema_guard = schema_guard_factory(source)
   configured_app = _new_flask_app(
     initial_schema_guard=schema_guard,
   )
   configured_app.debug = options["debug"]
+
   ##
   ## The same reduction for an application built around an explicit
   ## configuration.  Without this an application created here would report the
@@ -245,21 +284,43 @@ def create_app(
   install_system_config(configured_app, source)
   return configured_app
 
-
+##
+## Backend entry point
+##
 def run_server(config: dict = None):
-  source = load_config() if config is None else config
-  options = _server_options(source)
-  configured_app = create_app(source)
+  ##
+  ## load configuration
+  ##
+  source                 = load_config() if config is None else config
+  
+  ##
+  ## parse field "server" segment form source
+  ##
+  options                = _server_options(source)
+  
+  ##
+  ## create app, service entry point
+  ##
+  configured_app         = create_app(source)
   cancellation_requested = False
-  previous_handlers = {}
-  installed_signals = []
+  previous_handlers      = {}
+  installed_signals      = []
 
+  ##
+  ## core execute func
+  ##
   def cancel_once():
+    ##
+    ## use non local variable
+    ##
     nonlocal cancellation_requested
     if cancellation_requested:
       return
     cancellation_requested = True
     try:
+      ##
+      ## cancel live download
+      ##
       cancel_live_downloads()
     except BaseException:
       try:
@@ -284,15 +345,33 @@ def run_server(config: dict = None):
     raise SystemExit(128 + signum)
 
   try:
+    ##
+    ## SIGINT: Ctrl + C
+    ## SIGTERM: system/docker require process exit
+    ##
     for signum in (signal.SIGINT, signal.SIGTERM):
+      ##
+      ## signal will return old handler and register handle_shutdown with signum
+      ##
       previous_handlers[signum] = signal.signal(signum, handle_shutdown)
       installed_signals.append(signum)
+    
+    ##
+    ## run app with server config
+    ##
     configured_app.run(**options)
   finally:
     try:
+      ##
+      ## cancel all download task
+      ## live & aweme
+      ##
       cancel_once()
     finally:
       for signum in reversed(installed_signals):
+        ##
+        ## restore old handler
+        ##
         signal.signal(signum, previous_handlers[signum])
 
 if __name__ == '__main__':

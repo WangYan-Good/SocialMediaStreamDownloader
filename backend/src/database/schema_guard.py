@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from enum import Enum
-from threading import Lock
+from enum        import Enum
+from threading   import Lock
 import time
 
 from backend.src.database.migration_service import (
@@ -11,10 +11,10 @@ from backend.src.database.migration_service import (
 
 
 class SchemaState(str, Enum):
-  READY = "ready"
+  READY       = "ready"
   UNAVAILABLE = "unavailable"
-  BLOCKED = "blocked"
-  DISABLED = "disabled"
+  BLOCKED     = "blocked"
+  DISABLED    = "disabled"
 
 
 @dataclass(frozen=True)
@@ -41,12 +41,35 @@ class DatabaseSchemaGuard:
     retry_seconds: float = 30.0,
     disabled: bool = False,
   ):
-    self.probe = probe
-    self.clock = clock
+    ##
+    ## func that check DB status
+    ##
+    self.probe         = probe
+    
+    ##
+    ## time stamp
+    ##
+    self.clock         = clock
+    
+    ##
+    ## interval to check
+    ##
     self.retry_seconds = retry_seconds
-    self._disabled = disabled
+    
+    ##
+    ## indicate if guard is disabled
+    ##
+    self._disabled     = disabled
+    
+    ##
+    ## the latest status
+    ##
     self._snapshot: GuardSnapshot | None = None
-    self._lock = Lock()
+    
+    ##
+    ## protect multi-thread
+    ##
+    self._lock         = Lock()
 
   @classmethod
   def disabled(cls, *, clock=time.monotonic):
@@ -55,6 +78,9 @@ class DatabaseSchemaGuard:
   def refresh(self, force: bool = False) -> GuardSnapshot:
     now = self.clock()
     with self._lock:
+      ##
+      ## case - DB is disable
+      ##
       if self._disabled:
         if self._snapshot is None:
           self._snapshot = GuardSnapshot(
@@ -63,12 +89,21 @@ class DatabaseSchemaGuard:
             now,
           )
         return self._snapshot
+      
+      ##
+      ## _snapshot != null & retry time < timeout
+      ##
       if (
         not force
         and self._snapshot is not None
         and now - self._snapshot.checked_at < self.retry_seconds
       ):
         return self._snapshot
+      
+      ##
+      ## if DB migration is completed - ready
+      ## else - blocked
+      ##
       try:
         status: MigrationStatus = self.probe()
         if status.classification == "ready":
@@ -85,6 +120,11 @@ class DatabaseSchemaGuard:
           "database unavailable",
           now,
         )
+      
+      ##
+      ## default option - unknown
+      ## unavailable
+      ##
       except Exception:
         snapshot = GuardSnapshot(
           SchemaState.UNAVAILABLE,
@@ -134,14 +174,24 @@ def require_runtime_schema_mutation_allowed() -> None:
 
 
 def initialize_schema_guard(config: dict) -> DatabaseSchemaGuard:
+  ##
+  ## parse DB field from config
+  ##
   database = config.get("database")
   if not isinstance(database, dict):
     guard = DatabaseSchemaGuard.disabled()
   elif database.get("enable") is not True:
     guard = DatabaseSchemaGuard.disabled()
   else:
+    ##
+    ## check guard based on system status
+    ##
     service = MigrationService(config=config)
     guard = DatabaseSchemaGuard(probe=service.status)
+  
+  ##
+  ## 
+  ##
   install_schema_guard(guard)
   guard.refresh(force=True)
   return guard

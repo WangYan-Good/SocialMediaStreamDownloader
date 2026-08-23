@@ -2,7 +2,9 @@ from collections.abc import Mapping
 
 
 class ConfigContractError(ValueError):
-  """Safe validation error containing only missing reference paths."""
+  """
+  Safe validation error containing only missing reference paths.
+  """
 
   def __init__(self, issues: tuple[str, ...]):
     self.issues = tuple(issues)
@@ -10,13 +12,17 @@ class ConfigContractError(ValueError):
       "configuration contract validation failed: " + ", ".join(self.issues)
     )
 
-
+##
+## Check recursively if each field is matched between template and config
+## return all mismatch path
+##
 def find_config_contract_issues(
   reference: object,
   actual: object,
   path: str = "$",
 ) -> tuple[str, ...]:
-  """Return required reference paths that are absent from ``actual``.
+  """
+  Return required reference paths that are absent from ``actual``.
 
   Only reference mappings define the required structure.  Leaves need only
   exist; their values and types are intentionally not compared.
@@ -46,7 +52,9 @@ def find_config_contract_issues(
 
 
 def validate_config_contract(reference: object, actual: object) -> None:
-  """Raise a safe error if actual configuration misses reference structure."""
+  """
+  Raise a safe error if actual configuration misses reference structure.
+  """
   issues = find_config_contract_issues(reference, actual)
   if issues:
     raise ConfigContractError(issues)

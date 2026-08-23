@@ -70,7 +70,6 @@ class BaseConfig():
       if self.__initialized:
         return
       try:
-
         ##
         ## load config from file
         ##
@@ -91,15 +90,27 @@ class BaseConfig():
     Load the active config after checking it against the canonical example.
     '''
     try:
+      ##
+      ## load config from file
+      ##
       config = load_yml(CONFIG_PATH)
+      
+      ##
+      ## load template config file
+      ##
       config_example = load_yml(CONFIG_EXAMPLE_PATH)
+      
+      ##
+      ## compare config & template field
+      ## if mismatch will raise exception
+      ##
       validate_config_contract(config_example, config)
       self.__config = config
     except Exception as e:
       raise RuntimeError(f"Failed to load config file '{CONFIG_PATH}': {str(e)}") from e
 
   ##
-  ## get config dict
+  ## get config dict, read only
   ##
   def get_config(self):
     return deepcopy(self.__config)

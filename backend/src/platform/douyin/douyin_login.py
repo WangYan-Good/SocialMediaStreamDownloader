@@ -55,6 +55,7 @@ class DouyinLogin(Login):
 
   ##
   ## update cookie
+  ## TODO: implemented
   ##
   def update_douyin_cookie(self):
     pass
@@ -68,6 +69,9 @@ class DouyinLogin(Login):
   def to_dict(self) -> dict:
     return super().to_dict()
   
+  ##
+  ## TODO: implemented
+  ##
   def construct_aggregation_class(self) -> None:
     super().construct_aggregation_class()
   

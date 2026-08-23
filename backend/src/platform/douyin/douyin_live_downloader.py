@@ -3,16 +3,16 @@ import os
 import sys
 sys.path.append(os.getcwd())
 from dataclasses import dataclass
-from re import compile
+from re          import compile
 ##<< Test
 
 ## <<Base>>
-from random import randint
-from time import monotonic, sleep
-from pathlib import Path
-from requests import request
+from random    import randint
+from time      import monotonic, sleep
+from pathlib   import Path
+from requests  import request
 from threading import Lock
-from datetime import datetime
+from datetime  import datetime
 
 ## <<Extension>>
 import yaml as yml
@@ -26,8 +26,8 @@ from backend.src.platform.douyin.douyin_live_config         import DouyinLiveCon
 from backend.src.platform.douyin.douyin_login               import DouyinLogin
 from backend.src.platform.douyin.douyin_live_external_info  import LiveExternal, observed_at
 from backend.src.platform.douyin.douyin_live_prober         import DouyinLiveProber
-from backend.src.database.table.person_identity              import DouyinPersonIdentityTable
-from backend.src.platform.douyin.douyin_owner_directory      import choose_owner_directory
+from backend.src.database.table.person_identity             import DouyinPersonIdentityTable
+from backend.src.platform.douyin.douyin_owner_directory     import choose_owner_directory
 from backend.src.platform.douyin.hls_recorder               import HlsRecorder
 from backend.src.platform.douyin.douyin_api                 import DouyinApi
 from backend.src.database.table.share_url                   import DouyinShareUrlTable
@@ -37,7 +37,7 @@ from backend.src.library.configlib                          import load_config
 from backend.src.library.loglib                             import get_logger
 
 ## TODO
-from backend.src.platform.douyin.xbogus import XBogus as XB
+from backend.src.platform.douyin.xbogus  import XBogus as XB
 from backend.src.platform.douyin.a_bogus import ABogus as AB
 
 from backend.src.platform.douyin.douyin_listener import DouyinLiveListener, ListenerItem
@@ -60,24 +60,24 @@ class LiveDownloadResult:
   """What one live download attempt produced."""
 
   ok: bool
-  recorded: bool = False
-  room_status: int = None
-  room_id: str = None
+  recorded: bool     = False
+  room_status: int   = None
+  room_id: str       = None
   owner_user_id: str = None
-  nickname: str = None
-  protocol: str = None
-  output_path: str = None
-  test_mode: bool = False
-  reason: str = None
+  nickname: str      = None
+  protocol: str      = None
+  output_path: str   = None
+  test_mode: bool    = False
+  reason: str        = None
 
 
 ##
 ## Why an attempt did not record anything.  Stated once because the mapping onto
 ## a task and the tests that pin it need the same words.
 ##
-PROBE_FAILED_REASON = "直播状态获取失败"
-NOT_LIVE_REASON = "当前未直播"
-NO_STREAM_REASON = "直播流地址不可用"
+PROBE_FAILED_REASON       = "直播状态获取失败"
+NOT_LIVE_REASON           = "当前未直播"
+NO_STREAM_REASON          = "直播流地址不可用"
 MALFORMED_RESPONSE_REASON = "直播响应缺少必要字段"
 
 
@@ -103,15 +103,19 @@ class DouyinLiveDownloader(Downloader):
 ## >>============================= private method =============================>>
 ##
   def __init__(self, config: dict = None) -> None:
-    self.database = None
-    self._person_database = None
+    self.database                = None
+    self._person_database        = None
     self._database_warning_state = None
-    self._database_clock = monotonic
-    self._database_retry_at = 0.0
+    
+    ##
+    ## time stamp
+    ##
+    self._database_clock         = monotonic
+    self._database_retry_at      = 0.0
     self._database_retry_seconds = 30.0
-    self.hls_recorder = HlsRecorder()
-    self._actived_task_number = 0
-    self._lock = Lock()
+    self.hls_recorder            = HlsRecorder()
+    self._actived_task_number    = 0
+    self._lock                   = Lock()
     self.construct_aggregation_class(config)
 
   @staticmethod
@@ -267,7 +271,6 @@ class DouyinLiveDownloader(Downloader):
 ## >>============================= abstract method =============================>>
 ##
   def construct_aggregation_class(self, config: dict = None):
-
     try:
       ##
       ## construct member
@@ -281,10 +284,14 @@ class DouyinLiveDownloader(Downloader):
       self.prober               = DouyinLiveProber(self)
       self._lock                = Lock()
       
+      ##
+      ## check DB is available
+      ##
       self._database_if_ready()
 
       ##
       ## initialize all member
+      ## TODO: implemented
       ##
       self.init_douyin_config()
       self.init_douyin_login()
@@ -657,6 +664,9 @@ class DouyinLiveDownloader(Downloader):
     return self._person_database
 
   def _database_for_read(self):
+    ##
+    ## check if DB static config is available
+    ##
     if self.database is not None:
       return self.database
     if self.config.get_config_dict_attr("$.database.enable") is not True:
@@ -680,13 +690,23 @@ class DouyinLiveDownloader(Downloader):
     return self.database
 
   def _database_if_ready(self):
+    ##
+    ## check if system config is enable
+    ##
     if self.config.get_config_dict_attr("$.database.enable") is not True:
       return None
     guard = get_schema_guard()
     if guard is not None:
       try:
+        ##
+        ## get database schema guard instance
+        ## it indicate DB status
+        ##
         guard.require_write_ready()
       except DatabaseWriteBlocked:
+        ##
+        ## DB is not ready
+        ##
         snapshot = guard.snapshot
         state = "blocked" if snapshot is None else snapshot.state.value
         if self._database_warning_state != state:
@@ -961,7 +981,7 @@ class DouyinLiveDownloader(Downloader):
 ##
 ## >>================================ public method ===============================>>
 ##
-downloader = None
+downloader       = None
 _downloader_lock = Lock()
 
 

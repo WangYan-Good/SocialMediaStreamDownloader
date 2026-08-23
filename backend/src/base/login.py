@@ -45,7 +45,7 @@ class Login(ABC):
   ##
   ## Attribute
   ##
-  proxies = None
+  proxies      = None
 
   ##
   ## raw dict data
