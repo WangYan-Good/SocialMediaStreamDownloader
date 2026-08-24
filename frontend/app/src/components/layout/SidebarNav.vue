@@ -1,34 +1,31 @@
-<script setup lang="ts">
-import { RouterLink } from 'vue-router'
-
-interface NavEntry {
+<script lang="ts">
+export interface NavEntry {
   name: string
   label: string
   hint: string
 }
+</script>
 
-//
-// One list, rendered once.  The router owns the paths; this owns the words.
-//
-const entries: NavEntry[] = [
-  { name: 'overview', label: '总览', hint: 'Overview' },
-  { name: 'new-download', label: '新建下载', hint: 'New Download' },
-  { name: 'creators', label: '创作者', hint: 'Creators' },
-  { name: 'library', label: '媒体库', hint: 'Library' },
-  { name: 'tasks', label: '任务中心', hint: 'Tasks' },
-  { name: 'system', label: '系统', hint: 'System' },
-]
+<script setup lang="ts">
+import { RouterLink } from 'vue-router'
+
+defineProps<{
+  entries: readonly NavEntry[]
+  label: string
+}>()
 
 defineEmits<{ navigate: [] }>()
 </script>
 
 <template>
-  <nav class="sidebar-nav" aria-label="主导航">
+  <nav class="sidebar-nav" :aria-label="label">
     <ul class="sidebar-nav__list">
       <li v-for="entry in entries" :key="entry.name">
         <RouterLink
           class="sidebar-nav__link"
           :to="{ name: entry.name }"
+          active-class="sidebar-nav__link--related"
+          exact-active-class="router-link-active"
           @click="$emit('navigate')"
         >
           <span class="sidebar-nav__label">{{ entry.label }}</span>
@@ -36,7 +33,6 @@ defineEmits<{ navigate: [] }>()
         </RouterLink>
       </li>
     </ul>
-
   </nav>
 </template>
 

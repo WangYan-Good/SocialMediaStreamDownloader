@@ -1,5 +1,7 @@
+import type { Component } from 'vue'
 import { describe, expect, it } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import type { RouteLocationMatched, RouteRecordRaw } from 'vue-router'
 
 import { routes } from '../../src/router'
 
@@ -7,73 +9,89 @@ function testRouter() {
   return createRouter({ history: createMemoryHistory(), routes })
 }
 
-describe('route map', () => {
-  it('declares the six sections of the new information architecture', () => {
-    const names = routes.map((route) => route.name).filter(Boolean)
+function matchedComponentName(record: RouteLocationMatched) {
+  const component = record.components?.default as (Component & { __name?: string }) | undefined
+  return component?.__name
+}
 
-    expect(names).toEqual([
-      'overview',
-      'new-download',
-      'creators',
-      'library',
-      'tasks',
-      'system',
-    ])
+function routerPaths(records: readonly RouteRecordRaw[], parentPath = ''): string[] {
+  return records.flatMap((record) => {
+    const path = record.path.startsWith('/')
+      ? record.path
+      : `${parentPath.replace(/\/$/, '')}/${record.path}`
+    return [path, ...routerPaths(record.children ?? [], path)]
   })
+}
 
+describe('user and admin route boundaries', () => {
   it.each([
-    ['/overview', 'overview'],
-    ['/new', 'new-download'],
-    ['/creators', 'creators'],
-    ['/library', 'library'],
-    ['/tasks', 'tasks'],
-    ['/system', 'system'],
-  ])('resolves %s to %s', async (path, name) => {
+    ['/', 'user-home', ['UserLayout', 'UserHomeView']],
+    ['/new', 'new-download', ['UserLayout', 'NewDownloadView']],
+    ['/library', 'library', ['UserLayout', 'LibraryView']],
+    ['/tasks', 'tasks', ['UserLayout', 'TasksView']],
+    ['/admin/creators', 'admin-creators', ['AdminLayout', 'CreatorsView']],
+    ['/admin/system', 'admin-system', ['AdminLayout', 'SystemView']],
+  ])('loads %s through its expected layout and view', async (path, name, components) => {
     const router = testRouter()
 
     await router.push(path)
+    await router.isReady()
 
+    expect(router.currentRoute.value.name).toBe(name)
+    expect(router.currentRoute.value.matched.map(matchedComponentName)).toEqual(components)
+  })
+
+  it('sends the admin root to creators', async () => {
+    const router = testRouter()
+
+    await router.push('/admin')
+    await router.isReady()
+
+    expect(router.currentRoute.value.path).toBe('/admin/creators')
+    expect(router.currentRoute.value.name).toBe('admin-creators')
+  })
+
+  it.each([
+    ['/overview', '/', 'user-home'],
+    ['/creators', '/admin/creators', 'admin-creators'],
+    ['/system', '/admin/system', 'admin-system'],
+  ])('redirects the legacy URL %s to %s', async (legacyPath, currentPath, name) => {
+    const router = testRouter()
+
+    await router.push(legacyPath)
+    await router.isReady()
+
+    expect(router.currentRoute.value.path).toBe(currentPath)
     expect(router.currentRoute.value.name).toBe(name)
   })
 
-  it('sends the bare root to the overview', async () => {
-    const router = testRouter()
-
-    await router.push('/')
-    await router.isReady()
-
-    expect(router.currentRoute.value.name).toBe('overview')
-  })
-
-  it('sends an unknown path to the overview rather than nowhere', async () => {
-    //
-    // The server hands the shell back for every path under the prefix, so an
-    // unknown one does reach the router.  Landing on the first real screen is
-    // the honest answer while most of the application is still to come.
-    //
+  it('sends an unknown path to the user home', async () => {
     const router = testRouter()
 
     await router.push('/no-such-page')
+    await router.isReady()
 
-    expect(router.currentRoute.value.name).toBe('overview')
+    expect(router.currentRoute.value.path).toBe('/')
+    expect(router.currentRoute.value.name).toBe('user-home')
   })
 
-  it('keeps every section reachable by name', async () => {
+  it('keeps every current screen reachable by name', () => {
     const router = testRouter()
 
-    for (const name of ['overview', 'new-download', 'creators', 'library', 'tasks', 'system']) {
-      await router.push({ name })
-      expect(router.currentRoute.value.name).toBe(name)
+    for (const name of [
+      'user-home',
+      'new-download',
+      'library',
+      'tasks',
+      'admin-creators',
+      'admin-system',
+    ]) {
+      expect(router.hasRoute(name)).toBe(true)
     }
   })
 
-  it('carries no legacy section into the new map', () => {
-    //
-    // History, Posts, Person, Log and Settings were grouped by which page
-    // happened to exist.  Copying them across would have locked the old shape
-    // into the new interface before a single screen was written.
-    //
-    const paths = routes.map((route) => route.path)
+  it('does not restore retired legacy sections', () => {
+    const paths = routerPaths(routes)
 
     for (const legacy of ['/history', '/posts', '/person', '/log', '/settings']) {
       expect(paths).not.toContain(legacy)
@@ -83,15 +101,6 @@ describe('route map', () => {
 
 describe('router base', () => {
   it('is taken from the build rather than written out again', async () => {
-    //
-    // Vite owns the deployment base, and the router has to read it back
-    // rather than repeat the literal: two copies drift apart the first time
-    // either one moves, and the symptom would be every deep link 404ing in
-    // production only - where nothing that runs here would have caught it.
-    //
-    // Asserted against whatever base this build carries rather than copying it.
-    // Under test and production P15 that is '/'.
-    //
     const { router } = await import('../../src/router')
 
     const expected = import.meta.env.BASE_URL.replace(/\/$/, '')
