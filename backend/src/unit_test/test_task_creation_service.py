@@ -234,6 +234,19 @@ class ReceiptTest(unittest.TestCase):
 
 
 class CompatibilityMatrixTest(unittest.TestCase):
+  def test_application_user_is_forwarded_to_every_tracked_runner(self):
+    for resource_type, task_type in ALLOWED.items():
+      with self.subTest(resource_type=resource_type):
+        service, _, post, live, owner = build_service(
+          {"R": RESOLUTIONS[resource_type]()}
+        )
+
+        service.create("R", task_type, options_for(task_type), app_user_id=31)
+
+        calls = post.calls + live.calls + owner.calls
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["app_user_id"], 31)
+
   """Exactly three resource/task pairs are work this stage knows how to start."""
 
   def test_each_allowed_pair_reaches_its_runner(self):

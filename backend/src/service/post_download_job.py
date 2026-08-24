@@ -38,6 +38,9 @@ from backend.src.task.model import (
 )
 
 
+OWNERSHIP_FAILED_MESSAGE = "作品已保存，但未能记录到当前用户资源库"
+
+
 class PayloadCache:
   """Holds fetched post payloads so a download can reference them by id.
 
@@ -245,7 +248,8 @@ class PostDownloadJobService:
     except Exception as e:
       get_logger().warning("owner avatar not saved: {}".format(e))
 
-  def _download_each(self, job_id: str, payloads, share_url: str) -> None:
+  def _download_each(self, job_id: str, payloads, share_url: str,
+                     app_user_id=None) -> None:
     """Download every payload, at most ``post_concurrency`` at once.
 
     Returns only when all of them have finished, so the caller may mark the job
@@ -254,7 +258,12 @@ class PostDownloadJobService:
     """
     run_bounded(
       payloads,
-      lambda payload: self._download_one(job_id, payload, share_url),
+      lambda payload: self._download_one(
+        job_id,
+        payload,
+        share_url,
+        app_user_id,
+      ),
       pool=self._post_pool,
       limit=self._post_concurrency,
     )
@@ -362,6 +371,7 @@ class PostDownloadJobService:
     resolved_url: str = None,
     source_url: str = None,
     resolve_id: str = None,
+    app_user_id=None,
   ) -> str:
     """Download every post of one server-resolved owner.  Returns a task id.
 
@@ -399,6 +409,7 @@ class PostDownloadJobService:
         ## settled once the pages have been walked.
         ##
         total=None,
+        app_user_id=app_user_id,
       )
     except Exception:
       ##
@@ -420,7 +431,7 @@ class PostDownloadJobService:
 
     def worker():
       began.append(True)
-      return self._run_all(job_id, sec_user_id, share_url)
+      return self._run_all(job_id, sec_user_id, share_url, app_user_id)
 
     ##
     ## The link the user actually pasted, matching what the legacy page passes:
@@ -447,7 +458,8 @@ class PostDownloadJobService:
         self._tasks.finish(job_id, message="下载没有进入队列", stopped_early=True)
     return task_id
 
-  def _run_all(self, job_id: str, sec_user_id: str, share_url: str) -> None:
+  def _run_all(self, job_id: str, sec_user_id: str, share_url: str,
+               app_user_id=None) -> None:
     ##
     ## Held in a list so the walk, which runs inside the generator below, and the
     ## error report, which runs out here, see the same count.
@@ -490,7 +502,7 @@ class PostDownloadJobService:
         yield payload
 
     try:
-      self._download_each(job_id, walk(), share_url)
+      self._download_each(job_id, walk(), share_url, app_user_id)
     except BaseException as e:
       walked = progress["walked"]
       stop_message = "停在第 {} 个作品：{}".format(walked + 1, e)
@@ -520,7 +532,8 @@ class PostDownloadJobService:
 ##
 ## >>============================= one post =============================>>
 ##
-  def _download_one(self, job_id: str, payload, share_url: str) -> None:
+  def _download_one(self, job_id: str, payload, share_url: str,
+                    app_user_id=None) -> None:
     aweme_id = get_dict_attr(payload, "$.aweme_id") or "?"
     self.store.update_item(job_id, aweme_id, state=STATE_RUNNING)
     self._tasks.item_running(job_id, aweme_id)
@@ -573,6 +586,68 @@ class PostDownloadJobService:
       )
       return
 
+    if result.ok is not True or (
+      result.skipped is not True and result.saved_count == 0
+    ):
+      message = result.reason or "没有文件被保存"
+      self.store.update_item(
+        job_id,
+        aweme_id,
+        state=STATE_ERROR,
+        saved=result.saved_count,
+        planned=result.media_count,
+        save_dir=result.save_dir,
+        message=message,
+      )
+      self._tasks.item_finished(
+        job_id,
+        aweme_id,
+        ITEM_STATE_FAILED,
+        message=message,
+        metadata={
+          "saved_count": result.saved_count,
+          "media_count": result.media_count,
+          "save_dir": result.save_dir,
+        },
+      )
+      return
+
+    ownership_linked = None
+    if app_user_id is not None and result.aweme_id:
+      try:
+        self.downloader.link_post(app_user_id, result.aweme_id)
+        ownership_linked = True
+      except Exception as e:
+        get_logger().error(
+          "owner batch ownership failed for post {}: {}: {}".format(
+            aweme_id,
+            type(e).__name__,
+            e,
+          )
+        )
+        self.store.update_item(
+          job_id,
+          aweme_id,
+          state=STATE_ERROR,
+          saved=result.saved_count,
+          planned=result.media_count,
+          save_dir=result.save_dir,
+          message=OWNERSHIP_FAILED_MESSAGE,
+        )
+        self._tasks.item_finished(
+          job_id,
+          aweme_id,
+          ITEM_STATE_FAILED,
+          message=OWNERSHIP_FAILED_MESSAGE,
+          metadata={
+            "saved_count": result.saved_count,
+            "media_count": result.media_count,
+            "save_dir": result.save_dir,
+            "ownership_linked": False,
+          },
+        )
+        return
+
     self.store.update_item(
       job_id,
       aweme_id,
@@ -596,5 +671,10 @@ class PostDownloadJobService:
         "saved_count": result.saved_count,
         "media_count": result.media_count,
         "save_dir": result.save_dir,
+        **(
+          {"ownership_linked": ownership_linked}
+          if ownership_linked is not None
+          else {}
+        ),
       },
     )

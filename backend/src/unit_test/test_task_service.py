@@ -56,6 +56,13 @@ def build_service(clock=None, retention_seconds=600.0):
 
 
 class TaskCreationTest(unittest.TestCase):
+  def test_creation_passes_application_user_to_the_store(self):
+    service = build_service()
+
+    task = service.create_task(TASK_TYPE_POST_DOWNLOAD, app_user_id=23)
+
+    self.assertEqual(task["app_user_id"], 23)
+
   def test_a_created_task_comes_back_pending_with_its_id(self):
     service = build_service()
 
@@ -91,6 +98,19 @@ class TaskCreationTest(unittest.TestCase):
     task = service.create_task(TASK_TYPE_LIVE_PROBE)
 
     self.assertEqual(service.get_task(task["task_id"])["task_id"], task["task_id"])
+
+  def test_owner_scoped_service_queries_hide_other_users_tasks(self):
+    service = build_service()
+    owned = service.create_task(TASK_TYPE_POST_DOWNLOAD, app_user_id=23)
+    other = service.create_task(TASK_TYPE_POST_DOWNLOAD, app_user_id=24)
+    service.create_task(TASK_TYPE_POST_DOWNLOAD)
+
+    self.assertEqual(
+      [task["task_id"] for task in service.list_tasks_for_user(23)],
+      [owned["task_id"]],
+    )
+    self.assertIsNone(service.get_task_for_user(other["task_id"], 23))
+    self.assertEqual(len(service.list_tasks()), 3)
 
 
 class TaskLifecycleTest(unittest.TestCase):

@@ -52,10 +52,9 @@ USERNAME_LENGTH = 190
 class AppUserModel(Base):
   """Somebody who may sign in to this application.
 
-  Deliberately minimal.  There is no role, no ownership and no email: this
-  phase answers "who is making this request" and nothing else, and a column
-  added before the question it answers has been asked is one that has to be
-  migrated again when its real shape turns out to be different.
+  Deliberately minimal.  There is no role or email, and resource ownership is
+  represented by relation tables rather than columns on this identity row.
+  Authentication still answers only "who is making this request".
   """
 
   __tablename__ = "app_user"

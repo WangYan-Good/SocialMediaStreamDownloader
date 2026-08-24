@@ -252,6 +252,46 @@ class DouyinAwemeRecordTable(SocialMediaStreamDataBase):
       )
       raise e
 
+  def link_post(self, app_user_id: int, platform: str, aweme_id: str) -> None:
+    """Idempotently link one application user to an existing post record.
+
+    Only the ownership primary-key duplicate is softened.  Missing users,
+    missing posts and every other integrity failure still raise through the
+    database driver, which is essential: swallowing one would leave a task
+    claiming ownership that does not exist.
+    """
+    self.require_write_ready()
+    if type(app_user_id) is not int or app_user_id < 1:
+      raise ValueError("app_user_id must be a positive integer")
+    if not isinstance(platform, str) or not platform.strip():
+      raise ValueError("platform is required")
+    if not isinstance(aweme_id, str) or not aweme_id.strip():
+      raise ValueError("aweme_id is required")
+
+    sql = '''INSERT INTO app_user_aweme_record
+               (app_user_id, platform, aweme_id)
+             VALUES (%s, %s, %s)
+             ON DUPLICATE KEY UPDATE
+               app_user_id = VALUES(app_user_id);
+          '''
+    try:
+      with self.get_connection() as connector:
+        with connector.cursor() as cursor:
+          cursor.execute(
+            sql,
+            (app_user_id, platform.strip(), aweme_id.strip()),
+          )
+          connector.commit()
+    except Exception as e:
+      get_logger().error(
+        "link app user {} to aweme {} failed: {}".format(
+          app_user_id,
+          aweme_id,
+          e,
+        )
+      )
+      raise
+
   def upsert_post_owner(self, record: dict):
     """Keep one ``share_url`` row per owner, filling ``post_share_url``.
 

@@ -2,11 +2,17 @@
 from flask import Blueprint, current_app, jsonify, request
 
 ##<<Third-part>>
+from backend.src.auth.context import RequestAuthStatus
 from backend.src.library.loglib import get_logger
 from backend.src.service.task_creation import TaskCreateError
 from backend.src.task.errors import TaskValidationError
 from backend.src.task.model import to_payload
 from backend.src.task.service import TaskService
+from backend.src.web.auth_routes import (
+  UNAVAILABLE_MESSAGE,
+  require_session_csrf,
+  request_auth_context,
+)
 
 
 ##
@@ -122,7 +128,16 @@ def build_task_blueprint() -> Blueprint:
   blueprint = Blueprint("task", __name__, url_prefix="/api")
 
   @blueprint.route("/tasks", methods=["POST"])
+  @require_session_csrf
   def create_task():
+    auth_context = request_auth_context()
+    if auth_context.status == RequestAuthStatus.UNAVAILABLE:
+      return _error(UNAVAILABLE_MESSAGE, 503)
+    app_user_id = (
+      auth_context.user.user_id
+      if auth_context.status == RequestAuthStatus.AUTHENTICATED
+      else None
+    )
     service = task_creation_service()
     if service is None:
       return _error("任务创建服务未初始化", 503)
@@ -154,7 +169,12 @@ def build_task_blueprint() -> Blueprint:
       return _error("options 必须是对象", 400)
 
     try:
-      result = service.create(resolve_id, task_type, options)
+      result = service.create(
+        resolve_id,
+        task_type,
+        options,
+        app_user_id=app_user_id,
+      )
     except TaskCreateError as e:
       ##
       ## The category, never the request.  A refusal has to be diagnosable from

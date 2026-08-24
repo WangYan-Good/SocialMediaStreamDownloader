@@ -250,6 +250,11 @@ class TaskPayloadTest(unittest.TestCase):
       },
     )
 
+  def test_internal_ownership_is_not_exposed_on_the_wire(self):
+    payload = model.to_payload(self.snapshot(app_user_id=42))
+
+    self.assertNotIn("app_user_id", payload)
+
   def test_timestamps_are_iso_8601(self):
     payload = model.to_payload(self.snapshot())
 

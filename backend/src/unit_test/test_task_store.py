@@ -61,6 +61,26 @@ def build_store(clock=None, retention_seconds=600.0):
 
 
 class TaskCreationTest(unittest.TestCase):
+  def test_an_owned_task_keeps_its_application_user(self):
+    store = build_store()
+
+    task_id = store.create(TASK_TYPE_POST_DOWNLOAD, app_user_id=17)
+
+    self.assertEqual(store.get(task_id)["app_user_id"], 17)
+
+  def test_task_ownership_has_no_transfer_mutator(self):
+    store = build_store()
+
+    self.assertFalse(hasattr(store, "set_owner"))
+    self.assertFalse(hasattr(store, "transfer_owner"))
+
+  def test_an_anonymous_task_is_explicitly_unowned(self):
+    store = build_store()
+
+    task_id = store.create(TASK_TYPE_POST_DOWNLOAD)
+
+    self.assertIsNone(store.get(task_id)["app_user_id"])
+
   def test_a_new_task_starts_pending_with_its_creation_time(self):
     clock = FakeClock()
     store = build_store(clock)
@@ -170,6 +190,57 @@ class TaskCreationTest(unittest.TestCase):
 
   def test_an_unknown_task_has_no_snapshot(self):
     self.assertIsNone(build_store().get("nope"))
+
+
+class TaskOwnershipQueryTest(unittest.TestCase):
+  def setUp(self):
+    self.store = build_store()
+    self.a = self.store.create(TASK_TYPE_POST_DOWNLOAD, app_user_id=1)
+    self.b = self.store.create(TASK_TYPE_LIVE_RECORD, app_user_id=2)
+    self.unowned = self.store.create(TASK_TYPE_POST_DOWNLOAD)
+
+  def test_scoped_list_only_returns_the_requested_users_tasks(self):
+    self.assertEqual(
+      [task["task_id"] for task in self.store.list_for_user(1)],
+      [self.a],
+    )
+
+  def test_scoped_get_hides_another_users_task_as_missing(self):
+    self.assertIsNone(self.store.get_for_user(self.b, 1))
+    self.assertEqual(self.store.get_for_user(self.a, 1)["task_id"], self.a)
+
+  def test_global_list_still_contains_owned_and_unowned_tasks(self):
+    self.assertEqual(
+      {task["task_id"] for task in self.store.list()},
+      {self.a, self.b, self.unowned},
+    )
+
+  def test_owner_scope_composes_with_type_and_state_filters(self):
+    self.store.set_state(self.a, TASK_STATE_RUNNING)
+
+    self.assertEqual(
+      [task["task_id"] for task in self.store.list_for_user(
+        1,
+        state=TASK_STATE_RUNNING,
+        task_type=TASK_TYPE_POST_DOWNLOAD,
+      )],
+      [self.a],
+    )
+    self.assertEqual(
+      self.store.list_for_user(1, state=TASK_STATE_PENDING),
+      [],
+    )
+
+  def test_owner_scope_does_not_change_terminal_task_retention(self):
+    clock = FakeClock()
+    store = build_store(clock, retention_seconds=5)
+    task_id = store.create(TASK_TYPE_POST_DOWNLOAD, app_user_id=1)
+    store.set_state(task_id, TASK_STATE_RUNNING)
+    store.set_state(task_id, TASK_STATE_SUCCESS)
+
+    clock.advance(6)
+
+    self.assertIsNone(store.get_for_user(task_id, 1))
 
 
 class TaskStateTest(unittest.TestCase):

@@ -1,7 +1,8 @@
 import unittest
 
-from flask import Flask
+from flask import Flask, g
 
+from backend.src.auth.context import RequestAuthContext
 from backend.src.service.task_creation import (
   InvalidTaskOptions,
   ResolutionNotFound,
@@ -36,9 +37,14 @@ class FakeCreationService:
     self.error = error
     self.calls = []
 
-  def create(self, resolve_id, task_type, options=None):
+  def create(self, resolve_id, task_type, options=None, app_user_id=None):
     self.calls.append(
-      {"resolve_id": resolve_id, "task_type": task_type, "options": options}
+      {
+        "resolve_id": resolve_id,
+        "task_type": task_type,
+        "options": options,
+        "app_user_id": app_user_id,
+      }
     )
     if self.error is not None:
       raise self.error
@@ -47,10 +53,14 @@ class FakeCreationService:
     )
 
 
-def build_app(creation=None, tasks=None, install_creation=True):
+def build_app(creation=None, tasks=None, install_creation=True, auth_context=None):
   creation = creation if creation is not None else FakeCreationService()
   app = Flask(__name__)
   app.config["TESTING"] = True
+  if auth_context is not None:
+    @app.before_request
+    def install_auth_context():
+      g.auth_context = auth_context
   install_task_service(app, tasks if tasks is not None else TaskService())
   if install_creation:
     install_task_creation_service(app, creation)
@@ -69,6 +79,54 @@ def valid_body(**overrides):
 
 
 class CreateTaskSuccessTest(unittest.TestCase):
+  def test_authenticated_identity_is_taken_from_request_context(self):
+    user = type("User", (), {"user_id": 71, "username": "alice"})()
+    context = RequestAuthContext.authenticated(user, csrf_expected="proof")
+    app, creation = build_app(auth_context=context)
+
+    response = app.test_client().post(
+      "/api/tasks",
+      json=valid_body(),
+      headers={"X-CSRF-Token": "proof"},
+    )
+
+    self.assertEqual(response.status_code, 202)
+    self.assertEqual(creation.calls[0]["app_user_id"], 71)
+
+  def test_anonymous_creation_remains_unowned(self):
+    app, creation = build_app()
+
+    response = create(app, valid_body())
+
+    self.assertEqual(response.status_code, 202)
+    self.assertIsNone(creation.calls[0]["app_user_id"])
+
+  def test_auth_unavailable_never_falls_back_to_an_unowned_task(self):
+    app, creation = build_app(
+      auth_context=RequestAuthContext.unavailable(csrf_expected="proof")
+    )
+
+    response = app.test_client().post(
+      "/api/tasks",
+      json=valid_body(),
+      headers={"X-CSRF-Token": "proof"},
+    )
+
+    self.assertEqual(response.status_code, 503)
+    self.assertEqual(creation.calls, [])
+
+  def test_authenticated_creation_requires_the_existing_csrf_proof(self):
+    user = type("User", (), {"user_id": 71, "username": "alice"})()
+    app, creation = build_app(
+      auth_context=RequestAuthContext.authenticated(user, csrf_expected="proof")
+    )
+
+    response = create(app, valid_body())
+
+    self.assertEqual(response.status_code, 403)
+    self.assertEqual(response.get_json()["kind"], "csrf_invalid")
+    self.assertEqual(creation.calls, [])
+
   """What an accepted creation answers."""
 
   def test_it_is_accepted_rather_than_completed(self):
@@ -224,6 +282,9 @@ class ForgedFieldTest(unittest.TestCase):
   def test_a_client_supplied_platform_or_resource_type_is_refused(self):
     self.assertRejected(valid_body(platform="douyin"))
     self.assertRejected(valid_body(resource_type="post"))
+
+  def test_a_client_cannot_choose_the_application_user_owner(self):
+    self.assertRejected(valid_body(app_user_id=999))
 
   def test_the_refusal_names_the_field(self):
     payload = self.assertRejected(valid_body(aweme_id="999", sec_user_id="MS4w"))

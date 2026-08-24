@@ -40,6 +40,7 @@ class TaskService:
     metadata: dict = None,
     items=None,
     total=UNSET,
+    app_user_id=None,
   ) -> dict:
     """Register a pending task and return its first snapshot.
 
@@ -52,6 +53,7 @@ class TaskService:
       metadata=metadata,
       items=items,
       total=total,
+      app_user_id=app_user_id,
     )
     return self._store.get(task_id)
 
@@ -160,6 +162,25 @@ class TaskService:
     """Return one task, or ``None`` when it is unknown or has expired."""
     return self._store.get(task_id)
 
+  def get_task_for_user(self, task_id: str, app_user_id: int):
+    """Return the user's task, or ``None`` without leaking another owner's id."""
+    return self._store.get_for_user(task_id, app_user_id)
+
   def list_tasks(self, state: str = None, task_type: str = None, limit: int = None):
     """Return the tasks matching every filter, newest first."""
     return self._store.list(state=state, task_type=task_type, limit=limit)
+
+  def list_tasks_for_user(
+    self,
+    app_user_id: int,
+    state: str = None,
+    task_type: str = None,
+    limit: int = None,
+  ):
+    """Return only tasks owned by one application user."""
+    return self._store.list_for_user(
+      app_user_id,
+      state=state,
+      task_type=task_type,
+      limit=limit,
+    )

@@ -243,7 +243,8 @@ class LiveRecordingTaskService:
     self._finish(task_id, outcome, message, self._result_metadata(result))
     return result
 
-  def _open_tracked(self, source_url, resolved_url, resolve_id) -> str:
+  def _open_tracked(self, source_url, resolved_url, resolve_id,
+                    app_user_id=None) -> str:
     """Create the task for a request that was promised one, or refuse.
 
     The opposite of ``_open``: nothing is swallowed.  A caller told a recording
@@ -270,6 +271,7 @@ class LiveRecordingTaskService:
           "resolved_url": resolved_url,
         },
         total=None,
+        app_user_id=app_user_id,
       )
     except Exception as e:
       get_logger().error(
@@ -289,6 +291,7 @@ class LiveRecordingTaskService:
     resolved_url=None,
     source_url=None,
     resolve_id=None,
+    app_user_id=None,
   ) -> str:
     """Record one server-resolved live room as a task the caller can watch.
 
@@ -299,7 +302,12 @@ class LiveRecordingTaskService:
     followed once, by the resolver, under the host checks that make following it
     safe; handing the short link over again would repeat that whole decision.
     """
-    task_id = self._open_tracked(source_url, resolved_url, resolve_id)
+    task_id = self._open_tracked(
+      source_url,
+      resolved_url,
+      resolve_id,
+      app_user_id,
+    )
 
     token = {"url": resolved_url, "resolved_url": resolved_url}
 

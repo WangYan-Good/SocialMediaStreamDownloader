@@ -63,13 +63,16 @@ class StubDownloader:
     def __init__(self, switches):
       self.media_switches = switches
 
-  def __init__(self, switches=None, failures=None, skips=(), owner_dir="/tmp/owner"):
+  def __init__(self, switches=None, failures=None, skips=(), owner_dir="/tmp/owner",
+               ownership_failures=()):
     self.config = self.Config(switches or SWITCHES)
     self.calls = []
     self.owner_links = []
     self.failures = failures or {}
     self.skips = set(skips)
     self.owner_dir = owner_dir
+    self.links = []
+    self.ownership_failures = set(ownership_failures)
 
   def build_owner_dir(self, detail):
     return self.owner_dir
@@ -94,6 +97,11 @@ class StubDownloader:
       skipped=detail.aweme_id in self.skips,
       reason="already downloaded" if detail.aweme_id in self.skips else None,
     )
+
+  def link_post(self, app_user_id, aweme_id):
+    self.links.append((app_user_id, aweme_id))
+    if aweme_id in self.ownership_failures:
+      raise RuntimeError("foreign key failed")
 
 
 OWNER_PAYLOAD = {

@@ -206,6 +206,54 @@ class LibraryPostQueryTest(unittest.TestCase):
     page = query.posts(LibraryPostFilter.from_mapping(arguments))
     return (page, database.cursor.executed)
 
+  def _run_scoped(self, app_user_id, arguments, rows=None, total=2):
+    database = FakeDatabase([{"total": total}, rows if rows is not None else []])
+    query = LibraryQuery(database)
+    page = query.posts_for_user(
+      app_user_id,
+      LibraryPostFilter.from_mapping(arguments),
+    )
+    return (page, database.cursor.executed)
+
+  def test_scoped_posts_join_the_relation_and_bind_server_user(self):
+    _, executed = self._run_scoped(17, {})
+
+    for sql, params in executed:
+      self.assertIn("JOIN app_user_aweme_record uar", sql)
+      self.assertIn("uar.app_user_id = %s", sql)
+      self.assertIn(17, params)
+
+  def test_scoped_posts_keep_filters_sort_total_and_pagination(self):
+    page, executed = self._run_scoped(
+      17,
+      {
+        "q": "绿萝",
+        "aweme_type": "image",
+        "completion": "partial",
+        "source": "html",
+        "sort": "aweme_id",
+        "order": "asc",
+        "page": "2",
+        "page_size": "10",
+      },
+      total=27,
+    )
+
+    sql, params = executed[1]
+    self.assertEqual(page.total, 27)
+    self.assertIn("a.aweme_id LIKE", sql)
+    self.assertIn("a.aweme_type = %s", sql)
+    self.assertIn("a.saved_count < a.media_count", sql)
+    self.assertIn("a.source = %s", sql)
+    self.assertIn("ORDER BY a.aweme_id ASC", sql)
+    self.assertEqual([10, 10], list(params)[-2:])
+
+  def test_global_posts_do_not_require_an_ownership_relation(self):
+    _, executed = self._run({})
+
+    self.assertNotIn("app_user_aweme_record", executed[0][0])
+    self.assertNotIn("app_user_aweme_record", executed[1][0])
+
   def test_counts_with_a_separate_query_rather_than_the_page_length(self):
     ##
     ## The mutation this stops: total = len(items).  A 25-row page out of 163

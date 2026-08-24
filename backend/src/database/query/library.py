@@ -262,6 +262,22 @@ _POST_FROM = '''
       ON p.person_id = pa.person_id
 '''
 
+_OWNED_POST_FROM = '''
+    FROM aweme_record a
+    JOIN app_user_aweme_record uar
+      ON uar.platform = a.platform
+     AND uar.aweme_id = a.aweme_id
+    LEFT JOIN share_url s
+      ON s.owner_user_id = a.owner_user_id
+    LEFT JOIN person_account pa
+      ON pa.platform = a.platform
+     AND pa.owner_user_id = a.owner_user_id
+    LEFT JOIN person p
+      ON p.person_id = pa.person_id
+'''
+
+_GLOBAL_POST_SCOPE = object()
+
 
 class LibraryQuery:
   """Filtered, sorted, paginated views over what this program downloaded.
@@ -283,9 +299,17 @@ class LibraryQuery:
       raise ValueError("database is required")
     self._database = database
 
-  def _post_conditions(self, post_filter: LibraryPostFilter) -> tuple:
+  def _post_conditions(
+    self,
+    post_filter: LibraryPostFilter,
+    app_user_id=_GLOBAL_POST_SCOPE,
+  ) -> tuple:
     clauses = ["a.platform = %s"]
     params = [post_filter.platform]
+
+    if app_user_id is not _GLOBAL_POST_SCOPE:
+      clauses.append("uar.app_user_id = %s")
+      params.append(app_user_id)
 
     if post_filter.keyword is not None:
       pattern = escape_like(post_filter.keyword)
@@ -332,11 +356,18 @@ class LibraryQuery:
 ##
 ## >>============================= sub class method =============================>>
 ##
-  def posts(self, post_filter: LibraryPostFilter) -> LibraryPage:
-    """Return one page of downloaded posts plus the total matching count."""
-    where_sql, params = self._post_conditions(post_filter)
+  def _posts(
+    self,
+    post_filter: LibraryPostFilter,
+    from_sql: str,
+    app_user_id=_GLOBAL_POST_SCOPE,
+  ) -> LibraryPage:
+    where_sql, params = self._post_conditions(
+      post_filter,
+      app_user_id=app_user_id,
+    )
 
-    count_sql = "SELECT COUNT(*) AS total\n" + _POST_FROM + where_sql
+    count_sql = "SELECT COUNT(*) AS total\n" + from_sql + where_sql
 
     ##
     ## The sort key is a whitelist lookup, never the caller's string, which is
@@ -350,7 +381,7 @@ class LibraryQuery:
       "ASC" if post_filter.order == "asc" else "DESC",
     )
     page_sql = (
-      "SELECT" + _POST_COLUMNS + _POST_FROM + where_sql + order_sql
+      "SELECT" + _POST_COLUMNS + from_sql + where_sql + order_sql
       + "    LIMIT %s OFFSET %s\n"
     )
     offset = (post_filter.page - 1) * post_filter.page_size
@@ -369,6 +400,24 @@ class LibraryQuery:
       page=post_filter.page,
       page_size=post_filter.page_size,
       items=items,
+    )
+
+  def posts(self, post_filter: LibraryPostFilter) -> LibraryPage:
+    """Return the global/Admin page, including historical unowned rows."""
+    return self._posts(post_filter, _POST_FROM)
+
+  def posts_for_user(
+    self,
+    app_user_id: int,
+    post_filter: LibraryPostFilter,
+  ) -> LibraryPage:
+    """Return posts related to one server-selected application user."""
+    if type(app_user_id) is not int or app_user_id < 1:
+      raise ValueError("app_user_id must be a positive integer")
+    return self._posts(
+      post_filter,
+      _OWNED_POST_FROM,
+      app_user_id=app_user_id,
     )
 
   def _rooms_for(self, cursor, rows) -> dict:

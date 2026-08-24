@@ -1,6 +1,9 @@
 from backend.src.database.orm.base import Base
 from backend.src.database.orm.models.app_user import AppUserModel, AuthSessionModel
-from backend.src.database.orm.models.aweme import AwemeRecordModel
+from backend.src.database.orm.models.aweme import (
+  AppUserAwemeRecordModel,
+  AwemeRecordModel,
+)
 from backend.src.database.orm.models.legacy import FavoriteOwnerModel, ShareUrlModel
 from backend.src.database.orm.models.live import LiveRecordModel
 from backend.src.database.orm.models.person import (
@@ -32,6 +35,7 @@ MANAGED_TABLE_NAMES = frozenset(
     ##
     AppUserModel.__tablename__,
     AuthSessionModel.__tablename__,
+    AppUserAwemeRecordModel.__tablename__,
     AwemeRecordModel.__tablename__,
     ShareUrlModel.__tablename__,
     FavoriteOwnerModel.__tablename__,
@@ -56,6 +60,7 @@ __all__ = [
   "ACCOUNT_ROLES",
   "AppUserModel",
   "AuthSessionModel",
+  "AppUserAwemeRecordModel",
   "AwemeRecordModel",
   "Base",
   "FavoriteOwnerModel",

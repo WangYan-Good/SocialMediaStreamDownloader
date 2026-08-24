@@ -109,6 +109,7 @@ class TaskStore:
     ##
     return {
       "task_id": task["task_id"],
+      "app_user_id": task["app_user_id"],
       "task_type": task["task_type"],
       "state": task["state"],
       "title": task["title"],
@@ -129,6 +130,51 @@ class TaskStore:
       ],
     }
 
+  @staticmethod
+  def _app_user_id(value) -> int:
+    if type(value) is not int or value < 1:
+      raise TaskValidationError(
+        "app_user_id must be a positive integer, got {!r}".format(value)
+      )
+    return value
+
+  def _selected(
+    self,
+    *,
+    state: str = None,
+    task_type: str = None,
+    limit: int = None,
+    app_user_id=UNSET,
+  ):
+    if state is not None:
+      validate_task_state(state)
+    if task_type is not None:
+      validate_task_type(task_type)
+    if limit is not None and (type(limit) is not int or limit < 1):
+      raise TaskValidationError(
+        "limit must be an integer of at least 1, got {!r}".format(limit)
+      )
+    if app_user_id is not UNSET:
+      app_user_id = self._app_user_id(app_user_id)
+
+    with self._guard:
+      self._evict_expired()
+      ordered = sorted(
+        self._tasks.values(), key=lambda task: task["sequence"], reverse=True
+      )
+      selected = []
+      for task in ordered:
+        if app_user_id is not UNSET and task["app_user_id"] != app_user_id:
+          continue
+        if state is not None and task["state"] != state:
+          continue
+        if task_type is not None and task["task_type"] != task_type:
+          continue
+        selected.append(self._snapshot(task))
+        if limit is not None and len(selected) >= limit:
+          break
+      return selected
+
 ##
 ## >>============================= sub class method =============================>>
 ##
@@ -139,6 +185,7 @@ class TaskStore:
     metadata: dict = None,
     items=None,
     total=UNSET,
+    app_user_id=None,
   ) -> str:
     """Register a pending task and return its id.
 
@@ -162,6 +209,8 @@ class TaskStore:
     Callers whose ids are not unit identities must key on something that is.
     """
     validate_task_type(task_type)
+    if app_user_id is not None:
+      app_user_id = self._app_user_id(app_user_id)
     ##
     ## Deduplicated while keeping submission order.  A caller may hand the same
     ## id twice - a browser sending a selection it did not tidy up - and one item
@@ -185,6 +234,12 @@ class TaskStore:
       self._sequence += 1
       self._tasks[task_id] = {
         "task_id": task_id,
+        ##
+        ## Ownership is fixed at creation.  There is deliberately no mutator:
+        ## transferring a process-local task would rewrite who initiated work
+        ## that has already begun.
+        ##
+        "app_user_id": app_user_id,
         "task_type": task_type,
         "state": TASK_STATE_PENDING,
         "title": title,
@@ -224,6 +279,16 @@ class TaskStore:
         return None
       return self._snapshot(task)
 
+  def get_for_user(self, task_id: str, app_user_id: int):
+    """Return an owned task, hiding every other task as missing."""
+    app_user_id = self._app_user_id(app_user_id)
+    with self._guard:
+      self._evict_expired()
+      task = self._tasks.get(task_id)
+      if task is None or task["app_user_id"] != app_user_id:
+        return None
+      return self._snapshot(task)
+
   def list(self, state: str = None, task_type: str = None, limit: int = None):
     """Return snapshots of the tasks matching every filter, newest first.
 
@@ -231,30 +296,22 @@ class TaskStore:
     filter left as ``None`` means "do not narrow on this", while a filter with a
     value the lifecycle does not know is a caller bug and says so.
     """
-    if state is not None:
-      validate_task_state(state)
-    if task_type is not None:
-      validate_task_type(task_type)
-    if limit is not None and (type(limit) is not int or limit < 1):
-      raise TaskValidationError(
-        "limit must be an integer of at least 1, got {!r}".format(limit)
-      )
+    return self._selected(state=state, task_type=task_type, limit=limit)
 
-    with self._guard:
-      self._evict_expired()
-      ordered = sorted(
-        self._tasks.values(), key=lambda task: task["sequence"], reverse=True
-      )
-      selected = []
-      for task in ordered:
-        if state is not None and task["state"] != state:
-          continue
-        if task_type is not None and task["task_type"] != task_type:
-          continue
-        selected.append(self._snapshot(task))
-        if limit is not None and len(selected) >= limit:
-          break
-      return selected
+  def list_for_user(
+    self,
+    app_user_id: int,
+    state: str = None,
+    task_type: str = None,
+    limit: int = None,
+  ):
+    """Return only tasks created for one application user."""
+    return self._selected(
+      app_user_id=app_user_id,
+      state=state,
+      task_type=task_type,
+      limit=limit,
+    )
 
   def set_state(self, task_id: str, state: str, message=None) -> dict:
     """Move a task to ``state``, refusing anything off the transition table.

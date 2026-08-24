@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Index, PrimaryKeyConstraint, String
+from sqlalchemy import ForeignKeyConstraint, Index, PrimaryKeyConstraint, String, text
 from sqlalchemy.dialects import mysql
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -70,3 +70,47 @@ class AwemeRecordModel(Base):
   ## signed API stops working is observable from the data.
   ##
   source: Mapped[Optional[str]] = mapped_column(String(10))
+
+
+class AppUserAwemeRecordModel(Base):
+  """Many-to-many visibility of recorded posts for application users."""
+
+  __tablename__ = "app_user_aweme_record"
+  __table_args__ = (
+    PrimaryKeyConstraint(
+      "app_user_id",
+      "platform",
+      "aweme_id",
+      name="pk_app_user_aweme_record",
+    ),
+    ForeignKeyConstraint(
+      ["app_user_id"],
+      ["app_user.user_id"],
+      name="fk_app_user_aweme_record_app_user",
+      ondelete="CASCADE",
+    ),
+    ForeignKeyConstraint(
+      ["platform", "aweme_id"],
+      ["aweme_record.platform", "aweme_record.aweme_id"],
+      name="fk_app_user_aweme_record_aweme_record",
+      ondelete="CASCADE",
+    ),
+    ##
+    ## The primary key starts with app_user_id, so it cannot back the composite
+    ## child side of the aweme FK.  Keep this explicit instead of relying on a
+    ## MySQL-created index whose name and lifecycle differ by server version.
+    ##
+    Index("ix_app_user_aweme_record_aweme", "platform", "aweme_id"),
+    MYSQL_TABLE_OPTIONS,
+  )
+
+  app_user_id: Mapped[int] = mapped_column(
+    mysql.BIGINT(unsigned=True), nullable=False
+  )
+  platform: Mapped[str] = mapped_column(String(20), nullable=False)
+  aweme_id: Mapped[str] = mapped_column(String(64), nullable=False)
+  linked_at: Mapped[datetime] = mapped_column(
+    mysql.DATETIME(fsp=3),
+    nullable=False,
+    server_default=text("CURRENT_TIMESTAMP(3)"),
+  )

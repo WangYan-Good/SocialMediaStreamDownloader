@@ -62,8 +62,11 @@ def _error(message, status, *, kind=None):
   return jsonify(body), status
 
 
-def _request_auth_context() -> RequestAuthContext:
+def request_auth_context() -> RequestAuthContext:
   return getattr(g, "auth_context", RequestAuthContext.anonymous())
+
+
+_request_auth_context = request_auth_context
 
 
 def require_authenticated(view):

@@ -8,7 +8,7 @@ CORE_TABLES = frozenset({"share_url", "favorite_owner", "live_record"})
 ##
 ## Post downloads record one row per post; the live tables cover live sessions.
 ##
-POST_TABLES = frozenset({"aweme_record"})
+POST_TABLES = frozenset({"aweme_record", "app_user_aweme_record"})
 PRIMARY_ENTITY_TABLES = frozenset({"room_base", "room_owner_v2", "user"})
 ##
 ## The application's own identity, which is not any of the above.
@@ -267,6 +267,47 @@ class OrmModelTest(unittest.TestCase):
     self.assertEqual(
       "utf8mb4_0900_ai_ci",
       table.dialect_options["mysql"]["collate"],
+    )
+
+  def test_app_user_aweme_relation_has_the_owned_resource_shape(self):
+    models = load_models()
+    table = models.Base.metadata.tables["app_user_aweme_record"]
+
+    self.assertEqual(
+      ["app_user_id", "platform", "aweme_id", "linked_at"],
+      [column.name for column in table.columns],
+    )
+    self.assertEqual(
+      ["app_user_id", "platform", "aweme_id"],
+      [column.name for column in table.primary_key],
+    )
+    self.assertEqual(
+      {"ix_app_user_aweme_record_aweme": ["platform", "aweme_id"]},
+      {
+        index.name: [column.name for column in index.columns]
+        for index in table.indexes
+      },
+    )
+    self.assertIsInstance(table.c.app_user_id.type, mysql.BIGINT)
+    self.assertTrue(table.c.app_user_id.type.unsigned)
+    self.assertIsInstance(table.c.linked_at.type, mysql.DATETIME)
+    self.assertEqual(3, table.c.linked_at.type.fsp)
+
+    foreign_keys = {
+      tuple(column.name for column in constraint.columns): (
+        constraint.referred_table.name,
+        tuple(element.column.name for element in constraint.elements),
+        constraint.ondelete,
+      )
+      for constraint in table.foreign_key_constraints
+    }
+    self.assertEqual(
+      ("app_user", ("user_id",), "CASCADE"),
+      foreign_keys[("app_user_id",)],
+    )
+    self.assertEqual(
+      ("aweme_record", ("platform", "aweme_id"), "CASCADE"),
+      foreign_keys[("platform", "aweme_id")],
     )
 
   def test_managed_table_set_is_complete(self):
