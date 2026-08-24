@@ -122,13 +122,14 @@ jobs:
       # or unusable database would answer with a green job full of skips - a
       # proof that quietly stopped happening, which is exactly the failure this
       # job exists to prevent. With it, that is a hard failure.
-      - name: Run the MySQL schema constraint tests
+      - name: Run the MySQL schema and migration tests
         env:
           SMSD_TEST_MYSQL_DSN: mysql+pymysql://root:smsd_test@127.0.0.1:3306
           SMSD_REQUIRE_MYSQL_TESTS: '1'
         run: |
           python -m pytest \
             backend/src/unit_test/test_person_main_constraint_mysql.py \
+            backend/src/unit_test/test_auth_migration_mysql.py \
             -q -rs
 
       # Belt and braces. The flag above already turns a missing DSN into a
@@ -143,6 +144,7 @@ jobs:
           set -euo pipefail
           python -m pytest \
             backend/src/unit_test/test_person_main_constraint_mysql.py \
+            backend/src/unit_test/test_auth_migration_mysql.py \
             -q -rs --no-header > /tmp/mysql-tests.txt 2>&1 || {
               cat /tmp/mysql-tests.txt
               exit 1
@@ -328,7 +330,7 @@ jobs:
           # redirects to /admin/creators in the *router*, once the shell has
           # loaded; Flask must answer it with the shell like any other
           # client-side route.
-          for path in new library tasks \
+          for path in new library tasks login \
                       admin admin/creators admin/library admin/tasks admin/system \
                       overview creators system; do
             expect "/${path}" 200

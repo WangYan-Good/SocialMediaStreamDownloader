@@ -54,10 +54,10 @@ class AlembicEnvironmentTest(unittest.TestCase):
     scripts = ScriptDirectory.from_config(config)
 
     ##
-    ## one linear chain, one head: 0001 -> 0002 -> 0003 -> 0004 -> 0005 -> 0006
+    ## one linear chain, one head: 0001 -> ... -> 0006 -> 0007
     ##
     self.assertEqual(
-      "0006_person_main_unique",
+      "0007_authentication_foundation",
       scripts.get_current_head(),
     )
     baseline = scripts.get_revision("0001_initial_schema")
@@ -75,6 +75,8 @@ class AlembicEnvironmentTest(unittest.TestCase):
     self.assertEqual("0004_person_identity", moved.down_revision)
     main_unique = scripts.get_revision("0006_person_main_unique")
     self.assertEqual("0005_drop_person_directory", main_unique.down_revision)
+    authentication = scripts.get_revision("0007_authentication_foundation")
+    self.assertEqual("0006_person_main_unique", authentication.down_revision)
 
   def test_the_person_migration_creates_all_three_tables_and_drops_them(self):
     """纯 DDL，无回填——此前没有任何版本记录过这些关系。"""
@@ -250,3 +252,92 @@ class AlembicEnvironmentTest(unittest.TestCase):
 
 if __name__ == "__main__":
   unittest.main()
+
+
+class TestAuthenticationMigrationShape(unittest.TestCase):
+  """The authentication migration, read as source.
+
+  Source-level rather than executed, for the same reason the person tests
+  above are: a real MySQL is not always reachable, and the shape of the DDL is
+  worth holding either way.  ``test_auth_migration_mysql`` runs it for real
+  where a database exists.
+  """
+
+  def source(self) -> str:
+    revision_path = (
+      Path(__file__).resolve().parents[1]
+      / "database"
+      / "migration"
+      / "versions"
+      / "0007_authentication_foundation.py"
+    )
+    return revision_path.read_text(encoding="utf-8")
+
+  def test_it_follows_the_last_revision(self):
+    self.assertIn(
+      'down_revision: Union[str, None] = "0006_person_main_unique"',
+      self.source(),
+    )
+
+  def test_it_creates_both_identity_tables(self):
+    source = self.source()
+
+    self.assertIn('op.create_table(\n    "app_user"', source)
+    self.assertIn('op.create_table(\n    "auth_session"', source)
+
+  def test_it_leaves_every_platform_table_alone(self):
+    ##
+    ## The one thing this migration must not do.  ``user`` here is the Douyin
+    ## profile table; a migration that altered it would be changing data this
+    ## program downloads rather than data it owns.
+    ##
+    source = self.source()
+
+    for platform_table in (
+      '"user"',
+      '"share_url"',
+      '"aweme_record"',
+      '"live_record"',
+      '"person"',
+      '"person_account"',
+    ):
+      for mutation in ("op.drop_table(", "op.alter_column(", "op.add_column("):
+        self.assertNotIn(mutation + platform_table, source)
+
+  def test_it_stores_a_hash_and_never_a_raw_token(self):
+    source = self.source()
+
+    self.assertIn('"token_hash"', source)
+    for forbidden in ('"session_token"', '"raw_token"'):
+      self.assertNotIn(forbidden, source)
+
+  def test_the_session_points_at_the_application_user_and_cascades(self):
+    source = self.source()
+
+    self.assertIn("app_user.user_id", source)
+    self.assertIn('ondelete="CASCADE"', source)
+
+  def test_the_downgrade_removes_only_what_the_upgrade_added(self):
+    source = self.source()
+    downgrade = source[source.index("def downgrade()") :]
+
+    self.assertIn('op.drop_table("auth_session")', downgrade)
+    self.assertIn('op.drop_table("app_user")', downgrade)
+    ##
+    ## The platform table survives a downgrade, which is the same rule as above
+    ## read from the other direction.
+    ##
+    self.assertNotIn('op.drop_table("user")', downgrade)
+
+  def test_the_session_is_dropped_before_the_user_it_references(self):
+    ##
+    ## A foreign key cannot outlive the table it points at.  Dropping app_user
+    ## first fails on any database that enforces the constraint.
+    ##
+    source = self.source()
+    downgrade = source[source.index("def downgrade()") :]
+
+    self.assertLess(
+      downgrade.index('op.drop_table("auth_session")'),
+      downgrade.index('op.drop_table("app_user")'),
+    )

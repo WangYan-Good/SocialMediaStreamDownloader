@@ -5,6 +5,7 @@ import AdminLayout from '@/layouts/AdminLayout.vue'
 import UserLayout from '@/layouts/UserLayout.vue'
 import CreatorsView from '@/views/CreatorsView.vue'
 import LibraryView from '@/views/LibraryView.vue'
+import LoginView from '@/views/LoginView.vue'
 import NewDownloadView from '@/views/NewDownloadView.vue'
 import SystemView from '@/views/SystemView.vue'
 import TasksView from '@/views/TasksView.vue'
@@ -77,6 +78,20 @@ export const routes: RouteRecordRaw[] = [
         component: SystemView,
       },
     ],
+  },
+  //
+  // Sign-in, outside both consoles.
+  //
+  // Deliberately not behind a layout: the sidebar is a list of places to go,
+  // and somebody who is not signed in has not been offered them yet. Nothing
+  // redirects here either - see the phase notes: guarding the interface while
+  // no endpoint checks anything would be the appearance of protection over an
+  // api that still answers everybody.
+  //
+  {
+    path: '/login',
+    name: 'login',
+    component: LoginView,
   },
   {
     path: '/overview',
