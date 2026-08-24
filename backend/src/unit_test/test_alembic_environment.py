@@ -54,10 +54,10 @@ class AlembicEnvironmentTest(unittest.TestCase):
     scripts = ScriptDirectory.from_config(config)
 
     ##
-    ## one linear chain, one head: 0001 -> ... -> 0006 -> 0007
+    ## one linear chain, one head: 0001 -> ... -> 0007 -> 0008
     ##
     self.assertEqual(
-      "0007_authentication_foundation",
+      "0008_app_user_aweme_ownership",
       scripts.get_current_head(),
     )
     baseline = scripts.get_revision("0001_initial_schema")
@@ -77,6 +77,8 @@ class AlembicEnvironmentTest(unittest.TestCase):
     self.assertEqual("0005_drop_person_directory", main_unique.down_revision)
     authentication = scripts.get_revision("0007_authentication_foundation")
     self.assertEqual("0006_person_main_unique", authentication.down_revision)
+    ownership = scripts.get_revision("0008_app_user_aweme_ownership")
+    self.assertEqual("0007_authentication_foundation", ownership.down_revision)
 
   def test_the_person_migration_creates_all_three_tables_and_drops_them(self):
     """纯 DDL，无回填——此前没有任何版本记录过这些关系。"""
@@ -304,6 +306,7 @@ class TestAuthenticationMigrationShape(unittest.TestCase):
       for mutation in ("op.drop_table(", "op.alter_column(", "op.add_column("):
         self.assertNotIn(mutation + platform_table, source)
 
+
   def test_it_stores_a_hash_and_never_a_raw_token(self):
     source = self.source()
 
@@ -356,3 +359,24 @@ class TestAuthenticationMigrationShape(unittest.TestCase):
       downgrade.index('op.drop_table("auth_session")'),
       downgrade.index('op.drop_table("app_user")'),
     )
+
+
+class TestPostOwnershipMigrationShape(unittest.TestCase):
+  def source(self) -> str:
+    revision_path = (
+      Path(__file__).resolve().parents[1]
+      / "database"
+      / "migration"
+      / "versions"
+      / "0008_app_user_aweme_ownership.py"
+    )
+    return revision_path.read_text(encoding="utf-8")
+
+  def test_it_only_creates_and_drops_the_relation(self):
+    source = self.source()
+
+    self.assertIn('op.create_table(\n    "app_user_aweme_record"', source)
+    self.assertIn('op.drop_table("app_user_aweme_record")', source)
+    self.assertNotIn("op.add_column", source)
+    self.assertNotIn("op.alter_column", source)
+    self.assertNotIn("INSERT INTO", source)

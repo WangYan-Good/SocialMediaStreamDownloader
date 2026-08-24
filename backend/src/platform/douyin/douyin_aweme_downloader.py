@@ -708,6 +708,19 @@ class DouyinAwemeDownloader(Downloader):
         return None
     return self._database_for_read()
 
+  def link_post(self, app_user_id: int, aweme_id: str) -> None:
+    """Persist ownership after this downloader has persisted the post row.
+
+    Unlike ordinary download persistence, ownership cannot degrade to a silent
+    no-op: a tracked task would otherwise say success while the user's scoped
+    library could never find the resource.  Callers map this failure to their
+    task outcome while keeping files already written to disk.
+    """
+    database = self._database_if_ready()
+    if database is None:
+      raise RuntimeError("post ownership database is unavailable")
+    database.link_post(app_user_id, PLATFORM, aweme_id)
+
 
 ##
 ## >>================================ public method ===============================>>

@@ -48,6 +48,7 @@ UNAVAILABLE_MESSAGE = "作品无法下载"
 CRASHED_MESSAGE = "下载失败"
 NO_RESULT_MESSAGE = "下载没有返回结果"
 NOT_SCHEDULED_MESSAGE = "下载没有进入队列"
+OWNERSHIP_FAILED_MESSAGE = "作品已保存，但未能记录到当前用户资源库"
 
 
 class DirectPostDownloadTaskService:
@@ -177,13 +178,13 @@ class DirectPostDownloadTaskService:
         result.saved_count, result.media_count
       )
 
-    if result.media_count > 0 and result.saved_count == 0:
+    if result.saved_count == 0:
       ##
       ## The trap this mapping exists to avoid.  The downloader reports ``ok``
       ## for a post it reached but could not keep a single file of, and its
-      ## ``partial`` flag is false precisely because *nothing* was saved - so the
-      ## shape is indistinguishable from a clean success unless it is checked
-      ## here.  The user has no files; that is a failure.
+      ## ``partial`` flag can be false precisely because *nothing* was saved.
+      ## The user has no files; that is a failure, even if a malformed payload
+      ## claimed there were zero files to plan.
       ##
       return "failed", NOTHING_SAVED_MESSAGE
 
@@ -245,7 +246,13 @@ class DirectPostDownloadTaskService:
       lambda: finishers[outcome](task_id, message=message),
     )
 
-  def _run(self, task_id, token: dict):
+  @staticmethod
+  def _can_link(result) -> bool:
+    if result is None or result.ok is not True or not result.aweme_id:
+      return False
+    return result.skipped is True or result.saved_count > 0
+
+  def _run(self, task_id, token: dict, app_user_id=None):
     """The worker: start the task, download, then report what happened."""
     if task_id is not None:
       self._safe(
@@ -253,7 +260,8 @@ class DirectPostDownloadTaskService:
       )
 
     try:
-      result = self._downloader_factory().run(token)
+      downloader = self._downloader_factory()
+      result = downloader.run(token)
     except Exception as e:
       ##
       ## The full trace goes to the log, where it belongs; the task keeps a short
@@ -274,10 +282,31 @@ class DirectPostDownloadTaskService:
       raise
 
     outcome, message = self._verdict(result)
-    self._finish(task_id, outcome, message, self._result_metadata(result))
+    metadata = self._result_metadata(result)
+    if app_user_id is not None and self._can_link(result):
+      try:
+        ##
+        ## ``run`` returns only after aweme_record persistence was attempted.
+        ## The composite FK is the final proof that the resource row exists.
+        ##
+        downloader.link_post(app_user_id, result.aweme_id)
+        metadata["ownership_linked"] = True
+      except Exception as e:
+        get_logger().error(
+          "direct post ownership failed for task {}: {}: {}".format(
+            task_id,
+            type(e).__name__,
+            e,
+          )
+        )
+        metadata["ownership_linked"] = False
+        outcome = "partial"
+        message = OWNERSHIP_FAILED_MESSAGE
+    self._finish(task_id, outcome, message, metadata)
     return result
 
-  def _open_tracked(self, aweme_id, source_url, resolved_url, resolve_id) -> str:
+  def _open_tracked(self, aweme_id, source_url, resolved_url, resolve_id,
+                    app_user_id=None) -> str:
     """Create the task for a request that was promised one, or refuse.
 
     The opposite of ``_open``: nothing here is swallowed.  ``POST /api/tasks``
@@ -306,6 +335,7 @@ class DirectPostDownloadTaskService:
           "aweme_id": aweme_id,
         },
         total=1,
+        app_user_id=app_user_id,
       )
     except Exception as e:
       get_logger().error("direct post task: strict create failed: {}".format(e))
@@ -324,6 +354,7 @@ class DirectPostDownloadTaskService:
     resolved_url=None,
     source_url=None,
     resolve_id=None,
+    app_user_id=None,
   ) -> str:
     """Run one server-resolved post as a task the caller can watch.
 
@@ -336,7 +367,13 @@ class DirectPostDownloadTaskService:
     resolver, and handing it over again would repeat both that request and the
     decision it made.
     """
-    task_id = self._open_tracked(aweme_id, source_url, resolved_url, resolve_id)
+    task_id = self._open_tracked(
+      aweme_id,
+      source_url,
+      resolved_url,
+      resolve_id,
+      app_user_id,
+    )
 
     ##
     ## Whether the worker ever began.  The production pool hands work to a
@@ -349,7 +386,7 @@ class DirectPostDownloadTaskService:
 
     def worker():
       began.append(True)
-      return self._run(task_id, token)
+      return self._run(task_id, token, app_user_id)
 
     token = {
       "url": resolved_url,
@@ -394,7 +431,7 @@ class DirectPostDownloadTaskService:
     try:
       return self._executor_factory(
         self._downloader_factory().config.concurrency
-      ).submit(self._run, task_id, token)
+      ).submit(self._run, task_id, token, None)
     except Exception as e:
       get_logger().error(
         "direct post download was not scheduled for {}: {}".format(

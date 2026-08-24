@@ -49,17 +49,24 @@ class FakeConfig:
 class FakeDownloader:
   """Stands in for DouyinAwemeDownloader: one post per ``run`` call."""
 
-  def __init__(self, result=None, crash=None, concurrency=3):
+  def __init__(self, result=None, crash=None, concurrency=3, link_error=None):
     self._result = result
     self._crash = crash
     self.config = FakeConfig(concurrency)
     self.calls = []
+    self.links = []
+    self.link_error = link_error
 
   def run(self, token):
     self.calls.append(token)
     if self._crash is not None:
       raise self._crash
     return self._result if self._result is not None else complete_result()
+
+  def link_post(self, app_user_id, aweme_id):
+    self.links.append((app_user_id, aweme_id))
+    if self.link_error is not None:
+      raise self.link_error
 
 
 class ImmediateExecutor:
@@ -162,6 +169,84 @@ def tracked(service, **overrides):
 
 
 class PostTrackedCreationTest(unittest.TestCase):
+  def test_owned_post_is_linked_before_the_task_finishes(self):
+    tasks = TaskService()
+    service, downloader, _ = build_service(task_service=tasks)
+
+    task_id = tracked(service, app_user_id=41)
+
+    task = tasks.get_task(task_id)
+    self.assertEqual(task["app_user_id"], 41)
+    self.assertEqual(downloader.links, [(41, AWEME_ID)])
+    self.assertEqual(task["state"], "success")
+    self.assertIs(task["metadata"]["result"]["ownership_linked"], True)
+
+  def test_ownership_failure_keeps_files_but_prevents_false_full_success(self):
+    tasks = TaskService()
+    downloader = FakeDownloader(link_error=RuntimeError("foreign key failed"))
+    service, _, _ = build_service(downloader=downloader, task_service=tasks)
+
+    task_id = tracked(service, app_user_id=41)
+
+    task = tasks.get_task(task_id)
+    self.assertEqual(task["state"], "partial")
+    self.assertIs(task["metadata"]["result"]["ownership_linked"], False)
+    self.assertNotIn("foreign key", task["message"])
+
+  def test_failed_post_never_creates_ownership(self):
+    tasks = TaskService()
+    downloader = FakeDownloader(
+      result=AwemeDownloadResult(ok=False, aweme_id=AWEME_ID, reason="deleted")
+    )
+    service, _, _ = build_service(downloader=downloader, task_service=tasks)
+
+    tracked(service, app_user_id=41)
+
+    self.assertEqual(downloader.links, [])
+
+  def test_zero_saved_non_skipped_post_never_creates_ownership(self):
+    tasks = TaskService()
+    downloader = FakeDownloader(
+      result=AwemeDownloadResult(
+        ok=True,
+        aweme_id=AWEME_ID,
+        media_count=0,
+        saved_count=0,
+      )
+    )
+    service, _, _ = build_service(downloader=downloader, task_service=tasks)
+
+    task_id = tracked(service, app_user_id=41)
+
+    self.assertEqual(downloader.links, [])
+    self.assertEqual(tasks.get_task(task_id)["state"], "failed")
+
+  def test_partial_and_already_downloaded_results_are_owned(self):
+    results = (
+      AwemeDownloadResult(
+        ok=True,
+        aweme_id=AWEME_ID,
+        media_count=3,
+        saved_count=2,
+      ),
+      AwemeDownloadResult(
+        ok=True,
+        aweme_id=AWEME_ID,
+        media_count=3,
+        saved_count=3,
+        skipped=True,
+      ),
+    )
+    for result in results:
+      with self.subTest(result=result):
+        tasks = TaskService()
+        downloader = FakeDownloader(result=result)
+        service, _, _ = build_service(downloader=downloader, task_service=tasks)
+
+        tracked(service, app_user_id=41)
+
+        self.assertEqual(downloader.links, [(41, AWEME_ID)])
+
   """The accepted request produces a task that can be watched."""
 
   def test_it_answers_with_the_id_of_a_post_download_task(self):
@@ -583,6 +668,14 @@ class LiveSchedulingFailureTest(unittest.TestCase):
 
 
 class LiveInlineWorkerTest(unittest.TestCase):
+  def test_live_recording_task_keeps_its_application_user_only_on_the_task(self):
+    tasks = TaskService()
+    service, _ = build_live_service(task_service=tasks)
+
+    task_id = tracked_live(service, app_user_id=52)
+
+    self.assertEqual(tasks.get_task(task_id)["app_user_id"], 52)
+
   """A recording that finishes inside ``start_item`` has still been accepted."""
 
   def test_an_inline_success_still_answers_with_the_task_id(self):
@@ -682,9 +775,10 @@ class RecordingJobStore(JobStore):
     return super().finish(job_id, state=state, message=message)
 
 
-def build_owner_service(api=None, task_service=None, store=None, executor=None):
+def build_owner_service(api=None, task_service=None, store=None, executor=None,
+                        downloader=None):
   return PostDownloadJobService(
-    downloader=StubDownloader(),
+    downloader=downloader if downloader is not None else StubDownloader(),
     api=api if api is not None else StubApi([page(["1"], 0, False)]),
     store=store if store is not None else RecordingJobStore(),
     cache=PayloadCache(),
@@ -706,6 +800,64 @@ def tracked_owner(service, **overrides):
 
 
 class OwnerTrackedCreationTest(OfflineTestCase):
+  def test_owned_batch_links_each_successful_or_skipped_post_only(self):
+    tasks = TaskService()
+    downloader = StubDownloader(
+      failures={"2": RuntimeError("download failed")},
+      skips={"3"},
+    )
+    service = build_owner_service(
+      api=StubApi([page(["1", "2", "3"], 0, False)]),
+      task_service=tasks,
+      downloader=downloader,
+    )
+
+    task_id = tracked_owner(service, app_user_id=63)
+
+    self.assertEqual(tasks.get_task(task_id)["app_user_id"], 63)
+    self.assertEqual(downloader.links, [(63, "1"), (63, "3")])
+
+  def test_one_batch_ownership_failure_marks_that_item_failed(self):
+    tasks = TaskService()
+    downloader = StubDownloader(ownership_failures={"2"})
+    service = build_owner_service(
+      api=StubApi([page(["1", "2"], 0, False)]),
+      task_service=tasks,
+      downloader=downloader,
+    )
+
+    task_id = tracked_owner(service, app_user_id=63)
+
+    task = tasks.get_task(task_id)
+    states = {item["key"]: item["state"] for item in task["items"]}
+    self.assertEqual(states, {"1": "success", "2": "failed"})
+    self.assertEqual(task["state"], "partial")
+    failed = next(item for item in task["items"] if item["key"] == "2")
+    self.assertNotIn("foreign key", failed["message"])
+
+  def test_batch_does_not_own_a_zero_saved_non_skipped_post(self):
+    class NothingSavedDownloader(StubDownloader):
+      def download_detail(self, detail, share_url, owner_share_url=None):
+        return AwemeDownloadResult(
+          ok=True,
+          aweme_id=detail.aweme_id,
+          media_count=0,
+          saved_count=0,
+        )
+
+    tasks = TaskService()
+    downloader = NothingSavedDownloader()
+    service = build_owner_service(
+      api=StubApi([page(["1"], 0, False)]),
+      task_service=tasks,
+      downloader=downloader,
+    )
+
+    task_id = tracked_owner(service, app_user_id=63)
+
+    self.assertEqual(downloader.links, [])
+    self.assertEqual(tasks.get_task(task_id)["items"][0]["state"], "failed")
+
   """An owner walk asked for through the task api is a task from the outset."""
 
   def test_it_answers_with_a_task_id_not_a_job_id(self):

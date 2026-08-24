@@ -253,7 +253,8 @@ class TaskCreationService:
       raise InvalidTaskOptions('主播批量下载需要 options.mode = "all"')
     return {"mode": OWNER_MODE_ALL}
 
-  def _create_post_download(self, runner, resolution, resolve_id: str, options: dict):
+  def _create_post_download(self, runner, resolution, resolve_id: str, options: dict,
+                            app_user_id=None):
     return runner.submit_tracked(
       ##
       ## Every value from the server's own snapshot.  The execution url is the
@@ -265,28 +266,33 @@ class TaskCreationService:
       resolved_url=resolution.resolved_url,
       source_url=resolution.source_url,
       resolve_id=resolve_id,
+      **({"app_user_id": app_user_id} if app_user_id is not None else {}),
     )
 
-  def _create_live_record(self, runner, resolution, resolve_id: str, options: dict):
+  def _create_live_record(self, runner, resolution, resolve_id: str, options: dict,
+                          app_user_id=None):
     return runner.submit_tracked(
       resolved_url=resolution.resolved_url,
       source_url=resolution.source_url,
       resolve_id=resolve_id,
+      **({"app_user_id": app_user_id} if app_user_id is not None else {}),
     )
 
   def _create_owner_batch_download(self, runner, resolution, resolve_id: str,
-                                   options: dict):
+                                   options: dict, app_user_id=None):
     return runner.start_all_tracked(
       sec_user_id=resolution.identity.get("sec_user_id"),
       resolved_url=resolution.resolved_url,
       source_url=resolution.source_url,
       resolve_id=resolve_id,
+      **({"app_user_id": app_user_id} if app_user_id is not None else {}),
     )
 
 ##
 ## >>============================= sub class method =============================>>
 ##
-  def create(self, resolve_id: str, task_type: str, options: dict = None):
+  def create(self, resolve_id: str, task_type: str, options: dict = None,
+             app_user_id=None):
     """Start the work ``task_type`` names for the resource ``resolve_id`` named.
 
     Raises a ``TaskCreateError`` for every expected refusal, each carrying the
@@ -309,7 +315,13 @@ class TaskCreationService:
       TASK_TYPE_LIVE_RECORD: self._create_live_record,
       TASK_TYPE_OWNER_BATCH_DOWNLOAD: self._create_owner_batch_download,
     }
-    task_id = creators[task_type](runner, resolution, resolve_id, validated)
+    task_id = creators[task_type](
+      runner,
+      resolution,
+      resolve_id,
+      validated,
+      app_user_id,
+    )
     return TaskCreationResult(
       task_id=task_id, task_type=task_type, resolve_id=resolve_id
     )

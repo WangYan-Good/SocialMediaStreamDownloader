@@ -149,7 +149,8 @@ class OwnerTaskMirror:
     """The task mirroring ``job_id``, or ``None`` when there is not one."""
     return self._resolve(job_id)
 
-  def open(self, job_id: str, title: str, metadata: dict, items=None, total=UNSET):
+  def open(self, job_id: str, title: str, metadata: dict, items=None, total=UNSET,
+           app_user_id=None):
     """Create the task for a job that has just been registered.
 
     Returns the task id, or ``None`` when mirroring is off or the task layer
@@ -167,6 +168,7 @@ class OwnerTaskMirror:
         metadata=metadata,
         items=items,
         total=total,
+        app_user_id=app_user_id,
       ),
     )
     if task is None:
@@ -179,7 +181,7 @@ class OwnerTaskMirror:
     return task["task_id"]
 
   def open_strict(self, job_id: str, title: str, metadata: dict, items=None,
-                  total=UNSET) -> str:
+                  total=UNSET, app_user_id=None) -> str:
     """Create and associate the task for a job that was promised one.
 
     The strict twin of ``open``.  ``open`` is telemetry over work that runs
@@ -197,6 +199,7 @@ class OwnerTaskMirror:
         metadata=metadata,
         items=items,
         total=total,
+        app_user_id=app_user_id,
       )
     except Exception as e:
       get_logger().error(
