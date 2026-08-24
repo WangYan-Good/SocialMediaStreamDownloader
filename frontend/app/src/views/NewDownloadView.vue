@@ -4,6 +4,10 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import BatchResourceInputCard from '@/components/new-download/BatchResourceInputCard.vue'
 import BatchResourceReview from '@/components/new-download/BatchResourceReview.vue'
 import CurrentTaskCard from '@/components/new-download/CurrentTaskCard.vue'
+import {
+  createFailureMessage,
+  resolveFailureMessage,
+} from '@/components/new-download/downloadPresentation'
 import ResourceInputCard from '@/components/new-download/ResourceInputCard.vue'
 import ResourceResolutionCard from '@/components/new-download/ResourceResolutionCard.vue'
 import { useNewDownloadFlow } from '@/composables/useNewDownloadFlow'
@@ -48,6 +52,22 @@ const batchResolving = computed(() => batchFlow.phase.value === 'resolving')
 const batchCreating = computed(() => batchFlow.phase.value === 'creating')
 
 //
+// The failures as results, decided here rather than in the flows.
+//
+// Both composables keep classifying refusals exactly as they did - the receipt
+// 404, the transport failure, the backend's own wording - and keep their
+// message in their own state. This only chooses which of it reaches the screen,
+// so nothing about how a failure is recognised changes with the words.
+//
+const resolveError = computed(() => resolveFailureMessage(flow.resolveError.value))
+const createError = computed(() =>
+  createFailureMessage(flow.createError.value, flow.receiptExpired.value),
+)
+const batchResolveError = computed(() =>
+  resolveFailureMessage(batchFlow.resolveError.value),
+)
+
+//
 // Leaving the page stops the polling. Nothing here survives the route change:
 // carrying a task across screens needs somewhere to put it, and that arrives
 // with the task centre.
@@ -60,7 +80,7 @@ onBeforeUnmount(() => {
 function reresolve() {
   //
   // The receipt aged out. Back to the form with the text intact, so the user
-  // resolves again deliberately rather than the browser quietly reusing an
+  // identifies again deliberately rather than the browser quietly reusing an
   // identity the server has already forgotten.
   //
   flow.resolved.value = null
@@ -75,11 +95,11 @@ function reresolve() {
     <header class="new-download__header">
       <h1 class="new-download__title">新建下载</h1>
       <p class="new-download__hint">
-        粘贴链接 → 服务端解析 → 确认后创建任务 → 跟踪任务状态
+        粘贴分享内容 → 识别内容 → 开始下载 → 查看下载状态
       </p>
     </header>
 
-    <nav class="mode" aria-label="资源数量">
+    <nav class="mode" aria-label="一次下载多少内容">
       <label
         data-mode="single"
         class="mode__button"
@@ -87,7 +107,7 @@ function reresolve() {
         @click="mode = 'single'"
       >
         <input v-model="mode" class="mode__radio" type="radio" value="single" />
-        单个资源
+        单个链接
       </label>
       <label
         data-mode="batch"
@@ -96,7 +116,7 @@ function reresolve() {
         @click="mode = 'batch'"
       >
         <input v-model="mode" class="mode__radio" type="radio" value="batch" />
-        批量资源
+        多个链接
       </label>
     </nav>
 
@@ -106,7 +126,7 @@ function reresolve() {
         :can-resolve="flow.canResolve.value"
         :resolving="resolving"
         :locked="flow.inputLocked.value"
-        :error="flow.resolveError.value"
+        :error="resolveError"
         @resolve="flow.resolve()"
       />
 
@@ -117,7 +137,7 @@ function reresolve() {
         :can-create="flow.canCreate.value"
         :creating="creating"
         :needs-owner-confirmation="flow.needsOwnerConfirmation.value"
-        :error="flow.createError.value"
+        :error="createError"
         :receipt-expired="flow.receiptExpired.value"
         @create="flow.create()"
         @reresolve="reresolve()"
@@ -142,7 +162,7 @@ function reresolve() {
         :can-resolve="batchFlow.canResolve.value"
         :resolving="batchResolving"
         :locked="batchFlow.inputLocked.value"
-        :error="batchFlow.resolveError.value"
+        :error="batchResolveError"
         @resolve="batchFlow.resolve()"
       />
       <BatchResourceReview

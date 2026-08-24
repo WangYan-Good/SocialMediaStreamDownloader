@@ -1,7 +1,9 @@
 import { mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
+import { routes } from '../../src/router'
 import NewDownloadView from '../../src/views/NewDownloadView.vue'
 import type { CreatedTask, Task, TaskState } from '../../src/types/task'
 import { liveResolution, ownerResolution } from './build-request.spec'
@@ -25,6 +27,13 @@ function taskIn(state: TaskState, overrides: Partial<Task> = {}): Task {
   }
 }
 
+//
+// The download card links to the task list, so a router has to be present
+// for it to render at all. Nothing here navigates - it exists only so
+// `{ name: 'tasks' }` can be resolved into an href.
+//
+const router = createRouter({ history: createMemoryHistory(), routes })
+
 function mountView(api: Record<string, unknown>) {
   const spies = {
     createTask: vi.fn(async (): Promise<CreatedTask> => ({
@@ -35,7 +44,10 @@ function mountView(api: Record<string, unknown>) {
     getTask: vi.fn(async () => taskIn('pending')),
     ...api,
   }
-  const wrapper = mount(NewDownloadView, { props: { api: spies } })
+  const wrapper = mount(NewDownloadView, {
+    props: { api: spies },
+    global: { plugins: [router] },
+  })
   return { wrapper, spies }
 }
 
@@ -72,7 +84,7 @@ describe('a live room, end to end', () => {
   it('names the resource as a live room', async () => {
     const { wrapper } = await resolveWith({ ...api })
 
-    expect(wrapper.text()).toContain('确认资源')
+    expect(wrapper.text()).toContain('识别结果')
     expect(wrapper.text()).toContain('直播')
   })
 
@@ -94,7 +106,7 @@ describe('a live room, end to end', () => {
     const { wrapper } = await resolveWith({ ...api })
 
     expect(buttonSaying(wrapper, '开始录制直播')).toBeTruthy()
-    expect(buttonSaying(wrapper, '下载该作品')).toBeUndefined()
+    expect(buttonSaying(wrapper, '开始下载')).toBeUndefined()
   })
 
   it('creates a recording from the receipt alone', async () => {
@@ -150,11 +162,17 @@ describe('a live room, end to end', () => {
 describe('an owner, end to end', () => {
   const api = { resolveResource: vi.fn(async () => ownerResolution) }
 
-  it('names the resource and its id', async () => {
+  it('names the resource without putting its identifier on screen', async () => {
+    //
+    // The sec_user_id is what the receipt resolves to and what the backend
+    // downloads from. It is not how a user recognises a creator, and the page
+    // they pasted is.
+    //
     const { wrapper } = await resolveWith({ ...api })
 
     expect(wrapper.text()).toContain('主播')
-    expect(wrapper.text()).toContain(SEC_UID)
+    expect(wrapper.text()).not.toContain(SEC_UID)
+    expect(wrapper.text()).toContain(ownerResolution.source_url)
   })
 
   it('says plainly that this downloads everything', async () => {
@@ -227,7 +245,7 @@ describe('an owner, end to end', () => {
     await wrapper.find('textarea').setValue('https://v.douyin.com/completely-other/')
     await nextTick()
 
-    expect(wrapper.text()).not.toContain('确认资源')
+    expect(wrapper.text()).not.toContain('识别结果')
     expect(spies.createTask).not.toHaveBeenCalled()
   })
 })
@@ -241,12 +259,12 @@ describe('editing the box after resolving', () => {
     const { wrapper, spies } = await resolveWith({
       resolveResource: vi.fn(async () => liveResolution),
     })
-    expect(wrapper.text()).toContain('确认资源')
+    expect(wrapper.text()).toContain('识别结果')
 
     await wrapper.find('textarea').setValue('https://v.douyin.com/different/')
     await nextTick()
 
-    expect(wrapper.text()).not.toContain('确认资源')
+    expect(wrapper.text()).not.toContain('识别结果')
     expect(buttonSaying(wrapper, '开始录制直播')).toBeUndefined()
     expect(spies.createTask).not.toHaveBeenCalled()
   })
@@ -259,6 +277,6 @@ describe('editing the box after resolving', () => {
     await wrapper.find('textarea').setValue('  https://v.douyin.com/abc/  ')
     await nextTick()
 
-    expect(wrapper.text()).toContain('确认资源')
+    expect(wrapper.text()).toContain('识别结果')
   })
 })

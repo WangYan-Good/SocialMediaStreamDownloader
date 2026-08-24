@@ -13,9 +13,9 @@ defineEmits<{ resolve: [] }>()
 
 <template>
   <section class="card">
-    <h2 class="card__title">粘贴链接</h2>
+    <h2 class="card__title">粘贴分享链接</h2>
     <p class="card__hint">
-      支持抖音分享文本或链接。整段分享文字可以直接粘贴，服务端会从中取出链接。
+      作品、主播主页、直播都可以。整段分享文字直接粘贴即可，会自动从中取出链接。
     </p>
 
     <label class="field">
@@ -42,9 +42,9 @@ defineEmits<{ resolve: [] }>()
         :disabled="!canResolve || locked"
         @click="$emit('resolve')"
       >
-        {{ resolving ? '正在解析…' : '解析链接' }}
+        {{ resolving ? '正在识别…' : '识别内容' }}
       </button>
-      <span v-if="locked" class="card__note">当前任务进行中，如需新建请先等待其结束。</span>
+      <span v-if="locked" class="card__note">当前下载进行中，如需重新开始请等待其结束。</span>
     </div>
   </section>
 </template>
