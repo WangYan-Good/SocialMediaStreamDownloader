@@ -78,7 +78,7 @@ describe('user layout', () => {
       .findAll('.sidebar-nav__list .sidebar-nav__label')
       .map((node) => node.text())
 
-    expect(labels).toEqual(['首页', '新建下载', '我的资源', '任务'])
+    expect(labels).toEqual(['首页', '新建下载', '我的资源', '下载任务'])
     expect(wrapper.find('nav').attributes('aria-label')).toBe('用户导航')
 
     const navigation = wrapper.find('nav').text()
@@ -190,5 +190,71 @@ describe('admin task destination', () => {
     })
 
     expect(router.currentRoute.value.name).toBe('admin-tasks')
+  })
+})
+
+describe('the boundary between the two consoles', () => {
+  //
+  // Both layouts render the same AppShell, so the only thing keeping them apart
+  // is the navigation each passes in. These assert that separation directly
+  // rather than trusting it.
+  //
+  it('sends every user destination to a user route', async () => {
+    const { wrapper } = await mountShell(App, '/')
+
+    const hrefs = wrapper
+      .findAll('.sidebar-nav__list .sidebar-nav__link')
+      .map((one) => one.attributes('href'))
+
+    expect(hrefs).toEqual(['/', '/new', '/library', '/tasks'])
+    for (const href of hrefs) {
+      expect(href?.startsWith('/admin')).toBe(false)
+    }
+  })
+
+  it('sends every admin destination to an admin route', async () => {
+    //
+    // The trap this guards: an admin entry named 'library' or 'tasks' resolves
+    // to the *user* view, which drops exactly the columns an operator opened
+    // the admin console for. It would look right in the sidebar and be wrong on
+    // arrival.
+    //
+    const { wrapper } = await mountShell(App, '/admin/creators')
+
+    const hrefs = wrapper
+      .findAll('.sidebar-nav__list .sidebar-nav__link')
+      .map((one) => one.attributes('href'))
+
+    expect(hrefs).toEqual([
+      '/admin/creators',
+      '/admin/library',
+      '/admin/tasks',
+      '/admin/system',
+    ])
+    for (const href of hrefs) {
+      expect(href?.startsWith('/admin/')).toBe(true)
+    }
+  })
+
+  it('keeps the admin console visibly marked as one', async () => {
+    const { wrapper: admin } = await mountShell(App, '/admin/creators')
+    expect(admin.text()).toContain('Admin')
+
+    const { wrapper: user } = await mountShell(App, '/')
+    expect(user.text()).not.toContain('Admin')
+  })
+
+  it('offers a user no way into the admin console', async () => {
+    //
+    // Deliberate, and recorded as such: hiding the url is information
+    // architecture, not access control. Nothing here is a security boundary
+    // until authentication exists.
+    //
+    const { wrapper } = await mountShell(App, '/')
+    const navigation = wrapper.find('nav').text()
+
+    for (const adminConcept of ['管理', 'Admin', '创作者', '系统', '媒体库']) {
+      expect(navigation).not.toContain(adminConcept)
+    }
   })
 })
