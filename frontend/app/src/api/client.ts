@@ -11,6 +11,9 @@ import type { ApiEnvelope, ApiErrorKind, ApiFailure } from '@/types/api'
 //
 
 const DEFAULT_BASE_URL = '/api'
+const CSRF_COOKIE_NAME = 'smsd_csrf'
+const CSRF_HEADER_NAME = 'X-CSRF-Token'
+const MUTATION_METHODS = new Set<RequestMethod>(['POST', 'PATCH', 'DELETE'])
 
 export interface ApiErrorFields {
   kind: ApiErrorKind
@@ -162,6 +165,26 @@ function isEnvelope(payload: unknown): payload is ApiEnvelope<unknown> {
   return status === 'success' || status === 'error'
 }
 
+function readableCookie(name: string): string | null {
+  if (typeof document === 'undefined') {
+    return null
+  }
+  const prefix = `${encodeURIComponent(name)}=`
+  for (const part of document.cookie.split(';')) {
+    const cookie = part.trim()
+    if (!cookie.startsWith(prefix)) {
+      continue
+    }
+    const value = cookie.slice(prefix.length)
+    try {
+      return decodeURIComponent(value)
+    } catch {
+      return value
+    }
+  }
+  return null
+}
+
 /**
  * Call one backend endpoint and hand back its `data`, or throw an `ApiError`.
  *
@@ -185,9 +208,19 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     //
     credentials: 'same-origin',
   }
+  const headers: Record<string, string> = {}
   if (body !== undefined) {
-    init.headers = { 'Content-Type': 'application/json' }
+    headers['Content-Type'] = 'application/json'
     init.body = JSON.stringify(body)
+  }
+  if (MUTATION_METHODS.has(method)) {
+    const csrfToken = readableCookie(CSRF_COOKIE_NAME)
+    if (csrfToken) {
+      headers[CSRF_HEADER_NAME] = csrfToken
+    }
+  }
+  if (Object.keys(headers).length) {
+    init.headers = headers
   }
   if (signal) {
     init.signal = signal
