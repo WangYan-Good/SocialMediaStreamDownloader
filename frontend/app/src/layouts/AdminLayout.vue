@@ -4,6 +4,7 @@ import type { NavEntry } from '@/components/layout/SidebarNav.vue'
 
 const navigation: readonly NavEntry[] = [
   { name: 'admin-creators', label: '创作者', hint: 'Creators' },
+  { name: 'admin-library', label: '媒体库', hint: 'Library' },
   { name: 'admin-system', label: '系统', hint: 'System' },
 ]
 </script>

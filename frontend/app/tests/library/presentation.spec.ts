@@ -4,6 +4,7 @@ import {
   COMPLETION_LABELS,
   SOURCE_LABELS,
   TYPE_LABELS,
+  creatorName,
   recordedLiveStatusLabel,
   savedCountLabel,
 } from '../../src/components/library/libraryPresentation'
@@ -81,5 +82,22 @@ describe('the vocabularies the backend writes', () => {
   it('names both completion states', () => {
     expect(COMPLETION_LABELS.complete).toContain('完整记录')
     expect(COMPLETION_LABELS.partial).toContain('部分记录')
+  })
+})
+
+describe('naming a creator to a user', () => {
+  it('uses the nickname when there is one', () => {
+    expect(creatorName('某位主播')).toBe('某位主播')
+  })
+
+  it('says the creator is unknown rather than exposing an account id', () => {
+    //
+    // The management tables fall back to owner_user_id, which is right there:
+    // an operator looking at an unnamed row still needs something to go on. A
+    // user does not, and the identifier means nothing to them.
+    //
+    expect(creatorName(null)).toBe('未知创作者')
+    expect(creatorName('')).toBe('未知创作者')
+    expect(creatorName('   ')).toBe('未知创作者')
   })
 })
