@@ -129,9 +129,25 @@ class AuthenticationMigrationTest(RealDatabaseAllowed, unittest.TestCase):
     return set(sa.inspect(self.engine).get_table_names())
 
   def setUp(self):
+    ##
+    ## Wiping everything, in no particular order.
+    ##
+    ## These tables reference each other - auth_session to app_user,
+    ## person_account to person - so any fixed order is wrong for some pair,
+    ## and alphabetical is wrong for the first one. Suspending the checks says
+    ## "remove all of this" without this fixture having to know the dependency
+    ## graph of seventeen tables.
+    ##
+    ## Restored in the same connection, whatever happened, so a failure here
+    ## cannot leave the checks off for whatever runs next.
+    ##
     with self.engine.connect() as connection:
-      for table in sorted(self.tables()):
-        connection.execute(sa.text("DROP TABLE IF EXISTS `{}`".format(table)))
+      connection.execute(sa.text("SET FOREIGN_KEY_CHECKS = 0"))
+      try:
+        for table in sorted(self.tables()):
+          connection.execute(sa.text("DROP TABLE IF EXISTS `{}`".format(table)))
+      finally:
+        connection.execute(sa.text("SET FOREIGN_KEY_CHECKS = 1"))
       connection.commit()
 
   ##

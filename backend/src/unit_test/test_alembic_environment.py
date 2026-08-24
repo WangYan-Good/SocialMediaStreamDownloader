@@ -329,6 +329,21 @@ class TestAuthenticationMigrationShape(unittest.TestCase):
     ##
     self.assertNotIn('op.drop_table("user")', downgrade)
 
+  def test_the_downgrade_does_not_drop_indexes_by_hand(self):
+    ##
+    ## MySQL uses ix_auth_session_user_id to back the foreign key on user_id
+    ## and refuses to drop an index a constraint still needs, so an explicit
+    ## drop_index before drop_table fails with 1553. DROP TABLE removes them
+    ## anyway.
+    ##
+    ## Held here as well as in the MySQL test because this reads as harmless
+    ## tidying, and the source gives no hint that it is not.
+    ##
+    source = self.source()
+    downgrade = source[source.index("def downgrade()") :]
+
+    self.assertNotIn("op.drop_index(", downgrade)
+
   def test_the_session_is_dropped_before_the_user_it_references(self):
     ##
     ## A foreign key cannot outlive the table it points at.  Dropping app_user

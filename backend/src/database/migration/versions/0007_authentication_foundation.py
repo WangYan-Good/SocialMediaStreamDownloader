@@ -151,10 +151,21 @@ def upgrade() -> None:
 
 def downgrade() -> None:
   ##
-  ## Sessions first.  A foreign key cannot outlive the table it points at, so
-  ## dropping app_user first fails on any database that enforces it.
+  ## The tables, and only the tables.
   ##
-  op.drop_index("ix_auth_session_user_id", table_name="auth_session")
-  op.drop_index("ix_auth_session_expires_at", table_name="auth_session")
+  ## Dropping the indexes first looks tidier and is wrong: MySQL uses
+  ## ``ix_auth_session_user_id`` to back the foreign key on ``user_id``, and
+  ## refuses to drop an index a constraint still needs -
+  ##
+  ##     (1553, "Cannot drop index 'ix_auth_session_user_id': needed in a
+  ##      foreign key constraint")
+  ##
+  ## ``DROP TABLE`` takes the indexes with it, so there is nothing to do by
+  ## hand. This is the kind of thing only a real MySQL can say - the source
+  ## reads perfectly either way.
+  ##
+  ## Sessions before users: a foreign key cannot outlive the table it points
+  ## at, so dropping app_user first fails on any database that enforces it.
+  ##
   op.drop_table("auth_session")
   op.drop_table("app_user")
