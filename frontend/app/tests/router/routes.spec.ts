@@ -27,9 +27,15 @@ describe('user and admin route boundaries', () => {
   it.each([
     ['/', 'user-home', ['UserLayout', 'UserHomeView']],
     ['/new', 'new-download', ['UserLayout', 'NewDownloadView']],
-    ['/library', 'library', ['UserLayout', 'LibraryView']],
+    ['/library', 'library', ['UserLayout', 'UserLibraryView']],
     ['/tasks', 'tasks', ['UserLayout', 'TasksView']],
     ['/admin/creators', 'admin-creators', ['AdminLayout', 'CreatorsView']],
+    //
+    // The management view keeps every column it had; it moves rather than
+    // shrinks, so nothing that could already be inspected stops being
+    // reachable.
+    //
+    ['/admin/library', 'admin-library', ['AdminLayout', 'LibraryView']],
     ['/admin/system', 'admin-system', ['AdminLayout', 'SystemView']],
   ])('loads %s through its expected layout and view', async (path, name, components) => {
     const router = testRouter()
@@ -84,6 +90,7 @@ describe('user and admin route boundaries', () => {
       'library',
       'tasks',
       'admin-creators',
+      'admin-library',
       'admin-system',
     ]) {
       expect(router.hasRoute(name)).toBe(true)

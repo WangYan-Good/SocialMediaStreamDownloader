@@ -73,3 +73,17 @@ export function savedCountLabel(
   }
   return `记录完成 ${savedCount} / ${mediaCount}`
 }
+
+/**
+ * What to call a creator on a user-facing screen.
+ *
+ * The management tables fall back to `owner_user_id` when a nickname is
+ * missing, and that is right for them: an operator looking at an unnamed row
+ * still needs something to identify it by. A user gets no such fallback - the
+ * account id means nothing to them, and printing it leaks an internal
+ * identifier at exactly the moment there is nothing useful to say.
+ */
+export function creatorName(nickname: string | null): string {
+  const trimmed = (nickname ?? '').trim()
+  return trimmed || '未知创作者'
+}

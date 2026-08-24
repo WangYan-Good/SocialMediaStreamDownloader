@@ -9,6 +9,7 @@ import NewDownloadView from '@/views/NewDownloadView.vue'
 import SystemView from '@/views/SystemView.vue'
 import TasksView from '@/views/TasksView.vue'
 import UserHomeView from '@/views/UserHomeView.vue'
+import UserLibraryView from '@/views/UserLibraryView.vue'
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -28,7 +29,7 @@ export const routes: RouteRecordRaw[] = [
       {
         path: 'library',
         name: 'library',
-        component: LibraryView,
+        component: UserLibraryView,
       },
       {
         path: 'tasks',
@@ -49,6 +50,16 @@ export const routes: RouteRecordRaw[] = [
         path: 'creators',
         name: 'admin-creators',
         component: CreatorsView,
+      },
+      //
+      // The management library, unchanged. The user route above shows a subset
+      // of the same records; this one keeps every column, the person filter and
+      // the collaboration tab.
+      //
+      {
+        path: 'library',
+        name: 'admin-library',
+        component: LibraryView,
       },
       {
         path: 'system',

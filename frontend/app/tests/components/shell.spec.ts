@@ -135,18 +135,34 @@ describe('admin layout', () => {
     const labels = wrapper
       .findAll('.sidebar-nav__list .sidebar-nav__label')
       .map((node) => node.text())
-    expect(labels).toEqual(['创作者', '系统'])
+    expect(labels).toEqual(['创作者', '媒体库', '系统'])
   })
 
   it('navigates from creators to the admin system route', async () => {
     const { wrapper, router } = await mountShell(App, '/admin/creators')
 
-    await wrapper.findAll('.sidebar-nav__link')[1].trigger('click')
+    await wrapper.findAll('.sidebar-nav__link')[2].trigger('click')
     await vi.waitFor(() => {
       expect(router.currentRoute.value.path).toBe('/admin/system')
     })
 
     expect(router.currentRoute.value.name).toBe('admin-system')
+  })
+
+  it('reaches the full management library from the admin navigation', async () => {
+    //
+    // The user library drops columns; it does not remove them from the
+    // application. Everything the single library view could show is still
+    // reachable, from here.
+    //
+    const { wrapper, router } = await mountShell(App, '/admin/creators')
+
+    await wrapper.findAll('.sidebar-nav__link')[1].trigger('click')
+    await vi.waitFor(() => {
+      expect(router.currentRoute.value.path).toBe('/admin/library')
+    })
+
+    expect(router.currentRoute.value.name).toBe('admin-library')
   })
 })
 

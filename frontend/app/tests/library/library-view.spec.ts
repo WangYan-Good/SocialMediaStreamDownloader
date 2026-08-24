@@ -75,7 +75,7 @@ async function settle() {
 
 async function openLibrary() {
   const router = createRouter({ history: createMemoryHistory(), routes })
-  await router.push('/library')
+  await router.push('/admin/library')
   await router.isReady()
   const wrapper = mount(LibraryView, { global: { plugins: [router] } })
   await settle()
@@ -449,5 +449,55 @@ describe('the library as a whole', () => {
     expect(buttonSaying(wrapper, '重新下载')).toBeUndefined()
     expect(buttonSaying(wrapper, '删除')).toBeUndefined()
     expect(text).not.toContain('取消任务')
+  })
+})
+
+describe('the management library keeps what the user library drops', () => {
+  //
+  // Phase 3 narrows /library for users. Nothing was removed from the
+  // application, and this is the guard on that claim: every capability the
+  // single library view had is still here, on /admin/library.
+  //
+  it('still offers all three views, including the collaboration tab', async () => {
+    const wrapper = await openLibrary()
+    const tabs = wrapper.findAll('.library__tab').map((one) => one.text())
+
+    expect(tabs).toEqual(['已下载作品', '直播记录', '拍摄关系关联'])
+  })
+
+  it('still filters downloads by person, and still loads the roster to do it', async () => {
+    mockedPeople.mockResolvedValue([
+      { person_id: 7, display_name: '某人', account_count: 1 },
+    ] as never)
+    const wrapper = await openLibrary()
+
+    expect(mockedPeople).toHaveBeenCalled()
+    const personSelect = wrapper.findAll('select').find((one) =>
+      one.findAll('option').some((option) => option.text() === '某人'),
+    )
+    expect(personSelect).toBeTruthy()
+
+    await personSelect?.setValue('7')
+    await settle()
+
+    expect(mockedPosts).toHaveBeenLastCalledWith(
+      expect.objectContaining({ person_id: 7 }),
+      expect.anything(),
+    )
+  })
+
+  it('still shows the operator columns a user no longer sees', async () => {
+    mockedPosts.mockResolvedValue({
+      total: 1,
+      page: 1,
+      page_size: 25,
+      items: [post()],
+    })
+    const wrapper = await openLibrary()
+    const text = wrapper.text()
+
+    for (const operatorColumn of ['保存目录', '来源', '人物']) {
+      expect(text).toContain(operatorColumn)
+    }
   })
 })
