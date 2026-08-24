@@ -261,3 +261,88 @@ describe('rows', () => {
     }
   })
 })
+
+describe('the management task view keeps what the user view drops', () => {
+  //
+  // Phase 4 narrows /tasks for users. Nothing was removed from the
+  // application, and this is the guard on that claim: the diagnostic surface
+  // is still here, on /admin/tasks.
+  //
+  it('still offers the limit control', async () => {
+    const wrapper = await mountTasks()
+    const options = wrapper.findAll('option').map((one) => one.text())
+
+    for (const limit of ['25', '50', '100']) {
+      expect(options).toContain(limit)
+    }
+  })
+
+  it('still offers both the state and the type filter', async () => {
+    const wrapper = await mountTasks()
+    const selects = wrapper.findAll('select')
+
+    expect(
+      selects.some((one) => one.findAll('option').some((o) => o.text() === '已完成')),
+    ).toBe(true)
+    expect(
+      selects.some((one) => one.findAll('option').some((o) => o.text() === '直播录制')),
+    ).toBe(true)
+  })
+
+  it('still shows the task id and the technical metadata in the detail', async () => {
+    mockedList.mockResolvedValue(
+      page([
+        task({
+          task_id: 'task-diagnostic',
+          metadata: {
+            resolve_id: 'receipt-1',
+            aweme_id: '7657271784144009946',
+            sec_user_id: 'MS4wLjABAAAA-somebody',
+            legacy_job_id: 'job-77',
+            resolved_url: 'https://www.douyin.com/video/7657271784144009946',
+            result: { save_dir: '/mnt/video/somebody', protocol: 'flv', test_mode: true },
+          },
+        }),
+      ]),
+    )
+    const wrapper = await mountTasks()
+
+    await wrapper.findAll('button').find((one) => one.text().includes('查看'))?.trigger('click')
+    await settle()
+
+    const text = wrapper.text()
+    expect(text).toContain('任务 ID')
+    expect(text).toContain('task-diagnostic')
+    for (const diagnostic of [
+      '解析凭证',
+      '作品 ID',
+      '主播 ID',
+      '兼容任务 ID',
+      '解析后链接',
+      '保存目录',
+      '协议',
+      '测试模式',
+    ]) {
+      expect(text).toContain(diagnostic)
+    }
+  })
+
+  it('still lists work items by their own key', async () => {
+    mockedList.mockResolvedValue(
+      page([
+        task({
+          items: [
+            { key: '7657271784144009946', state: 'success', message: null, metadata: {} },
+          ],
+        }),
+      ]),
+    )
+    const wrapper = await mountTasks()
+
+    await wrapper.findAll('button').find((one) => one.text().includes('查看'))?.trigger('click')
+    await settle()
+
+    expect(wrapper.text()).toContain('工作项')
+    expect(wrapper.text()).toContain('7657271784144009946')
+  })
+})
