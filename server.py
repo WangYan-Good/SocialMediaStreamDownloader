@@ -39,6 +39,7 @@ from backend.src.web.system_routes import (
   build_system_blueprint,
   install_system_config,
 )
+from backend.src.web.auth_routes import build_auth_blueprint, build_auth_runtime
 from backend.src.web.task_routes import (
   build_task_blueprint,
   install_task_creation_service,
@@ -176,6 +177,23 @@ def _new_flask_app(
   ## the read side of the task centre
   ##
   configured_app.register_blueprint(build_task_blueprint())
+
+  ##
+  ## Who is making this request.
+  ##
+  ## Registered unconditionally, including when the database is switched off:
+  ## the runtime is built lazily and answers "unavailable" when asked, so a
+  ## deployment with no database still starts and still serves everything that
+  ## never needed one - it simply has nobody signed in.
+  ##
+  ## This phase establishes identity and stops there.  Nothing below is
+  ## protected by it: no endpoint requires a session, because nothing is owned
+  ## by anybody yet, and requiring a login before ownership exists would give
+  ## every signed-in user a view of everybody else's work.
+  ##
+  configured_app.register_blueprint(
+    build_auth_blueprint(runtime=build_auth_runtime(load_config))
+  )
 
   ##
   ## Answering what a pasted link is, before anything is done about it.

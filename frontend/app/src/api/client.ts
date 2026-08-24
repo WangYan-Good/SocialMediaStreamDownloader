@@ -174,7 +174,17 @@ function isEnvelope(payload: unknown): payload is ApiEnvelope<unknown> {
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, query, signal } = options
 
-  const init: RequestInit = { method }
+  const init: RequestInit = {
+    method,
+    //
+    // Stated rather than inherited.  This is already fetch's default, and the
+    // session cookie is HttpOnly and same-origin, so nothing changes by saying
+    // it - but authentication now depends on that cookie being attached, and a
+    // dependency that rests on a default nobody wrote down is one a future
+    // edit can remove without noticing.
+    //
+    credentials: 'same-origin',
+  }
   if (body !== undefined) {
     init.headers = { 'Content-Type': 'application/json' }
     init.body = JSON.stringify(body)

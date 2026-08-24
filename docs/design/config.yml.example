@@ -30,6 +30,24 @@ server:
   host: 0.0.0.0
   port: 5000
   debug_mode: true
+auth:
+  ##
+  ## How long a signed-in browser stays signed in, in seconds.  A fixed
+  ## lifetime, not a sliding one: the session dies when it was always going to,
+  ## whether or not it has been used.  604800 is seven days.
+  ##
+  session_ttl_seconds: 604800
+  ##
+  ## Whether the session cookie is marked Secure, which tells the browser to
+  ## send it over HTTPS only.
+  ##
+  ## MUST be true wherever this is served over HTTPS - otherwise the session
+  ## can travel in clear text.  It is false here because the example is also
+  ## what local development and the container smoke test run against, and a
+  ## Secure cookie over plain HTTP is silently discarded by the browser, which
+  ## looks exactly like login not working.
+  ##
+  cookie_secure: false
 migrate:
   source_db_name: smsd_old
   source_db_host: localhost

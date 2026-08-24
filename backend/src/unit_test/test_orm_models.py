@@ -10,6 +10,15 @@ CORE_TABLES = frozenset({"share_url", "favorite_owner", "live_record"})
 ##
 POST_TABLES = frozenset({"aweme_record"})
 PRIMARY_ENTITY_TABLES = frozenset({"room_base", "room_owner_v2", "user"})
+##
+## The application's own identity, which is not any of the above.
+##
+## "user" in PRIMARY_ENTITY_TABLES is a Douyin profile written from platform
+## payloads.  These two are who may sign in to this program and which browsers
+## currently are - deliberately a separate group, because the day they are read
+## as the same thing is the day a creator profile becomes a login.
+##
+AUTH_TABLES = frozenset({"app_user", "auth_session"})
 ROOM_EXTENSION_TABLES = frozenset(
   {
     "room_stats",
@@ -268,6 +277,7 @@ class OrmModelTest(unittest.TestCase):
       | PERSON_TABLES
       | PRIMARY_ENTITY_TABLES
       | ROOM_EXTENSION_TABLES
+      | AUTH_TABLES
     )
 
     self.assertEqual(expected, models.MANAGED_TABLE_NAMES)
