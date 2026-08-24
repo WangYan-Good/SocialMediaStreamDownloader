@@ -317,7 +317,20 @@ jobs:
 
           # Every deep link returns the shell, so a refresh inside the
           # application does not 404.
-          for path in overview new creators library tasks system; do
+          #
+          # Both consoles, and the legacy paths still promised. The admin ones
+          # matter for the same reason as the rest and were the ones missing:
+          # Flask has never heard of any of these, so a prefix accidentally
+          # becoming reserved - or the catch-all being narrowed - would 404 a
+          # refresh in production while every unit test stayed green.
+          #
+          # /admin is in this list, not in the redirect list below it. It
+          # redirects to /admin/creators in the *router*, once the shell has
+          # loaded; Flask must answer it with the shell like any other
+          # client-side route.
+          for path in new library tasks \
+                      admin admin/creators admin/library admin/tasks admin/system \
+                      overview creators system; do
             expect "/${path}" 200
             curl -s "${BASE}/${path}" | grep -q '<div id="app">' \
               || { echo "FAIL /${path} is not the Vue shell"; exit 1; }
