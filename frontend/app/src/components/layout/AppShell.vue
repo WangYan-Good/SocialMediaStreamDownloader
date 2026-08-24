@@ -3,7 +3,15 @@ import { storeToRefs } from 'pinia'
 import { RouterView } from 'vue-router'
 
 import SidebarNav from '@/components/layout/SidebarNav.vue'
+import type { NavEntry } from '@/components/layout/SidebarNav.vue'
 import { useAppStore } from '@/stores/app'
+
+defineProps<{
+  title: string
+  context?: string
+  navigation: readonly NavEntry[]
+  navigationLabel: string
+}>()
 
 const store = useAppStore()
 const { sidebarOpen } = storeToRefs(store)
@@ -22,12 +30,17 @@ const { sidebarOpen } = storeToRefs(store)
         <!-- A readable name, not an icon glyph a screen reader would spell out. -->
         {{ sidebarOpen ? '关闭导航' : '打开导航' }}
       </button>
-      <span class="app-shell__title">Social Media Stream Downloader</span>
+      <span class="app-shell__title">{{ title }}</span>
+      <span v-if="context" class="app-shell__context">{{ context }}</span>
     </header>
 
     <div class="app-shell__body">
       <aside id="app-sidebar" class="app-shell__sidebar">
-        <SidebarNav @navigate="store.closeSidebar()" />
+        <SidebarNav
+          :entries="navigation"
+          :label="navigationLabel"
+          @navigate="store.closeSidebar()"
+        />
       </aside>
 
       <main class="app-shell__main">
@@ -56,6 +69,15 @@ const { sidebarOpen } = storeToRefs(store)
 .app-shell__title {
   font-size: 0.9375rem;
   font-weight: 600;
+}
+
+.app-shell__context {
+  padding: var(--space-1) var(--space-2);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  border-radius: var(--radius-1);
 }
 
 .app-shell__toggle {
