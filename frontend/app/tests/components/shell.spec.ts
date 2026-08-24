@@ -135,13 +135,13 @@ describe('admin layout', () => {
     const labels = wrapper
       .findAll('.sidebar-nav__list .sidebar-nav__label')
       .map((node) => node.text())
-    expect(labels).toEqual(['创作者', '媒体库', '系统'])
+    expect(labels).toEqual(['创作者', '媒体库', '任务', '系统'])
   })
 
   it('navigates from creators to the admin system route', async () => {
     const { wrapper, router } = await mountShell(App, '/admin/creators')
 
-    await wrapper.findAll('.sidebar-nav__link')[2].trigger('click')
+    await wrapper.findAll('.sidebar-nav__link')[3].trigger('click')
     await vi.waitFor(() => {
       expect(router.currentRoute.value.path).toBe('/admin/system')
     })
@@ -173,5 +173,22 @@ describe('screens with nothing to load ask the backend for nothing', () => {
     await mountShell(App, '/new')
 
     expect(fetched).not.toHaveBeenCalled()
+  })
+})
+
+describe('admin task destination', () => {
+  it('reaches the full management task view from the admin navigation', async () => {
+    //
+    // The user task view drops the ids, the raw metadata and the limit control.
+    // None of that left the application; this is where it went.
+    //
+    const { wrapper, router } = await mountShell(App, '/admin/creators')
+
+    await wrapper.findAll('.sidebar-nav__link')[2].trigger('click')
+    await vi.waitFor(() => {
+      expect(router.currentRoute.value.path).toBe('/admin/tasks')
+    })
+
+    expect(router.currentRoute.value.name).toBe('admin-tasks')
   })
 })

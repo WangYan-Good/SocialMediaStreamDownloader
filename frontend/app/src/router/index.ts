@@ -10,6 +10,7 @@ import SystemView from '@/views/SystemView.vue'
 import TasksView from '@/views/TasksView.vue'
 import UserHomeView from '@/views/UserHomeView.vue'
 import UserLibraryView from '@/views/UserLibraryView.vue'
+import UserTasksView from '@/views/UserTasksView.vue'
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -34,7 +35,7 @@ export const routes: RouteRecordRaw[] = [
       {
         path: 'tasks',
         name: 'tasks',
-        component: TasksView,
+        component: UserTasksView,
       },
     ],
   },
@@ -60,6 +61,15 @@ export const routes: RouteRecordRaw[] = [
         path: 'library',
         name: 'admin-library',
         component: LibraryView,
+      },
+      //
+      // The management task view, unchanged. The user route above shows the
+      // same tasks; this one keeps the ids, the raw metadata and the limit.
+      //
+      {
+        path: 'tasks',
+        name: 'admin-tasks',
+        component: TasksView,
       },
       {
         path: 'system',
