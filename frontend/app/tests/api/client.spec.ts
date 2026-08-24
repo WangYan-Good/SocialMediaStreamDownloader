@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiError, apiBaseUrl, request } from '../../src/api/client'
 
@@ -42,6 +42,11 @@ async function failureOf(promise: Promise<unknown>): Promise<ApiError> {
   }
   throw new Error('expected the request to fail, but it resolved')
 }
+
+beforeEach(() => {
+  document.cookie = 'smsd_csrf=; Max-Age=0; Path=/'
+  document.cookie = 'smsd_session=; Max-Age=0; Path=/'
+})
 
 describe('apiBaseUrl', () => {
   it('is a same-origin relative path', () => {
@@ -104,6 +109,67 @@ describe('request - success', () => {
     await request('/tasks', { query: { state: 'running', type: undefined, limit: 5 } })
 
     expect(fetched.mock.calls[0][0]).toBe('/api/tasks?state=running&limit=5')
+  })
+})
+
+describe('request - csrf boundary', () => {
+  it('never adds a csrf header to GET', async () => {
+    document.cookie = 'smsd_csrf=csrf-proof; Path=/'
+    const fetched = stubFetch(jsonResponse({ status: 'success', code: 200, data: {} }))
+
+    await request('/auth/me')
+
+    const [, init] = fetched.mock.calls[0] as [string, RequestInit]
+    expect(new Headers(init.headers).get('X-CSRF-Token')).toBeNull()
+  })
+
+  it.each(['POST', 'PATCH', 'DELETE'] as const)(
+    'adds the readable csrf cookie to %s',
+    async (method) => {
+      document.cookie = 'smsd_csrf=csrf-proof; Path=/'
+      const fetched = stubFetch(
+        jsonResponse({ status: 'success', code: 200, data: {} }),
+      )
+
+      await request('/mutation', { method })
+
+      const [, init] = fetched.mock.calls[0] as [string, RequestInit]
+      expect(new Headers(init.headers).get('X-CSRF-Token')).toBe('csrf-proof')
+    },
+  )
+
+  it('leaves a mutation unchanged when there is no csrf cookie', async () => {
+    const fetched = stubFetch(jsonResponse({ status: 'success', code: 200, data: {} }))
+
+    await request('/tasks', { method: 'POST' })
+
+    const [, init] = fetched.mock.calls[0] as [string, RequestInit]
+    expect(new Headers(init.headers).get('X-CSRF-Token')).toBeNull()
+  })
+
+  it('allows login to bootstrap without an existing csrf cookie', async () => {
+    const fetched = stubFetch(jsonResponse({ status: 'success', code: 200, data: {} }))
+
+    await request('/auth/login', {
+      method: 'POST',
+      body: { username: 'alice', password: 'correct horse battery' },
+    })
+
+    const [, init] = fetched.mock.calls[0] as [string, RequestInit]
+    expect(new Headers(init.headers).get('X-CSRF-Token')).toBeNull()
+  })
+
+  it('never sends a JavaScript-visible session credential', async () => {
+    document.cookie = 'smsd_session=session-secret; Path=/'
+    document.cookie = 'smsd_csrf=csrf-proof; Path=/'
+    const fetched = stubFetch(jsonResponse({ status: 'success', code: 200, data: {} }))
+
+    await request('/auth/logout', { method: 'POST' })
+
+    const [, init] = fetched.mock.calls[0] as [string, RequestInit]
+    const headers = new Headers(init.headers)
+    expect(headers.get('X-CSRF-Token')).toBe('csrf-proof')
+    expect(JSON.stringify([...headers.entries()])).not.toContain('session-secret')
   })
 })
 

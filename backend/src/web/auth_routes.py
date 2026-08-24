@@ -1,15 +1,19 @@
 ##<<Base>>
 from datetime import datetime
+from functools import wraps
 
 ##<<Extension>>
 from flask import Blueprint, g, jsonify, request
 
 ##<<Third-part>>
+from backend.src.auth.context import RequestAuthContext, RequestAuthStatus
 from backend.src.auth.credentials import hash_session_token  # noqa: F401  (re-exported for callers)
+from backend.src.auth.csrf import csrf_token_for_session, csrf_tokens_match
 from backend.src.auth.errors import AuthUnavailable, InvalidCredentials
 from backend.src.auth.repository import AuthRepository
 from backend.src.auth.service import AuthenticationService
 from backend.src.library.baselib import get_dict_attr
+from backend.src.library.loglib import get_logger
 from backend.src.database.schema_guard import require_database_write_ready
 from backend.src.database.table.share_url import DouyinShareUrlTable
 
@@ -22,6 +26,8 @@ from backend.src.database.table.share_url import DouyinShareUrlTable
 ## A HttpOnly cookie is the one place the page itself cannot reach.
 ##
 SESSION_COOKIE_NAME = "smsd_session"
+CSRF_COOKIE_NAME = "smsd_csrf"
+CSRF_HEADER_NAME = "X-CSRF-Token"
 
 ##
 ## One answer for no-such-account, wrong-password and disabled alike.  Any
@@ -37,19 +43,96 @@ INVALID_CREDENTIALS_MESSAGE = "用户名或密码错误"
 ## problem.
 ##
 UNAVAILABLE_MESSAGE = "认证服务暂时不可用，请稍后重试"
+CSRF_INVALID_MESSAGE = "请求验证失败，请刷新页面后重试"
 
 
 def _ok(data, status=200):
   return jsonify({"status": "success", "data": data}), status
 
 
-def _error(message, status):
+def _error(message, status, *, kind=None):
   ##
   ## The message is always one this module wrote.  An exception's own text can
   ## carry a driver string, a host name or a query, and none of that belongs in
   ## a response to an unauthenticated caller.
   ##
-  return jsonify({"status": "error", "code": status, "message": message}), status
+  body = {"status": "error", "code": status, "message": message}
+  if kind is not None:
+    body["kind"] = kind
+  return jsonify(body), status
+
+
+def _request_auth_context() -> RequestAuthContext:
+  return getattr(g, "auth_context", RequestAuthContext.anonymous())
+
+
+def require_authenticated(view):
+  """Refuse a view unless this request's one auth resolution succeeded."""
+
+  @wraps(view)
+  def authenticated_view(*args, **kwargs):
+    context = _request_auth_context()
+    if context.status == RequestAuthStatus.UNAVAILABLE:
+      return _error(UNAVAILABLE_MESSAGE, 503)
+    if context.status != RequestAuthStatus.AUTHENTICATED:
+      return _error("未登录", 401)
+    return view(*args, **kwargs)
+
+  return authenticated_view
+
+
+def require_session_csrf(view):
+  """Require a valid CSRF proof when auth has not disproved the session.
+
+  Anonymous requests pass so logout remains idempotent for missing, expired,
+  revoked and unknown sessions.  ``unavailable`` still validates because the
+  expected proof was derived before the database lookup and does not depend on
+  the backend being healthy.
+  """
+
+  @wraps(view)
+  def csrf_protected_view(*args, **kwargs):
+    context = _request_auth_context()
+    if context.status in (
+      RequestAuthStatus.AUTHENTICATED,
+      RequestAuthStatus.UNAVAILABLE,
+    ) and not csrf_tokens_match(
+      context.csrf_expected,
+      request.headers.get(CSRF_HEADER_NAME),
+    ):
+      return _error(CSRF_INVALID_MESSAGE, 403, kind="csrf_invalid")
+    return view(*args, **kwargs)
+
+  return csrf_protected_view
+
+
+def _set_csrf_cookie(response, token, runtime):
+  response.set_cookie(
+    CSRF_COOKIE_NAME,
+    token,
+    max_age=runtime.session_ttl_seconds(),
+    httponly=False,
+    samesite="Strict",
+    secure=runtime.cookie_secure(),
+    path="/",
+  )
+
+
+def _clear_auth_cookies(response, runtime):
+  response.delete_cookie(
+    SESSION_COOKIE_NAME,
+    path="/",
+    httponly=True,
+    samesite="Strict",
+    secure=runtime.cookie_secure(),
+  )
+  response.delete_cookie(
+    CSRF_COOKIE_NAME,
+    path="/",
+    httponly=False,
+    samesite="Strict",
+    secure=runtime.cookie_secure(),
+  )
 
 
 class AuthRuntime:
@@ -95,31 +178,56 @@ def build_auth_blueprint(*, runtime: AuthRuntime) -> Blueprint:
   blueprint = Blueprint("auth", __name__, url_prefix="/api")
 
   @blueprint.before_app_request
-  def resolve_current_user():
+  def resolve_request_authentication():
     """Work out who is making this request, once.
 
     Establishes identity and stops there.  Nothing is refused here: this phase
     has no authorization, and an anonymous request must still reach its route
     exactly as it did before authentication existed.
 
-    A failure to resolve is also not a refusal - if the database cannot answer,
-    the request proceeds as anonymous rather than failing wholesale, because
-    every existing endpoint works perfectly well without knowing who is asking.
+    A failure to resolve is also not a refusal here.  It is retained as the
+    distinct ``unavailable`` state, while existing unprotected endpoints keep
+    running because none of them consumes authentication yet.
     """
-    g.current_user = None
     token = request.cookies.get(SESSION_COOKIE_NAME)
     if not token:
+      g.auth_context = RequestAuthContext.anonymous()
       return
+    csrf_expected = csrf_token_for_session(token)
     try:
-      g.current_user = runtime.service().resolve_session(token)
+      user = runtime.service().resolve_session(token)
     except AuthUnavailable:
       ##
       ## Deliberately swallowed here and nowhere else.  /api/auth/me answers
-      ## 503 for this case, because there the question *is* "who am I"; for
-      ## every other route the honest answer is that identity is unknown and
-      ## nothing depends on it yet.
+      ## 503 for this case, because there the question *is* "who am I"; the
+      ## explicit context keeps other routes from mistaking an outage for a
+      ## confirmed anonymous request.
       ##
-      g.current_user = None
+      g.auth_context = RequestAuthContext.unavailable(
+        csrf_expected=csrf_expected
+      )
+      return
+    if user is None:
+      g.auth_context = RequestAuthContext.anonymous(
+        csrf_expected=csrf_expected
+      )
+      return
+    g.auth_context = RequestAuthContext.authenticated(
+      user,
+      csrf_expected=csrf_expected,
+    )
+
+  @blueprint.after_app_request
+  def repair_authenticated_csrf_cookie(response):
+    context = _request_auth_context()
+    if context.status != RequestAuthStatus.AUTHENTICATED:
+      return response
+    if getattr(g, "auth_cookies_managed", False):
+      return response
+    received = request.cookies.get(CSRF_COOKIE_NAME)
+    if not csrf_tokens_match(context.csrf_expected, received):
+      _set_csrf_cookie(response, context.csrf_expected, runtime)
+    return response
 
   @blueprint.route("/auth/login", methods=["POST"])
   def login():
@@ -167,28 +275,17 @@ def build_auth_blueprint(*, runtime: AuthRuntime) -> Blueprint:
       secure=runtime.cookie_secure(),
       path="/",
     )
+    _set_csrf_cookie(response, csrf_token_for_session(issued.token), runtime)
+    g.auth_cookies_managed = True
     return response, 200
 
   @blueprint.route("/auth/me", methods=["GET"])
+  @require_authenticated
   def me():
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    if not token:
-      return _error("未登录", 401)
-
-    try:
-      user = runtime.service().resolve_session(token)
-    except AuthUnavailable:
-      ##
-      ## Here the outage matters. "Not signed in" would make every browser
-      ## believe it had been logged out by a database hiccup.
-      ##
-      return _error(UNAVAILABLE_MESSAGE, 503)
-
-    if user is None:
-      return _error("未登录", 401)
-    return _ok({"user": _serialize(user)})
+    return _ok({"user": _serialize(_request_auth_context().user)})
 
   @blueprint.route("/auth/logout", methods=["POST"])
+  @require_session_csrf
   def logout():
     """End the current session.
 
@@ -198,7 +295,11 @@ def build_auth_blueprint(*, runtime: AuthRuntime) -> Blueprint:
     whether a token was valid.
     """
     token = request.cookies.get(SESSION_COOKIE_NAME)
-    if token:
+    context = _request_auth_context()
+    if token and context.status in (
+      RequestAuthStatus.AUTHENTICATED,
+      RequestAuthStatus.UNAVAILABLE,
+    ):
       try:
         runtime.service().revoke_session(token)
       except AuthUnavailable:
@@ -206,16 +307,21 @@ def build_auth_blueprint(*, runtime: AuthRuntime) -> Blueprint:
         ## The cookie is cleared regardless. The browser end of signing out
         ## must not depend on the database being reachable.
         ##
-        pass
+        get_logger().warning(
+          "logout cleared browser cookies but server-side session revoke did not complete"
+        )
 
     response = jsonify({"status": "success", "data": None})
-    response.delete_cookie(
-      SESSION_COOKIE_NAME,
-      path="/",
-      httponly=True,
-      samesite="Strict",
-      secure=runtime.cookie_secure(),
-    )
+    if token:
+      ##
+      ## A cross-site request does not carry a Strict session cookie.  Do not
+      ## answer that cookie-less request with a deletion cookie: doing so could
+      ## turn an anonymous, idempotent endpoint into forced browser logout.
+      ## Unknown or expired credentials *are* sent on same-site requests and
+      ## may still be cleaned up because ``token`` is present.
+      ##
+      _clear_auth_cookies(response, runtime)
+    g.auth_cookies_managed = True
     return response, 200
 
   return blueprint
