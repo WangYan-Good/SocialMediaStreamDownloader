@@ -1,9 +1,11 @@
 import { mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { ApiError } from '../../src/api/client'
 import { TASK_POLL_INTERVAL_MS } from '../../src/composables/useNewDownloadFlow'
+import { routes } from '../../src/router'
 import NewDownloadView from '../../src/views/NewDownloadView.vue'
 import type { CreatedTask, Task, TaskState } from '../../src/types/task'
 import { postResolution } from './build-request.spec'
@@ -31,6 +33,13 @@ const CREATED: CreatedTask = {
   resolve_id: 'receipt-1',
 }
 
+//
+// The download card links to the task list, so a router has to be present
+// for it to render at all. Nothing here navigates - it exists only so
+// `{ name: 'tasks' }` can be resolved into an href.
+//
+const router = createRouter({ history: createMemoryHistory(), routes })
+
 function mountView(api: Record<string, unknown> = {}) {
   const spies = {
     resolveResource: vi.fn(async () => postResolution),
@@ -38,7 +47,10 @@ function mountView(api: Record<string, unknown> = {}) {
     getTask: vi.fn(async () => taskIn('pending')),
     ...api,
   }
-  const wrapper = mount(NewDownloadView, { props: { api: spies } })
+  const wrapper = mount(NewDownloadView, {
+    props: { api: spies },
+    global: { plugins: [router] },
+  })
   return { wrapper, spies }
 }
 
@@ -63,7 +75,7 @@ async function resolved(api: Record<string, unknown> = {}) {
 
 async function tracking(api: Record<string, unknown> = {}) {
   const built = await resolved(api)
-  await buttonSaying(built.wrapper, '下载该作品')?.trigger('click')
+  await buttonSaying(built.wrapper, '开始下载')?.trigger('click')
   await settle()
   return built
 }
@@ -94,7 +106,7 @@ describe('resolving fails', () => {
 
     expect(wrapper.find('[role="alert"]').text()).toContain('一次只能解析一个链接')
     expect(wrapper.find('textarea').element.value).toContain('https://v.douyin.com/a/')
-    expect(wrapper.text()).not.toContain('确认资源')
+    expect(wrapper.text()).not.toContain('识别结果')
   })
 
   it.each([
@@ -149,7 +161,7 @@ describe('resolving fails', () => {
     await settle()
 
     expect(resolveResource).toHaveBeenCalledTimes(2)
-    expect(wrapper.text()).toContain('确认资源')
+    expect(wrapper.text()).toContain('识别结果')
   })
 })
 
@@ -166,11 +178,11 @@ describe('the receipt expired before the user confirmed', () => {
       createTask: vi.fn(async () => Promise.reject(gone)),
     })
 
-    await buttonSaying(wrapper, '下载该作品')?.trigger('click')
+    await buttonSaying(wrapper, '开始下载')?.trigger('click')
     await settle()
 
-    expect(wrapper.text()).toContain('重新解析')
-    expect(buttonSaying(wrapper, '重新解析')).toBeTruthy()
+    expect(wrapper.text()).toContain('重新识别')
+    expect(buttonSaying(wrapper, '重新识别')).toBeTruthy()
   })
 
   it('creates no task and starts no tracking', async () => {
@@ -178,10 +190,10 @@ describe('the receipt expired before the user confirmed', () => {
       createTask: vi.fn(async () => Promise.reject(gone)),
     })
 
-    await buttonSaying(wrapper, '下载该作品')?.trigger('click')
+    await buttonSaying(wrapper, '开始下载')?.trigger('click')
     await settle()
 
-    expect(wrapper.text()).not.toContain('当前任务')
+    expect(wrapper.text()).not.toContain('下载已开始')
     expect(spies.getTask).not.toHaveBeenCalled()
   })
 
@@ -194,15 +206,15 @@ describe('the receipt expired before the user confirmed', () => {
     const { wrapper } = await resolved({
       createTask: vi.fn(async () => Promise.reject(gone)),
     })
-    await buttonSaying(wrapper, '下载该作品')?.trigger('click')
+    await buttonSaying(wrapper, '开始下载')?.trigger('click')
     await settle()
 
-    await buttonSaying(wrapper, '重新解析')?.trigger('click')
+    await buttonSaying(wrapper, '重新识别')?.trigger('click')
     await nextTick()
 
-    expect(wrapper.text()).not.toContain('确认资源')
+    expect(wrapper.text()).not.toContain('识别结果')
     expect(wrapper.find('textarea').element.value).toBe('https://v.douyin.com/abc/')
-    expect(wrapper.find('button').text()).toContain('解析')
+    expect(wrapper.find('button').text()).toContain('识别')
   })
 })
 
@@ -218,16 +230,17 @@ describe('creating fails for another reason', () => {
       createTask: vi.fn(async () => Promise.reject(refused)),
     })
 
-    await buttonSaying(wrapper, '下载该作品')?.trigger('click')
+    await buttonSaying(wrapper, '开始下载')?.trigger('click')
     await settle()
 
-    expect(wrapper.text()).toContain('确认资源')
-    expect(wrapper.text()).toContain(`refused ${status}`)
+    expect(wrapper.text()).toContain('识别结果')
+    expect(wrapper.text()).toContain('暂时无法开始下载，请稍后重试。')
+    expect(wrapper.text()).not.toContain(`refused ${status}`)
     //
     // No task was created, so no task is shown. Rendering one as failed would
     // invent a record the server never made.
     //
-    expect(wrapper.text()).not.toContain('当前任务')
+    expect(wrapper.text()).not.toContain('下载已开始')
   })
 
   it('lets the user press download again', async () => {
@@ -243,13 +256,13 @@ describe('creating fails for another reason', () => {
       .mockResolvedValueOnce(CREATED)
     const { wrapper } = await resolved({ createTask })
 
-    await buttonSaying(wrapper, '下载该作品')?.trigger('click')
+    await buttonSaying(wrapper, '开始下载')?.trigger('click')
     await settle()
-    await buttonSaying(wrapper, '下载该作品')?.trigger('click')
+    await buttonSaying(wrapper, '开始下载')?.trigger('click')
     await settle()
 
     expect(createTask).toHaveBeenCalledTimes(2)
-    expect(wrapper.text()).toContain('当前任务')
+    expect(wrapper.text()).toContain('下载已开始')
   })
 })
 
@@ -280,8 +293,8 @@ describe('the status cannot be read', () => {
     const { wrapper } = await trackingThenOffline()
 
     const text = wrapper.text()
-    expect(text).toContain('暂时无法获取任务状态')
-    expect(text).not.toContain('任务失败')
+    expect(text).toContain('暂时无法获取下载状态')
+    expect(text).not.toContain('下载失败')
     expect(text).not.toContain('下载失败')
   })
 
@@ -332,9 +345,9 @@ describe('the task record is gone', () => {
     })
 
     const text = wrapper.text()
-    expect(text).toContain('任务记录不存在或已过期')
+    expect(text).toContain('下载记录不存在或已过期')
     expect(text).not.toContain('下载失败')
-    expect(text).not.toContain('任务失败')
+    expect(text).not.toContain('下载失败')
   })
 
   it('stops polling a record that is not there', async () => {
@@ -359,10 +372,10 @@ describe('the task record is gone', () => {
 
 describe('terminal outcomes', () => {
   it.each<[TaskState, string]>([
-    ['success', '任务已完成'],
-    ['partial', '任务部分完成'],
-    ['failed', '任务失败'],
-    ['cancelled', '任务已停止'],
+    ['success', '下载已完成'],
+    ['partial', '部分内容已下载'],
+    ['failed', '下载失败'],
+    ['cancelled', '下载已停止'],
   ])('reports %s in words', async (state, expected) => {
     const { wrapper } = await tracking({ getTask: vi.fn(async () => taskIn(state)) })
 

@@ -153,7 +153,7 @@ describe('new-download mode lifecycle', () => {
     await settle()
     await wrapper
       .findAll('button')
-      .find((button) => button.text().includes('下载该作品'))
+      .find((button) => button.text().includes('开始下载'))
       ?.trigger('click')
     await settle()
     expect(getTask).toHaveBeenCalledTimes(1)

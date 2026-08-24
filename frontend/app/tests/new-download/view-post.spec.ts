@@ -1,8 +1,10 @@
 import { mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { TASK_POLL_INTERVAL_MS } from '../../src/composables/useNewDownloadFlow'
+import { routes } from '../../src/router'
 import NewDownloadView from '../../src/views/NewDownloadView.vue'
 import type { CreatedTask, Task, TaskState } from '../../src/types/task'
 import { postResolution } from './build-request.spec'
@@ -32,6 +34,13 @@ const CREATED: CreatedTask = {
   resolve_id: 'receipt-1',
 }
 
+//
+// The download card links to the task list, so a router has to be present
+// for it to render at all. Nothing here navigates - it exists only so
+// `{ name: 'tasks' }` can be resolved into an href.
+//
+const router = createRouter({ history: createMemoryHistory(), routes })
+
 function mountView(api: Record<string, unknown> = {}) {
   const spies = {
     resolveResource: vi.fn(async () => postResolution),
@@ -39,7 +48,10 @@ function mountView(api: Record<string, unknown> = {}) {
     getTask: vi.fn(async (_taskId: string) => taskIn('pending')),
     ...api,
   }
-  const wrapper = mount(NewDownloadView, { props: { api: spies } })
+  const wrapper = mount(NewDownloadView, {
+    props: { api: spies },
+    global: { plugins: [router] },
+  })
   return { wrapper, spies }
 }
 
@@ -82,15 +94,15 @@ describe('the screen as it opens', () => {
 
     const buttons = wrapper.findAll('button')
     expect(buttons).toHaveLength(1)
-    expect(buttons[0].text()).toContain('解析')
+    expect(buttons[0].text()).toContain('识别')
     expect(buttons[0].attributes('disabled')).toBeDefined()
   })
 
   it('shows no resolution and no task', () => {
     const { wrapper } = mountView()
 
-    expect(wrapper.text()).not.toContain('确认资源')
-    expect(wrapper.text()).not.toContain('当前任务')
+    expect(wrapper.text()).not.toContain('识别结果')
+    expect(wrapper.text()).not.toContain('下载已开始')
   })
 
   it('enables resolving once something is typed', async () => {
@@ -115,17 +127,23 @@ describe('a post, end to end', () => {
     const { wrapper, spies } = await resolvePost()
 
     expect(spies.resolveResource).toHaveBeenCalledWith('https://v.douyin.com/abc/')
-    expect(wrapper.text()).toContain('确认资源')
+    expect(wrapper.text()).toContain('识别结果')
     expect(wrapper.text()).toContain('作品')
-    expect(wrapper.text()).toContain(AWEME_ID)
   })
 
-  it('shows both urls and how long the receipt lasts', async () => {
+  it('shows the pasted link and keeps the machinery off the screen', async () => {
+    //
+    // The aweme id, the followed short link and the receipt's remaining life
+    // are all still doing their work underneath. None of them is something a
+    // user reads to decide whether the right thing was recognised - the link
+    // they pasted answers that, and it is the one thing they can check.
+    //
     const { wrapper } = await resolvePost()
 
     expect(wrapper.text()).toContain(postResolution.source_url)
-    expect(wrapper.text()).toContain(postResolution.resolved_url)
-    expect(wrapper.text()).toContain('10 分钟')
+    expect(wrapper.text()).not.toContain(AWEME_ID)
+    expect(wrapper.text()).not.toContain(postResolution.resolved_url)
+    expect(wrapper.text()).not.toContain('凭证')
   })
 
   it('claims nothing the server did not answer', async () => {
@@ -155,7 +173,7 @@ describe('a post, end to end', () => {
   it('creates the task with the receipt alone', async () => {
     const { wrapper, spies } = await resolvePost()
 
-    const create = wrapper.findAll('button').find((b) => b.text().includes('下载该作品'))
+    const create = wrapper.findAll('button').find((b) => b.text().includes('开始下载'))
     await create?.trigger('click')
     await settle()
 
@@ -175,12 +193,12 @@ describe('a post, end to end', () => {
     await settle()
     await built.wrapper
       .findAll('button')
-      .find((b) => b.text().includes('下载该作品'))
+      .find((b) => b.text().includes('开始下载'))
       ?.trigger('click')
     await settle()
 
-    expect(built.wrapper.text()).toContain('当前任务')
-    expect(built.wrapper.text()).toContain('task-1')
+    expect(built.wrapper.text()).toContain('下载已开始')
+    expect(built.wrapper.text()).not.toContain('task-1')
     expect(built.wrapper.text()).toContain('排队中')
 
     await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS)
@@ -190,7 +208,7 @@ describe('a post, end to end', () => {
     await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS)
     await nextTick()
     expect(built.wrapper.text()).toContain('已完成')
-    expect(built.wrapper.text()).toContain('任务已完成')
+    expect(built.wrapper.text()).toContain('下载已完成')
 
     const calls = getTask.mock.calls.length
     await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS * 5)
@@ -205,7 +223,7 @@ describe('a post, end to end', () => {
     await settle()
     await built.wrapper
       .findAll('button')
-      .find((b) => b.text().includes('下载该作品'))
+      .find((b) => b.text().includes('开始下载'))
       ?.trigger('click')
     await settle()
 
@@ -225,7 +243,7 @@ describe('a post, end to end', () => {
     await settle()
     await built.wrapper
       .findAll('button')
-      .find((b) => b.text().includes('下载该作品'))
+      .find((b) => b.text().includes('开始下载'))
       ?.trigger('click')
     await settle()
 
@@ -234,8 +252,8 @@ describe('a post, end to end', () => {
     await nextTick()
 
     expect(built.wrapper.find('textarea').element.value).toBe('')
-    expect(built.wrapper.text()).not.toContain('确认资源')
-    expect(built.wrapper.text()).not.toContain('当前任务')
+    expect(built.wrapper.text()).not.toContain('识别结果')
+    expect(built.wrapper.text()).not.toContain('下载已开始')
   })
 })
 
@@ -262,7 +280,7 @@ describe('double submission through the buttons', () => {
     await wrapper.find('button').trigger('click')
     await settle()
 
-    const create = wrapper.findAll('button').find((b) => b.text().includes('下载该作品'))
+    const create = wrapper.findAll('button').find((b) => b.text().includes('开始下载'))
     await create?.trigger('click')
     await create?.trigger('click')
     await create?.trigger('click')
@@ -284,7 +302,7 @@ describe('this screen is not the task centre', () => {
     await settle()
     await wrapper
       .findAll('button')
-      .find((b) => b.text().includes('下载该作品'))
+      .find((b) => b.text().includes('开始下载'))
       ?.trigger('click')
     await settle()
 
@@ -305,7 +323,7 @@ describe('leaving the screen', () => {
     await settle()
     await wrapper
       .findAll('button')
-      .find((b) => b.text().includes('下载该作品'))
+      .find((b) => b.text().includes('开始下载'))
       ?.trigger('click')
     await settle()
 

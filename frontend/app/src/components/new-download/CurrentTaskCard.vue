@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 
+import { trackingFailureMessage } from '@/components/new-download/downloadPresentation'
 import TaskStateBadge from '@/components/tasks/TaskStateBadge.vue'
 import {
   TASK_TYPE_LABELS,
@@ -22,15 +24,15 @@ defineEmits<{ retry: []; startOver: [] }>()
 const typeLabel = computed(() => TASK_TYPE_LABELS[props.created.task_type])
 
 //
-// What a finished task says, in one sentence. The task's own message wins when
-// it has one - it is written by whichever runner actually did the work and
+// What a finished download says, in one sentence. The task's own message wins
+// when it has one - it is written by whichever runner actually did the work and
 // knows more than this screen does.
 //
 const OUTCOMES = {
-  success: '任务已完成',
-  partial: '任务部分完成',
-  failed: '任务失败',
-  cancelled: '任务已停止',
+  success: '下载已完成',
+  partial: '部分内容已下载',
+  failed: '下载失败',
+  cancelled: '下载已停止',
 } as const
 
 const outcome = computed(() => {
@@ -52,22 +54,36 @@ const progressLabel = computed(() => {
   //
   return progressText(progress.current, progress.total)
 })
+
+//
+// The status read failed, said as a result. Mapped here rather than in the flow
+// so the composable keeps classifying failures exactly as it did - this decides
+// only which of its words reach the screen.
+//
+const notice = computed(() =>
+  trackingFailureMessage(props.trackError, props.recordMissing),
+)
 </script>
 
 <template>
   <section class="card">
     <div class="card__head">
-      <h2 class="card__title">当前任务</h2>
+      <!--
+        The heading a user is waiting for. It stays true afterwards: the
+        download did start, and how it ended is said just below.
+      -->
+      <h2 class="card__title">下载已开始</h2>
       <TaskStateBadge v-if="task" :state="task.state" />
     </div>
 
+    <!--
+      The task id, and the three timestamps that used to sit here, are not shown.
+      They identify the record rather than describe the download, and the task
+      list is where a record is looked up.
+    -->
     <dl class="facts">
       <div class="facts__row">
-        <dt>任务 ID</dt>
-        <dd class="facts__mono">{{ created.task_id }}</dd>
-      </div>
-      <div class="facts__row">
-        <dt>类型</dt>
+        <dt>内容</dt>
         <dd>{{ typeLabel }}</dd>
       </div>
       <div v-if="task?.title" class="facts__row">
@@ -86,22 +102,6 @@ const progressLabel = computed(() => {
           </span>
         </dd>
       </div>
-      <div v-if="task?.message" class="facts__row">
-        <dt>说明</dt>
-        <dd>{{ task.message }}</dd>
-      </div>
-      <div v-if="task?.created_at" class="facts__row">
-        <dt>创建时间</dt>
-        <dd class="facts__mono">{{ task.created_at }}</dd>
-      </div>
-      <div v-if="task?.started_at" class="facts__row">
-        <dt>开始时间</dt>
-        <dd class="facts__mono">{{ task.started_at }}</dd>
-      </div>
-      <div v-if="task?.finished_at" class="facts__row">
-        <dt>结束时间</dt>
-        <dd class="facts__mono">{{ task.finished_at }}</dd>
-      </div>
     </dl>
 
     <!--
@@ -110,8 +110,8 @@ const progressLabel = computed(() => {
     -->
     <p v-if="outcome" class="card__outcome" aria-live="polite">{{ outcome }}</p>
 
-    <div v-if="trackError" class="card__notice" role="status">
-      <p class="card__notice-text">{{ trackError }}</p>
+    <div v-if="notice" class="card__notice" role="status">
+      <p class="card__notice-text">{{ notice }}</p>
       <!--
         A read failing says nothing about the work. The task is not marked
         failed here, and the only thing offered is another look.
@@ -121,8 +121,19 @@ const progressLabel = computed(() => {
       </button>
     </div>
 
-    <div v-if="canStartOver" class="card__actions">
-      <button type="button" class="button" @click="$emit('startOver')">
+    <div class="card__actions">
+      <!--
+        The way out of this screen. One download is shown here; everything the
+        user has ever started lives in the task list, and this is the only link
+        to it from the flow.
+      -->
+      <RouterLink class="card__link" :to="{ name: 'tasks' }">查看所有任务</RouterLink>
+      <button
+        v-if="canStartOver"
+        type="button"
+        class="button"
+        @click="$emit('startOver')"
+      >
         新建另一个下载
       </button>
     </div>
@@ -173,10 +184,6 @@ const progressLabel = computed(() => {
   overflow-wrap: anywhere;
 }
 
-.facts__mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.8125rem;
-}
 
 .facts__muted {
   color: var(--color-muted);
@@ -206,7 +213,17 @@ const progressLabel = computed(() => {
 }
 
 .card__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
   margin-top: var(--space-4);
+}
+
+.card__link {
+  color: var(--color-accent);
+  font-size: 0.875rem;
+  text-decoration: underline;
 }
 
 .button {

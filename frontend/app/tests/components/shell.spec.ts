@@ -104,7 +104,7 @@ describe('user layout', () => {
 
     expect(wrapper.findComponent({ name: 'UserLayout' }).exists()).toBe(true)
     expect(wrapper.findComponent({ name: 'UserHomeView' }).exists()).toBe(true)
-    expect(wrapper.text()).toContain('粘贴分享链接')
+    expect(wrapper.text()).toContain('从分享链接开始下载')
     expect(fetched).not.toHaveBeenCalled()
   })
 

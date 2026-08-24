@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
 
+import {
+  platformLabel,
+  resolveFailureMessage,
+  resourceKindLabel,
+} from '@/components/new-download/downloadPresentation'
 import type { BatchReviewItem } from '@/composables/useBatchDownloadFlow'
 
 defineProps<{
@@ -17,7 +22,14 @@ const emit = defineEmits<{
   create: []
 }>()
 
-const LABELS = { post: '作品', live: '直播', owner: '主播全部作品' } as const
+//
+// The owner row still says "全部作品" rather than just "主播": one row in a list
+// of twenty is exactly where an entire back catalogue could be started without
+// anyone noticing what they ticked.
+//
+function rowLabel(type: 'post' | 'live' | 'owner'): string {
+  return type === 'owner' ? '主播全部作品' : resourceKindLabel(type)
+}
 
 function checked(event: Event): boolean {
   return (event.target as HTMLInputElement).checked
@@ -28,8 +40,8 @@ function checked(event: Event): boolean {
   <section class="batch-review card">
     <div class="card__head">
       <div>
-        <h2 class="card__title">检查并选择</h2>
-        <p class="card__hint">每个成功项都有独立解析凭证，并会创建独立普通任务。</p>
+        <h2 class="card__title">识别结果</h2>
+        <p class="card__hint">勾选要下载的内容，每一项都会单独下载。</p>
       </div>
       <span class="card__count">{{ items.length }} 项</span>
     </div>
@@ -38,8 +50,8 @@ function checked(event: Event): boolean {
       <li v-for="item in items" :key="item.index" class="batch-review__item">
         <template v-if="item.status === 'failed'">
           <div>
-            <strong>第 {{ item.index + 1 }} 个链接解析失败</strong>
-            <p class="batch-review__muted">{{ item.error.message }}</p>
+            <strong>第 {{ item.index + 1 }} 个链接无法识别</strong>
+            <p class="batch-review__muted">{{ resolveFailureMessage(item.error.message) }}</p>
           </div>
         </template>
         <template v-else>
@@ -51,19 +63,16 @@ function checked(event: Event): boolean {
               @change="emit('select', item.index, checked($event))"
             />
             <span>
-              第 {{ item.index + 1 }} 项 · {{ item.resolution.platform }} ·
-              {{ LABELS[item.resolution.resource_type] }}
+              第 {{ item.index + 1 }} 项 · {{ platformLabel(item.resolution.platform) }} ·
+              {{ rowLabel(item.resolution.resource_type) }}
             </span>
           </label>
-          <p class="batch-review__identity">
-            <template v-if="item.resolution.resource_type === 'post'">
-              作品 ID {{ item.resolution.identity.aweme_id }}
-            </template>
-            <template v-else-if="item.resolution.resource_type === 'owner'">
-              主播 ID {{ item.resolution.identity.sec_user_id }}
-            </template>
-            <template v-else>直播资源</template>
-          </p>
+          <!--
+            The link the user pasted, not the identity it resolved to. In a list
+            of twenty rows the question is "which of mine is this", and a
+            sec_user_id answers a different one.
+          -->
+          <p class="batch-review__identity">{{ item.resolution.source_url }}</p>
           <label
             v-if="item.selected && item.resolution.resource_type === 'owner'"
             class="batch-review__confirm"
@@ -77,13 +86,13 @@ function checked(event: Event): boolean {
             <span>我确认下载该账号的全部作品</span>
           </label>
           <p v-if="item.createState === 'created'" class="batch-review__result">
-            已创建任务 {{ item.taskId }}
+            已开始下载
           </p>
           <p v-else-if="item.createState === 'failed'" class="batch-review__error" role="alert">
             {{ item.createError }}
           </p>
           <p v-else-if="item.createState === 'creating'" class="batch-review__muted">
-            正在创建该项…
+            正在开始…
           </p>
         </template>
       </li>
@@ -96,11 +105,11 @@ function checked(event: Event): boolean {
         :disabled="!canCreate || creating"
         @click="emit('create')"
       >
-        {{ creating ? '正在逐项创建…' : `创建选中任务（${selectedCount}）` }}
+        {{ creating ? '正在逐项开始…' : `开始下载选中内容（${selectedCount}）` }}
       </button>
-      <span v-if="createdCount" class="batch-review__result">已创建 {{ createdCount }} 个任务</span>
+      <span v-if="createdCount" class="batch-review__result">已开始 {{ createdCount }} 个下载</span>
       <RouterLink v-if="createdCount" class="batch-review__task-link" :to="{ name: 'tasks' }">
-        前往任务中心
+        查看所有任务
       </RouterLink>
     </div>
   </section>
@@ -116,6 +125,7 @@ function checked(event: Event): boolean {
 .batch-review__item { padding: var(--space-3); background: var(--color-background); border: 1px solid var(--color-border); border-radius: var(--radius-1); }
 .batch-review__choice, .batch-review__confirm { display: flex; align-items: flex-start; gap: var(--space-2); font-size: 0.875rem; }
 .batch-review__identity, .batch-review__muted, .batch-review__result, .batch-review__error { margin: var(--space-1) 0 0 calc(13px + var(--space-2)); }
+.batch-review__identity { overflow-wrap: anywhere; }
 .batch-review__confirm { margin: var(--space-2) 0 0 calc(13px + var(--space-2)); }
 .batch-review__result, .batch-review__error { font-size: 0.8125rem; }
 .batch-review__error { color: #a12a2a; }

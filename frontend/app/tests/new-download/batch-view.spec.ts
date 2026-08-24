@@ -98,7 +98,7 @@ describe('explicit batch mode', () => {
 
     const rows = wrapper.findAll('.batch-review__item')
     expect(rows).toHaveLength(3)
-    expect(rows[1].text()).toContain('第 2 个链接解析失败')
+    expect(rows[1].text()).toContain('第 2 个链接无法识别')
     expect(rows[1].text()).not.toContain('http')
     expect(rows[1].find('input[type="checkbox"]').exists()).toBe(false)
     expect((rows[0].find('input[type="checkbox"]').element as HTMLInputElement).checked).toBe(true)
@@ -120,7 +120,7 @@ describe('explicit batch mode', () => {
     await settle()
 
     expect(createTask).toHaveBeenCalledTimes(2)
-    expect(wrapper.text()).toContain('已创建 2 个任务')
+    expect(wrapper.text()).toContain('已开始 2 个下载')
     expect(wrapper.find('.batch-review__task-link').attributes('href')).toContain('/tasks')
   })
 })
