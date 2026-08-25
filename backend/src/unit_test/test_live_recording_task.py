@@ -1,16 +1,20 @@
 import unittest
+from datetime import datetime
 
 from backend.src.platform.douyin.douyin_live_downloader import LiveDownloadResult
 from backend.src.platform.douyin.hls_recorder import HlsCancelled
 from backend.src.service.live_recording_task import (
   PLATFORM_DOUYIN,
   SOURCE_DIRECT,
+  SOURCE_TASK_API,
   LiveRecordingTaskService,
 )
+from backend.src.service.recording_resource import RecordingResourceService
 from backend.src.task.model import (
   TASK_STATE_CANCELLED,
   TASK_STATE_FAILED,
   TASK_STATE_PENDING,
+  TASK_STATE_PARTIAL,
   TASK_STATE_RUNNING,
   TASK_STATE_SUCCESS,
   TASK_TYPE_LIVE_RECORD,
@@ -35,12 +39,15 @@ def recorded_result(protocol="flv", output_path="/media/douyin/live/A/live.flv")
     room_id="998877",
     owner_user_id="owner-1",
     nickname="Test Host",
+    title="Launch title",
     protocol=protocol,
     output_path=output_path,
+    started_at=datetime(2026, 8, 25, 9, 0, 0),
+    finished_at=datetime(2026, 8, 25, 10, 0, 0),
   )
 
 
-def test_mode_result():
+def make_test_mode_result():
   return LiveDownloadResult(
     ok=True,
     recorded=False,
@@ -78,6 +85,19 @@ class FakeLiveDownloader:
     if self._crash is not None:
       raise self._crash
     return self._result if self._result is not None else recorded_result()
+
+
+class FakeRecordingService:
+  def __init__(self, failure=None, recording_id=73):
+    self.failure = failure
+    self.recording_id = recording_id
+    self.calls = []
+
+  def record(self, result, **kwargs):
+    self.calls.append((result, dict(kwargs)))
+    if self.failure is not None:
+      raise self.failure
+    return self.recording_id
 
 
 class InlineListenerItem:
@@ -124,13 +144,19 @@ class RefusingListenerItem:
     raise RuntimeError("can't start new thread")
 
 
-def build_service(downloader=None, task_service=None, listener=InlineListenerItem):
+def build_service(
+  downloader=None,
+  task_service=None,
+  listener=InlineListenerItem,
+  recording_service=None,
+):
   downloader = downloader if downloader is not None else FakeLiveDownloader()
   return (
     LiveRecordingTaskService(
       task_service=task_service,
       downloader_factory=lambda: downloader,
       listener_factory=listener,
+      recording_service=recording_service,
     ),
     downloader,
   )
@@ -140,6 +166,15 @@ def only_task(tasks: TaskService) -> dict:
   listed = tasks.list_tasks()
   assert len(listed) == 1, listed
   return listed[0]
+
+
+def submit_tracked(service, app_user_id=None):
+  return service.submit_tracked(
+    resolved_url=RESOLVED_URL,
+    source_url=SOURCE_URL,
+    resolve_id="receipt-live-1",
+    app_user_id=app_user_id,
+  )
 
 
 class LiveTaskCreationTest(unittest.TestCase):
@@ -291,9 +326,12 @@ class LiveResultMappingTest(unittest.TestCase):
     self.assertEqual("flv", result["protocol"])
     self.assertEqual("998877", result["room_id"])
     self.assertEqual("Test Host", result["nickname"])
+    self.assertEqual("Launch title", result["title"])
+    self.assertEqual("2026-08-25T09:00:00.000", result["started_at"])
+
 
   def test_test_mode_succeeds_without_claiming_a_file(self):
-    tasks, task = self.run_with(test_mode_result())
+    tasks, task = self.run_with(make_test_mode_result())
 
     result = task["metadata"]["result"]
     self.assertEqual(TASK_STATE_SUCCESS, task["state"])
@@ -358,7 +396,7 @@ class LiveResultMappingTest(unittest.TestCase):
   def test_every_ending_leaves_the_total_unknown(self):
     for label, arguments in {
       "recorded": {"result": recorded_result()},
-      "test mode": {"result": test_mode_result()},
+      "test mode": {"result": make_test_mode_result()},
       "offline": {"result": offline_result()},
       "probe failed": {"result": probe_failed_result()},
       "crashed": {"crash": RuntimeError("stream reset")},
@@ -373,7 +411,7 @@ class LiveResultMappingTest(unittest.TestCase):
 
     for label, arguments in {
       "recorded": {"result": recorded_result()},
-      "test mode": {"result": test_mode_result()},
+      "test mode": {"result": make_test_mode_result()},
       "offline": {"result": offline_result()},
       "probe failed": {"result": probe_failed_result()},
       "crashed": {"crash": RuntimeError("stream reset")},
@@ -383,6 +421,125 @@ class LiveResultMappingTest(unittest.TestCase):
         tasks, task = self.run_with(**arguments)
         self.assertIn(task["state"], TERMINAL_TASK_STATES)
         self.assertIsNotNone(task["finished_at"])
+
+
+class LiveRecordingResourceIntegrationTest(unittest.TestCase):
+  def test_owned_recording_is_persisted_before_success_and_exposes_recording_id(self):
+    events = []
+
+    class OrderedTaskService(TaskService):
+      def update_metadata(self, *args, **kwargs):
+        events.append("metadata")
+        return super().update_metadata(*args, **kwargs)
+
+      def finish_success(self, *args, **kwargs):
+        events.append("finish_success")
+        return super().finish_success(*args, **kwargs)
+
+    class OrderedRecordingService(FakeRecordingService):
+      def record(self, result, **arguments):
+        events.append("record")
+        return super().record(result, **arguments)
+
+    tasks = OrderedTaskService()
+    resources = OrderedRecordingService(recording_id=73)
+    service, downloader = build_service(
+      task_service=tasks,
+      recording_service=resources,
+    )
+
+    task_id = submit_tracked(service, app_user_id=41)
+
+    task = tasks.get_task(task_id)
+    self.assertEqual(TASK_STATE_SUCCESS, task["state"])
+    self.assertEqual(73, task["metadata"]["result"]["recording_id"])
+    _, arguments = resources.calls[0]
+    self.assertEqual(41, arguments["app_user_id"])
+    self.assertEqual(PLATFORM_DOUYIN, arguments["platform"])
+    self.assertEqual(SOURCE_TASK_API, arguments["source"])
+    self.assertEqual(["record", "metadata", "finish_success"], events)
+
+  def test_anonymous_legacy_recording_is_persisted_with_null_owner(self):
+    tasks = TaskService()
+    resources = FakeRecordingService()
+    service, downloader = build_service(
+      task_service=tasks,
+      recording_service=resources,
+    )
+
+    service.submit(token())
+
+    _, arguments = resources.calls[0]
+    self.assertIsNone(arguments["app_user_id"])
+    self.assertEqual(SOURCE_DIRECT, arguments["source"])
+    self.assertEqual(TASK_STATE_SUCCESS, only_task(tasks)["state"])
+
+  def test_owned_persistence_failure_keeps_media_but_prevents_full_success(self):
+    tasks = TaskService()
+    resources = FakeRecordingService(
+      failure=RuntimeError("mysql host and driver detail")
+    )
+    service, downloader = build_service(
+      task_service=tasks,
+      recording_service=resources,
+    )
+
+    task_id = submit_tracked(service, app_user_id=41)
+
+    task = tasks.get_task(task_id)
+    self.assertEqual(TASK_STATE_PARTIAL, task["state"])
+    self.assertNotIn("mysql", task["message"].lower())
+    self.assertNotIn("driver", task["message"].lower())
+
+  def test_owned_result_without_output_path_is_partial_and_not_inserted(self):
+    tasks = TaskService()
+    repository = FakeRecordingService()
+    validator = RecordingResourceService(repository_provider=lambda: repository)
+    service, downloader = build_service(
+      downloader=FakeLiveDownloader(result=recorded_result(output_path=None)),
+      task_service=tasks,
+      recording_service=validator,
+    )
+
+    task_id = submit_tracked(service, app_user_id=41)
+
+    self.assertEqual(TASK_STATE_PARTIAL, tasks.get_task(task_id)["state"])
+    self.assertEqual([], repository.calls)
+
+  def test_anonymous_persistence_failure_preserves_recording_success(self):
+    tasks = TaskService()
+    resources = FakeRecordingService(failure=RuntimeError("database unavailable"))
+    service, downloader = build_service(
+      task_service=tasks,
+      recording_service=resources,
+    )
+
+    service.submit(token())
+
+    self.assertEqual(TASK_STATE_SUCCESS, only_task(tasks)["state"])
+
+  def test_non_recording_endings_never_reach_the_resource_service(self):
+    endings = (
+      (make_test_mode_result(), None),
+      (offline_result(), None),
+      (probe_failed_result(), None),
+      (None, RuntimeError("stream reset")),
+      (None, HlsCancelled("shutting down")),
+    )
+    for result, crash in endings:
+      with self.subTest(result=result, crash=crash):
+        tasks = TaskService()
+        resources = FakeRecordingService()
+        service, downloader = build_service(
+          downloader=FakeLiveDownloader(result=result, crash=crash),
+          task_service=tasks,
+          recording_service=resources,
+        )
+        try:
+          service.submit(token())
+        except Exception:
+          pass
+        self.assertEqual([], resources.calls)
 
 
 class LiveTaskSecrecyTest(unittest.TestCase):

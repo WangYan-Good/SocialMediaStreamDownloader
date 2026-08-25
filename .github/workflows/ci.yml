@@ -63,17 +63,16 @@ jobs:
   # The schema proof, kept apart from the unit job on purpose.
   #
   # Everything this exercises is MySQL-specific and cannot be checked any other
-  # way: a VIRTUAL generated column, a UNIQUE index over it, and MySQL's rule
-  # that a unique index admits any number of NULLs - which together are how
-  # "at most one main account per person" is expressed, since MySQL has no
-  # partial index. A fake cursor cannot disagree with that and SQLite would
-  # agree for different reasons, so neither is evidence.
+  # way: generated columns and their unique constraints, real foreign-key
+  # actions, auto-increment identities, and upgrade/downgrade behaviour. A fake
+  # cursor cannot disagree with invalid DDL and SQLite would enforce different
+  # rules, so neither is evidence.
   #
   # Separate rather than folded into `backend` so the ordinary unit suite stays
   # offline and fast: nobody should need a database to run it, and it still
   # holds the constraint's *shape* through source-level tests.
   mysql:
-    name: MySQL schema constraint
+    name: MySQL schema and migrations
     runs-on: ubuntu-latest
     # Reads the checkout and nothing else.
     permissions:
@@ -130,6 +129,8 @@ jobs:
           python -m pytest \
             backend/src/unit_test/test_person_main_constraint_mysql.py \
             backend/src/unit_test/test_auth_migration_mysql.py \
+            backend/src/unit_test/test_post_ownership_migration_mysql.py \
+            backend/src/unit_test/test_recording_resource_migration_mysql.py \
             -q -rs
 
       # Belt and braces. The flag above already turns a missing DSN into a
@@ -145,6 +146,8 @@ jobs:
           python -m pytest \
             backend/src/unit_test/test_person_main_constraint_mysql.py \
             backend/src/unit_test/test_auth_migration_mysql.py \
+            backend/src/unit_test/test_post_ownership_migration_mysql.py \
+            backend/src/unit_test/test_recording_resource_migration_mysql.py \
             -q -rs --no-header > /tmp/mysql-tests.txt 2>&1 || {
               cat /tmp/mysql-tests.txt
               exit 1

@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 from backend.src.library.baselib import load_yml
@@ -69,6 +70,7 @@ def probe_result(ok=True, room_status=2, response=None, error=None):
     room_id="998877",
     nickname="Test Host",
     directory_name="Test Host",
+    title="Launch title",
     error=error,
     payload=live_response.json(),
     share_info={},
@@ -88,8 +90,14 @@ class StubProber:
     return self._result
 
 
-def build_downloader(probe, test_mode=True, download=None):
-  downloader = live_module.DouyinLiveDownloader(live_config(test_mode=test_mode))
+def build_downloader(probe, test_mode=True, download=None, recording_clock=None):
+  kwargs = {}
+  if recording_clock is not None:
+    kwargs["recording_clock"] = recording_clock
+  downloader = live_module.DouyinLiveDownloader(
+    live_config(test_mode=test_mode),
+    **kwargs,
+  )
   downloader.prober = StubProber(probe)
   downloader.database = None
   recorded = []
@@ -119,6 +127,11 @@ class LiveDownloadResultShapeTest(unittest.TestCase):
     self.assertNotIn("headers", fields)
     self.assertNotIn("cookies", fields)
 
+  def test_the_result_carries_resource_facts_but_no_access_credentials(self):
+    fields = set(live_module.LiveDownloadResult.__dataclass_fields__)
+
+    self.assertTrue({"title", "started_at", "finished_at"}.issubset(fields))
+
 
 class LiveRunResultTest(unittest.TestCase):
   def test_a_confirmed_room_records_and_reports_success(self):
@@ -140,8 +153,25 @@ class LiveRunResultTest(unittest.TestCase):
     self.assertEqual("998877", result.room_id)
     self.assertEqual("owner-1", result.owner_user_id)
     self.assertEqual("Test Host", result.nickname)
+    self.assertEqual("Launch title", result.title)
     self.assertEqual("flv", result.protocol)
     self.assertIsNone(result.reason)
+
+  def test_a_real_recording_reports_the_local_transfer_interval(self):
+    moments = iter((
+      datetime(2026, 8, 25, 9, 0, 0, 123000),
+      datetime(2026, 8, 25, 10, 0, 0, 456000),
+    ))
+    downloader, recorded = build_downloader(
+      probe_result(),
+      test_mode=False,
+      recording_clock=lambda: next(moments),
+    )
+
+    result = downloader.run_with_result({"url": SHARE_URL})
+
+    self.assertEqual(datetime(2026, 8, 25, 9, 0, 0, 123000), result.started_at)
+    self.assertEqual(datetime(2026, 8, 25, 10, 0, 0, 456000), result.finished_at)
 
   def test_the_written_path_comes_from_the_downloader(self):
     downloader, recorded = build_downloader(
@@ -172,6 +202,8 @@ class LiveRunResultTest(unittest.TestCase):
     self.assertIs(False, result.recorded)
     self.assertIs(True, result.test_mode)
     self.assertIsNone(result.output_path)
+    self.assertIsNone(result.started_at)
+    self.assertIsNone(result.finished_at)
 
   def test_a_probe_that_failed_stops_before_any_recording(self):
     downloader, recorded = build_downloader(
@@ -224,6 +256,8 @@ class LiveRunResultTest(unittest.TestCase):
       self.assertIs(False, result.ok)
       self.assertIs(False, result.recorded)
       self.assertIsNone(result.output_path)
+      self.assertIsNone(result.started_at)
+      self.assertIsNone(result.finished_at)
       self.assertTrue(result.reason)
 
     ##

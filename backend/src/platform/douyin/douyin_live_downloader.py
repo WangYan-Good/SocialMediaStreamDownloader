@@ -65,8 +65,11 @@ class LiveDownloadResult:
   room_id: str = None
   owner_user_id: str = None
   nickname: str = None
+  title: str = None
   protocol: str = None
   output_path: str = None
+  started_at: datetime = None
+  finished_at: datetime = None
   test_mode: bool = False
   reason: str = None
 
@@ -102,13 +105,14 @@ class DouyinLiveDownloader(Downloader):
 ##
 ## >>============================= private method =============================>>
 ##
-  def __init__(self, config: dict = None) -> None:
+  def __init__(self, config: dict = None, recording_clock=datetime.now) -> None:
     self.database = None
     self._person_database = None
     self._database_warning_state = None
     self._database_clock = monotonic
     self._database_retry_at = 0.0
     self._database_retry_seconds = 30.0
+    self._recording_clock = recording_clock
     self.hls_recorder = HlsRecorder()
     self._actived_task_number = 0
     self._lock = Lock()
@@ -472,8 +476,19 @@ class DouyinLiveDownloader(Downloader):
       ## download live stream when live room is active
       ##
       if room_status == 2:
+        test_mode = (
+          self.config.get_config_dict_attr("$.download.test_mode") is True
+        )
+        started_at = None if test_mode else self._recording_clock()
         output_path = self.download_live_stream(url, build, headers=header)
-        return self._recorded_result(probe, summary, output_path)
+        finished_at = None if test_mode else self._recording_clock()
+        return self._recorded_result(
+          probe,
+          summary,
+          output_path,
+          started_at=started_at,
+          finished_at=finished_at,
+        )
 
       ##
       ## The room answered, and it is not broadcasting.  Everything above still
@@ -501,10 +516,19 @@ class DouyinLiveDownloader(Downloader):
       room_id=probe.room_id,
       owner_user_id=probe.owner_user_id,
       nickname=probe.nickname,
+      title=probe.title,
       reason=reason,
     )
 
-  def _recorded_result(self, probe, summary: dict, output_path) -> LiveDownloadResult:
+  def _recorded_result(
+    self,
+    probe,
+    summary: dict,
+    output_path,
+    *,
+    started_at=None,
+    finished_at=None,
+  ) -> LiveDownloadResult:
     """An attempt that ran the recording stage through to its end.
 
     ``test_mode`` runs every stage but the media transfer, so it succeeds
@@ -519,6 +543,7 @@ class DouyinLiveDownloader(Downloader):
       room_id=probe.room_id,
       owner_user_id=probe.owner_user_id,
       nickname=probe.nickname,
+      title=probe.title,
       protocol=get_dict_attr(summary, "$.stream_protocol"),
       ##
       ## The path the downloader actually wrote, never one rebuilt from the
@@ -526,6 +551,8 @@ class DouyinLiveDownloader(Downloader):
       ## path would name a file nobody created.
       ##
       output_path=None if output_path is None else str(output_path),
+      started_at=None if test_mode else started_at,
+      finished_at=None if test_mode else finished_at,
       test_mode=test_mode,
     )
 

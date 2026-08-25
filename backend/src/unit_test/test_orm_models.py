@@ -9,6 +9,7 @@ CORE_TABLES = frozenset({"share_url", "favorite_owner", "live_record"})
 ## Post downloads record one row per post; the live tables cover live sessions.
 ##
 POST_TABLES = frozenset({"aweme_record", "app_user_aweme_record"})
+RECORDING_TABLES = frozenset({"recording_record"})
 PRIMARY_ENTITY_TABLES = frozenset({"room_base", "room_owner_v2", "user"})
 ##
 ## The application's own identity, which is not any of the above.
@@ -44,6 +45,55 @@ class OrmModelTest(unittest.TestCase):
 
     self.assertTrue(CORE_TABLES.issubset(models.MANAGED_TABLE_NAMES))
     self.assertTrue(CORE_TABLES.issubset(models.Base.metadata.tables))
+
+  def test_recording_resource_has_single_nullable_owner_and_no_room_dedup(self):
+    models = load_models()
+    self.assertTrue(RECORDING_TABLES.issubset(models.MANAGED_TABLE_NAMES))
+    table = models.Base.metadata.tables["recording_record"]
+
+    self.assertEqual(["recording_id"], [item.name for item in table.primary_key])
+    self.assertTrue(table.c.recording_id.type.unsigned)
+    self.assertTrue(table.c.recording_id.autoincrement)
+    self.assertTrue(table.c.app_user_id.nullable)
+    owner_fk = next(iter(table.c.app_user_id.foreign_keys))
+    self.assertEqual("app_user.user_id", owner_fk.target_fullname)
+    self.assertEqual("SET NULL", owner_fk.ondelete)
+    self.assertFalse(any(item.unique for item in table.indexes))
+    self.assertEqual(
+      {
+        "ix_recording_record_app_user_finished": ["app_user_id", "finished_at"],
+        "ix_recording_record_finished_at": ["finished_at"],
+        "ix_recording_record_owner_user_id": ["owner_user_id"],
+      },
+      {
+        index.name: [column.name for column in index.columns]
+        for index in table.indexes
+      },
+    )
+
+  def test_recording_resource_fields_are_catalog_facts_not_stream_credentials(self):
+    models = load_models()
+    table = models.Base.metadata.tables["recording_record"]
+
+    self.assertEqual(
+      [
+        "recording_id",
+        "app_user_id",
+        "platform",
+        "room_id",
+        "owner_user_id",
+        "title",
+        "protocol",
+        "output_path",
+        "started_at",
+        "finished_at",
+        "source",
+        "created_at",
+      ],
+      list(table.columns.keys()),
+    )
+    for forbidden in ("stream_url", "sign", "token", "headers", "cookies"):
+      self.assertNotIn(forbidden, table.columns)
 
   def test_share_url_schema_matches_the_existing_contract(self):
     models = load_models()
@@ -313,9 +363,10 @@ class OrmModelTest(unittest.TestCase):
   def test_managed_table_set_is_complete(self):
     models = load_models()
     expected = (
-      CORE_TABLES
-      | POST_TABLES
-      | PERSON_TABLES
+        CORE_TABLES
+        | POST_TABLES
+        | RECORDING_TABLES
+        | PERSON_TABLES
       | PRIMARY_ENTITY_TABLES
       | ROOM_EXTENSION_TABLES
       | AUTH_TABLES

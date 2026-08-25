@@ -4,6 +4,7 @@ from backend.src.database.query.library import (
   LibraryFilterError,
   LibraryLiveFilter,
   LibraryPostFilter,
+  LibraryRecordingFilter,
 )
 
 
@@ -128,6 +129,31 @@ class LibraryLiveFilterTest(unittest.TestCase):
     live_filter = LibraryLiveFilter.from_mapping({"live_now": "true"})
 
     self.assertFalse(hasattr(live_filter, "live_now"))
+
+
+class LibraryRecordingFilterTest(unittest.TestCase):
+  def test_defaults_to_latest_completed_recording(self):
+    recording_filter = LibraryRecordingFilter.from_mapping({})
+
+    self.assertEqual("finished_at", recording_filter.sort)
+    self.assertEqual("desc", recording_filter.order)
+    self.assertEqual(25, recording_filter.page_size)
+
+  def test_protocol_and_sort_are_whitelisted(self):
+    for protocol in ("flv", "hls"):
+      self.assertEqual(
+        protocol,
+        LibraryRecordingFilter.from_mapping({"protocol": protocol}).protocol,
+      )
+    for sort in ("finished_at", "started_at", "created_at", "title", "nickname"):
+      self.assertEqual(
+        sort,
+        LibraryRecordingFilter.from_mapping({"sort": sort}).sort,
+      )
+    with self.assertRaises(LibraryFilterError):
+      LibraryRecordingFilter.from_mapping({"protocol": "signed-url"})
+    with self.assertRaises(LibraryFilterError):
+      LibraryRecordingFilter.from_mapping({"sort": "output_path"})
 
 
 from backend.src.database.query.library import LibraryQuery
@@ -376,6 +402,95 @@ class LibraryPostQueryTest(unittest.TestCase):
     _, params = executed[1]
 
     self.assertIn("douyin", list(params))
+
+
+def recording_row(**overrides):
+  row = {
+    "recording_id": 1,
+    "app_user_id": 17,
+    "platform": "douyin",
+    "room_id": "room-x",
+    "owner_user_id": "owner-x",
+    "nickname": "主播",
+    "directory_name": "主播",
+    "person_id": None,
+    "person_display_name": None,
+    "title": "晚间直播",
+    "protocol": "hls",
+    "output_path": "/media/live/room-x.ts",
+    "started_at": "2026-08-25 09:00:00.000",
+    "finished_at": "2026-08-25 10:00:00.000",
+    "source": "task_api",
+    "created_at": "2026-08-25 10:00:00.100",
+  }
+  row.update(overrides)
+  return row
+
+
+class LibraryRecordingQueryTest(unittest.TestCase):
+  def _run(self, arguments, rows=None, total=4):
+    database = FakeDatabase([{"total": total}, rows if rows is not None else []])
+    page = LibraryQuery(database).recordings(
+      LibraryRecordingFilter.from_mapping(arguments)
+    )
+    return page, database.cursor.executed
+
+  def _run_scoped(self, app_user_id, arguments, rows=None, total=2):
+    database = FakeDatabase([{"total": total}, rows if rows is not None else []])
+    page = LibraryQuery(database).recordings_for_user(
+      app_user_id,
+      LibraryRecordingFilter.from_mapping(arguments),
+    )
+    return page, database.cursor.executed
+
+  def test_global_query_includes_owned_and_legacy_rows_without_scope(self):
+    rows = [
+      recording_row(recording_id=1, app_user_id=17),
+      recording_row(recording_id=2, app_user_id=18),
+      recording_row(recording_id=3, app_user_id=None),
+    ]
+
+    page, executed = self._run({}, rows=rows, total=3)
+
+    self.assertEqual([1, 2, 3], [row["recording_id"] for row in page.items])
+    self.assertNotIn("rr.app_user_id = %s", executed[0][0])
+    self.assertNotIn("rr.app_user_id = %s", executed[1][0])
+
+  def test_scoped_query_binds_the_server_selected_owner(self):
+    _, executed = self._run_scoped(17, {})
+
+    for sql, params in executed:
+      self.assertIn("rr.app_user_id = %s", sql)
+      self.assertIn(17, params)
+
+  def test_filters_sort_total_and_pagination_remain_bound_and_deterministic(self):
+    page, executed = self._run_scoped(
+      17,
+      {
+        "q": "晚间",
+        "owner_user_id": "owner-x",
+        "protocol": "hls",
+        "sort": "nickname",
+        "order": "asc",
+        "page": "2",
+        "page_size": "10",
+      },
+      total=22,
+    )
+
+    page_sql, params = executed[1]
+    self.assertEqual(22, page.total)
+    self.assertIn("rr.title LIKE %s", page_sql)
+    self.assertIn("rr.owner_user_id = %s", page_sql)
+    self.assertIn("rr.protocol = %s", page_sql)
+    self.assertIn("ORDER BY s.nickname ASC, rr.recording_id ASC", page_sql)
+    self.assertEqual([10, 10], list(params)[-2:])
+
+  def test_invalid_scoped_owner_is_refused_before_query(self):
+    for app_user_id in (None, True, 0, -1):
+      with self.subTest(app_user_id=app_user_id):
+        with self.assertRaises(ValueError):
+          self._run_scoped(app_user_id, {})
 
 
 def live_row(**overrides):

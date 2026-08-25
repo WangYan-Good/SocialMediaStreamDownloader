@@ -135,6 +135,19 @@ class ServerConfigTest(unittest.TestCase):
       self.assertIs(first.extensions["smsd_task_service"], first_runner._task_service)
       self.assertIs(second.extensions["smsd_task_service"], second_runner._task_service)
 
+  def test_recording_persistence_uses_the_app_schema_guard_config_snapshot(self):
+    config = unified_config()
+
+    app = server.create_app(
+      config=config,
+      schema_guard_factory=lambda received: object(),
+    )
+
+    creation = app.extensions["smsd_task_creation_service"]
+    recording = creation._live_record_service._recording_service
+    self.assertIsNone(recording._config)
+    self.assertIs(config, recording._config_loader())
+
   def test_wsgi_app_lazily_initializes_once_on_first_api_get(self):
     config = unified_config()
 
@@ -153,6 +166,10 @@ class ServerConfigTest(unittest.TestCase):
 
       self.assertEqual(first_response.status_code, 200)
       self.assertEqual(second_response.status_code, 200)
+      self.assertEqual(load.call_count, 1)
+      creation = wsgi_server.app.extensions["smsd_task_creation_service"]
+      recording = creation._live_record_service._recording_service
+      self.assertIs(config, recording._config_loader())
       self.assertEqual(load.call_count, 1)
 
     importlib.reload(server)
