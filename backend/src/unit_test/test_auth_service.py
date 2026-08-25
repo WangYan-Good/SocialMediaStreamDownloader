@@ -8,7 +8,9 @@ from backend.src.auth.errors import (
   AuthUnavailable,
   DuplicateUsername,
   InvalidCredentials,
+  UnknownUsername,
 )
+from backend.src.auth.roles import ROLE_ADMIN, ROLE_USER, RoleValidationError
 from backend.src.auth.service import AuthenticationService
 
 
@@ -48,7 +50,7 @@ class FakeRepository:
     row = self.users.get(user_id)
     return dict(row) if row else None
 
-  def insert_user(self, username, password_hash):
+  def insert_user(self, username, password_hash, role):
     self._check()
     if any(row["username"] == username for row in self.users.values()):
       raise DuplicateUsername(username)
@@ -59,8 +61,16 @@ class FakeRepository:
       "username": username,
       "password_hash": password_hash,
       "is_active": True,
+      "role": role,
     }
     return user_id
+
+  def set_user_role(self, user_id, role):
+    self._check()
+    if user_id not in self.users:
+      return False
+    self.users[user_id]["role"] = role
+    return True
 
   def insert_session(self, token_hash, user_id, expires_at):
     self._check()
@@ -92,6 +102,34 @@ def service(repository=None, *, ttl_seconds=3600, now=NOW):
 
 
 class TestCreatingAnAccount(unittest.TestCase):
+  def test_the_safe_default_role_is_user(self):
+    repository = FakeRepository()
+
+    created = service(repository).create_user("alice", "correct horse battery")
+
+    self.assertEqual(ROLE_USER, created.role)
+    self.assertEqual(ROLE_USER, repository.users[1]["role"])
+
+  def test_an_admin_must_be_created_explicitly(self):
+    repository = FakeRepository()
+
+    created = service(repository).create_user(
+      "alice", "correct horse battery", role=ROLE_ADMIN
+    )
+
+    self.assertEqual(ROLE_ADMIN, created.role)
+    self.assertEqual(ROLE_ADMIN, repository.users[1]["role"])
+
+  def test_an_invalid_role_is_refused_before_a_row_is_written(self):
+    repository = FakeRepository()
+
+    with self.assertRaises(RoleValidationError):
+      service(repository).create_user(
+        "alice", "correct horse battery", role="superuser"
+      )
+
+    self.assertEqual({}, repository.users)
+
   def test_the_password_is_stored_only_as_a_hash(self):
     repository = FakeRepository()
     auth = service(repository)
@@ -140,6 +178,7 @@ class TestSigningIn(unittest.TestCase):
 
     self.assertEqual(1, user.user_id)
     self.assertEqual("alice", user.username)
+    self.assertEqual(ROLE_USER, user.role)
 
   def test_the_name_is_canonicalised_on_the_way_in(self):
     user = self.auth.authenticate("  ALICE ", "correct horse battery")
@@ -232,6 +271,25 @@ class TestSessions(unittest.TestCase):
     self.assertIsNotNone(resolved)
     self.assertEqual(self.user.user_id, resolved.user_id)
     self.assertEqual("alice", resolved.username)
+    self.assertEqual(ROLE_USER, resolved.role)
+
+  def test_role_changes_are_visible_to_an_existing_session(self):
+    issued = self.auth.create_session(self.user.user_id)
+
+    promoted = self.auth.set_role("alice", ROLE_ADMIN)
+    self.assertEqual(ROLE_ADMIN, promoted.role)
+    self.assertEqual(ROLE_ADMIN, self.auth.resolve_session(issued.token).role)
+
+    demoted = self.auth.set_role("alice", ROLE_USER)
+    self.assertEqual(ROLE_USER, demoted.role)
+    self.assertEqual(ROLE_USER, self.auth.resolve_session(issued.token).role)
+
+  def test_a_disabled_admin_cannot_use_an_existing_session(self):
+    issued = self.auth.create_session(self.user.user_id)
+    self.auth.set_role("alice", ROLE_ADMIN)
+    self.repository.users[1]["is_active"] = False
+
+    self.assertIsNone(self.auth.resolve_session(issued.token))
 
   def test_an_unknown_token_resolves_to_nobody(self):
     self.assertIsNone(self.auth.resolve_session("not-a-real-token"))
@@ -290,6 +348,26 @@ class TestSessions(unittest.TestCase):
     tokens = {self.auth.create_session(self.user.user_id).token for _ in range(50)}
 
     self.assertEqual(50, len(tokens))
+
+
+class TestChangingRoles(unittest.TestCase):
+  def setUp(self):
+    self.repository = FakeRepository()
+    self.auth = service(self.repository)
+    self.auth.create_user("alice", "correct horse battery")
+
+  def test_setting_the_same_role_is_an_idempotent_success(self):
+    user = self.auth.set_role("alice", ROLE_USER)
+
+    self.assertEqual(ROLE_USER, user.role)
+
+  def test_an_unknown_user_is_a_clear_domain_failure(self):
+    with self.assertRaises(UnknownUsername):
+      self.auth.set_role("nobody", ROLE_ADMIN)
+
+  def test_an_invalid_role_is_refused(self):
+    with self.assertRaises(RoleValidationError):
+      self.auth.set_role("alice", "root")
 
 
 if __name__ == "__main__":

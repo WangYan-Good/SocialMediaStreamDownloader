@@ -65,7 +65,7 @@ class TestApplicationUserShape(unittest.TestCase):
   def setUp(self):
     self.table = AppUserModel.__table__
 
-  def test_it_carries_only_what_signing_in_needs(self):
+  def test_it_carries_identity_status_and_role(self):
     ##
     ## Deliberately small.  A role column, an ownership column or an email is
     ## each a decision belonging to a later phase, and a column added "while we
@@ -77,6 +77,7 @@ class TestApplicationUserShape(unittest.TestCase):
         "user_id",
         "username",
         "password_hash",
+        "role",
         "is_active",
         "created_at",
         "updated_at",
@@ -84,11 +85,24 @@ class TestApplicationUserShape(unittest.TestCase):
       set(self.table.columns.keys()),
     )
 
-  def test_it_stores_no_role_and_no_ownership(self):
+  def test_it_stores_no_permission_or_ownership_model(self):
     columns = set(self.table.columns.keys())
 
-    for later_phase in ("role", "is_admin", "permissions", "scope"):
+    for later_phase in ("is_admin", "permissions", "scope"):
       self.assertNotIn(later_phase, columns)
+
+  def test_role_has_a_safe_database_default_and_constraint(self):
+    role = self.table.columns["role"]
+    self.assertFalse(role.nullable)
+    self.assertEqual("'user'", str(role.server_default.arg))
+    checks = {
+      constraint.name: str(constraint.sqltext)
+      for constraint in self.table.constraints
+      if isinstance(constraint, sa.CheckConstraint)
+    }
+    self.assertIn("ck_app_user_role", checks)
+    self.assertIn("'user'", checks["ck_app_user_role"])
+    self.assertIn("'admin'", checks["ck_app_user_role"])
 
   def test_the_username_is_unique(self):
     ##
@@ -148,6 +162,9 @@ class TestAuthSessionShape(unittest.TestCase):
     self.assertIn("token_hash", columns)
     for forbidden in ("token", "session_token", "raw_token", "secret"):
       self.assertNotIn(forbidden, columns)
+
+  def test_role_is_not_cached_in_the_session(self):
+    self.assertNotIn("role", self.table.columns)
 
   def test_the_token_hash_is_unique_so_a_lookup_is_exact(self):
     unique = {

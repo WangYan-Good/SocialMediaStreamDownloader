@@ -5,7 +5,8 @@ import sys
 
 ##<<Third-part>>
 from backend.src.auth.credentials import CredentialPolicyError
-from backend.src.auth.errors import AuthUnavailable, DuplicateUsername
+from backend.src.auth.errors import AuthUnavailable, DuplicateUsername, UnknownUsername
+from backend.src.auth.roles import APP_USER_ROLES, ROLE_USER
 
 
 ##
@@ -20,7 +21,7 @@ from backend.src.auth.errors import AuthUnavailable, DuplicateUsername
 ##
 
 
-UNAVAILABLE_MESSAGE = "认证服务暂时不可用：数据库不可用或数据库结构尚未升级到 0007"
+UNAVAILABLE_MESSAGE = "认证服务暂时不可用：数据库不可用或数据库结构尚未升级到当前版本"
 
 
 def _prompt(label: str) -> str:
@@ -38,6 +39,7 @@ def create_user_command(
   service_factory,
   prompt=_prompt,
   out=sys.stdout,
+  role=ROLE_USER,
 ) -> int:
   """Create one application account. Returns a process exit code."""
   try:
@@ -72,7 +74,7 @@ def create_user_command(
     return 1
 
   try:
-    user = service.create_user(username, password)
+    user = service.create_user(username, password, role=role)
   except CredentialPolicyError as e:
     ##
     ## The policy's own message - "密码至少需要 10 个字符" - which is about what
@@ -91,7 +93,40 @@ def create_user_command(
   ## The username and the id, and nothing else. Never the password, never the
   ## hash.
   ##
-  print("已创建用户 {}（user_id={}）".format(user.username, user.user_id), file=out)
+  print(
+    "已创建用户 {}（user_id={}，role={}）".format(
+      user.username, user.user_id, user.role
+    ),
+    file=out,
+  )
+  return 0
+
+
+def set_role_command(
+  username: str,
+  role: str,
+  *,
+  service_factory,
+  out=sys.stdout,
+) -> int:
+  """Change one account's role without touching its existing sessions."""
+  try:
+    service = service_factory()
+    user = service.set_role(username, role)
+  except UnknownUsername:
+    print("用户名不存在：{}".format(username.strip()), file=out)
+    return 1
+  except (ValueError, TypeError) as e:
+    print(str(e), file=out)
+    return 1
+  except AuthUnavailable:
+    print(UNAVAILABLE_MESSAGE, file=out)
+    return 2
+
+  print(
+    "已设置用户 {} 的角色为 {}".format(user.username, user.role),
+    file=out,
+  )
   return 0
 
 
@@ -109,6 +144,16 @@ def build_parser() -> argparse.ArgumentParser:
   ##
   create = subcommands.add_parser("create-user", help="创建一个应用登录账户")
   create.add_argument("username", help="登录用户名")
+  create.add_argument(
+    "--role",
+    choices=APP_USER_ROLES,
+    default=ROLE_USER,
+    help="账户角色（默认：user）",
+  )
+
+  set_role = subcommands.add_parser("set-role", help="设置应用登录账户角色")
+  set_role.add_argument("username", help="登录用户名")
+  set_role.add_argument("role", choices=APP_USER_ROLES, help="目标角色")
 
   return parser
 
@@ -126,7 +171,22 @@ def main(argv=None) -> int:
     from backend.src.web.auth_routes import build_auth_runtime
 
     runtime = build_auth_runtime(load_config)
-    return create_user_command(arguments.username, service_factory=runtime.service)
+    return create_user_command(
+      arguments.username,
+      service_factory=runtime.service,
+      role=arguments.role,
+    )
+
+  if arguments.command == "set-role":
+    from backend.src.library.configlib import load_config
+    from backend.src.web.auth_routes import build_auth_runtime
+
+    runtime = build_auth_runtime(load_config)
+    return set_role_command(
+      arguments.username,
+      arguments.role,
+      service_factory=runtime.service,
+    )
 
   parser.error("unknown command")
   return 2

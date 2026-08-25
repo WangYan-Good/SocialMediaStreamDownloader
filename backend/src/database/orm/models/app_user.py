@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import (
+  CheckConstraint,
   ForeignKey,
   Index,
   String,
@@ -10,6 +11,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects import mysql
 from sqlalchemy.orm import Mapped, mapped_column
 
+from backend.src.auth.roles import ROLE_ADMIN, ROLE_USER
 from backend.src.database.orm.base import Base
 from backend.src.database.orm.models.legacy import MYSQL_TABLE_OPTIONS
 
@@ -52,14 +54,18 @@ USERNAME_LENGTH = 190
 class AppUserModel(Base):
   """Somebody who may sign in to this application.
 
-  Deliberately minimal.  There is no role or email, and resource ownership is
-  represented by relation tables rather than columns on this identity row.
-  Authentication still answers only "who is making this request".
+  Deliberately minimal. Role is an identity fact; resource ownership remains
+  represented by relation tables rather than columns on this row.
   """
 
   __tablename__ = "app_user"
   __table_args__ = (
     UniqueConstraint("username", name="uq_app_user_username"),
+    CheckConstraint(
+      "role IN ('{}', '{}')".format(ROLE_USER, ROLE_ADMIN),
+      # Base's convention expands this to ``ck_app_user_role``.
+      name="role",
+    ),
     dict(MYSQL_TABLE_OPTIONS, comment="应用登录用户（与平台 user 表无关）"),
   )
 
@@ -82,6 +88,12 @@ class AppUserModel(Base):
   ##
   password_hash: Mapped[str] = mapped_column(
     String(PASSWORD_HASH_LENGTH), nullable=False
+  )
+
+  role: Mapped[str] = mapped_column(
+    String(16),
+    nullable=False,
+    server_default=text("'{}'".format(ROLE_USER)),
   )
 
   ##

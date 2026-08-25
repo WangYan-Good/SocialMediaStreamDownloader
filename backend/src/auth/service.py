@@ -15,7 +15,9 @@ from backend.src.auth.errors import (
   AuthUnavailable,
   DuplicateUsername,
   InvalidCredentials,
+  UnknownUsername,
 )
+from backend.src.auth.roles import ROLE_USER, validate_role
 
 
 ##
@@ -33,15 +35,11 @@ _DUMMY_PASSWORD_HASH = hash_password("dummy password for timing equalisation")
 
 @dataclass(frozen=True)
 class AuthenticatedUser:
-  """Who is making this request. Deliberately nothing else.
-
-  No role and no permissions: this phase establishes identity, and a field here
-  is a field some caller will start branching on before the decisions behind it
-  have been made.
-  """
+  """Server-resolved identity and role for the current request."""
 
   user_id: int
   username: str
+  role: str
 
 
 @dataclass(frozen=True)
@@ -80,17 +78,48 @@ class AuthenticationService:
   ## >>============================= accounts =============================>>
   ##
 
-  def create_user(self, username: str, password: str) -> AuthenticatedUser:
+  def create_user(
+    self,
+    username: str,
+    password: str,
+    *,
+    role: str = ROLE_USER,
+  ) -> AuthenticatedUser:
     """Create an account. Only ever called deliberately - there is no sign-up."""
     canonical = canonical_username(username)
+    selected_role = validate_role(role)
     ##
     ## Policy before work: an over-long password is refused before scrypt is
     ## asked to hash it, and a refused password writes no row.
     ##
     validate_password(password)
 
-    user_id = self._repository.insert_user(canonical, hash_password(password))
-    return AuthenticatedUser(user_id=user_id, username=canonical)
+    user_id = self._repository.insert_user(
+      canonical,
+      hash_password(password),
+      selected_role,
+    )
+    return AuthenticatedUser(
+      user_id=user_id,
+      username=canonical,
+      role=selected_role,
+    )
+
+  def set_role(self, username: str, role: str) -> AuthenticatedUser:
+    """Set one account's role; existing sessions observe it on their next read."""
+    canonical = canonical_username(username)
+    selected_role = validate_role(role)
+    row = self._repository.find_user_by_username(canonical)
+    if row is None:
+      raise UnknownUsername(canonical)
+    if row["role"] != selected_role:
+      if not self._repository.set_user_role(row["user_id"], selected_role):
+        raise UnknownUsername(canonical)
+    return AuthenticatedUser(
+      user_id=row["user_id"],
+      username=row["username"],
+      role=selected_role,
+    )
 
   ##
   ## >>============================= signing in =============================>>
@@ -133,7 +162,11 @@ class AuthenticationService:
       ##
       raise InvalidCredentials("用户名或密码错误")
 
-    return AuthenticatedUser(user_id=row["user_id"], username=row["username"])
+    return AuthenticatedUser(
+      user_id=row["user_id"],
+      username=row["username"],
+      role=validate_role(row["role"]),
+    )
 
   ##
   ## >>============================= sessions =============================>>
@@ -175,7 +208,11 @@ class AuthenticationService:
       return None
 
     self._repository.touch_session(row["token_hash"], self._clock())
-    return AuthenticatedUser(user_id=user["user_id"], username=user["username"])
+    return AuthenticatedUser(
+      user_id=user["user_id"],
+      username=user["username"],
+      role=validate_role(user["role"]),
+    )
 
   def revoke_session(self, token) -> bool:
     """End one session. Idempotent: signing out twice is not an error."""

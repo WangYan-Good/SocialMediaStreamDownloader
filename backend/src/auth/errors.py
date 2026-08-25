@@ -16,6 +16,10 @@ class DuplicateUsername(AuthError):
   """That name already belongs to an account."""
 
 
+class UnknownUsername(AuthError):
+  """No application account has that canonical username."""
+
+
 class AuthUnavailable(AuthError):
   """Authentication could not be performed at all.
 

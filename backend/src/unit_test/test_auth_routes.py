@@ -11,6 +11,7 @@ from flask import Flask, g, jsonify
 
 ##<<Third-part>>
 from backend.src.auth.errors import AuthUnavailable
+from backend.src.auth.roles import ROLE_ADMIN, ROLE_USER
 from backend.src.auth.service import AuthenticationService
 from backend.src.unit_test.test_auth_service import FakeRepository
 from backend.src.web import auth_routes
@@ -117,6 +118,7 @@ class TestLogin(unittest.TestCase):
     self.assertEqual("success", payload["status"])
     self.assertEqual("alice", payload["data"]["user"]["username"])
     self.assertEqual(1, payload["data"]["user"]["user_id"])
+    self.assertEqual(ROLE_USER, payload["data"]["user"]["role"])
 
   def test_the_response_never_carries_the_hash_or_the_token(self):
     ##
@@ -430,6 +432,20 @@ class TestWhoAmI(unittest.TestCase):
 
     self.assertEqual(200, response.status_code)
     self.assertEqual("alice", body_of(response)["data"]["user"]["username"])
+    self.assertEqual(ROLE_USER, body_of(response)["data"]["user"]["role"])
+
+  def test_role_changes_are_visible_without_replacing_the_session(self):
+    client, _, service = self.signed_in_client()
+    session_cookie = client.get_cookie(SESSION_COOKIE_NAME).value
+
+    service.set_role("alice", ROLE_ADMIN)
+    promoted = client.get("/api/auth/me")
+    service.set_role("alice", ROLE_USER)
+    demoted = client.get("/api/auth/me")
+
+    self.assertEqual(ROLE_ADMIN, body_of(promoted)["data"]["user"]["role"])
+    self.assertEqual(ROLE_USER, body_of(demoted)["data"]["user"]["role"])
+    self.assertEqual(session_cookie, client.get_cookie(SESSION_COOKIE_NAME).value)
 
   def test_it_resolves_the_session_only_once(self):
     client, _, service = self.signed_in_client()
@@ -865,6 +881,79 @@ class TestRequireAuthenticated(unittest.TestCase):
     response = client.get("/protected")
 
     self.assertEqual(503, response.status_code)
+
+
+class TestRoleAuthorizationHelpers(unittest.TestCase):
+  def protected_app(self, decorator, *, unavailable=None):
+    app, repository, service = build(unavailable=unavailable)
+
+    @app.get("/role-probe")
+    @decorator
+    def role_probe():
+      return jsonify({"role": g.auth_context.user.role})
+
+    return app, repository, service
+
+  def signed_in(self, decorator, role):
+    app, _, service = self.protected_app(decorator)
+    service.create_user("alice", "correct horse battery", role=role)
+    client = app.test_client()
+    client.post(
+      "/api/auth/login",
+      json={"username": "alice", "password": "correct horse battery"},
+    )
+    return client, service
+
+  def test_require_admin_refuses_anonymous_with_401(self):
+    app, _, _ = self.protected_app(auth_routes.require_admin)
+
+    self.assertEqual(401, app.test_client().get("/role-probe").status_code)
+
+  def test_require_admin_preserves_unavailable_as_503(self):
+    app, _, _ = self.protected_app(
+      auth_routes.require_admin,
+      unavailable=AuthUnavailable("database offline"),
+    )
+    client = app.test_client()
+    client.set_cookie(SESSION_COOKIE_NAME, "present-token")
+
+    self.assertEqual(503, client.get("/role-probe").status_code)
+
+  def test_require_admin_refuses_user_with_uniform_forbidden_contract(self):
+    client, _ = self.signed_in(auth_routes.require_admin, ROLE_USER)
+
+    response = client.get("/role-probe")
+
+    self.assertEqual(403, response.status_code)
+    self.assertEqual("forbidden", body_of(response)["kind"])
+    self.assertEqual("没有权限执行此操作", body_of(response)["message"])
+
+  def test_require_admin_allows_admin(self):
+    client, _ = self.signed_in(auth_routes.require_admin, ROLE_ADMIN)
+
+    self.assertEqual(200, client.get("/role-probe").status_code)
+
+  def test_require_user_capability_allows_user_and_admin(self):
+    decorator = auth_routes.require_role(ROLE_USER)
+    for role in (ROLE_USER, ROLE_ADMIN):
+      with self.subTest(role=role):
+        client, _ = self.signed_in(decorator, role)
+        self.assertEqual(200, client.get("/role-probe").status_code)
+
+  def test_helper_consumes_context_without_resolving_again(self):
+    client, service = self.signed_in(auth_routes.require_admin, ROLE_ADMIN)
+    calls = 0
+    resolve = service.resolve_session
+
+    def counted(token):
+      nonlocal calls
+      calls += 1
+      return resolve(token)
+
+    service.resolve_session = counted
+
+    self.assertEqual(200, client.get("/role-probe").status_code)
+    self.assertEqual(1, calls)
 
 
 if __name__ == "__main__":

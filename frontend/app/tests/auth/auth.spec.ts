@@ -20,7 +20,7 @@ const mockedLogin = vi.mocked(login)
 const mockedLogout = vi.mocked(logout)
 const mockedMe = vi.mocked(getCurrentUser)
 
-const ALICE = { user_id: 1, username: 'alice' }
+const ALICE = { user_id: 1, username: 'alice', role: 'user' as const }
 
 async function settle() {
   for (let index = 0; index < 6; index += 1) {
@@ -227,6 +227,7 @@ describe('the store that remembers who is signed in', () => {
 
     expect(store.status).toBe('authenticated')
     expect(store.user).toEqual(ALICE)
+    expect(store.user?.role).toBe('user')
   })
 
   it('becomes anonymous when the server does not', async () => {
