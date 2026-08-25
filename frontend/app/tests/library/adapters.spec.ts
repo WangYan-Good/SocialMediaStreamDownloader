@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { listLibraryLives, listLibraryPosts } from '../../src/api/library'
+import {
+  listLibraryLives,
+  listLibraryPosts,
+  listLibraryRecordings,
+} from '../../src/api/library'
 import { getPersonWorks } from '../../src/api/people'
 
 //
@@ -126,6 +130,41 @@ describe('reading live records', () => {
     await listLibraryLives({}, controller.signal)
 
     expect(callOf(fake).signal).toBe(controller.signal)
+  })
+})
+
+describe('reading persistent recordings', () => {
+  it('uses the dedicated recording resource endpoint', async () => {
+    const fake = stubFetch({ total: 0, page: 1, page_size: 25, items: [] })
+
+    await listLibraryRecordings()
+
+    expect(callOf(fake).url).toBe('/api/library/recordings')
+  })
+
+  it('passes the recording filter contract without a client-selected app user', async () => {
+    const fake = stubFetch({ total: 0, page: 1, page_size: 25, items: [] })
+
+    await listLibraryRecordings({
+      q: '晚间',
+      owner_user_id: '5885',
+      protocol: 'hls',
+      sort: 'created_at',
+      order: 'asc',
+      page: 2,
+      page_size: 10,
+    })
+
+    const url = new URL(callOf(fake).url, 'http://localhost')
+    expect(url.pathname).toBe('/api/library/recordings')
+    expect(url.searchParams.get('q')).toBe('晚间')
+    expect(url.searchParams.get('owner_user_id')).toBe('5885')
+    expect(url.searchParams.get('protocol')).toBe('hls')
+    expect(url.searchParams.get('sort')).toBe('created_at')
+    expect(url.searchParams.get('order')).toBe('asc')
+    expect(url.searchParams.get('page')).toBe('2')
+    expect(url.searchParams.get('page_size')).toBe('10')
+    expect(url.searchParams.has('app_user_id')).toBe(false)
   })
 })
 

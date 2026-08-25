@@ -200,11 +200,9 @@ def _new_flask_app(
   ## deployment with no database still starts and still serves everything that
   ## never needed one - it simply has nobody signed in.
   ##
-  ## Identity-aware task creation and resource persistence consume the
-  ## server-selected request user where their contracts support ownership.
-  ## The Admin/User role and reusable authorization helpers now exist, but broad
-  ## business-route enforcement remains the next rollout; registering this
-  ## runtime must not be mistaken for guarding every blueprint below it.
+  ## Identity-aware business routes consume the server-selected request user
+  ## and role. Authorization is enforced at each route; this global hook only
+  ## resolves the session once and never chooses a business scope itself.
   ##
   configured_app.register_blueprint(
     build_auth_blueprint(runtime=build_auth_runtime(load_config))

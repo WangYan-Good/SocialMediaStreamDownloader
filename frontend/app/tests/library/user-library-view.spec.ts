@@ -6,15 +6,15 @@ import { nextTick } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { ApiError } from '../../src/api/client'
-import { listLibraryLives, listLibraryPosts } from '../../src/api/library'
+import { listLibraryRecordings, listLibraryPosts } from '../../src/api/library'
 import { getPersonWorks, listPeople } from '../../src/api/people'
 import { routes } from '../../src/router'
-import type { LibraryLive, LibraryPost } from '../../src/types/library'
+import type { LibraryRecording, LibraryPost } from '../../src/types/library'
 import UserLibraryView from '../../src/views/UserLibraryView.vue'
 
 vi.mock('../../src/api/library', () => ({
   listLibraryPosts: vi.fn(),
-  listLibraryLives: vi.fn(),
+  listLibraryRecordings: vi.fn(),
 }))
 vi.mock('../../src/api/people', () => ({
   listPeople: vi.fn(),
@@ -22,7 +22,7 @@ vi.mock('../../src/api/people', () => ({
 }))
 
 const mockedPosts = vi.mocked(listLibraryPosts)
-const mockedLives = vi.mocked(listLibraryLives)
+const mockedRecordings = vi.mocked(listLibraryRecordings)
 const mockedPeople = vi.mocked(listPeople)
 const mockedWorks = vi.mocked(getPersonWorks)
 
@@ -52,21 +52,16 @@ function post(overrides: Partial<LibraryPost> = {}): LibraryPost {
   }
 }
 
-function live(overrides: Partial<LibraryLive> = {}): LibraryLive {
+function recording(overrides: Partial<LibraryRecording> = {}): LibraryRecording {
   return {
-    observed_at: '2026-08-15T09:30:15.250',
+    recording_id: 'rec-1',
     platform: 'douyin',
     room_id: '7123456789',
-    owner_user_id: OWNER_USER_ID,
     nickname: '某位主播',
-    directory_name: '某位主播',
-    person_id: null,
-    person_display_name: null,
     title: '晚间直播',
-    room_status: 4,
-    start_time: '2026-08-15T20:00:00',
-    finish_time: '2026-08-15T22:00:00',
-    status_code: 0,
+    started_at: '2026-08-15T20:00:00',
+    finished_at: '2026-08-15T22:00:00',
+    created_at: '2026-08-15T09:30:15.250',
     ...overrides,
   }
 }
@@ -75,7 +70,7 @@ function postPage(items: LibraryPost[], overrides = {}) {
   return { total: items.length, page: 1, page_size: 25, items, ...overrides }
 }
 
-function livePage(items: LibraryLive[], overrides = {}) {
+function recordingPage(items: LibraryRecording[], overrides = {}) {
   return { total: items.length, page: 1, page_size: 25, items, ...overrides }
 }
 
@@ -108,7 +103,7 @@ beforeEach(() => {
   setActivePinia(createPinia())
   vi.clearAllMocks()
   mockedPosts.mockResolvedValue(postPage([post()]))
-  mockedLives.mockResolvedValue(livePage([live()]))
+  mockedRecordings.mockResolvedValue(recordingPage([recording()]))
   mockedPeople.mockResolvedValue([])
   mockedWorks.mockResolvedValue([])
 })
@@ -163,13 +158,13 @@ describe('what the library offers a user', () => {
     expect(mockedWorks).not.toHaveBeenCalled()
   })
 
-  it('reads live records only when that tab is opened', async () => {
+  it('reads persistent recordings only when that tab is opened', async () => {
     const wrapper = await openLibrary()
-    expect(mockedLives).not.toHaveBeenCalled()
+    expect(mockedRecordings).not.toHaveBeenCalled()
 
     await openLives(wrapper)
 
-    expect(mockedLives).toHaveBeenCalledTimes(1)
+    expect(mockedRecordings).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -262,17 +257,17 @@ describe('paging through what is there', () => {
   })
 
   it('moves through pages of recordings at the server', async () => {
-    mockedLives.mockResolvedValue(livePage([live()], { total: 60, page: 1 }))
+    mockedRecordings.mockResolvedValue(recordingPage([recording()], { total: 60, page: 1 }))
     const wrapper = await openLibrary()
     await openLives(wrapper)
 
     expect(wrapper.text()).toContain('第 1 / 3 页')
-    mockedLives.mockResolvedValue(livePage([live()], { total: 60, page: 2 }))
+    mockedRecordings.mockResolvedValue(recordingPage([recording()], { total: 60, page: 2 }))
 
     await wrapper.findAll('button').find((one) => one.text() === '下一页')?.trigger('click')
     await settle()
 
-    expect(mockedLives.mock.calls[1][0]).toMatchObject({ page: 2 })
+    expect(mockedRecordings.mock.calls[1][0]).toMatchObject({ page: 2 })
   })
 })
 
@@ -313,12 +308,13 @@ describe('looking at one record', () => {
     }
   })
 
-  it('never claims a recorded observation is happening now', async () => {
-    mockedLives.mockResolvedValue(livePage([live({ room_status: 2 })]))
+  it('does not render live-observation state for a persistent recording', async () => {
+    mockedRecordings.mockResolvedValue(recordingPage([recording()]))
     const wrapper = await openLibrary()
     await openLives(wrapper)
 
     expect(wrapper.text()).not.toContain('正在直播')
+    expect(wrapper.text()).not.toContain('记录状态')
   })
 })
 
@@ -341,7 +337,7 @@ describe('when there is nothing to show', () => {
   })
 
   it('says there are no recordings yet', async () => {
-    mockedLives.mockResolvedValue(livePage([]))
+    mockedRecordings.mockResolvedValue(recordingPage([]))
     const wrapper = await openLibrary()
     await openLives(wrapper)
 

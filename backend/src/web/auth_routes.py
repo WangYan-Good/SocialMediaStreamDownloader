@@ -137,6 +137,16 @@ def require_session_csrf(view):
   return csrf_protected_view
 
 
+def require_authenticated_csrf(view):
+  """Thin composition for an authenticated state-changing endpoint."""
+  return require_authenticated(require_session_csrf(view))
+
+
+def require_admin_csrf(view):
+  """Thin composition for an ADMIN state-changing endpoint."""
+  return require_admin(require_session_csrf(view))
+
+
 def _set_csrf_cookie(response, token, runtime):
   response.set_cookie(
     CSRF_COOKIE_NAME,
@@ -216,13 +226,12 @@ def build_auth_blueprint(*, runtime: AuthRuntime) -> Blueprint:
   def resolve_request_authentication():
     """Work out who is making this request, once.
 
-    Establishes identity and role, then stops. Nothing is refused globally:
-    Phase 8A provides authorization helpers but does not apply them to existing
-    business routes.
+    Establishes identity and role, then stops. Individual routes consume this
+    one context through the authorization helpers; no route resolves the
+    session a second time.
 
-    A failure to resolve is also not a refusal here.  It is retained as the
-    distinct ``unavailable`` state, while existing unprotected endpoints keep
-    running because none of them consumes authentication yet.
+    A failure to resolve is retained as the distinct ``unavailable`` state so
+    protected routes fail closed with 503 instead of guessing a scope.
     """
     token = request.cookies.get(SESSION_COOKIE_NAME)
     if not token:

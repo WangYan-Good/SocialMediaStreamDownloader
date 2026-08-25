@@ -1,6 +1,7 @@
 import unittest
 
 from flask import Flask
+from backend.src.unit_test.auth_context import install_test_auth
 
 from backend.src.service.job_store import (
   JOB_DONE,
@@ -533,6 +534,7 @@ class DownloadRuntime(OwnerRuntime):
 
 def build_client(service):
   app = Flask(__name__)
+  install_test_auth(app)
   app.config["TESTING"] = True
   install_task_service(app, service.task_service)
   app.register_blueprint(build_owner_blueprint(DownloadRuntime(service)))
@@ -602,6 +604,7 @@ class OwnerDownloadApiTest(OfflineTestCase):
   def test_the_public_job_polling_route_is_not_registered(self):
     service = build_service()
     app = Flask(__name__)
+    install_test_auth(app)
     app.register_blueprint(build_owner_blueprint(DownloadRuntime(service)))
 
     self.assertFalse(any(
@@ -619,6 +622,7 @@ class OwnerDownloadApiTest(OfflineTestCase):
     )
     service.cache.remember([post_item("1")])
     app = Flask(__name__)
+    install_test_auth(app)
     app.config["TESTING"] = True
     app.register_blueprint(build_owner_blueprint(DownloadRuntime(service)))
 

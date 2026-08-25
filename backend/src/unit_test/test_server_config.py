@@ -164,8 +164,8 @@ class ServerConfigTest(unittest.TestCase):
       first_response = wsgi_server.app.test_client().get("/api/tasks?limit=1")
       second_response = wsgi_server.app.test_client().get("/api/tasks?limit=1")
 
-      self.assertEqual(first_response.status_code, 200)
-      self.assertEqual(second_response.status_code, 200)
+      self.assertEqual(first_response.status_code, 401)
+      self.assertEqual(second_response.status_code, 401)
       self.assertEqual(load.call_count, 1)
       creation = wsgi_server.app.extensions["smsd_task_creation_service"]
       recording = creation._live_record_service._recording_service

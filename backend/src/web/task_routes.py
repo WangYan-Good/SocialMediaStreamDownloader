@@ -2,15 +2,23 @@
 from flask import Blueprint, current_app, jsonify, request
 
 ##<<Third-part>>
-from backend.src.auth.context import RequestAuthStatus
+from backend.src.auth.roles import ROLE_ADMIN
 from backend.src.library.loglib import get_logger
 from backend.src.service.task_creation import TaskCreateError
 from backend.src.task.errors import TaskValidationError
-from backend.src.task.model import to_payload
+from backend.src.task.model import (
+  TASK_STATE_CANCELLED,
+  TASK_STATE_FAILED,
+  TASK_STATE_PARTIAL,
+  TASK_STATE_PENDING,
+  TASK_STATE_RUNNING,
+  TASK_STATE_SUCCESS,
+  to_payload,
+)
 from backend.src.task.service import TaskService
 from backend.src.web.auth_routes import (
-  UNAVAILABLE_MESSAGE,
-  require_session_csrf,
+  require_authenticated,
+  require_authenticated_csrf,
   request_auth_context,
 )
 
@@ -37,6 +45,18 @@ TASK_CREATION_SERVICE_KEY = "smsd_task_creation_service"
 ##
 _CREATE_FIELDS = ("resolve_id", "task_type", "options")
 
+_USER_RESULT_COUNT_FIELDS = ("saved_count", "media_count", "recording_id")
+_USER_RESULT_FLAG_FIELDS = ("skipped", "partial", "recorded")
+
+_USER_TASK_MESSAGES = {
+  TASK_STATE_PENDING: "等待处理",
+  TASK_STATE_RUNNING: "正在处理",
+  TASK_STATE_SUCCESS: "任务已完成",
+  TASK_STATE_PARTIAL: "任务部分完成",
+  TASK_STATE_FAILED: "任务未完成",
+  TASK_STATE_CANCELLED: "任务已取消",
+}
+
 
 def _error(message: str, code: int):
   return jsonify({"status": "error", "message": message, "code": code}), code
@@ -53,6 +73,52 @@ def _accepted(data: dict):
   ## answers.
   ##
   return jsonify({"status": "success", "code": 202, "data": data}), 202
+
+
+def _safe_user_result(metadata: dict) -> dict:
+  source = metadata.get("result")
+  if not isinstance(source, dict):
+    return {}
+  result = {}
+  for key in _USER_RESULT_COUNT_FIELDS:
+    value = source.get(key)
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+      result[key] = value
+  for key in _USER_RESULT_FLAG_FIELDS:
+    value = source.get(key)
+    if isinstance(value, bool):
+      result[key] = value
+  return result
+
+
+def _to_user_payload(snapshot: dict) -> dict:
+  """Explicit user wire: useful status, never execution internals."""
+  full = to_payload(snapshot)
+  metadata = snapshot.get("metadata") or {}
+  safe_metadata = {}
+  source_url = metadata.get("source_url")
+  if isinstance(source_url, str) and source_url.strip():
+    safe_metadata["source_url"] = source_url.strip()
+  result = _safe_user_result(metadata)
+  if result:
+    safe_metadata["result"] = result
+
+  # Runner messages and result reasons are operational text, even when they
+  # contain Chinese prose: either may interpolate a path, URL, driver error or
+  # credential.  The user wire therefore derives its wording from the closed
+  # lifecycle vocabulary rather than attempting to classify arbitrary text.
+  full["message"] = _USER_TASK_MESSAGES.get(snapshot.get("state"))
+  full["metadata"] = safe_metadata
+  full["items"] = [
+    {
+      "key": "item-{}".format(index),
+      "state": item["state"],
+      "message": None,
+      "metadata": {},
+    }
+    for index, item in enumerate(snapshot.get("items") or (), start=1)
+  ]
+  return full
 
 
 def install_task_service(app, service: TaskService = None) -> TaskService:
@@ -128,16 +194,10 @@ def build_task_blueprint() -> Blueprint:
   blueprint = Blueprint("task", __name__, url_prefix="/api")
 
   @blueprint.route("/tasks", methods=["POST"])
-  @require_session_csrf
+  @require_authenticated_csrf
   def create_task():
     auth_context = request_auth_context()
-    if auth_context.status == RequestAuthStatus.UNAVAILABLE:
-      return _error(UNAVAILABLE_MESSAGE, 503)
-    app_user_id = (
-      auth_context.user.user_id
-      if auth_context.status == RequestAuthStatus.AUTHENTICATED
-      else None
-    )
+    app_user_id = auth_context.user.user_id
     service = task_creation_service()
     if service is None:
       return _error("任务创建服务未初始化", 503)
@@ -200,6 +260,7 @@ def build_task_blueprint() -> Blueprint:
     )
 
   @blueprint.route("/tasks", methods=["GET"])
+  @require_authenticated
   def list_tasks():
     service = task_service()
     if service is None:
@@ -212,10 +273,15 @@ def build_task_blueprint() -> Blueprint:
       ## not "how many did you ask for" - the difference is what lets the page
       ## say it is showing part of a longer list.
       ##
-      tasks = service.list_tasks(
-        state=_optional_filter("state"),
-        task_type=_optional_filter("type"),
-      )
+      context = request_auth_context()
+      filters = {
+        "state": _optional_filter("state"),
+        "task_type": _optional_filter("type"),
+      }
+      if context.user.role == ROLE_ADMIN:
+        tasks = service.list_tasks(**filters)
+      else:
+        tasks = service.list_tasks_for_user(context.user.user_id, **filters)
     except TaskValidationError as e:
       return _error(str(e), 400)
     except Exception as e:
@@ -225,19 +291,29 @@ def build_task_blueprint() -> Blueprint:
     selected = tasks if limit is None else tasks[:limit]
     return _success(
       {
-        "items": [to_payload(task) for task in selected],
+        "items": [
+          to_payload(task) if context.user.role == ROLE_ADMIN
+          else _to_user_payload(task)
+          for task in selected
+        ],
         "total": len(tasks),
       }
     )
 
   @blueprint.route("/tasks/<task_id>", methods=["GET"])
+  @require_authenticated
   def read_task(task_id):
     service = task_service()
     if service is None:
       return _error("任务服务未初始化", 503)
 
     try:
-      task = service.get_task(task_id)
+      context = request_auth_context()
+      task = (
+        service.get_task(task_id)
+        if context.user.role == ROLE_ADMIN
+        else service.get_task_for_user(task_id, context.user.user_id)
+      )
     except Exception as e:
       get_logger().error("task lookup failed: {}".format(e))
       return _error("服务器内部错误，请稍后重试", 500)
@@ -245,6 +321,10 @@ def build_task_blueprint() -> Blueprint:
     if task is None:
       return _error("任务不存在或已过期", 404)
 
-    return _success(to_payload(task))
+    return _success(
+      to_payload(task)
+      if context.user.role == ROLE_ADMIN
+      else _to_user_payload(task)
+    )
 
   return blueprint

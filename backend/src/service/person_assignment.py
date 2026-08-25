@@ -599,13 +599,13 @@ class PersonAssignmentService:
     """
     return self._resolve_service
 
-  def _resolution(self, resolve_id: str):
+  def _resolution(self, resolve_id: str, app_user_id: int):
     ##
     ## Read once, here.  Everything downstream works off this one detached
     ## snapshot, so a receipt expiring mid-request cannot fail an assignment
     ## that was already accepted on a valid resolution.
     ##
-    resolution = self._resolve_service.get(resolve_id)
+    resolution = self._resolve_service.get_for_user(resolve_id, app_user_id)
     if resolution is None:
       raise ResolutionNotFound("解析结果不存在或已过期，请重新解析")
     return resolution
@@ -798,7 +798,7 @@ class PersonAssignmentService:
     except DatabaseWriteBlocked as e:
       raise AssignmentUnavailable("人物写入暂时不可用，请稍后重试") from e
 
-  def inspect(self, request) -> PersonIdentityInspection:
+  def inspect(self, request, *, app_user_id: int) -> PersonIdentityInspection:
     """Say who a receipt names, and whether this server already holds them.
 
     Read-oriented, and the answer is a hint for the interface rather than an
@@ -827,7 +827,7 @@ class PersonAssignmentService:
     expired" on every user's first click.
     """
     resolve_id = _validated_inspect_request(request)
-    resolution = self._resolution(resolve_id)
+    resolution = self._resolution(resolve_id, app_user_id)
     identity = self._identity(resolution)
 
     table = self._table_factory()
@@ -897,14 +897,14 @@ class PersonAssignmentService:
         )
       )
 
-  def assign(self, request) -> PersonAssignmentResult:
+  def assign(self, request, *, app_user_id: int) -> PersonAssignmentResult:
     """Attach the account a receipt names to a person, new or existing.
 
     Raises a ``PersonAssignmentError`` for every expected refusal, each carrying
     the status the api answers with.
     """
     validated = _validated_request(request)
-    resolution = self._resolution(validated["resolve_id"])
+    resolution = self._resolution(validated["resolve_id"], app_user_id)
     identity = self._identity(resolution)
 
     display_name = validated["display_name"]

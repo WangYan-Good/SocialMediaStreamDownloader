@@ -1,14 +1,21 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { ApiError } from '@/api/client'
-import { listLibraryLives, listLibraryPosts } from '@/api/library'
+import {
+  listLibraryLives,
+  listLibraryPosts,
+  listLibraryRecordings,
+} from '@/api/library'
 import { getPersonWorks, listPeople } from '@/api/people'
+import { useAuthStore } from '@/stores/auth'
 import type {
   LibraryLive,
   LibraryLiveFilters,
   LibraryPost,
   LibraryPostFilters,
+  LibraryRecording,
+  LibraryRecordingFilters,
 } from '@/types/library'
 import type { PersonSummaryItem, PersonWork } from '@/types/person'
 
@@ -28,6 +35,7 @@ import type { PersonSummaryItem, PersonWork } from '@/types/person'
  * seconds is asking a question whose answer only changes when a download ends.
  */
 export const useLibraryStore = defineStore('library', () => {
+  const auth = useAuthStore()
   //
   // Downloaded posts.
   //
@@ -66,6 +74,24 @@ export const useLibraryStore = defineStore('library', () => {
   let liveGeneration = 0
   let liveInFlight: AbortController | null = null
 
+  // Persistent recordings are user resources. They never share the Admin
+  // live-observation state above because the rows have different meanings.
+  const recordings = ref<LibraryRecording[]>([])
+  const recordingTotal = ref(0)
+  const recordingPage = ref(1)
+  const recordingPageSize = ref(25)
+  const recordingFilters = ref<LibraryRecordingFilters>({
+    sort: 'finished_at',
+    order: 'desc',
+  })
+  const recordingLoading = ref(false)
+  const recordingError = ref<string | null>(null)
+  const hasLoadedRecordings = ref(false)
+  const selectedRecordingId = ref<string | null>(null)
+
+  let recordingGeneration = 0
+  let recordingInFlight: AbortController | null = null
+
   //
   // The person list, used only to populate a filter and a photographer picker.
   //
@@ -77,6 +103,9 @@ export const useLibraryStore = defineStore('library', () => {
   const peopleOptionsError = ref<string | null>(null)
   const hasLoadedPeopleOptions = ref(false)
 
+  let peopleOptionsGeneration = 0
+  let peopleOptionsInFlight: AbortController | null = null
+
   //
   // Posts associated with a photographer through a collaboration.
   //
@@ -87,6 +116,78 @@ export const useLibraryStore = defineStore('library', () => {
 
   let worksGeneration = 0
   let worksInFlight: AbortController | null = null
+
+  function resetForPrincipalChange(): void {
+    // Invalidate before aborting: mocked transports and a response already in
+    // the microtask queue may still settle after AbortController fires.
+    postGeneration += 1
+    liveGeneration += 1
+    recordingGeneration += 1
+    peopleOptionsGeneration += 1
+    worksGeneration += 1
+
+    postInFlight?.abort()
+    liveInFlight?.abort()
+    recordingInFlight?.abort()
+    peopleOptionsInFlight?.abort()
+    worksInFlight?.abort()
+    postInFlight = null
+    liveInFlight = null
+    recordingInFlight = null
+    peopleOptionsInFlight = null
+    worksInFlight = null
+
+    posts.value = []
+    postTotal.value = 0
+    postPage.value = 1
+    postPageSize.value = 25
+    postFilters.value = { sort: 'downloaded_at', order: 'desc' }
+    postLoading.value = false
+    postError.value = null
+    hasLoadedPosts.value = false
+    selectedPostKey.value = null
+
+    lives.value = []
+    liveTotal.value = 0
+    livePage.value = 1
+    livePageSize.value = 25
+    liveFilters.value = { sort: 'observed_at', order: 'desc' }
+    liveLoading.value = false
+    liveError.value = null
+    hasLoadedLives.value = false
+    selectedLiveKey.value = null
+
+    recordings.value = []
+    recordingTotal.value = 0
+    recordingPage.value = 1
+    recordingPageSize.value = 25
+    recordingFilters.value = { sort: 'finished_at', order: 'desc' }
+    recordingLoading.value = false
+    recordingError.value = null
+    hasLoadedRecordings.value = false
+    selectedRecordingId.value = null
+
+    peopleOptions.value = []
+    peopleOptionsError.value = null
+    hasLoadedPeopleOptions.value = false
+    selectedPhotographerId.value = null
+    personWorks.value = []
+    personWorksLoading.value = false
+    personWorksError.value = null
+  }
+
+  // Role is part of the principal key: a same-user demotion must discard data
+  // that was fetched while the browser had Admin scope.
+  watch(
+    () =>
+      auth.status === 'authenticated' && auth.user
+        ? `${auth.user.user_id}:${auth.user.role}`
+        : null,
+    (next, previous) => {
+      if (next !== previous) resetForPrincipalChange()
+    },
+    { flush: 'sync' },
+  )
 
   function describe(caught: unknown, fallback: string): string {
     return caught instanceof ApiError ? `${fallback}：${caught.message}` : fallback
@@ -100,6 +201,11 @@ export const useLibraryStore = defineStore('library', () => {
   const livePageCount = computed(() =>
     livePageSize.value > 0
       ? Math.max(1, Math.ceil(liveTotal.value / livePageSize.value))
+      : 1,
+  )
+  const recordingPageCount = computed(() =>
+    recordingPageSize.value > 0
+      ? Math.max(1, Math.ceil(recordingTotal.value / recordingPageSize.value))
       : 1,
   )
 
@@ -118,6 +224,11 @@ export const useLibraryStore = defineStore('library', () => {
   )
   const selectedLive = computed(
     () => lives.value.find((one) => liveKey(one) === selectedLiveKey.value) ?? null,
+  )
+  const selectedRecording = computed(
+    () =>
+      recordings.value.find((one) => one.recording_id === selectedRecordingId.value) ??
+      null,
   )
 
   async function loadPosts(): Promise<void> {
@@ -214,6 +325,42 @@ export const useLibraryStore = defineStore('library', () => {
     }
   }
 
+  async function loadRecordings(): Promise<void> {
+    const mine = ++recordingGeneration
+    recordingInFlight?.abort()
+    const controller = new AbortController()
+    recordingInFlight = controller
+    recordingLoading.value = true
+
+    try {
+      const answer = await listLibraryRecordings(
+        { ...recordingFilters.value, page: recordingPage.value },
+        controller.signal,
+      )
+      if (mine !== recordingGeneration) return
+      recordings.value = answer.items
+      recordingTotal.value = answer.total
+      recordingPage.value = answer.page
+      recordingPageSize.value = answer.page_size
+      hasLoadedRecordings.value = true
+      recordingError.value = null
+      if (
+        selectedRecordingId.value !== null &&
+        !answer.items.some((one) => one.recording_id === selectedRecordingId.value)
+      ) {
+        selectedRecordingId.value = null
+      }
+    } catch (caught) {
+      if (mine !== recordingGeneration) return
+      recordingError.value = describe(caught, '直播记录暂时无法读取')
+    } finally {
+      if (mine === recordingGeneration) {
+        recordingLoading.value = false
+        recordingInFlight = null
+      }
+    }
+  }
+
   return {
     posts,
     postTotal,
@@ -286,6 +433,36 @@ export const useLibraryStore = defineStore('library', () => {
       selectedLiveKey.value = key
     },
 
+    recordings,
+    recordingTotal,
+    recordingPage,
+    recordingPageSize,
+    recordingFilters,
+    recordingLoading,
+    recordingError,
+    hasLoadedRecordings,
+    selectedRecordingId,
+    selectedRecording,
+    recordingPageCount,
+    loadRecordings,
+
+    async setRecordingFilters(next: Partial<LibraryRecordingFilters>): Promise<void> {
+      recordingFilters.value = { ...recordingFilters.value, ...next }
+      recordingPage.value = 1
+      selectedRecordingId.value = null
+      await loadRecordings()
+    },
+
+    async goToRecordingPage(next: number): Promise<void> {
+      recordingPage.value = Math.max(1, next)
+      selectedRecordingId.value = null
+      await loadRecordings()
+    },
+
+    selectRecording(recordingId: string | null): void {
+      selectedRecordingId.value = recordingId
+    },
+
     peopleOptions,
     peopleOptionsError,
     hasLoadedPeopleOptions,
@@ -298,12 +475,21 @@ export const useLibraryStore = defineStore('library', () => {
      * works without knowing anybody's name.
      */
     async loadPeopleOptions(): Promise<void> {
+      const mine = ++peopleOptionsGeneration
+      peopleOptionsInFlight?.abort()
+      const controller = new AbortController()
+      peopleOptionsInFlight = controller
       try {
-        peopleOptions.value = await listPeople()
+        const answer = await listPeople(controller.signal)
+        if (mine !== peopleOptionsGeneration) return
+        peopleOptions.value = answer
         hasLoadedPeopleOptions.value = true
         peopleOptionsError.value = null
       } catch (caught) {
+        if (mine !== peopleOptionsGeneration) return
         peopleOptionsError.value = describe(caught, '人物选项暂不可用')
+      } finally {
+        if (mine === peopleOptionsGeneration) peopleOptionsInFlight = null
       }
     },
 

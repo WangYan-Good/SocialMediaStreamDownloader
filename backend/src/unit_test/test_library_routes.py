@@ -3,7 +3,10 @@ import unittest
 
 from flask import Flask
 
+from backend.src.auth.roles import ROLE_ADMIN, ROLE_USER
+from backend.src.auth.service import AuthenticatedUser
 from backend.src.database.query.library import LibraryPage
+from backend.src.unit_test.auth_context import install_test_auth
 from backend.src.web.library_routes import (
   LibraryRuntime,
   LibraryUnavailable,
@@ -14,18 +17,42 @@ from backend.src.web.library_routes import (
 class FakeQuery:
   """Stands in for LibraryQuery, recording the filters it was handed."""
 
-  def __init__(self, posts=None, lives=None, failure=None):
+  def __init__(self, posts=None, lives=None, recordings=None, failure=None):
     self.posts_page = posts if posts is not None else LibraryPage(0, 1, 25, tuple())
     self.lives_page = lives if lives is not None else LibraryPage(0, 1, 25, tuple())
+    self.recordings_page = (
+      recordings if recordings is not None else LibraryPage(0, 1, 25, tuple())
+    )
     self.failure = failure
     self.post_filters = []
+    self.post_user_calls = []
     self.live_filters = []
+    self.recording_filters = []
+    self.recording_user_calls = []
 
   def posts(self, post_filter):
     self.post_filters.append(post_filter)
     if self.failure is not None:
       raise self.failure
     return self.posts_page
+
+  def posts_for_user(self, app_user_id, post_filter):
+    self.post_user_calls.append((app_user_id, post_filter))
+    if self.failure is not None:
+      raise self.failure
+    return self.posts_page
+
+  def recordings(self, recording_filter):
+    self.recording_filters.append(recording_filter)
+    if self.failure is not None:
+      raise self.failure
+    return self.recordings_page
+
+  def recordings_for_user(self, app_user_id, recording_filter):
+    self.recording_user_calls.append((app_user_id, recording_filter))
+    if self.failure is not None:
+      raise self.failure
+    return self.recordings_page
 
   def lives(self, live_filter):
     self.live_filters.append(live_filter)
@@ -51,8 +78,12 @@ class FakeRuntime:
     return self._query
 
 
-def client_for(runtime):
+def client_for(runtime, user=None):
   app = Flask(__name__)
+  install_test_auth(
+    app,
+    user=user or AuthenticatedUser(9001, "test-admin", ROLE_ADMIN),
+  )
   app.register_blueprint(build_library_blueprint(runtime=runtime))
   return app.test_client()
 
@@ -225,6 +256,84 @@ class LibraryLiveRouteTest(unittest.TestCase):
     client = client_for(runtime)
 
     self.assertEqual(503, client.get("/api/library/lives").status_code)
+
+
+class LibraryRoleScopedRouteTest(unittest.TestCase):
+  def test_user_posts_use_server_selected_scope_and_safe_serializer(self):
+    row = {
+      "platform": "douyin",
+      "aweme_id": "A1",
+      "nickname": "创作者",
+      "aweme_type": "video",
+      "desc": "作品",
+      "media_count": 2,
+      "saved_count": 2,
+      "save_dir": "/srv/private",
+      "directory_name": "internal",
+      "person_id": 99,
+      "person_display_name": "internal",
+      "sec_user_id": "secret",
+      "owner_user_id": "owner",
+      "source": "api",
+    }
+    query = FakeQuery(posts=LibraryPage(1, 1, 25, (row,)))
+    user = AuthenticatedUser(71, "alice", ROLE_USER)
+
+    response = client_for(FakeRuntime(query), user=user).get(
+      "/api/library/posts?app_user_id=72&user_id=72&role=admin"
+    )
+    item = response.get_json()["data"]["items"][0]
+
+    self.assertEqual(200, response.status_code)
+    self.assertEqual(71, query.post_user_calls[0][0])
+    for field in (
+      "save_dir", "directory_name", "person_id", "person_display_name",
+      "sec_user_id", "owner_user_id", "source",
+    ):
+      self.assertNotIn(field, item)
+
+  def test_admin_posts_remain_global(self):
+    query = FakeQuery()
+    client_for(FakeRuntime(query)).get("/api/library/posts")
+
+    self.assertEqual(1, len(query.post_filters))
+    self.assertEqual([], query.post_user_calls)
+
+  def test_recordings_are_user_scoped_and_never_expose_paths(self):
+    row = {
+      "recording_id": "R1",
+      "app_user_id": 71,
+      "platform": "douyin",
+      "room_id": "room",
+      "title": "晚间直播",
+      "nickname": "主播",
+      "output_path": "/srv/private/live.flv",
+      "source": "task_api",
+    }
+    query = FakeQuery(recordings=LibraryPage(1, 1, 25, (row,)))
+    user = AuthenticatedUser(71, "alice", ROLE_USER)
+
+    response = client_for(FakeRuntime(query), user=user).get(
+      "/api/library/recordings?app_user_id=72&role=admin"
+    )
+    item = response.get_json()["data"]["items"][0]
+
+    self.assertEqual(71, query.recording_user_calls[0][0])
+    self.assertNotIn("app_user_id", item)
+    self.assertNotIn("output_path", item)
+    self.assertNotIn("source", item)
+
+  def test_admin_recordings_are_global_but_still_do_not_dump_output_path(self):
+    row = {"recording_id": "R1", "output_path": "/srv/private/live.flv"}
+    query = FakeQuery(recordings=LibraryPage(1, 1, 25, (row,)))
+
+    item = client_for(FakeRuntime(query)).get(
+      "/api/library/recordings"
+    ).get_json()["data"]["items"][0]
+
+    self.assertEqual(1, len(query.recording_filters))
+    self.assertEqual([], query.recording_user_calls)
+    self.assertNotIn("output_path", item)
 
 
 class LibraryRuntimeTest(unittest.TestCase):

@@ -390,17 +390,6 @@ jobs:
           expect /assets/definitely-does-not-exist.js 404
 
           expect_not_vue /api/definitely-does-not-exist
-          expect "/api/tasks?limit=1" 200
-
-          # The status endpoint answers even with persistence switched off, and
-          # says so rather than pretending the schema is fine.
-          curl -s "${BASE}/api/system/status" > /tmp/smsd-smoke/status.json
-          python - <<'PY'
-          import json
-          from pathlib import Path
-
-          payload = json.loads(Path("/tmp/smsd-smoke/status.json").read_text())
-          assert payload["status"] == "success", payload
-          assert payload["data"]["database"]["state"] == "disabled", payload
-          print("ok   /api/system/status -> success, database disabled")
-          PY
+          expect "/api/auth/me" 401
+          expect "/api/tasks?limit=1" 401
+          expect "/api/system/status" 401

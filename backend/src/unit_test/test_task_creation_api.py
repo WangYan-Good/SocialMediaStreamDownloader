@@ -3,6 +3,8 @@ import unittest
 from flask import Flask, g
 
 from backend.src.auth.context import RequestAuthContext
+from backend.src.auth.roles import ROLE_ADMIN, ROLE_USER
+from backend.src.auth.service import AuthenticatedUser
 from backend.src.service.task_creation import (
   InvalidTaskOptions,
   ResolutionNotFound,
@@ -17,6 +19,7 @@ from backend.src.task.model import (
   TASK_TYPE_POST_DOWNLOAD,
 )
 from backend.src.task.service import TaskService
+from backend.src.unit_test.auth_context import TEST_CSRF_PROOF, install_test_auth
 from backend.src.web.task_routes import (
   TASK_CREATION_SERVICE_KEY,
   build_task_blueprint,
@@ -57,6 +60,7 @@ def build_app(creation=None, tasks=None, install_creation=True, auth_context=Non
   creation = creation if creation is not None else FakeCreationService()
   app = Flask(__name__)
   app.config["TESTING"] = True
+  install_test_auth(app)
   if auth_context is not None:
     @app.before_request
     def install_auth_context():
@@ -93,13 +97,13 @@ class CreateTaskSuccessTest(unittest.TestCase):
     self.assertEqual(response.status_code, 202)
     self.assertEqual(creation.calls[0]["app_user_id"], 71)
 
-  def test_anonymous_creation_remains_unowned(self):
-    app, creation = build_app()
+  def test_anonymous_creation_is_refused_without_starting_work(self):
+    app, creation = build_app(auth_context=RequestAuthContext.anonymous())
 
     response = create(app, valid_body())
 
-    self.assertEqual(response.status_code, 202)
-    self.assertIsNone(creation.calls[0]["app_user_id"])
+    self.assertEqual(response.status_code, 401)
+    self.assertEqual(creation.calls, [])
 
   def test_auth_unavailable_never_falls_back_to_an_unowned_task(self):
     app, creation = build_app(
@@ -428,10 +432,11 @@ def configured_app():
   import server
   from backend.src.unit_test.config_fixture import unified_config
 
-  return server.create_app(
+  app = server.create_app(
     config=unified_config(),
     schema_guard_factory=lambda config: object(),
   )
+  return install_test_auth(app)
 
 
 def resolve(app, url):
@@ -725,6 +730,56 @@ class ReceiptReuseTest(unittest.TestCase):
 
     self.assertEqual(create(app, body).status_code, 202)
     self.assertEqual(task_count(app), 3)
+
+
+class CrossUserReceiptIsolationTest(unittest.TestCase):
+  def test_receipt_can_only_be_redeemed_by_the_account_that_created_it(self):
+    app, tasks = offline_app()
+    alice = AuthenticatedUser(71, "alice", ROLE_USER)
+    bob = AuthenticatedUser(72, "bob", ROLE_USER)
+    app.config["request_user"] = alice
+
+    @app.before_request
+    def current_test_user():
+      g.auth_context = RequestAuthContext.authenticated(
+        app.config["request_user"], csrf_expected=TEST_CSRF_PROOF
+      )
+
+    resolve_id = receipt_for(app, POST_URL)
+    body = {"resolve_id": resolve_id, "task_type": TASK_TYPE_POST_DOWNLOAD}
+
+    app.config["request_user"] = bob
+    refused = create(app, body)
+    self.assertEqual(404, refused.status_code)
+    self.assertEqual([], tasks.list_tasks())
+
+    app.config["request_user"] = alice
+    accepted = create(app, body)
+    self.assertEqual(202, accepted.status_code)
+    self.assertEqual(71, tasks.list_tasks()[0]["app_user_id"])
+
+  def test_admin_global_read_does_not_make_receipts_impersonable(self):
+    app, tasks = offline_app()
+    first = AuthenticatedUser(81, "admin-one", ROLE_ADMIN)
+    second = AuthenticatedUser(82, "admin-two", ROLE_ADMIN)
+    app.config["request_user"] = first
+
+    @app.before_request
+    def current_test_admin():
+      g.auth_context = RequestAuthContext.authenticated(
+        app.config["request_user"], csrf_expected=TEST_CSRF_PROOF
+      )
+
+    resolve_id = receipt_for(app, POST_URL)
+    app.config["request_user"] = second
+
+    response = create(
+      app,
+      {"resolve_id": resolve_id, "task_type": TASK_TYPE_POST_DOWNLOAD},
+    )
+
+    self.assertEqual(404, response.status_code)
+    self.assertEqual([], tasks.list_tasks())
 
 
 class RefusalsStartNothingTest(unittest.TestCase):

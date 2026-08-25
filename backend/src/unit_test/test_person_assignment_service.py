@@ -49,6 +49,7 @@ OWNER_URL = "https://www.douyin.com/user/" + SEC_UID
 LIVE_URL = "https://live.douyin.com/123456"
 
 RESOLVE_ID = "receipt-1"
+TEST_APP_USER_ID = 9001
 
 
 def owner_resolution():
@@ -117,9 +118,19 @@ class StubResolveService:
     )
     self.asked = []
 
-  def get(self, resolve_id):
+  def get_for_user(self, resolve_id, app_user_id):
     self.asked.append(resolve_id)
     return self._resolutions.get(resolve_id)
+
+
+class _PersonAssignmentServiceForTest(PersonAssignmentService):
+  """Keeps unit cases terse while production callers must name the owner."""
+
+  def assign(self, request, *, app_user_id=TEST_APP_USER_ID):
+    return super().assign(request, app_user_id=app_user_id)
+
+  def inspect(self, request, *, app_user_id=TEST_APP_USER_ID):
+    return super().inspect(request, app_user_id=app_user_id)
 
 
 class StubIdentityReader:
@@ -224,7 +235,7 @@ class StubTable:
 
 def build_service(resolve_service=None, table=None, reader=None):
   table = table if table is not None else StubTable()
-  service = PersonAssignmentService(
+  service = _PersonAssignmentServiceForTest(
     resolve_service=(
       resolve_service if resolve_service is not None else StubResolveService()
     ),
@@ -1582,7 +1593,9 @@ class InspectionReceiptTest(unittest.TestCase):
 
   def build_store(self):
     store = ResourceResolveService(store=ResolveStore())
-    return store, store._store.put(owner_resolution())
+    return store, store._store.put(
+      owner_resolution(), app_user_id=TEST_APP_USER_ID
+    )
 
   def test_the_receipt_still_works_afterwards(self):
     store, resolve_id = self.build_store()
@@ -1631,6 +1644,21 @@ class InspectionReceiptTest(unittest.TestCase):
     service.inspect({"resolve_id": resolve_id})
 
     self.assertEqual(store._store.tracked(), 1)
+
+  def test_another_user_cannot_inspect_or_assign_the_receipt(self):
+    store, resolve_id = self.build_store()
+    service, _ = build_service(
+      resolve_service=store, table=StubTable(assignment=None)
+    )
+
+    with self.assertRaises(ResolutionNotFound):
+      service.inspect({"resolve_id": resolve_id}, app_user_id=9002)
+    with self.assertRaises(ResolutionNotFound):
+      service.assign({
+        "resolve_id": resolve_id,
+        "target": {"kind": "new", "display_name": "程儿"},
+        "role": "alt",
+      }, app_user_id=9002)
 
   def test_the_receipt_is_read_rather_than_the_link_followed_again(self):
     """The identity is read from the resolution this server stored, url and

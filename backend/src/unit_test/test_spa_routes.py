@@ -293,8 +293,8 @@ class CoexistenceTest(unittest.TestCase):
     client = app.test_client()
 
     listing = client.get("/api/tasks")
-    self.assertEqual(200, listing.status_code)
-    self.assertEqual("success", listing.get_json()["status"])
+    self.assertEqual(401, listing.status_code)
+    self.assertEqual("error", listing.get_json()["status"])
 
     self.assertEqual(APP_JS, client.get("/assets/app.js").get_data(as_text=True))
     for path in ("/static/css/index.css", "/static/js/submit.js"):

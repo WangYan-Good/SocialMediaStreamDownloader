@@ -83,7 +83,13 @@ class ResolveStore:
   def retention_seconds(self) -> float:
     return self._retention_seconds
 
-  def put(self, resolution: ResourceResolution) -> str:
+  @staticmethod
+  def _app_user_id(value) -> int:
+    if type(value) is not int or value < 1:
+      raise ValueError("app_user_id must be a positive integer")
+    return value
+
+  def put(self, resolution: ResourceResolution, app_user_id: int) -> str:
     """Store one resolution and return the opaque id that reads it back.
 
     The id is random rather than derived from the resource.  A derivable id -
@@ -91,6 +97,7 @@ class ResolveStore:
     resource this server never resolved, which is exactly the guarantee the id
     exists to provide.
     """
+    app_user_id = self._app_user_id(app_user_id)
     resolve_id = uuid4().hex
     with self._guard:
       self._evict_expired()
@@ -100,6 +107,7 @@ class ResolveStore:
         ## resolution it handed over cannot reach into the record.
         ##
         "resolution": deepcopy(resolution),
+        "app_user_id": app_user_id,
         "stored_at": self._clock(),
       }
     return resolve_id
@@ -119,6 +127,16 @@ class ResolveStore:
       ## Copied on the way out too.  ``identity`` is a dict, so two readers
       ## handed the same object could edit each other's answer.
       ##
+      return deepcopy(entry["resolution"])
+
+  def get_for_user(self, resolve_id: str, app_user_id: int):
+    """Return an owned receipt, hiding other owners exactly like a miss."""
+    app_user_id = self._app_user_id(app_user_id)
+    with self._guard:
+      self._evict_expired()
+      entry = self._entries.get(resolve_id)
+      if entry is None or entry["app_user_id"] != app_user_id:
+        return None
       return deepcopy(entry["resolution"])
 
   def tracked(self) -> int:
@@ -222,7 +240,7 @@ class ResourceResolveService:
   def retention_seconds(self) -> float:
     return self._store.retention_seconds
 
-  def resolve(self, input_text) -> ResolveRecord:
+  def resolve(self, input_text, app_user_id: int) -> ResolveRecord:
     """Resolve one pasted input into one stored resolution.
 
     Raises a ``ResourceResolveError`` for every expected refusal, each carrying
@@ -231,10 +249,10 @@ class ResourceResolveService:
     url = self._single_url(input_text)
     resolution = self._resolver_for(url).resolve(url)
     return ResolveRecord(
-      resolve_id=self._store.put(resolution), resolution=resolution
+      resolve_id=self._store.put(resolution, app_user_id), resolution=resolution
     )
 
-  def resolve_many(self, input_text) -> BatchResolveRecord:
+  def resolve_many(self, input_text, app_user_id: int) -> BatchResolveRecord:
     """Resolve each distinct URL independently, in first-seen order."""
     if not isinstance(input_text, str) or not input_text.strip():
       raise InputMissing("请粘贴至少一个链接")
@@ -264,7 +282,7 @@ class ResourceResolveService:
         continue
 
       record = ResolveRecord(
-        resolve_id=self._store.put(resolution), resolution=resolution
+        resolve_id=self._store.put(resolution, app_user_id), resolution=resolution
       )
       resolved_count += 1
       items.append(BatchResolvedItem(index=index, status="resolved", record=record))
@@ -284,3 +302,7 @@ class ResourceResolveService:
     what was resolved.
     """
     return self._store.get(resolve_id)
+
+  def get_for_user(self, resolve_id: str, app_user_id: int):
+    """Read a receipt only for the principal that created it."""
+    return self._store.get_for_user(resolve_id, app_user_id)
