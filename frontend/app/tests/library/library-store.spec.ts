@@ -8,6 +8,7 @@ import {
   listLibraryRecordings,
 } from '../../src/api/library'
 import { getPersonWorks, listPeople } from '../../src/api/people'
+import { useAuthStore } from '../../src/stores/auth'
 import { useLibraryStore } from '../../src/stores/library'
 import type {
   LibraryLive,
@@ -335,6 +336,39 @@ describe('persistent recording state', () => {
     expect(store.lives).toHaveLength(0)
     expect(mockedRecordings).toHaveBeenCalledTimes(1)
     expect(mockedLives).not.toHaveBeenCalled()
+  })
+})
+
+describe('authentication principal changes', () => {
+  it('clears cached resources and rejects responses started by the previous user', async () => {
+    const auth = useAuthStore()
+    auth.$patch({
+      status: 'authenticated',
+      user: { user_id: 71, username: 'alice', role: 'user' },
+    })
+    mockedPosts.mockResolvedValue(postPage([post({ aweme_id: 'alice-post' })], 1))
+    const store = useLibraryStore()
+    await store.loadPosts()
+
+    const stale = deferred<ReturnType<typeof recordingPage>>()
+    mockedRecordings.mockReturnValueOnce(stale.promise)
+    void store.loadRecordings()
+    await drain()
+
+    auth.$patch({
+      status: 'authenticated',
+      user: { user_id: 72, username: 'bob', role: 'user' },
+    })
+    stale.settle(recordingPage([recording({ recording_id: 'alice-recording' })], 1))
+    await drain()
+
+    expect(store.posts).toEqual([])
+    expect(store.postTotal).toBe(0)
+    expect(store.hasLoadedPosts).toBe(false)
+    expect(store.recordings).toEqual([])
+    expect(store.recordingTotal).toBe(0)
+    expect(store.hasLoadedRecordings).toBe(false)
+    expect(store.recordingLoading).toBe(false)
   })
 })
 

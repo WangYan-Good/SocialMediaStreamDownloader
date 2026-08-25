@@ -6,7 +6,15 @@ from backend.src.auth.roles import ROLE_ADMIN
 from backend.src.library.loglib import get_logger
 from backend.src.service.task_creation import TaskCreateError
 from backend.src.task.errors import TaskValidationError
-from backend.src.task.model import to_payload
+from backend.src.task.model import (
+  TASK_STATE_CANCELLED,
+  TASK_STATE_FAILED,
+  TASK_STATE_PARTIAL,
+  TASK_STATE_PENDING,
+  TASK_STATE_RUNNING,
+  TASK_STATE_SUCCESS,
+  to_payload,
+)
 from backend.src.task.service import TaskService
 from backend.src.web.auth_routes import (
   require_authenticated,
@@ -37,17 +45,17 @@ TASK_CREATION_SERVICE_KEY = "smsd_task_creation_service"
 ##
 _CREATE_FIELDS = ("resolve_id", "task_type", "options")
 
-_USER_RESULT_FIELDS = frozenset(
-  {
-    "saved_count",
-    "media_count",
-    "skipped",
-    "partial",
-    "recorded",
-    "reason",
-    "recording_id",
-  }
-)
+_USER_RESULT_COUNT_FIELDS = ("saved_count", "media_count", "recording_id")
+_USER_RESULT_FLAG_FIELDS = ("skipped", "partial", "recorded")
+
+_USER_TASK_MESSAGES = {
+  TASK_STATE_PENDING: "等待处理",
+  TASK_STATE_RUNNING: "正在处理",
+  TASK_STATE_SUCCESS: "任务已完成",
+  TASK_STATE_PARTIAL: "任务部分完成",
+  TASK_STATE_FAILED: "任务未完成",
+  TASK_STATE_CANCELLED: "任务已取消",
+}
 
 
 def _error(message: str, code: int):
@@ -67,29 +75,19 @@ def _accepted(data: dict):
   return jsonify({"status": "success", "code": 202, "data": data}), 202
 
 
-def _safe_user_text(value):
-  if not isinstance(value, str):
-    return None
-  text = value.strip()
-  if not text or not any("\u3400" <= char <= "\u9fff" for char in text):
-    return None
-  return text
-
-
 def _safe_user_result(metadata: dict) -> dict:
   source = metadata.get("result")
   if not isinstance(source, dict):
     return {}
   result = {}
-  for key in _USER_RESULT_FIELDS:
+  for key in _USER_RESULT_COUNT_FIELDS:
     value = source.get(key)
-    if key == "reason":
-      value = _safe_user_text(value)
-    if isinstance(value, bool) or (
-      isinstance(value, (int, float)) and not isinstance(value, bool)
-    ) or isinstance(value, str):
-      if value is not None:
-        result[key] = value
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+      result[key] = value
+  for key in _USER_RESULT_FLAG_FIELDS:
+    value = source.get(key)
+    if isinstance(value, bool):
+      result[key] = value
   return result
 
 
@@ -105,13 +103,17 @@ def _to_user_payload(snapshot: dict) -> dict:
   if result:
     safe_metadata["result"] = result
 
-  full["message"] = _safe_user_text(snapshot.get("message"))
+  # Runner messages and result reasons are operational text, even when they
+  # contain Chinese prose: either may interpolate a path, URL, driver error or
+  # credential.  The user wire therefore derives its wording from the closed
+  # lifecycle vocabulary rather than attempting to classify arbitrary text.
+  full["message"] = _USER_TASK_MESSAGES.get(snapshot.get("state"))
   full["metadata"] = safe_metadata
   full["items"] = [
     {
       "key": "item-{}".format(index),
       "state": item["state"],
-      "message": _safe_user_text(item.get("message")),
+      "message": None,
       "metadata": {},
     }
     for index, item in enumerate(snapshot.get("items") or (), start=1)

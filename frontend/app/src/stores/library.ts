@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { ApiError } from '@/api/client'
 import {
@@ -8,6 +8,7 @@ import {
   listLibraryRecordings,
 } from '@/api/library'
 import { getPersonWorks, listPeople } from '@/api/people'
+import { useAuthStore } from '@/stores/auth'
 import type {
   LibraryLive,
   LibraryLiveFilters,
@@ -34,6 +35,7 @@ import type { PersonSummaryItem, PersonWork } from '@/types/person'
  * seconds is asking a question whose answer only changes when a download ends.
  */
 export const useLibraryStore = defineStore('library', () => {
+  const auth = useAuthStore()
   //
   // Downloaded posts.
   //
@@ -101,6 +103,9 @@ export const useLibraryStore = defineStore('library', () => {
   const peopleOptionsError = ref<string | null>(null)
   const hasLoadedPeopleOptions = ref(false)
 
+  let peopleOptionsGeneration = 0
+  let peopleOptionsInFlight: AbortController | null = null
+
   //
   // Posts associated with a photographer through a collaboration.
   //
@@ -111,6 +116,78 @@ export const useLibraryStore = defineStore('library', () => {
 
   let worksGeneration = 0
   let worksInFlight: AbortController | null = null
+
+  function resetForPrincipalChange(): void {
+    // Invalidate before aborting: mocked transports and a response already in
+    // the microtask queue may still settle after AbortController fires.
+    postGeneration += 1
+    liveGeneration += 1
+    recordingGeneration += 1
+    peopleOptionsGeneration += 1
+    worksGeneration += 1
+
+    postInFlight?.abort()
+    liveInFlight?.abort()
+    recordingInFlight?.abort()
+    peopleOptionsInFlight?.abort()
+    worksInFlight?.abort()
+    postInFlight = null
+    liveInFlight = null
+    recordingInFlight = null
+    peopleOptionsInFlight = null
+    worksInFlight = null
+
+    posts.value = []
+    postTotal.value = 0
+    postPage.value = 1
+    postPageSize.value = 25
+    postFilters.value = { sort: 'downloaded_at', order: 'desc' }
+    postLoading.value = false
+    postError.value = null
+    hasLoadedPosts.value = false
+    selectedPostKey.value = null
+
+    lives.value = []
+    liveTotal.value = 0
+    livePage.value = 1
+    livePageSize.value = 25
+    liveFilters.value = { sort: 'observed_at', order: 'desc' }
+    liveLoading.value = false
+    liveError.value = null
+    hasLoadedLives.value = false
+    selectedLiveKey.value = null
+
+    recordings.value = []
+    recordingTotal.value = 0
+    recordingPage.value = 1
+    recordingPageSize.value = 25
+    recordingFilters.value = { sort: 'finished_at', order: 'desc' }
+    recordingLoading.value = false
+    recordingError.value = null
+    hasLoadedRecordings.value = false
+    selectedRecordingId.value = null
+
+    peopleOptions.value = []
+    peopleOptionsError.value = null
+    hasLoadedPeopleOptions.value = false
+    selectedPhotographerId.value = null
+    personWorks.value = []
+    personWorksLoading.value = false
+    personWorksError.value = null
+  }
+
+  // Role is part of the principal key: a same-user demotion must discard data
+  // that was fetched while the browser had Admin scope.
+  watch(
+    () =>
+      auth.status === 'authenticated' && auth.user
+        ? `${auth.user.user_id}:${auth.user.role}`
+        : null,
+    (next, previous) => {
+      if (next !== previous) resetForPrincipalChange()
+    },
+    { flush: 'sync' },
+  )
 
   function describe(caught: unknown, fallback: string): string {
     return caught instanceof ApiError ? `${fallback}：${caught.message}` : fallback
@@ -398,12 +475,21 @@ export const useLibraryStore = defineStore('library', () => {
      * works without knowing anybody's name.
      */
     async loadPeopleOptions(): Promise<void> {
+      const mine = ++peopleOptionsGeneration
+      peopleOptionsInFlight?.abort()
+      const controller = new AbortController()
+      peopleOptionsInFlight = controller
       try {
-        peopleOptions.value = await listPeople()
+        const answer = await listPeople(controller.signal)
+        if (mine !== peopleOptionsGeneration) return
+        peopleOptions.value = answer
         hasLoadedPeopleOptions.value = true
         peopleOptionsError.value = null
       } catch (caught) {
+        if (mine !== peopleOptionsGeneration) return
         peopleOptionsError.value = describe(caught, '人物选项暂不可用')
+      } finally {
+        if (mine === peopleOptionsGeneration) peopleOptionsInFlight = null
       }
     },
 

@@ -313,6 +313,8 @@ class TaskRoleScopeTest(unittest.TestCase):
         "save_dir": "/srv/private",
         "result": {
           "saved_count": 2,
+          "media_count": "/srv/private/count",
+          "recorded": "已写入 /srv/private/live.flv",
           "output_path": "/srv/private/file.mp4",
           "reason": "下载完成",
         },
@@ -362,13 +364,44 @@ class TaskRoleScopeTest(unittest.TestCase):
     self.assertEqual(
       {
         "source_url": "https://v.douyin.com/alice/",
-        "result": {"saved_count": 2, "reason": "下载完成"},
+        "result": {"saved_count": 2},
       },
       task["metadata"],
     )
+    self.assertEqual("等待处理", task["message"])
     self.assertEqual("item-1", task["items"][0]["key"])
+    self.assertIsNone(task["items"][0]["message"])
     self.assertEqual({}, task["items"][0]["metadata"])
-    for leaked in ("resolved_url", "save_dir", "output_path", "aweme-secret"):
+    for leaked in (
+      "resolved_url",
+      "save_dir",
+      "output_path",
+      "aweme-secret",
+      "/srv/private/count",
+      "/srv/private/live.flv",
+    ):
+      self.assertNotIn(leaked, str(task))
+
+  def test_user_payload_never_classifies_runner_text_as_safe_by_language(self):
+    self.service.update_message(
+      self.alice_task["task_id"],
+      "已保存到 /srv/private/secret.mp4，详情 https://internal.example/token",
+    )
+    self.service.update_item(
+      self.alice_task["task_id"],
+      "aweme-secret",
+      message="下载失败：mysql://operator:secret@database/private",
+      advance_progress=False,
+    )
+    app, _ = build_app(service=self.service, user=self.alice)
+
+    task = app.test_client().get(
+      "/api/tasks/" + self.alice_task["task_id"]
+    ).get_json()["data"]
+
+    self.assertEqual("等待处理", task["message"])
+    self.assertIsNone(task["items"][0]["message"])
+    for leaked in ("/srv/private", "internal.example", "mysql://", "secret"):
       self.assertNotIn(leaked, str(task))
 
 
