@@ -12,6 +12,7 @@ from backend.src.database.orm.models.person import (
   PersonCollaborationModel,
   PersonModel,
 )
+from backend.src.database.orm.models.recording import RecordingRecordModel
 from backend.src.database.orm.models.room import (
   FansGroupAdminUserIdModel,
   FansGroupAdminUserOpenIdModel,
@@ -40,6 +41,7 @@ MANAGED_TABLE_NAMES = frozenset(
     ShareUrlModel.__tablename__,
     FavoriteOwnerModel.__tablename__,
     LiveRecordModel.__tablename__,
+    RecordingRecordModel.__tablename__,
     PersonModel.__tablename__,
     PersonAccountModel.__tablename__,
     PersonCollaborationModel.__tablename__,
@@ -71,6 +73,7 @@ __all__ = [
   "PersonAccountModel",
   "PersonCollaborationModel",
   "PersonModel",
+  "RecordingRecordModel",
   "RoomAdminUserIdModel",
   "RoomAdminUserOpenIdModel",
   "RoomBaseModel",

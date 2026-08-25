@@ -19,9 +19,10 @@ from backend.src.database.query.sql_text import escape_like
 ##
 ## It deliberately answers "what did this program record", not "what is on the
 ## disk right now".  aweme_record keeps a save_dir and two counts but no file
-## names, sizes or existence; live_record keeps no output path at all.  Asking
-## the filesystem would be a different contract with a different security
-## surface, so this layer never does.
+## names, sizes or existence; live_record keeps no output path at all; and a
+## recording_record path says where the recorder wrote, not whether the file
+## still exists.  Asking the filesystem would be a different contract with a
+## different security surface, so this layer never does.
 ##
 
 ##
@@ -37,6 +38,7 @@ PLATFORM = "douyin"
 ##
 AWEME_TYPES = ("video", "image")
 SOURCES = ("api", "html")
+RECORDING_PROTOCOLS = ("flv", "hls")
 
 ##
 ## Whether the recorded run saved everything it planned to.  A statement about
@@ -65,6 +67,14 @@ LIVE_SORT_COLUMNS = {
   "observed_at": "lr.`now`",
   "start_time": "lr.start_time",
   "finish_time": "lr.finish_time",
+  "nickname": "s.nickname",
+}
+
+RECORDING_SORT_COLUMNS = {
+  "finished_at": "rr.finished_at",
+  "started_at": "rr.started_at",
+  "created_at": "rr.created_at",
+  "title": "rr.title",
   "nickname": "s.nickname",
 }
 
@@ -215,6 +225,44 @@ class LibraryLiveFilter:
 
 
 @dataclass(frozen=True)
+class LibraryRecordingFilter:
+  """Normalised arguments for persistent live recording resources."""
+
+  platform: str = PLATFORM
+  keyword: Optional[str] = None
+  owner_user_id: Optional[str] = None
+  protocol: Optional[str] = None
+  sort: str = "finished_at"
+  order: str = "desc"
+  page: int = 1
+  page_size: int = DEFAULT_PAGE_SIZE
+
+  @classmethod
+  def from_mapping(
+    cls,
+    source: Mapping[str, Any],
+    page_size_limit: int = MAX_PAGE_SIZE,
+  ) -> "LibraryRecordingFilter":
+    page, page_size = _paging(source, page_size_limit)
+    sort, order = _ordering(source, RECORDING_SORT_COLUMNS, "finished_at")
+
+    return cls(
+      platform=_platform(source),
+      keyword=_optional_text(source, "q"),
+      owner_user_id=_optional_text(source, "owner_user_id"),
+      protocol=_one_of(
+        _optional_text(source, "protocol"),
+        RECORDING_PROTOCOLS,
+        "protocol",
+      ),
+      sort=sort,
+      order=order,
+      page=page,
+      page_size=page_size,
+    )
+
+
+@dataclass(frozen=True)
 class LibraryPage:
   """One page of library rows plus the total the filters actually matched."""
 
@@ -278,6 +326,38 @@ _OWNED_POST_FROM = '''
 
 _GLOBAL_POST_SCOPE = object()
 
+_RECORDING_COLUMNS = '''
+      rr.recording_id,
+      rr.app_user_id,
+      rr.platform,
+      rr.room_id,
+      rr.owner_user_id,
+      rr.title,
+      rr.protocol,
+      rr.output_path,
+      rr.started_at,
+      rr.finished_at,
+      rr.source,
+      rr.created_at,
+      s.nickname,
+      s.directory_name,
+      pa.person_id,
+      p.display_name AS person_display_name
+'''
+
+_RECORDING_FROM = '''
+    FROM recording_record rr
+    LEFT JOIN share_url s
+      ON s.owner_user_id = rr.owner_user_id
+    LEFT JOIN person_account pa
+      ON pa.platform = rr.platform
+     AND pa.owner_user_id = rr.owner_user_id
+    LEFT JOIN person p
+      ON p.person_id = pa.person_id
+'''
+
+_GLOBAL_RECORDING_SCOPE = object()
+
 
 class LibraryQuery:
   """Filtered, sorted, paginated views over what this program downloaded.
@@ -286,9 +366,9 @@ class LibraryQuery:
   reports records, and every mutation of those records belongs to whichever
   service produced them.
 
-  It also never touches the filesystem.  ``save_dir`` is a string the downloader
-  wrote at the time; whether that directory still holds anything is a question
-  this layer cannot answer and does not pretend to.
+  It also never touches the filesystem.  ``save_dir`` and ``output_path`` are
+  strings the downloader wrote at the time; whether either location still holds
+  anything is a question this layer cannot answer and does not pretend to.
   """
 
 ##
@@ -419,6 +499,94 @@ class LibraryQuery:
       _OWNED_POST_FROM,
       app_user_id=app_user_id,
     )
+
+  def _recording_conditions(
+    self,
+    recording_filter: LibraryRecordingFilter,
+    app_user_id=_GLOBAL_RECORDING_SCOPE,
+  ) -> tuple:
+    clauses = ["rr.platform = %s"]
+    params = [recording_filter.platform]
+
+    if app_user_id is not _GLOBAL_RECORDING_SCOPE:
+      clauses.append("rr.app_user_id = %s")
+      params.append(app_user_id)
+
+    if recording_filter.keyword is not None:
+      pattern = escape_like(recording_filter.keyword)
+      clauses.append(
+        "(rr.room_id LIKE %s"
+        " OR rr.title LIKE %s"
+        " OR s.nickname LIKE %s"
+        " OR p.display_name LIKE %s)"
+      )
+      params.extend([pattern, pattern, pattern, pattern])
+
+    if recording_filter.owner_user_id is not None:
+      clauses.append("rr.owner_user_id = %s")
+      params.append(recording_filter.owner_user_id)
+
+    if recording_filter.protocol is not None:
+      clauses.append("rr.protocol = %s")
+      params.append(recording_filter.protocol)
+
+    return ("    WHERE " + "\n      AND ".join(clauses) + "\n", params)
+
+  def _recordings(
+    self,
+    recording_filter: LibraryRecordingFilter,
+    app_user_id=_GLOBAL_RECORDING_SCOPE,
+  ) -> LibraryPage:
+    where_sql, params = self._recording_conditions(
+      recording_filter,
+      app_user_id=app_user_id,
+    )
+    count_sql = "SELECT COUNT(*) AS total\n" + _RECORDING_FROM + where_sql
+    order_sql = "    ORDER BY {} {}, rr.recording_id ASC\n".format(
+      RECORDING_SORT_COLUMNS[recording_filter.sort],
+      "ASC" if recording_filter.order == "asc" else "DESC",
+    )
+    page_sql = (
+      "SELECT" + _RECORDING_COLUMNS + _RECORDING_FROM + where_sql + order_sql
+      + "    LIMIT %s OFFSET %s\n"
+    )
+    offset = (recording_filter.page - 1) * recording_filter.page_size
+
+    with self._database.get_connection() as connector:
+      with connector.cursor() as cursor:
+        cursor.execute(count_sql, tuple(params))
+        count_row = cursor.fetchone()
+        total = 0 if count_row is None else int(count_row.get("total", 0))
+
+        cursor.execute(
+          page_sql,
+          tuple(params + [recording_filter.page_size, offset]),
+        )
+        items = tuple(cursor.fetchall() or ())
+
+    return LibraryPage(
+      total=total,
+      page=recording_filter.page,
+      page_size=recording_filter.page_size,
+      items=items,
+    )
+
+  def recordings(
+    self,
+    recording_filter: LibraryRecordingFilter,
+  ) -> LibraryPage:
+    """Return all persistent recording resources for a future Admin view."""
+    return self._recordings(recording_filter)
+
+  def recordings_for_user(
+    self,
+    app_user_id: int,
+    recording_filter: LibraryRecordingFilter,
+  ) -> LibraryPage:
+    """Return persistent recordings owned by one server-selected user."""
+    if type(app_user_id) is not int or app_user_id < 1:
+      raise ValueError("app_user_id must be a positive integer")
+    return self._recordings(recording_filter, app_user_id=app_user_id)
 
   def _rooms_for(self, cursor, rows) -> dict:
     """Look up the room metadata for one page of observations, in one query."""

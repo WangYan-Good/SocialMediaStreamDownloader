@@ -54,10 +54,10 @@ class AlembicEnvironmentTest(unittest.TestCase):
     scripts = ScriptDirectory.from_config(config)
 
     ##
-    ## one linear chain, one head: 0001 -> ... -> 0007 -> 0008
+    ## one linear chain, one head: 0001 -> ... -> 0008 -> 0009
     ##
     self.assertEqual(
-      "0008_app_user_aweme_ownership",
+      "0009_recording_resource",
       scripts.get_current_head(),
     )
     baseline = scripts.get_revision("0001_initial_schema")
@@ -79,6 +79,8 @@ class AlembicEnvironmentTest(unittest.TestCase):
     self.assertEqual("0006_person_main_unique", authentication.down_revision)
     ownership = scripts.get_revision("0008_app_user_aweme_ownership")
     self.assertEqual("0007_authentication_foundation", ownership.down_revision)
+    recording = scripts.get_revision("0009_recording_resource")
+    self.assertEqual("0008_app_user_aweme_ownership", recording.down_revision)
 
   def test_the_person_migration_creates_all_three_tables_and_drops_them(self):
     """纯 DDL，无回填——此前没有任何版本记录过这些关系。"""

@@ -42,6 +42,7 @@ LIVE_STATUS_OFFLINE = "offline"
 ## What each ending says to the user.
 ##
 RECORDING_FAILED_MESSAGE = "直播录制失败"
+RECORDING_PERSISTENCE_FAILED_MESSAGE = "直播已录制，但未能记录到当前用户资源库"
 CANCELLED_MESSAGE = "直播录制已停止"
 NOT_STARTED_MESSAGE = "直播录制没有进入执行线程"
 
@@ -49,15 +50,15 @@ NOT_STARTED_MESSAGE = "直播录制没有进入执行线程"
 class LiveRecordingTaskService:
   """Runs one confirmed live link as one unified task.
 
-  Like the direct post runner, this is a runner rather than a mirror: a
-  recording has never had a record of its own, so the task *is* the record and
-  there is no legacy id to associate with.
+  The task reports process-local execution state.  A completed media recording
+  is separately catalogued as a persistent recording resource before an owned
+  task may finish successfully.
 
   What it deliberately does not do:
 
-  * **It does not record.**  ``DouyinLiveDownloader`` keeps probing, stream
-    selection, the FLV/HLS decision, retries, naming and persistence, and knows
-    nothing about tasks, Flask or HTTP.
+  * **It does not transfer media.**  ``DouyinLiveDownloader`` keeps probing,
+    stream selection, the FLV/HLS decision, retries and naming, and knows
+    nothing about application users, tasks, Flask or HTTP.
   * **It does not own a thread pool.**  Recordings still run on the same
     ``ListenerItem`` thread model, so the concurrency behaviour is unchanged.
 
@@ -74,6 +75,7 @@ class LiveRecordingTaskService:
     task_service=None,
     downloader_factory=get_live_downloader,
     listener_factory=ListenerItem,
+    recording_service=None,
   ) -> None:
     ##
     ## ``None`` is a supported wiring: a dispatch with no task service behind it
@@ -82,6 +84,7 @@ class LiveRecordingTaskService:
     self._task_service = task_service
     self._downloader_factory = downloader_factory
     self._listener_factory = listener_factory
+    self._recording_service = recording_service
 
   @property
   def enabled(self) -> bool:
@@ -153,6 +156,11 @@ class LiveRecordingTaskService:
         if result.room_status == ROOM_STATUS_LIVING
         else LIVE_STATUS_OFFLINE
       )
+    def timestamp(value):
+      if value is None:
+        return None
+      return value.isoformat(timespec="milliseconds")
+
     return {
       "ok": bool(result.ok),
       "recorded": bool(result.recorded),
@@ -161,8 +169,11 @@ class LiveRecordingTaskService:
       "room_id": result.room_id,
       "owner_user_id": result.owner_user_id,
       "nickname": result.nickname,
+      "title": result.title,
       "protocol": result.protocol,
       "output_path": result.output_path,
+      "started_at": timestamp(result.started_at),
+      "finished_at": timestamp(result.finished_at),
       "test_mode": bool(result.test_mode),
       "reason": result.reason,
     }
@@ -187,6 +198,7 @@ class LiveRecordingTaskService:
 
     finishers = {
       "success": self._task_service.finish_success,
+      "partial": self._task_service.finish_partial,
       "failed": self._task_service.finish_failed,
       "cancelled": self._task_service.cancel_task,
     }
@@ -196,7 +208,38 @@ class LiveRecordingTaskService:
       lambda: finishers[outcome](task_id, message=message),
     )
 
-  def _run(self, task_id, token: dict):
+  def _persist_recording(self, result, app_user_id, source):
+    if (
+      result is None
+      or result.recorded is not True
+      or result.test_mode is True
+    ):
+      return (None, None)
+    try:
+      if self._recording_service is None:
+        raise RuntimeError("recording resource service is unavailable")
+      recording_id = self._recording_service.record(
+        result,
+        app_user_id=app_user_id,
+        platform=PLATFORM_DOUYIN,
+        source=source,
+      )
+      return (recording_id, None)
+    except Exception as e:
+      message = (
+        "recording resource persistence failed for room {}: {}: {}".format(
+          result.room_id,
+          type(e).__name__,
+          e,
+        )
+      )
+      if app_user_id is None:
+        get_logger().warning(message)
+        return (None, None)
+      get_logger().error(message)
+      return (None, RECORDING_PERSISTENCE_FAILED_MESSAGE)
+
+  def _run(self, task_id, token: dict, app_user_id=None, source=SOURCE_DIRECT):
     """The recording thread: start the task, record, then report the ending."""
     if task_id is not None:
       self._safe("start", task_id, lambda: self._task_service.start_task(task_id))
@@ -240,7 +283,18 @@ class LiveRecordingTaskService:
     message = None
     if outcome == "failed":
       message = (result.reason if result is not None else None) or RECORDING_FAILED_MESSAGE
-    self._finish(task_id, outcome, message, self._result_metadata(result))
+    recording_id, persistence_message = self._persist_recording(
+      result,
+      app_user_id,
+      source,
+    )
+    if persistence_message is not None:
+      outcome = "partial"
+      message = persistence_message
+    metadata = self._result_metadata(result)
+    if recording_id is not None:
+      metadata["recording_id"] = recording_id
+    self._finish(task_id, outcome, message, metadata)
     return result
 
   def _open_tracked(self, source_url, resolved_url, resolve_id,
@@ -321,7 +375,12 @@ class LiveRecordingTaskService:
 
     def worker():
       began.append(True)
-      return self._run(task_id, token)
+      return self._run(
+        task_id,
+        token,
+        app_user_id,
+        SOURCE_TASK_API,
+      )
 
     try:
       self._listener_factory(func=worker, args=()).start_item()
@@ -366,7 +425,7 @@ class LiveRecordingTaskService:
 
     def worker():
       began.append(True)
-      return self._run(task_id, token)
+      return self._run(task_id, token, None, SOURCE_DIRECT)
 
     try:
       item = self._listener_factory(func=worker, args=())

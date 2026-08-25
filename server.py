@@ -21,6 +21,7 @@ from backend.src.platform.douyin.douyin_aweme_downloader import shutdown_aweme_d
 from backend.src.platform.douyin.douyin_live_downloader import cancel_live_downloads
 from backend.src.service.direct_post_download_task import DirectPostDownloadTaskService
 from backend.src.service.live_recording_task import LiveRecordingTaskService
+from backend.src.service.recording_resource import RecordingResourceService
 from backend.src.service.task_creation import TaskCreationService
 from backend.src.web.history_routes import build_history_blueprint
 from backend.src.web.library_routes import build_library_blueprint
@@ -66,6 +67,7 @@ def _new_flask_app(
   lazy_config=False,
   schema_guard_factory=initialize_schema_guard,
   initial_schema_guard=None,
+  initial_config=None,
 ):
   configured_app = Flask(
     __name__,
@@ -73,7 +75,8 @@ def _new_flask_app(
     template_folder=None,
   )
   runtime = {
-    "initialized": not lazy_config,
+    "initialized": not lazy_config and initial_config is not None,
+    "config": initial_config,
   }
   if initial_schema_guard is not None:
     configured_app.extensions["smsd_schema_guard"] = initial_schema_guard
@@ -97,7 +100,17 @@ def _new_flask_app(
       ## status route has no full configuration to disclose even by mistake.
       ##
       install_system_config(configured_app, source)
+      runtime["config"] = source
       runtime["initialized"] = True
+
+  def recording_config():
+    """Return the exact application snapshot its schema guard validated."""
+    if not runtime["initialized"]:
+      initialize_runtime()
+    source = runtime.get("config")
+    if source is None:
+      raise RuntimeError("application configuration is unavailable")
+    return source
 
   @configured_app.before_request
   def ensure_runtime_initialized():
@@ -125,7 +138,8 @@ def _new_flask_app(
     task_service=task_service
   )
   runtime["live_record_service"] = LiveRecordingTaskService(
-    task_service=task_service
+    task_service=task_service,
+    recording_service=RecordingResourceService(config_loader=recording_config),
   )
 
   ##
@@ -186,10 +200,11 @@ def _new_flask_app(
   ## deployment with no database still starts and still serves everything that
   ## never needed one - it simply has nobody signed in.
   ##
-  ## This phase establishes identity and stops there.  Nothing below is
-  ## protected by it: no endpoint requires a session, because nothing is owned
-  ## by anybody yet, and requiring a login before ownership exists would give
-  ## every signed-in user a view of everybody else's work.
+  ## Identity-aware task creation and resource persistence consume the
+  ## server-selected request user where their contracts support ownership.
+  ## Broad route authorization and Admin/User RBAC are still intentionally a
+  ## later rollout; registering this runtime must not be mistaken for guarding
+  ## every blueprint below it.
   ##
   configured_app.register_blueprint(
     build_auth_blueprint(runtime=build_auth_runtime(load_config))
@@ -253,6 +268,7 @@ def create_app(
   schema_guard = schema_guard_factory(source)
   configured_app = _new_flask_app(
     initial_schema_guard=schema_guard,
+    initial_config=source,
   )
   configured_app.debug = options["debug"]
   ##
