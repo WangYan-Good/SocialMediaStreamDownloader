@@ -10,6 +10,7 @@ from backend.src.auth.context import RequestAuthContext, RequestAuthStatus
 from backend.src.auth.credentials import hash_session_token  # noqa: F401  (re-exported for callers)
 from backend.src.auth.csrf import csrf_token_for_session, csrf_tokens_match
 from backend.src.auth.errors import AuthUnavailable, InvalidCredentials
+from backend.src.auth.roles import ROLE_ADMIN, role_satisfies, validate_role
 from backend.src.auth.repository import AuthRepository
 from backend.src.auth.service import AuthenticationService
 from backend.src.library.baselib import get_dict_attr
@@ -44,6 +45,7 @@ INVALID_CREDENTIALS_MESSAGE = "用户名或密码错误"
 ##
 UNAVAILABLE_MESSAGE = "认证服务暂时不可用，请稍后重试"
 CSRF_INVALID_MESSAGE = "请求验证失败，请刷新页面后重试"
+FORBIDDEN_MESSAGE = "没有权限执行此操作"
 
 
 def _ok(data, status=200):
@@ -82,6 +84,32 @@ def require_authenticated(view):
     return view(*args, **kwargs)
 
   return authenticated_view
+
+
+def require_role(required_role):
+  """Require a capability from the request's already-resolved principal."""
+  required = validate_role(required_role)
+
+  def decorate(view):
+    @wraps(view)
+    def role_protected_view(*args, **kwargs):
+      context = _request_auth_context()
+      if context.status == RequestAuthStatus.UNAVAILABLE:
+        return _error(UNAVAILABLE_MESSAGE, 503)
+      if context.status != RequestAuthStatus.AUTHENTICATED:
+        return _error("未登录", 401)
+      if not role_satisfies(context.user.role, required):
+        return _error(FORBIDDEN_MESSAGE, 403, kind="forbidden")
+      return view(*args, **kwargs)
+
+    return role_protected_view
+
+  return decorate
+
+
+def require_admin(view):
+  """Thin ADMIN specialization of ``require_role``."""
+  return require_role(ROLE_ADMIN)(view)
 
 
 def require_session_csrf(view):
@@ -170,11 +198,15 @@ class AuthRuntime:
 
 def _serialize(user) -> dict:
   ##
-  ## An allow list of two fields, not the row.  The row carries password_hash,
+  ## An allow list of identity fields, not the row. The row carries password_hash,
   ## and a serializer that dumped it would put the hash in every login
   ## response.
   ##
-  return {"user_id": user.user_id, "username": user.username}
+  return {
+    "user_id": user.user_id,
+    "username": user.username,
+    "role": user.role,
+  }
 
 
 def build_auth_blueprint(*, runtime: AuthRuntime) -> Blueprint:
@@ -184,9 +216,9 @@ def build_auth_blueprint(*, runtime: AuthRuntime) -> Blueprint:
   def resolve_request_authentication():
     """Work out who is making this request, once.
 
-    Establishes identity and stops there.  Nothing is refused here: this phase
-    has no authorization, and an anonymous request must still reach its route
-    exactly as it did before authentication existed.
+    Establishes identity and role, then stops. Nothing is refused globally:
+    Phase 8A provides authorization helpers but does not apply them to existing
+    business routes.
 
     A failure to resolve is also not a refusal here.  It is retained as the
     distinct ``unavailable`` state, while existing unprotected endpoints keep

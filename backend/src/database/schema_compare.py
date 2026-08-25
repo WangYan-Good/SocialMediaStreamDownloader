@@ -3,6 +3,7 @@ import re
 from typing import Literal
 
 from sqlalchemy import (
+  CheckConstraint,
   Computed,
   ForeignKeyConstraint,
   MetaData,
@@ -273,6 +274,17 @@ def _compare_table_objects(report, inspector, table_name, table):
   actual_uniques = _named_columns(actual_unique_items)
   if expected_uniques != actual_uniques:
     report.add_error(table_name, "unique_constraint", "unique constraints differ")
+
+  expected_checks = {
+    constraint.name
+    for constraint in table.constraints
+    if isinstance(constraint, CheckConstraint)
+  }
+  actual_checks = {
+    item.get("name") for item in inspector.get_check_constraints(table_name)
+  }
+  if expected_checks != actual_checks:
+    report.add_error(table_name, "check_constraint", "check constraints differ")
 
   unique_index_names = {
     item.get("duplicates_index") or item.get("name")

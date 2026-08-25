@@ -3,8 +3,9 @@ import io
 import unittest
 
 ##<<Third-part>>
-from backend.src.auth.cli import create_user_command
+from backend.src.auth.cli import create_user_command, set_role_command
 from backend.src.auth.errors import AuthUnavailable, DuplicateUsername
+from backend.src.auth.roles import ROLE_ADMIN, ROLE_USER
 from backend.src.auth.service import AuthenticationService
 from backend.src.unit_test.test_auth_service import FakeRepository
 
@@ -26,6 +27,7 @@ def run(
   passwords=("correct horse battery", "correct horse battery"),
   repository=None,
   service=None,
+  role=ROLE_USER,
 ):
   """Drive the command with the prompts injected rather than typed."""
   repository = repository if repository is not None else FakeRepository()
@@ -38,6 +40,7 @@ def run(
     service_factory=lambda: service,
     prompt=lambda _label: answers.pop(0),
     out=output,
+    role=role,
   )
   return code, output.getvalue(), repository
 
@@ -48,6 +51,13 @@ class TestCreatingAnAccount(unittest.TestCase):
 
     self.assertEqual(0, code)
     self.assertEqual("alice", repository.users[1]["username"])
+    self.assertEqual(ROLE_USER, repository.users[1]["role"])
+
+  def test_it_can_explicitly_create_an_admin(self):
+    code, _, repository = run(role=ROLE_ADMIN)
+
+    self.assertEqual(0, code)
+    self.assertEqual(ROLE_ADMIN, repository.users[1]["role"])
 
   def test_it_asks_twice_and_refuses_a_mismatch(self):
     ##
@@ -148,6 +158,88 @@ class TestTheCommandLineSurface(unittest.TestCase):
     known = {action.dest for action in parser._actions}
 
     self.assertNotIn("password", known)
+
+  def test_create_user_accepts_an_explicit_role(self):
+    from backend.src.auth import cli
+
+    arguments = cli.build_parser().parse_args(
+      ["create-user", "alice", "--role", "admin"]
+    )
+
+    self.assertEqual("admin", arguments.role)
+
+  def test_set_role_has_no_password_surface(self):
+    from backend.src.auth import cli
+
+    arguments = cli.build_parser().parse_args(["set-role", "alice", "admin"])
+
+    self.assertEqual("set-role", arguments.command)
+    self.assertEqual("alice", arguments.username)
+    self.assertEqual("admin", arguments.role)
+    self.assertNotIn("password", vars(arguments))
+
+  def test_invalid_roles_are_rejected_by_the_command_line(self):
+    from backend.src.auth import cli
+
+    for argv in (
+      ["create-user", "alice", "--role", "root"],
+      ["set-role", "alice", "root"],
+    ):
+      with self.subTest(argv=argv):
+        with self.assertRaises(SystemExit):
+          cli.build_parser().parse_args(argv)
+
+
+class TestChangingAnAccountRole(unittest.TestCase):
+  def setUp(self):
+    self.repository = FakeRepository()
+    self.service = AuthenticationService(
+      self.repository, session_ttl_seconds=3600
+    )
+    self.service.create_user("alice", "correct horse battery")
+
+  def invoke(self, username="alice", role=ROLE_ADMIN, service_factory=None):
+    output = io.StringIO()
+    code = set_role_command(
+      username,
+      role,
+      service_factory=service_factory or (lambda: self.service),
+      out=output,
+    )
+    return code, output.getvalue()
+
+  def test_it_promotes_and_demotes_a_user(self):
+    promoted, _ = self.invoke(role=ROLE_ADMIN)
+    demoted, _ = self.invoke(role=ROLE_USER)
+
+    self.assertEqual(0, promoted)
+    self.assertEqual(0, demoted)
+    self.assertEqual(ROLE_USER, self.repository.users[1]["role"])
+
+  def test_setting_the_existing_role_is_an_idempotent_success(self):
+    first, _ = self.invoke(role=ROLE_USER)
+    second, output = self.invoke(role=ROLE_USER)
+
+    self.assertEqual(0, first)
+    self.assertEqual(0, second)
+    self.assertIn("user", output)
+
+  def test_unknown_user_is_a_safe_clear_failure(self):
+    code, output = self.invoke(username="nobody")
+
+    self.assertNotEqual(0, code)
+    self.assertIn("不存在", output)
+    self.assertNotIn("password", output.lower())
+
+  def test_unavailable_storage_uses_the_generic_non_revision_message(self):
+    code, output = self.invoke(
+      service_factory=lambda: (_ for _ in ()).throw(AuthUnavailable("0010"))
+    )
+
+    self.assertEqual(2, code)
+    self.assertIn("数据库结构尚未升级到当前版本", output)
+    for stale_revision in ("0007", "0009", "0010"):
+      self.assertNotIn(stale_revision, output)
 
 
 

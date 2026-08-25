@@ -35,7 +35,7 @@ class AuthRepository:
 
   def find_user_by_username(self, username: str):
     row = self._one(
-      "SELECT user_id, username, password_hash, is_active"
+      "SELECT user_id, username, password_hash, is_active, role"
       " FROM app_user WHERE username = %s",
       (username,),
     )
@@ -43,19 +43,20 @@ class AuthRepository:
 
   def find_user_by_id(self, user_id: int):
     row = self._one(
-      "SELECT user_id, username, password_hash, is_active"
+      "SELECT user_id, username, password_hash, is_active, role"
       " FROM app_user WHERE user_id = %s",
       (user_id,),
     )
     return self._as_user(row)
 
-  def insert_user(self, username: str, password_hash: str) -> int:
+  def insert_user(self, username: str, password_hash: str, role: str) -> int:
     try:
       with self._database.get_connection() as connector:
         with connector.cursor() as cursor:
           cursor.execute(
-            "INSERT INTO app_user (username, password_hash) VALUES (%s, %s)",
-            (username, password_hash),
+            "INSERT INTO app_user (username, password_hash, role)"
+            " VALUES (%s, %s, %s)",
+            (username, password_hash, role),
           )
           new_id = cursor.lastrowid
         connector.commit()
@@ -70,6 +71,12 @@ class AuthRepository:
       raise
     except Exception as e:
       raise AuthUnavailable("authentication storage is unavailable") from e
+
+  def set_user_role(self, user_id: int, role: str) -> bool:
+    return self._write(
+      "UPDATE app_user SET role = %s WHERE user_id = %s",
+      (role, user_id),
+    ) > 0
 
   ##
   ## >>============================= sessions =============================>>
@@ -126,6 +133,7 @@ class AuthRepository:
       "username": row[1],
       "password_hash": row[2],
       "is_active": bool(row[3]),
+      "role": row[4],
     }
 
   def _one(self, statement: str, params: tuple):

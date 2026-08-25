@@ -2,7 +2,7 @@ from copy import deepcopy
 import unittest
 from unittest.mock import patch
 
-from sqlalchemy import ForeignKeyConstraint, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKeyConstraint, UniqueConstraint
 from sqlalchemy.dialects import mysql
 
 from backend.src.database.orm.models import Base
@@ -16,6 +16,7 @@ class FakeInspector:
     self.foreign_keys = {}
     self.uniques = {}
     self.indexes = {}
+    self.checks = {}
     self.comments = {}
     self.options = {}
     for table_name, table in Base.metadata.tables.items():
@@ -74,6 +75,11 @@ class FakeInspector:
         for constraint in table.constraints
         if isinstance(constraint, UniqueConstraint)
       ]
+      self.checks[table_name] = [
+        {"name": constraint.name, "sqltext": str(constraint.sqltext)}
+        for constraint in table.constraints
+        if isinstance(constraint, CheckConstraint)
+      ]
       self.indexes[table_name] = [
         {
           "name": index.name,
@@ -106,6 +112,9 @@ class FakeInspector:
 
   def get_indexes(self, table_name):
     return self.indexes[table_name]
+
+  def get_check_constraints(self, table_name):
+    return self.checks[table_name]
 
   def get_table_comment(self, table_name):
     return self.comments[table_name]
@@ -212,6 +221,17 @@ class SchemaCompareTest(unittest.TestCase):
 
     object_types = {item.object_type for item in report.errors}
     self.assertTrue({"primary_key", "foreign_key", "unique_constraint", "index"}.issubset(object_types))
+
+  def test_a_missing_role_check_constraint_is_schema_drift(self):
+    inspector = FakeInspector()
+    inspector.checks["app_user"] = []
+
+    report = self.compare(inspector)
+
+    self.assertIn(
+      "check_constraint",
+      {item.object_type for item in report.errors if item.table == "app_user"},
+    )
 
   def test_mysql_options_and_comment_are_compared(self):
     inspector = FakeInspector()

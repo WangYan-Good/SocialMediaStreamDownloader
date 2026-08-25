@@ -202,9 +202,9 @@ def _new_flask_app(
   ##
   ## Identity-aware task creation and resource persistence consume the
   ## server-selected request user where their contracts support ownership.
-  ## Broad route authorization and Admin/User RBAC are still intentionally a
-  ## later rollout; registering this runtime must not be mistaken for guarding
-  ## every blueprint below it.
+  ## The Admin/User role and reusable authorization helpers now exist, but broad
+  ## business-route enforcement remains the next rollout; registering this
+  ## runtime must not be mistaken for guarding every blueprint below it.
   ##
   configured_app.register_blueprint(
     build_auth_blueprint(runtime=build_auth_runtime(load_config))

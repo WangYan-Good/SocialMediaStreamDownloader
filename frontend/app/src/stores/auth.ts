@@ -17,10 +17,9 @@ import type { AuthStatus, AuthUser } from '@/types/auth'
  * neither read nor write - so there is nothing here to leak, nothing to put in
  * localStorage, and nothing an XSS on the page could carry away.
  *
- * This phase establishes identity and stops there. Nothing in the router or
- * the api layer consults this store to decide whether a request is allowed:
- * there is no authorization yet, and a guard over an api that still answers
- * everybody would be the appearance of protection rather than protection.
+ * Nothing in the router or the api layer consults this store to decide whether
+ * a request is allowed. Phase 8A establishes the role fact and server helper
+ * foundation; business authorization and interface guards remain Phase 8B.
  */
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null)
