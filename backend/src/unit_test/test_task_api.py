@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 
 from flask import Flask
 
+from backend.src.auth.roles import ROLE_ADMIN, ROLE_USER
+from backend.src.auth.service import AuthenticatedUser
 from backend.src.task.model import (
   ITEM_STATE_FAILED,
   ITEM_STATE_RUNNING,
@@ -13,6 +15,7 @@ from backend.src.task.model import (
 )
 from backend.src.task.service import TaskService
 from backend.src.task.store import TaskStore
+from backend.src.unit_test.auth_context import install_test_auth
 from backend.src.web.task_routes import (
   TASK_SERVICE_KEY,
   build_task_blueprint,
@@ -36,7 +39,7 @@ class FakeClock:
     self.mono += seconds
 
 
-def build_app(service=None, clock=None):
+def build_app(service=None, clock=None, user=None):
   """A bare app carrying only the task blueprint, as the routes see it."""
   if service is None:
     clock = clock if clock is not None else FakeClock()
@@ -45,6 +48,10 @@ def build_app(service=None, clock=None):
     )
   app = Flask(__name__)
   app.config["TESTING"] = True
+  install_test_auth(
+    app,
+    user=user or AuthenticatedUser(9001, "test-admin", ROLE_ADMIN),
+  )
   install_task_service(app, service)
   app.register_blueprint(build_task_blueprint())
   return app, service
@@ -292,6 +299,79 @@ class TaskDetailEndpointTest(unittest.TestCase):
     self.assertEqual(data["items"][0]["state"], "failed")
 
 
+class TaskRoleScopeTest(unittest.TestCase):
+  def setUp(self):
+    self.service = TaskService()
+    self.alice = AuthenticatedUser(71, "alice", ROLE_USER)
+    self.admin = AuthenticatedUser(72, "operator", ROLE_ADMIN)
+    self.alice_task = self.service.create_task(
+      TASK_TYPE_POST_DOWNLOAD,
+      app_user_id=self.alice.user_id,
+      metadata={
+        "source_url": "https://v.douyin.com/alice/",
+        "resolved_url": "https://www.douyin.com/video/secret",
+        "save_dir": "/srv/private",
+        "result": {
+          "saved_count": 2,
+          "output_path": "/srv/private/file.mp4",
+          "reason": "下载完成",
+        },
+      },
+      items=["aweme-secret"],
+    )
+    self.other_task = self.service.create_task(
+      TASK_TYPE_LIVE_RECORD, app_user_id=88
+    )
+    self.legacy_task = self.service.create_task(TASK_TYPE_LIVE_PROBE)
+
+  def test_user_list_contains_only_owned_tasks_and_ignores_client_scope(self):
+    app, _ = build_app(service=self.service, user=self.alice)
+
+    data = app.test_client().get(
+      "/api/tasks?app_user_id=88&user_id=88&role=admin"
+    ).get_json()["data"]
+
+    self.assertEqual([self.alice_task["task_id"]], [one["task_id"] for one in data["items"]])
+    self.assertEqual(1, data["total"])
+
+  def test_user_read_hides_other_and_unowned_tasks_as_missing(self):
+    app, _ = build_app(service=self.service, user=self.alice)
+    client = app.test_client()
+
+    self.assertEqual(
+      404, client.get("/api/tasks/" + self.other_task["task_id"]).status_code
+    )
+    self.assertEqual(
+      404, client.get("/api/tasks/" + self.legacy_task["task_id"]).status_code
+    )
+
+  def test_admin_list_is_global_including_legacy_unowned_tasks(self):
+    app, _ = build_app(service=self.service, user=self.admin)
+
+    data = app.test_client().get("/api/tasks").get_json()["data"]
+
+    self.assertEqual(3, data["total"])
+
+  def test_user_payload_is_an_allowlist_not_admin_metadata_with_hidden_ui(self):
+    app, _ = build_app(service=self.service, user=self.alice)
+
+    task = app.test_client().get(
+      "/api/tasks/" + self.alice_task["task_id"]
+    ).get_json()["data"]
+
+    self.assertEqual(
+      {
+        "source_url": "https://v.douyin.com/alice/",
+        "result": {"saved_count": 2, "reason": "下载完成"},
+      },
+      task["metadata"],
+    )
+    self.assertEqual("item-1", task["items"][0]["key"])
+    self.assertEqual({}, task["items"][0]["metadata"])
+    for leaked in ("resolved_url", "save_dir", "output_path", "aweme-secret"):
+      self.assertNotIn(leaked, str(task))
+
+
 class TaskServiceWiringTest(unittest.TestCase):
   """One store per process: what a worker writes, the next request must read."""
 
@@ -324,6 +404,7 @@ class TaskServiceWiringTest(unittest.TestCase):
     """Registering the blueprint without wiring is a deployment bug, not a 500 page."""
     app = Flask(__name__)
     app.config["TESTING"] = True
+    install_test_auth(app)
     app.register_blueprint(build_task_blueprint())
 
     response = app.test_client().get("/api/tasks")
@@ -339,10 +420,11 @@ class ApplicationFactoryTest(unittest.TestCase):
     import server
     from backend.src.unit_test.config_fixture import unified_config
 
-    return server.create_app(
+    app = server.create_app(
       config=unified_config(),
       schema_guard_factory=lambda config: object(),
     )
+    return install_test_auth(app)
 
   def test_a_configured_app_carries_one_task_service(self):
     app = self.build_app()

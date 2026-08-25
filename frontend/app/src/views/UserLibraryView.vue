@@ -4,8 +4,8 @@ import { computed, onMounted, ref } from 'vue'
 
 import UserLibraryDetailPanel from '@/components/library/UserLibraryDetailPanel.vue'
 import UserLibraryFilters from '@/components/library/UserLibraryFilters.vue'
-import UserLibraryLiveTable from '@/components/library/UserLibraryLiveTable.vue'
 import UserLibraryPostTable from '@/components/library/UserLibraryPostTable.vue'
+import UserLibraryRecordingTable from '@/components/library/UserLibraryRecordingTable.vue'
 import { useLibraryStore } from '@/stores/library'
 
 //
@@ -36,19 +36,19 @@ const {
   selectedPostKey,
   selectedPost,
 
-  lives,
-  livePage,
-  livePageCount,
-  liveFilters,
-  liveLoading,
-  liveError,
-  hasLoadedLives,
-  selectedLiveKey,
-  selectedLive,
+  recordings,
+  recordingPage,
+  recordingPageCount,
+  recordingFilters,
+  recordingLoading,
+  recordingError,
+  hasLoadedRecordings,
+  selectedRecordingId,
+  selectedRecording,
 } = storeToRefs(store)
 
 const tab = ref<Tab>('posts')
-const liveKeyword = ref('')
+const recordingKeyword = ref('')
 
 const TAB_LABELS: Record<Tab, string> = {
   posts: '已下载作品',
@@ -68,8 +68,8 @@ onMounted(() => {
 
 function showTab(next: Tab) {
   tab.value = next
-  if (next === 'lives' && !hasLoadedLives.value) {
-    void store.loadLives()
+  if (next === 'lives' && !hasLoadedRecordings.value) {
+    void store.loadRecordings()
   }
 }
 
@@ -92,7 +92,7 @@ const postsAreFiltered = computed(() =>
   ),
 )
 
-const livesAreFiltered = computed(() => Boolean(liveFilters.value.q))
+const recordingsAreFiltered = computed(() => Boolean(recordingFilters.value.q))
 
 //
 // A failed read, as a result.
@@ -108,8 +108,8 @@ const postCountLabel = computed(() =>
   hasLoadedPosts.value ? `共 ${postTotal.value} 条记录` : '',
 )
 
-function searchLives() {
-  void store.setLiveFilters({ q: liveKeyword.value.trim() || undefined })
+function searchRecordings() {
+  void store.setRecordingFilters({ q: recordingKeyword.value.trim() || undefined })
 }
 </script>
 
@@ -197,59 +197,58 @@ function searchLives() {
         <label class="library__field">
           <span class="library__label">关键词</span>
           <input
-            v-model="liveKeyword"
+            v-model="recordingKeyword"
             class="library__input"
             type="search"
             placeholder="搜索主播或标题"
           />
         </label>
-        <button type="button" class="library__action" :disabled="liveLoading" @click="searchLives">
+        <button type="button" class="library__action" :disabled="recordingLoading" @click="searchRecordings">
           搜索
         </button>
         <button
           type="button"
           class="library__action"
-          :disabled="liveLoading"
-          @click="store.loadLives()"
+          :disabled="recordingLoading"
+          @click="store.loadRecordings()"
         >
-          {{ liveLoading ? '正在读取…' : '刷新' }}
+          {{ recordingLoading ? '正在读取…' : '刷新' }}
         </button>
       </div>
 
-      <div v-if="liveError" class="library__notice" role="alert">
+      <div v-if="recordingError" class="library__notice" role="alert">
         {{ READ_FAILED }}
-        <button type="button" class="library__action" @click="store.loadLives()">重试</button>
+        <button type="button" class="library__action" @click="store.loadRecordings()">重试</button>
       </div>
 
-      <p v-if="!hasLoadedLives && !liveError" class="library__placeholder">
+      <p v-if="!hasLoadedRecordings && !recordingError" class="library__placeholder">
         正在读取直播记录…
       </p>
-      <p v-else-if="hasLoadedLives && !lives.length" class="library__placeholder">
-        {{ livesAreFiltered ? '没有符合条件的内容。' : '还没有直播记录。' }}
+      <p v-else-if="hasLoadedRecordings && !recordings.length" class="library__placeholder">
+        {{ recordingsAreFiltered ? '没有符合条件的内容。' : '还没有直播记录。' }}
       </p>
-      <UserLibraryLiveTable
-        v-else-if="lives.length"
-        :lives="lives"
-        :selected-key="selectedLiveKey"
-        :key-of="store.liveKey"
-        @select="store.selectLive($event)"
+      <UserLibraryRecordingTable
+        v-else-if="recordings.length"
+        :recordings="recordings"
+        :selected-id="selectedRecordingId"
+        @select="store.selectRecording($event)"
       />
 
-      <div v-if="livePageCount > 1" class="library__pager">
+      <div v-if="recordingPageCount > 1" class="library__pager">
         <button
           type="button"
           class="library__action"
-          :disabled="livePage <= 1 || liveLoading"
-          @click="store.goToLivePage(livePage - 1)"
+          :disabled="recordingPage <= 1 || recordingLoading"
+          @click="store.goToRecordingPage(recordingPage - 1)"
         >
           上一页
         </button>
-        <span class="library__muted">第 {{ livePage }} / {{ livePageCount }} 页</span>
+        <span class="library__muted">第 {{ recordingPage }} / {{ recordingPageCount }} 页</span>
         <button
           type="button"
           class="library__action"
-          :disabled="livePage >= livePageCount || liveLoading"
-          @click="store.goToLivePage(livePage + 1)"
+          :disabled="recordingPage >= recordingPageCount || recordingLoading"
+          @click="store.goToRecordingPage(recordingPage + 1)"
         >
           下一页
         </button>
@@ -257,10 +256,10 @@ function searchLives() {
     </template>
 
     <UserLibraryDetailPanel
-      v-if="(tab === 'posts' && selectedPost) || (tab === 'lives' && selectedLive)"
+      v-if="(tab === 'posts' && selectedPost) || (tab === 'lives' && selectedRecording)"
       :post="tab === 'posts' ? selectedPost : null"
-      :live="tab === 'lives' ? selectedLive : null"
-      @close="tab === 'posts' ? store.selectPost(null) : store.selectLive(null)"
+      :recording="tab === 'lives' ? selectedRecording : null"
+      @close="tab === 'posts' ? store.selectPost(null) : store.selectRecording(null)"
     />
   </section>
 </template>

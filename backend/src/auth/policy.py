@@ -1,8 +1,4 @@
-"""Auditable target authorization policy for every registered API route.
-
-This inventory describes Phase 8B's target. It is deliberately data only:
-Phase 8A does not apply these policies to business routes.
-"""
+"""Auditable authorization policy for every registered API route."""
 from dataclasses import dataclass
 from enum import Enum
 
@@ -49,58 +45,49 @@ AUTHORIZATION_POLICY = (
   _policy("GET", "/api/auth/me", "authenticated", P.AUTHENTICATED, "current principal", C.EXEMPT, "unchanged"),
   _policy("POST", "/api/auth/logout", "session-aware", P.SESSION_AWARE, "current browser session", C.SESSION_IF_PRESENT, "unchanged"),
 
-  _policy("POST", "/api/resolve", "public", P.AUTHENTICATED, "server-issued receipt", C.REQUIRED, "require authenticated + CSRF"),
-  _policy("POST", "/api/resolve/batch", "public", P.AUTHENTICATED, "server-issued receipts", C.REQUIRED, "require authenticated + CSRF"),
+  _policy("POST", "/api/resolve", "authenticated", P.AUTHENTICATED, "current-user receipt", C.REQUIRED, "enforced"),
+  _policy("POST", "/api/resolve/batch", "authenticated", P.AUTHENTICATED, "current-user receipts", C.REQUIRED, "enforced"),
 
-  _policy("POST", "/api/tasks", "anonymous allowed; conditional CSRF", P.AUTHENTICATED, "create for current user", C.REQUIRED, "require authenticated; preserve ownership"),
-  _policy("GET", "/api/tasks", "public global", P.ROLE_SCOPED, "user own / admin global", C.EXEMPT, "select list_tasks_for_user or list_tasks by role"),
-  _policy("GET", "/api/tasks/<task_id>", "public global", P.ROLE_SCOPED, "user own (404 otherwise) / admin global", C.EXEMPT, "select get_task_for_user or get_task by role"),
+  _policy("POST", "/api/tasks", "authenticated", P.AUTHENTICATED, "create for current user", C.REQUIRED, "enforced"),
+  _policy("GET", "/api/tasks", "role scoped", P.ROLE_SCOPED, "user own / admin global", C.EXEMPT, "enforced"),
+  _policy("GET", "/api/tasks/<task_id>", "role scoped", P.ROLE_SCOPED, "user own (404 otherwise) / admin global", C.EXEMPT, "enforced"),
 
-  _policy("GET", "/api/library/posts", "public global", P.ROLE_SCOPED, "user own / admin global", C.EXEMPT, "select posts_for_user or posts by role"),
-  _policy("GET", "/api/library/lives", "public global", P.ADMIN, "global live observations", C.EXEMPT, "require admin; user library moves to persistent recordings"),
-  _policy("GET", "/api/system/status", "public", P.ADMIN, "deployment configuration/status summary", C.EXEMPT, "require admin; do not use as health probe"),
+  _policy("GET", "/api/library/posts", "role scoped", P.ROLE_SCOPED, "user own / admin global", C.EXEMPT, "enforced"),
+  _policy("GET", "/api/library/recordings", "role scoped", P.ROLE_SCOPED, "user own / admin global persistent recordings", C.EXEMPT, "enforced via recordings_for_user/recordings"),
+  _policy("GET", "/api/library/lives", "admin", P.ADMIN, "global live observations", C.EXEMPT, "enforced"),
+  _policy("GET", "/api/system/status", "admin", P.ADMIN, "deployment configuration/status summary", C.EXEMPT, "enforced"),
 
-  _policy("GET", "/api/history/owners", "public global", P.ADMIN, "global creator history", C.EXEMPT, "require admin"),
-  _policy("GET", "/api/history/owners/<owner_user_id>/sessions", "public global", P.ADMIN, "global creator sessions", C.EXEMPT, "require admin"),
-  _policy("PATCH", "/api/history/owners/<owner_user_id>/preference", "public", P.ADMIN, "global creator preference", C.REQUIRED, "require admin + CSRF"),
-  _policy("POST", "/api/live/probe", "public", P.ADMIN, "global live observation/probe", C.REQUIRED, "require admin + CSRF"),
-  _policy("GET", "/api/live/probe/<batch_id>", "public", P.ADMIN, "global probe batch", C.EXEMPT, "require admin"),
+  _policy("GET", "/api/history/owners", "admin", P.ADMIN, "global creator history", C.EXEMPT, "enforced"),
+  _policy("GET", "/api/history/owners/<owner_user_id>/sessions", "admin", P.ADMIN, "global creator sessions", C.EXEMPT, "enforced"),
+  _policy("PATCH", "/api/history/owners/<owner_user_id>/preference", "admin", P.ADMIN, "global creator preference", C.REQUIRED, "enforced"),
+  _policy("POST", "/api/live/probe", "admin", P.ADMIN, "global live observation/probe", C.REQUIRED, "enforced"),
+  _policy("GET", "/api/live/probe/<batch_id>", "admin", P.ADMIN, "global probe batch", C.EXEMPT, "enforced"),
 
-  _policy("GET", "/api/owner", "public", P.ADMIN, "global creator/platform data", C.EXEMPT, "require admin"),
-  _policy("GET", "/api/owner/posts", "public", P.ADMIN, "global creator/platform data", C.EXEMPT, "require admin"),
-  _policy("POST", "/api/owner/download", "public", P.ADMIN, "global legacy creator download workflow", C.REQUIRED, "require admin + CSRF"),
+  _policy("GET", "/api/owner", "admin", P.ADMIN, "global creator/platform data", C.EXEMPT, "enforced"),
+  _policy("GET", "/api/owner/posts", "admin", P.ADMIN, "global creator/platform data", C.EXEMPT, "enforced"),
+  _policy("POST", "/api/owner/download", "admin", P.ADMIN, "global legacy creator download workflow", C.REQUIRED, "enforced"),
 
-  _policy("GET", "/api/person", "public global", P.ADMIN, "global person directory", C.EXEMPT, "require admin"),
-  _policy("POST", "/api/person", "public", P.ADMIN, "global person directory", C.REQUIRED, "require admin + CSRF"),
-  _policy("PATCH", "/api/person/<int:person_id>", "public", P.ADMIN, "global person directory", C.REQUIRED, "require admin + CSRF"),
-  _policy("DELETE", "/api/person/<int:person_id>", "public", P.ADMIN, "global person directory", C.REQUIRED, "require admin + CSRF"),
-  _policy("GET", "/api/person/<int:person_id>/detail", "public global", P.ADMIN, "global person/account relations", C.EXEMPT, "require admin"),
-  _policy("GET", "/api/person/<int:person_id>/works", "public global", P.ADMIN, "global collaboration-derived works", C.EXEMPT, "require admin"),
-  _policy("GET", "/api/person/accounts", "public global", P.ADMIN, "global account directory", C.EXEMPT, "require admin"),
-  _policy("POST", "/api/person/account", "public", P.ADMIN, "global account assignment", C.REQUIRED, "require admin + CSRF"),
-  _policy("POST", "/api/person/account/by-link", "public", P.ADMIN, "global account assignment", C.REQUIRED, "require admin + CSRF"),
-  _policy("POST", "/api/person/assignment", "public", P.ADMIN, "global person/account assignment", C.REQUIRED, "require admin + CSRF"),
-  _policy("POST", "/api/person/inspect", "public", P.ADMIN, "global assignment inspection", C.REQUIRED, "require admin + CSRF"),
-  _policy("DELETE", "/api/person/account", "public", P.ADMIN, "global account assignment", C.REQUIRED, "require admin + CSRF"),
-  _policy("POST", "/api/person/collaboration", "public", P.ADMIN, "global collaboration graph", C.REQUIRED, "require admin + CSRF"),
-  _policy("DELETE", "/api/person/collaboration", "public", P.ADMIN, "global collaboration graph", C.REQUIRED, "require admin + CSRF"),
+  _policy("GET", "/api/person", "admin", P.ADMIN, "global person directory", C.EXEMPT, "enforced"),
+  _policy("POST", "/api/person", "admin", P.ADMIN, "global person directory", C.REQUIRED, "enforced"),
+  _policy("PATCH", "/api/person/<int:person_id>", "admin", P.ADMIN, "global person directory", C.REQUIRED, "enforced"),
+  _policy("DELETE", "/api/person/<int:person_id>", "admin", P.ADMIN, "global person directory", C.REQUIRED, "enforced"),
+  _policy("GET", "/api/person/<int:person_id>/detail", "admin", P.ADMIN, "global person/account relations", C.EXEMPT, "enforced"),
+  _policy("GET", "/api/person/<int:person_id>/works", "admin", P.ADMIN, "global collaboration-derived works", C.EXEMPT, "enforced"),
+  _policy("GET", "/api/person/accounts", "admin", P.ADMIN, "global account directory", C.EXEMPT, "enforced"),
+  _policy("POST", "/api/person/account", "admin", P.ADMIN, "global account assignment", C.REQUIRED, "enforced"),
+  _policy("POST", "/api/person/account/by-link", "admin", P.ADMIN, "global account assignment", C.REQUIRED, "enforced"),
+  _policy("POST", "/api/person/assignment", "admin", P.ADMIN, "global person/account assignment", C.REQUIRED, "enforced"),
+  _policy("POST", "/api/person/inspect", "admin", P.ADMIN, "global assignment inspection", C.REQUIRED, "enforced"),
+  _policy("DELETE", "/api/person/account", "admin", P.ADMIN, "global account assignment", C.REQUIRED, "enforced"),
+  _policy("POST", "/api/person/collaboration", "admin", P.ADMIN, "global collaboration graph", C.REQUIRED, "enforced"),
+  _policy("DELETE", "/api/person/collaboration", "admin", P.ADMIN, "global collaboration graph", C.REQUIRED, "enforced"),
 )
 
-# Phase 8B must introduce this resource endpoint; it is not part of the current
-# route-inventory equality until the route actually exists.
-PHASE_8B_NEW_ENDPOINTS = (
-  _policy(
-    "GET",
-    "/api/library/recordings",
-    "not registered",
-    P.ROLE_SCOPED,
-    "user own persistent recordings / admin global persistent recordings",
-    C.EXEMPT,
-    "add endpoint; select recordings_for_user or recordings by role",
-  ),
-)
+# Kept as a compatibility export for the Phase 8A inventory tests. Every Phase
+# 8B endpoint is now registered and belongs in AUTHORIZATION_POLICY itself.
+PHASE_8B_NEW_ENDPOINTS = ()
 
-BUSINESS_ENDPOINT_ENFORCEMENT_ENABLED = False
+BUSINESS_ENDPOINT_ENFORCEMENT_ENABLED = True
 
 
 def policy_keys():

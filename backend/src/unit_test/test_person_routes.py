@@ -2,6 +2,7 @@ import json
 import unittest
 
 from flask import Flask
+from backend.src.unit_test.auth_context import install_test_auth
 
 from backend.src.database.table.person_identity import UnknownRole
 from backend.src.web.person_routes import PersonRuntime, build_person_blueprint
@@ -115,6 +116,7 @@ class RouteTestCase(unittest.TestCase):
   def build_client(self, table=None):
     table = table if table is not None else StubTable()
     app = Flask(__name__)
+    install_test_auth(app)
     app.register_blueprint(
       build_person_blueprint(PersonRuntime(table_factory=lambda: table))
     )
@@ -378,6 +380,7 @@ class AttachByLinkTest(RouteTestCase):
         dict(identity) if identity is not None else dict(self.IDENTITY)
       )
     app = Flask(__name__)
+    install_test_auth(app)
     app.register_blueprint(build_person_blueprint(runtime))
     return app.test_client(), table
 
@@ -503,6 +506,7 @@ class AlignAfterAttachTest(RouteTestCase):
     runtime = PersonRuntime(table_factory=lambda: inner)
     runtime.resolve_owner_identity = lambda url: dict(AttachByLinkTest.IDENTITY)
     app = Flask(__name__)
+    install_test_auth(app)
     app.register_blueprint(build_person_blueprint(runtime))
 
     self.post(app.test_client(), "/api/person/account/by-link", {
@@ -649,9 +653,11 @@ class AssignmentRouteTestCase(RouteTestCase):
       self._result = result
       self._failure = failure
       self.requests = []
+      self.app_user_ids = []
 
-    def assign(self, request):
+    def assign(self, request, *, app_user_id):
       self.requests.append(request)
+      self.app_user_ids.append(app_user_id)
       if self._failure is not None:
         raise self._failure
       return self._result
@@ -671,6 +677,7 @@ class AssignmentRouteTestCase(RouteTestCase):
     runtime = PersonRuntime(table_factory=lambda: StubTable())
     runtime.assignment_service = lambda: service
     app = Flask(__name__)
+    install_test_auth(app)
     app.register_blueprint(build_person_blueprint(runtime))
     return app.test_client(), service
 
@@ -702,6 +709,7 @@ class AssignmentRouteTest(AssignmentRouteTestCase):
       "created_person": True,
       "display_name": "张三",
     })
+    self.assertEqual(service.app_user_ids, [9001])
 
   def test_the_whole_body_reaches_the_service_unedited(self):
     """Validating it twice, in two places, is how the two come to disagree."""
@@ -742,6 +750,7 @@ class AssignmentRouteTest(AssignmentRouteTestCase):
     runtime = PersonRuntime(table_factory=lambda: StubTable())
     runtime.assignment_service = lambda: None
     app = Flask(__name__)
+    install_test_auth(app)
     app.register_blueprint(build_person_blueprint(runtime))
 
     response = self.post(app.test_client(), "/api/person/assignment", {
@@ -864,6 +873,7 @@ class LegacyAttachHardeningTest(RouteTestCase):
     table = table if table is not None else StubTable()
     runtime = PersonRuntime(table_factory=lambda: table)
     app = Flask(__name__)
+    install_test_auth(app)
     app.register_blueprint(build_person_blueprint(runtime))
     return app.test_client(), table
 
@@ -1019,6 +1029,7 @@ class LegacyByLinkHardeningTest(RouteTestCase):
     runtime = PersonRuntime(table_factory=lambda: table)
     runtime.resolve_owner_identity = lambda url: dict(self.IDENTITY)
     app = Flask(__name__)
+    install_test_auth(app)
     app.register_blueprint(build_person_blueprint(runtime))
     return app.test_client(), table
 
@@ -1104,6 +1115,7 @@ class LegacyByLinkHardeningTest(RouteTestCase):
 
     table.assign_account = watched
     app = Flask(__name__)
+    install_test_auth(app)
     app.register_blueprint(build_person_blueprint(runtime))
 
     self.post(app.test_client(), "/api/person/account/by-link", {
@@ -1120,6 +1132,7 @@ class LegacyByLinkHardeningTest(RouteTestCase):
       followed.append(url) or dict(self.IDENTITY)
     )
     app = Flask(__name__)
+    install_test_auth(app)
     app.register_blueprint(build_person_blueprint(runtime))
 
     response = self.post(app.test_client(), "/api/person/account/by-link", {
@@ -1141,6 +1154,7 @@ class LegacyDetachHardeningTest(RouteTestCase):
     table = table if table is not None else StubTable()
     runtime = PersonRuntime(table_factory=lambda: table)
     app = Flask(__name__)
+    install_test_auth(app)
     app.register_blueprint(build_person_blueprint(runtime))
     return app.test_client(), table
 
@@ -1205,6 +1219,7 @@ class AssignmentWiringTest(unittest.TestCase):
 
     runtime = PersonRuntime(table_factory=lambda: StubTable())
     app = Flask(__name__)
+    install_test_auth(app)
     resolve_service = install_resolve_service(app)
     app.register_blueprint(build_person_blueprint(runtime))
 
@@ -1217,6 +1232,7 @@ class AssignmentWiringTest(unittest.TestCase):
   def test_without_one_installed_there_is_no_service(self):
     runtime = PersonRuntime(table_factory=lambda: StubTable())
     app = Flask(__name__)
+    install_test_auth(app)
     app.register_blueprint(build_person_blueprint(runtime))
 
     with app.test_request_context("/api/person/assignment"):
@@ -1294,9 +1310,11 @@ class InspectRouteTestCase(RouteTestCase):
       self._result = result
       self._failure = failure
       self.requests = []
+      self.app_user_ids = []
 
-    def inspect(self, request):
+    def inspect(self, request, *, app_user_id):
       self.requests.append(request)
+      self.app_user_ids.append(app_user_id)
       if self._failure is not None:
         raise self._failure
       return self._result
@@ -1323,6 +1341,7 @@ class InspectRouteTestCase(RouteTestCase):
     runtime = PersonRuntime(table_factory=lambda: StubTable())
     runtime.assignment_service = lambda: service
     app = Flask(__name__)
+    install_test_auth(app)
     app.register_blueprint(build_person_blueprint(runtime))
     return app.test_client(), service
 
@@ -1337,7 +1356,7 @@ class InspectRouteTest(InspectRouteTestCase):
   """
 
   def test_a_filed_account_reports_the_person_holding_it(self):
-    client, _ = self.build_inspect_client()
+    client, service = self.build_inspect_client()
 
     response = self.post(client, "/api/person/inspect", {
       "resolve_id": "receipt-1",
@@ -1357,6 +1376,7 @@ class InspectRouteTest(InspectRouteTestCase):
         "role": "main",
       },
     })
+    self.assertEqual(service.app_user_ids, [9001])
 
   def test_a_known_account_nobody_filed_carries_no_assignment(self):
     client, _ = self.build_inspect_client(
@@ -1462,6 +1482,7 @@ class InspectRouteTest(InspectRouteTestCase):
     runtime = PersonRuntime(table_factory=lambda: StubTable())
     runtime.assignment_service = lambda: None
     app = Flask(__name__)
+    install_test_auth(app)
     app.register_blueprint(build_person_blueprint(runtime))
 
     response = self.post(app.test_client(), "/api/person/inspect", {
@@ -1473,6 +1494,7 @@ class InspectRouteTest(InspectRouteTestCase):
   def test_the_route_is_registered(self):
     runtime = PersonRuntime(table_factory=lambda: StubTable())
     app = Flask(__name__)
+    install_test_auth(app)
     app.register_blueprint(build_person_blueprint(runtime))
 
     routes = {str(rule) for rule in app.url_map.iter_rules()}

@@ -29,6 +29,7 @@ from backend.src.service.owner_preference import (
   OwnerPreferenceService,
   OwnerPreferenceValidationError,
 )
+from backend.src.web.auth_routes import require_admin, require_admin_csrf
 
 
 class HistoryUnavailable(RuntimeError):
@@ -221,6 +222,7 @@ def build_history_blueprint(
   blueprint = Blueprint("history", __name__, url_prefix="/api")
 
   @blueprint.route("/history/owners", methods=["GET"])
+  @require_admin
   def list_owners():
     try:
       owner_filter = OwnerHistoryFilter.from_mapping(
@@ -245,6 +247,7 @@ def build_history_blueprint(
     )
 
   @blueprint.route("/history/owners/<owner_user_id>/sessions", methods=["GET"])
+  @require_admin
   def list_sessions(owner_user_id):
     try:
       limit = min(int(request.args.get("limit", 20)), 100)
@@ -269,6 +272,7 @@ def build_history_blueprint(
   @blueprint.route(
     "/history/owners/<owner_user_id>/preference", methods=["PATCH"]
   )
+  @require_admin_csrf
   def update_owner_preference(owner_user_id):
     if not request.is_json:
       return _error("请求必须是 JSON 格式", 400)
@@ -302,6 +306,7 @@ def build_history_blueprint(
     )
 
   @blueprint.route("/live/probe", methods=["POST"])
+  @require_admin_csrf
   def submit_probe():
     if not request.is_json:
       return _error("请求必须是 JSON 格式", 400)
@@ -348,6 +353,7 @@ def build_history_blueprint(
     )
 
   @blueprint.route("/live/probe/<batch_id>", methods=["GET"])
+  @require_admin
   def read_probe(batch_id):
     try:
       snapshot = runtime.probe_service().snapshot(batch_id)

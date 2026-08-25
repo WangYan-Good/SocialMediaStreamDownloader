@@ -4,6 +4,7 @@ import unittest
 from flask import Flask
 
 from backend.src.database.schema_guard import GuardSnapshot, SchemaState
+from backend.src.unit_test.auth_context import install_test_auth
 from backend.src.web.system_routes import (
   SYSTEM_CONFIG_KEY,
   build_system_blueprint,
@@ -30,6 +31,7 @@ class FakeGuard:
 
 def app_with(config=None, guard=None):
   app = Flask(__name__)
+  install_test_auth(app)
   if guard is not None:
     app.extensions["smsd_schema_guard"] = guard
   if config is not None:
@@ -294,6 +296,7 @@ class AppLocalConfigTest(unittest.TestCase):
     ## and the answer says nothing about what was being wired.
     ##
     app = Flask(__name__)
+    install_test_auth(app)
     app.register_blueprint(build_system_blueprint())
 
     response = app.test_client().get("/api/system/status")
@@ -423,6 +426,7 @@ class ServerWiringTest(unittest.TestCase):
       config=_wiring_config(debug=True, test_mode=True),
       schema_guard_factory=lambda config: FakeGuard(),
     )
+    install_test_auth(built)
 
     settings = body_of(built.test_client().get("/api/system/status"))["data"]["settings"]
 
@@ -440,6 +444,8 @@ class ServerWiringTest(unittest.TestCase):
       config=_wiring_config(debug=True, test_mode=True),
       schema_guard_factory=lambda config: FakeGuard(),
     )
+    install_test_auth(quiet)
+    install_test_auth(loud)
 
     quiet_settings = body_of(quiet.test_client().get("/api/system/status"))["data"]["settings"]
     loud_settings = body_of(loud.test_client().get("/api/system/status"))["data"]["settings"]
@@ -454,6 +460,7 @@ class ServerWiringTest(unittest.TestCase):
       config=_wiring_config(debug=False, test_mode=False, with_secrets=True),
       schema_guard_factory=lambda config: FakeGuard(),
     )
+    install_test_auth(built)
 
     serialized = built.test_client().get("/api/system/status").data.decode("utf-8")
 

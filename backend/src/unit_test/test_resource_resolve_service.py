@@ -19,8 +19,8 @@ from backend.src.platform.resource_resolution import (
 from backend.src.platform.douyin.douyin_owner_url import extract_url
 from backend.src.service.resource_resolve import (
   MAX_BATCH_RESOURCES,
-  ResolveStore,
-  ResourceResolveService,
+  ResolveStore as ProductionResolveStore,
+  ResourceResolveService as ProductionResourceResolveService,
 )
 
 
@@ -29,6 +29,24 @@ from backend.src.service.resource_resolve import (
 ##
 SEC_UID = "MS4wLjABAAAAGZkW5n1EHZD_TFyQ-QiaISBPemtKFxVVdhLSeoXhh-U"
 AWEME_ID = "7657271784144009946"
+APP_USER_ID = 31
+
+
+class ResolveStore(ProductionResolveStore):
+  """Keeps pre-8B store tests concise while always assigning an owner."""
+
+  def put(self, resolution, app_user_id=APP_USER_ID):
+    return super().put(resolution, app_user_id)
+
+
+class ResourceResolveService(ProductionResourceResolveService):
+  """Existing parsing tests all run as the same authenticated user."""
+
+  def resolve(self, input_text, app_user_id=APP_USER_ID):
+    return super().resolve(input_text, app_user_id)
+
+  def resolve_many(self, input_text, app_user_id=APP_USER_ID):
+    return super().resolve_many(input_text, app_user_id)
 
 
 class ExtractUrlsTest(unittest.TestCase):
@@ -262,6 +280,14 @@ class ResolveStoreTest(unittest.TestCase):
   def test_an_unknown_id_is_simply_missing(self):
     """A browser may hold an id the store has since dropped; that is expected."""
     self.assertIsNone(ResolveStore().get("nope"))
+
+  def test_only_the_receipt_owner_can_read_it(self):
+    store = ResolveStore()
+    resolve_id = store.put(post_resolution(), app_user_id=41)
+
+    self.assertEqual(post_resolution(), store.get_for_user(resolve_id, 41))
+    self.assertIsNone(store.get_for_user(resolve_id, 42))
+    self.assertIsNone(store.get_for_user("unknown", 41))
 
   def test_reading_does_not_consume(self):
     """A retried click, or a second download of the same post, must both work.

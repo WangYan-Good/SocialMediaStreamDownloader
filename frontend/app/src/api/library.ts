@@ -4,6 +4,8 @@ import type {
   LibraryLivePage,
   LibraryPostFilters,
   LibraryPostPage,
+  LibraryRecordingFilters,
+  LibraryRecordingPage,
 } from '@/types/library'
 
 /**
@@ -50,6 +52,25 @@ export function listLibraryLives(
       q: filters.q,
       owner_user_id: filters.owner_user_id,
       person_id: filters.person_id,
+      sort: filters.sort,
+      order: filters.order,
+      page: filters.page,
+      page_size: filters.page_size,
+    },
+    ...(signal ? { signal } : {}),
+  })
+}
+
+/** One page of persistent recording resources, scoped by the server role. */
+export function listLibraryRecordings(
+  filters: LibraryRecordingFilters = {},
+  signal?: AbortSignal,
+): Promise<LibraryRecordingPage> {
+  return request<LibraryRecordingPage>('/library/recordings', {
+    query: {
+      q: filters.q,
+      owner_user_id: filters.owner_user_id,
+      protocol: filters.protocol,
       sort: filters.sort,
       order: filters.order,
       page: filters.page,

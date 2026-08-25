@@ -39,6 +39,7 @@ from backend.src.service.post_download_job import (
   PayloadCache,
   PostDownloadJobService,
 )
+from backend.src.web.auth_routes import require_admin, require_admin_csrf
 
 
 ##
@@ -309,6 +310,7 @@ def build_owner_blueprint(runtime: OwnerRuntime = None, task_service=None) -> Bl
     }
 
   @blueprint.route("/owner", methods=["GET"])
+  @require_admin
   def read_owner():
     url = (request.args.get("url") or "").strip()
     if not url:
@@ -357,6 +359,7 @@ def build_owner_blueprint(runtime: OwnerRuntime = None, task_service=None) -> Bl
     })
 
   @blueprint.route("/owner/posts", methods=["GET"])
+  @require_admin
   def read_owner_posts():
     sec_user_id = (request.args.get("sec_user_id") or "").strip()
     if not sec_user_id:
@@ -378,6 +381,7 @@ def build_owner_blueprint(runtime: OwnerRuntime = None, task_service=None) -> Bl
       return _error("读取作品列表失败，请稍后重试", 502)
 
   @blueprint.route("/owner/download", methods=["POST"])
+  @require_admin_csrf
   def start_owner_download():
     if not request.is_json:
       return _error("请求必须是 JSON 格式", 400)

@@ -14,6 +14,7 @@ import type { LibraryLive, LibraryPost } from '../../src/types/library'
 vi.mock('../../src/api/library', () => ({
   listLibraryPosts: vi.fn(),
   listLibraryLives: vi.fn(),
+  listLibraryRecordings: vi.fn(),
 }))
 vi.mock('../../src/api/people', () => ({
   listPeople: vi.fn(),

@@ -955,6 +955,29 @@ class TestRoleAuthorizationHelpers(unittest.TestCase):
     self.assertEqual(200, client.get("/role-probe").status_code)
     self.assertEqual(1, calls)
 
+  def test_role_changes_apply_to_the_same_session_on_the_next_request(self):
+    client, service = self.signed_in(auth_routes.require_admin, ROLE_USER)
+
+    self.assertEqual(403, client.get("/role-probe").status_code)
+    service.set_role("alice", ROLE_ADMIN)
+    self.assertEqual(200, client.get("/role-probe").status_code)
+    service.set_role("alice", ROLE_USER)
+    self.assertEqual(403, client.get("/role-probe").status_code)
+
+  def test_a_disabled_admin_cannot_keep_using_admin_capabilities(self):
+    client, service = self.signed_in(auth_routes.require_admin, ROLE_ADMIN)
+    service._repository.users[1]["is_active"] = False
+
+    self.assertEqual(401, client.get("/role-probe").status_code)
+
+  def test_a_disabled_user_cannot_keep_using_user_capabilities(self):
+    client, service = self.signed_in(
+      auth_routes.require_role(ROLE_USER), ROLE_USER
+    )
+    service._repository.users[1]["is_active"] = False
+
+    self.assertEqual(401, client.get("/role-probe").status_code)
+
 
 if __name__ == "__main__":
   unittest.main()

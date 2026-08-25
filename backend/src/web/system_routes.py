@@ -14,6 +14,7 @@ from backend.src.service.system_status import (
   build_safe_config_snapshot,
   describe_database,
 )
+from backend.src.web.auth_routes import require_admin
 
 
 ##
@@ -63,6 +64,7 @@ def build_system_blueprint() -> Blueprint:
   blueprint = Blueprint("system", __name__, url_prefix="/api")
 
   @blueprint.route("/system/status", methods=["GET"])
+  @require_admin
   def system_status():
     ##
     ## GET only, and there is no sibling route that writes. The configuration is

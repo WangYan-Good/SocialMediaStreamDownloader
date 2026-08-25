@@ -8,10 +8,9 @@ import { formatTimestamp } from '@/utils/time'
 import type { LibraryPost } from '@/types/library'
 
 //
-// The same rows the management table renders, with the columns that only mean
-// something to an operator left out: the aweme id, the account id, the save
-// directory, the fetch route and the person association. Nothing is
-// recalculated here - this is a narrower reading of identical data.
+// The USER endpoint already omits operator-only filing fields. This table uses
+// only that explicit safe contract; the aweme id remains an undisplayed stable
+// row key.
 //
 defineProps<{
   posts: LibraryPost[]

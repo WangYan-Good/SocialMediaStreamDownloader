@@ -50,7 +50,7 @@ class TestAuthorizationPolicyInventory(unittest.TestCase):
 
     self.assertEqual(len(keys), len(set(keys)))
     self.assertEqual(registered_api_routes(), policy_keys())
-    self.assertEqual(33, len(keys))
+    self.assertEqual(34, len(keys))
 
   def test_every_authenticated_unsafe_target_has_a_csrf_policy(self):
     for policy in AUTHORIZATION_POLICY:
@@ -61,12 +61,15 @@ class TestAuthorizationPolicyInventory(unittest.TestCase):
             {CsrfPolicy.REQUIRED, CsrfPolicy.SESSION_IF_PRESENT},
           )
 
-  def test_phase_8a_inventory_does_not_claim_enforcement(self):
-    self.assertFalse(BUSINESS_ENDPOINT_ENFORCEMENT_ENABLED)
+  def test_phase_8b_inventory_claims_real_enforcement(self):
+    self.assertTrue(BUSINESS_ENDPOINT_ENFORCEMENT_ENABLED)
 
-  def test_phase_8b_has_one_explicit_persistent_recording_read(self):
-    self.assertEqual(1, len(PHASE_8B_NEW_ENDPOINTS))
-    recording = PHASE_8B_NEW_ENDPOINTS[0]
+  def test_persistent_recording_read_is_now_a_real_route(self):
+    self.assertEqual(0, len(PHASE_8B_NEW_ENDPOINTS))
+    recording = next(
+      one for one in AUTHORIZATION_POLICY
+      if one.key == ("GET", "/api/library/recordings")
+    )
     self.assertEqual(("GET", "/api/library/recordings"), recording.key)
     self.assertEqual(TargetPrincipal.ROLE_SCOPED, recording.target_principal)
     self.assertIn("recordings_for_user", recording.phase_8b_action)

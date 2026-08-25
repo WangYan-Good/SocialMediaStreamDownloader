@@ -16,31 +16,33 @@ These are four separate facts:
 existing session on its next request. A disabled account remains unable to
 authenticate regardless of role.
 
-## Phase 8A boundary
+## Enforced backend boundary
 
-Phase 8A provides the role schema, operator provisioning, role-aware principal,
-reusable `require_role` / `require_admin` helpers, and an authorization policy
-inventory. It does **not** apply role enforcement to existing business APIs and
-does not add frontend route guards. The presence of a role field must not be
-read as completed security isolation.
+The backend enforces role and ownership on every business API. Frontend route
+guards and role-based navigation remain UX work; they are not a security
+boundary.
 
 The canonical, route-complete policy matrix is
 `backend/src/auth/policy.py`. Every entry records:
 
-`METHOD | PATH | CURRENT | TARGET PRINCIPAL | DATA SCOPE | CSRF | PHASE 8B ACTION`
+`METHOD | PATH | CURRENT | PRINCIPAL | DATA SCOPE | CSRF | ENFORCEMENT`
 
 A unit test compares that inventory with every registered `/api` method/path;
 adding a route without classifying it fails CI.
 
-The target policy groups are:
+The actual policy groups are:
 
 | Target | Routes / scope |
 | --- | --- |
 | Public | Login; anonymous-idempotent logout semantics; SPA shell, assets, and compatibility redirects |
 | Authenticated user/admin | Current principal, resolve/batch resolve, and task creation |
-| Role-scoped shared | Task list/detail and downloaded posts: user owns-only, admin global |
+| Role-scoped shared | Task list/detail, downloaded posts, and persistent recordings: user owns-only, admin global |
 | Admin | Person, owner, history, live probe, system status, and global live observations |
-| Phase 8B addition | `GET /api/library/recordings`: user persistent recordings only, admin global |
+
+Resolve receipts are process-local and bound to the `app_user` that created
+them. A receipt owned by another user is indistinguishable from an unknown or
+expired receipt. User Task and Post responses use explicit safe serializers;
+recording responses never expose `output_path`.
 
 The deployment health check uses `/`, not `/api/system/status`. The SPA shell
 and build assets must remain available without authentication even when the

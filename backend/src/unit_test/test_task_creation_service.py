@@ -11,7 +11,7 @@ from backend.src.service.task_creation import (
   ResolutionNotFound,
   TaskCreateError,
   TaskCreationResult,
-  TaskCreationService,
+  TaskCreationService as ProductionTaskCreationService,
   TaskCreationUnavailable,
   UnknownTaskType,
   UnsupportedTaskForResource,
@@ -89,16 +89,43 @@ EVERY_TASK_TYPE = (
   TASK_TYPE_LIVE_PROBE,
 )
 
+APP_USER_ID = 31
+
+
+class TaskCreationService(ProductionTaskCreationService):
+  """Runs the existing creation matrix as one authenticated test user."""
+
+  def create(
+    self,
+    resolve_id,
+    task_type,
+    options=None,
+    *,
+    app_user_id=APP_USER_ID,
+  ):
+    return super().create(
+      resolve_id,
+      task_type,
+      options,
+      app_user_id=app_user_id,
+    )
+
 
 class RecordingResolveService:
   """Stands in for the app's ResourceResolveService, recording every lookup."""
 
-  def __init__(self, receipts=None):
+  def __init__(self, receipts=None, owners=None):
     self.receipts = dict(receipts or {})
+    self.owners = dict(owners or {})
     self.gets = []
+    self.app_user_ids = []
 
-  def get(self, resolve_id):
+  def get_for_user(self, resolve_id, app_user_id):
     self.gets.append(resolve_id)
+    self.app_user_ids.append(app_user_id)
+    owner = self.owners.get(resolve_id, app_user_id)
+    if owner != app_user_id:
+      return None
     return self.receipts.get(resolve_id)
 
 
@@ -223,6 +250,21 @@ class ReceiptTest(unittest.TestCase):
     service.create("R", TASK_TYPE_POST_DOWNLOAD, {})
 
     self.assertEqual(resolve_service.gets, ["R"])
+    self.assertEqual(resolve_service.app_user_ids, [APP_USER_ID])
+
+  def test_another_users_receipt_is_indistinguishable_from_a_miss(self):
+    resolve_service = RecordingResolveService(
+      {"R": post_resolution()}, owners={"R": 72}
+    )
+    service = TaskCreationService(
+      resolve_service=resolve_service,
+      direct_post_service=RecordingRunner(),
+    )
+
+    with self.assertRaises(ResolutionNotFound):
+      service.create(
+        "R", TASK_TYPE_POST_DOWNLOAD, {}, app_user_id=71
+      )
 
   def test_the_receipt_is_not_consumed(self):
     """P5's store is non-destructive and P6 must keep it that way."""
@@ -459,6 +501,7 @@ class TrustedExecutionInputTest(unittest.TestCase):
         "resolved_url": POST_URL,
         "source_url": SHORT_LINK,
         "resolve_id": "R",
+        "app_user_id": APP_USER_ID,
       },
     )
 
@@ -478,7 +521,12 @@ class TrustedExecutionInputTest(unittest.TestCase):
 
     self.assertEqual(
       live.calls[0],
-      {"resolved_url": LIVE_URL, "source_url": SHORT_LINK, "resolve_id": "R"},
+      {
+        "resolved_url": LIVE_URL,
+        "source_url": SHORT_LINK,
+        "resolve_id": "R",
+        "app_user_id": APP_USER_ID,
+      },
     )
 
   def test_an_owner_walk_runs_against_the_trusted_sec_user_id(self):
@@ -493,6 +541,7 @@ class TrustedExecutionInputTest(unittest.TestCase):
         "resolved_url": OWNER_URL,
         "source_url": SHORT_LINK,
         "resolve_id": "R",
+        "app_user_id": APP_USER_ID,
       },
     )
 

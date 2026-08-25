@@ -1,6 +1,7 @@
 import unittest
 
 from flask import Flask
+from backend.src.unit_test.auth_context import install_test_auth
 
 from backend.src.platform.douyin.douyin_owner_detail import OwnerDetail
 from backend.src.platform.douyin.douyin_session import (
@@ -125,6 +126,7 @@ class StubRuntime(OwnerRuntime):
 
 def build_client(runtime):
   app = Flask(__name__)
+  install_test_auth(app)
   app.register_blueprint(build_owner_blueprint(runtime))
   app.config["TESTING"] = True
   return app.test_client()
@@ -448,6 +450,7 @@ class RetiredDownloadProgressTest(unittest.TestCase):
     runtime = StubRuntime()
     patch_fetchers(self, runtime)
     app = Flask(__name__)
+    install_test_auth(app)
     app.register_blueprint(build_owner_blueprint(runtime))
 
     rules = list(app.url_map.iter_rules())

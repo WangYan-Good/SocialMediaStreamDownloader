@@ -16,13 +16,20 @@ from backend.src.database.query.library import (
   LibraryFilterError,
   LibraryLiveFilter,
   LibraryPostFilter,
+  LibraryRecordingFilter,
   LibraryQuery,
   MAX_PAGE_SIZE,
 )
+from backend.src.auth.roles import ROLE_ADMIN
 from backend.src.database.table.share_url import DouyinShareUrlTable
 from backend.src.library.baselib import get_dict_attr
 from backend.src.library.configlib import load_config
 from backend.src.library.loglib import get_logger
+from backend.src.web.auth_routes import (
+  require_admin,
+  require_authenticated,
+  request_auth_context,
+)
 
 
 class LibraryUnavailable(RuntimeError):
@@ -64,6 +71,22 @@ def _serialize_post(row: dict) -> dict:
   }
 
 
+def _serialize_user_post(row: dict) -> dict:
+  """The downloaded work as a user resource, without filing internals."""
+  return {
+    "platform": row.get("platform"),
+    # Retained only as the stable key of an existing database resource.
+    "aweme_id": row.get("aweme_id"),
+    "nickname": row.get("nickname"),
+    "aweme_type": row.get("aweme_type"),
+    "desc": row.get("desc"),
+    "create_time": _isoformat(row.get("create_time")),
+    "downloaded_at": _isoformat(row.get("downloaded_at")),
+    "media_count": row.get("media_count"),
+    "saved_count": row.get("saved_count"),
+  }
+
+
 def _serialize_live(row: dict) -> dict:
   ##
   ## No output path.  live_record has no such column, and deriving one from the
@@ -84,6 +107,20 @@ def _serialize_live(row: dict) -> dict:
     "start_time": _isoformat(row.get("start_time")),
     "finish_time": _isoformat(row.get("finish_time")),
     "status_code": row.get("status_code"),
+  }
+
+
+def _serialize_recording(row: dict) -> dict:
+  """Persistent recording metadata safe for both USER and ADMIN lists."""
+  return {
+    "recording_id": row.get("recording_id"),
+    "platform": row.get("platform"),
+    "room_id": row.get("room_id"),
+    "title": row.get("title"),
+    "nickname": row.get("nickname"),
+    "started_at": _isoformat(row.get("started_at")),
+    "finished_at": _isoformat(row.get("finished_at")),
+    "created_at": _isoformat(row.get("created_at")),
   }
 
 
@@ -153,12 +190,21 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
   blueprint = Blueprint("library", __name__, url_prefix="/api")
 
   @blueprint.route("/library/posts", methods=["GET"])
+  @require_authenticated
   def list_posts():
     try:
       post_filter = LibraryPostFilter.from_mapping(
         request.args, runtime.page_size_limit()
       )
-      page = runtime.query().posts(post_filter)
+      context = request_auth_context()
+      if context.user.role == ROLE_ADMIN:
+        page = runtime.query().posts(post_filter)
+        serializer = _serialize_post
+      else:
+        page = runtime.query().posts_for_user(
+          context.user.user_id, post_filter
+        )
+        serializer = _serialize_user_post
     except LibraryFilterError as e:
       return _error(str(e), 400)
     except LibraryUnavailable as e:
@@ -177,11 +223,43 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
         "total": page.total,
         "page": page.page,
         "page_size": page.page_size,
-        "items": [_serialize_post(row) for row in page.items],
+        "items": [serializer(row) for row in page.items],
+      }
+    )
+
+  @blueprint.route("/library/recordings", methods=["GET"])
+  @require_authenticated
+  def list_recordings():
+    try:
+      recording_filter = LibraryRecordingFilter.from_mapping(
+        request.args, runtime.page_size_limit()
+      )
+      context = request_auth_context()
+      if context.user.role == ROLE_ADMIN:
+        page = runtime.query().recordings(recording_filter)
+      else:
+        page = runtime.query().recordings_for_user(
+          context.user.user_id, recording_filter
+        )
+    except LibraryFilterError as e:
+      return _error(str(e), 400)
+    except LibraryUnavailable as e:
+      return _error(str(e), 503)
+    except Exception as e:
+      get_logger().error("library recording listing failed: {}".format(e))
+      return _error("服务器内部错误，请稍后重试", 500)
+
+    return _success(
+      {
+        "total": page.total,
+        "page": page.page,
+        "page_size": page.page_size,
+        "items": [_serialize_recording(row) for row in page.items],
       }
     )
 
   @blueprint.route("/library/lives", methods=["GET"])
+  @require_admin
   def list_lives():
     try:
       live_filter = LibraryLiveFilter.from_mapping(

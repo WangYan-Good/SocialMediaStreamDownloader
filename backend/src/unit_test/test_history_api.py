@@ -2,6 +2,7 @@ import unittest
 from datetime import datetime
 
 from flask import Flask
+from backend.src.unit_test.auth_context import install_test_auth
 
 from backend.src.database.query.owner_history import OwnerHistoryPage
 from backend.src.database.schema_guard import DatabaseWriteBlocked
@@ -107,6 +108,7 @@ class FakeRuntime:
 
 def build_client(runtime):
   app = Flask(__name__)
+  install_test_auth(app)
   app.register_blueprint(build_history_blueprint(runtime))
   return app.test_client()
 

@@ -10,7 +10,7 @@
 //
 
 /** Which of the two record kinds a row is. */
-export type LibraryKind = 'post' | 'live'
+export type LibraryKind = 'post' | 'live' | 'recording'
 
 /** What the downloader writes into `aweme_record.aweme_type`. */
 export type LibraryAwemeType = 'video' | 'image'
@@ -30,16 +30,17 @@ export type LibraryCompletion = 'complete' | 'partial'
 export interface LibraryPost {
   platform: string
   aweme_id: string
-  owner_user_id: string | null
-  sec_user_id: string | null
+  // Management-only filing fields are absent from USER responses.
+  owner_user_id?: string | null
+  sec_user_id?: string | null
   nickname: string | null
-  directory_name: string | null
+  directory_name?: string | null
   //
   // Null for the majority of rows: most downloaded accounts have never been
   // attached to a person, and they belong in the library all the same.
   //
-  person_id: number | null
-  person_display_name: string | null
+  person_id?: number | null
+  person_display_name?: string | null
   aweme_type: LibraryAwemeType | null
   desc: string | null
   create_time: string | null
@@ -51,8 +52,8 @@ export interface LibraryPost {
   // never an image source: this application does not serve files, and a path
   // the browser could act on would be exactly that.
   //
-  save_dir: string | null
-  source: LibrarySource | null
+  save_dir?: string | null
+  source?: LibrarySource | null
 }
 
 export interface LibraryPostPage {
@@ -108,6 +109,35 @@ export interface LibraryLiveFilters {
   owner_user_id?: string
   person_id?: number
   sort?: 'observed_at' | 'start_time' | 'finish_time' | 'nickname'
+  order?: 'asc' | 'desc'
+  page?: number
+  page_size?: number
+}
+
+/** One completed or persisted recording resource owned by an app user. */
+export interface LibraryRecording {
+  recording_id: string
+  platform: string
+  room_id: string
+  title: string | null
+  nickname: string | null
+  started_at: string | null
+  finished_at: string | null
+  created_at: string
+}
+
+export interface LibraryRecordingPage {
+  total: number
+  page: number
+  page_size: number
+  items: LibraryRecording[]
+}
+
+export interface LibraryRecordingFilters {
+  q?: string
+  owner_user_id?: string
+  protocol?: 'flv' | 'hls'
+  sort?: 'finished_at' | 'started_at' | 'created_at' | 'title' | 'nickname'
   order?: 'asc' | 'desc'
   page?: number
   page_size?: number

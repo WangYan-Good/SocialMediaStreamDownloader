@@ -2,13 +2,19 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import { ApiError } from '@/api/client'
-import { listLibraryLives, listLibraryPosts } from '@/api/library'
+import {
+  listLibraryLives,
+  listLibraryPosts,
+  listLibraryRecordings,
+} from '@/api/library'
 import { getPersonWorks, listPeople } from '@/api/people'
 import type {
   LibraryLive,
   LibraryLiveFilters,
   LibraryPost,
   LibraryPostFilters,
+  LibraryRecording,
+  LibraryRecordingFilters,
 } from '@/types/library'
 import type { PersonSummaryItem, PersonWork } from '@/types/person'
 
@@ -66,6 +72,24 @@ export const useLibraryStore = defineStore('library', () => {
   let liveGeneration = 0
   let liveInFlight: AbortController | null = null
 
+  // Persistent recordings are user resources. They never share the Admin
+  // live-observation state above because the rows have different meanings.
+  const recordings = ref<LibraryRecording[]>([])
+  const recordingTotal = ref(0)
+  const recordingPage = ref(1)
+  const recordingPageSize = ref(25)
+  const recordingFilters = ref<LibraryRecordingFilters>({
+    sort: 'finished_at',
+    order: 'desc',
+  })
+  const recordingLoading = ref(false)
+  const recordingError = ref<string | null>(null)
+  const hasLoadedRecordings = ref(false)
+  const selectedRecordingId = ref<string | null>(null)
+
+  let recordingGeneration = 0
+  let recordingInFlight: AbortController | null = null
+
   //
   // The person list, used only to populate a filter and a photographer picker.
   //
@@ -102,6 +126,11 @@ export const useLibraryStore = defineStore('library', () => {
       ? Math.max(1, Math.ceil(liveTotal.value / livePageSize.value))
       : 1,
   )
+  const recordingPageCount = computed(() =>
+    recordingPageSize.value > 0
+      ? Math.max(1, Math.ceil(recordingTotal.value / recordingPageSize.value))
+      : 1,
+  )
 
   /** The database's own key for a post: one platform, one id. */
   function postKey(item: LibraryPost): string {
@@ -118,6 +147,11 @@ export const useLibraryStore = defineStore('library', () => {
   )
   const selectedLive = computed(
     () => lives.value.find((one) => liveKey(one) === selectedLiveKey.value) ?? null,
+  )
+  const selectedRecording = computed(
+    () =>
+      recordings.value.find((one) => one.recording_id === selectedRecordingId.value) ??
+      null,
   )
 
   async function loadPosts(): Promise<void> {
@@ -214,6 +248,42 @@ export const useLibraryStore = defineStore('library', () => {
     }
   }
 
+  async function loadRecordings(): Promise<void> {
+    const mine = ++recordingGeneration
+    recordingInFlight?.abort()
+    const controller = new AbortController()
+    recordingInFlight = controller
+    recordingLoading.value = true
+
+    try {
+      const answer = await listLibraryRecordings(
+        { ...recordingFilters.value, page: recordingPage.value },
+        controller.signal,
+      )
+      if (mine !== recordingGeneration) return
+      recordings.value = answer.items
+      recordingTotal.value = answer.total
+      recordingPage.value = answer.page
+      recordingPageSize.value = answer.page_size
+      hasLoadedRecordings.value = true
+      recordingError.value = null
+      if (
+        selectedRecordingId.value !== null &&
+        !answer.items.some((one) => one.recording_id === selectedRecordingId.value)
+      ) {
+        selectedRecordingId.value = null
+      }
+    } catch (caught) {
+      if (mine !== recordingGeneration) return
+      recordingError.value = describe(caught, '直播记录暂时无法读取')
+    } finally {
+      if (mine === recordingGeneration) {
+        recordingLoading.value = false
+        recordingInFlight = null
+      }
+    }
+  }
+
   return {
     posts,
     postTotal,
@@ -284,6 +354,36 @@ export const useLibraryStore = defineStore('library', () => {
 
     selectLive(key: string | null): void {
       selectedLiveKey.value = key
+    },
+
+    recordings,
+    recordingTotal,
+    recordingPage,
+    recordingPageSize,
+    recordingFilters,
+    recordingLoading,
+    recordingError,
+    hasLoadedRecordings,
+    selectedRecordingId,
+    selectedRecording,
+    recordingPageCount,
+    loadRecordings,
+
+    async setRecordingFilters(next: Partial<LibraryRecordingFilters>): Promise<void> {
+      recordingFilters.value = { ...recordingFilters.value, ...next }
+      recordingPage.value = 1
+      selectedRecordingId.value = null
+      await loadRecordings()
+    },
+
+    async goToRecordingPage(next: number): Promise<void> {
+      recordingPage.value = Math.max(1, next)
+      selectedRecordingId.value = null
+      await loadRecordings()
+    },
+
+    selectRecording(recordingId: string | null): void {
+      selectedRecordingId.value = recordingId
     },
 
     peopleOptions,

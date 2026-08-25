@@ -2,14 +2,23 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiError } from '../../src/api/client'
-import { listLibraryLives, listLibraryPosts } from '../../src/api/library'
+import {
+  listLibraryLives,
+  listLibraryPosts,
+  listLibraryRecordings,
+} from '../../src/api/library'
 import { getPersonWorks, listPeople } from '../../src/api/people'
 import { useLibraryStore } from '../../src/stores/library'
-import type { LibraryLive, LibraryPost } from '../../src/types/library'
+import type {
+  LibraryLive,
+  LibraryPost,
+  LibraryRecording,
+} from '../../src/types/library'
 
 vi.mock('../../src/api/library', () => ({
   listLibraryPosts: vi.fn(),
   listLibraryLives: vi.fn(),
+  listLibraryRecordings: vi.fn(),
 }))
 vi.mock('../../src/api/people', () => ({
   listPeople: vi.fn(),
@@ -18,6 +27,7 @@ vi.mock('../../src/api/people', () => ({
 
 const mockedPosts = vi.mocked(listLibraryPosts)
 const mockedLives = vi.mocked(listLibraryLives)
+const mockedRecordings = vi.mocked(listLibraryRecordings)
 const mockedPeople = vi.mocked(listPeople)
 const mockedWorks = vi.mocked(getPersonWorks)
 
@@ -70,6 +80,24 @@ function livePage(items: LibraryLive[], total = items.length, page = 1) {
   return { total, page, page_size: 25, items }
 }
 
+function recording(overrides: Partial<LibraryRecording> = {}): LibraryRecording {
+  return {
+    recording_id: 'rec-1',
+    platform: 'douyin',
+    room_id: '7123',
+    nickname: '主播',
+    title: '晚间直播',
+    started_at: null,
+    finished_at: null,
+    created_at: '2026-08-15T09:30:15.250',
+    ...overrides,
+  }
+}
+
+function recordingPage(items: LibraryRecording[], total = items.length, page = 1) {
+  return { total, page, page_size: 25, items }
+}
+
 function deferred<T>() {
   let settle: (value: T) => void = () => {}
   let fail: (reason: unknown) => void = () => {}
@@ -98,6 +126,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockedPosts.mockResolvedValue(postPage([]))
   mockedLives.mockResolvedValue(livePage([]))
+  mockedRecordings.mockResolvedValue(recordingPage([]))
   mockedPeople.mockResolvedValue([])
   mockedWorks.mockResolvedValue([])
 })
@@ -291,6 +320,21 @@ describe('a page of live records', () => {
 
     expect(store.lives.map((one) => one.room_id)).toEqual(['new'])
     expect(store.liveTotal).toBe(2)
+  })
+})
+
+describe('persistent recording state', () => {
+  it('is loaded independently from Admin live observations', async () => {
+    mockedLives.mockResolvedValue(livePage([live()]))
+    mockedRecordings.mockResolvedValue(recordingPage([recording()]))
+    const store = useLibraryStore()
+
+    await store.loadRecordings()
+
+    expect(store.recordings).toHaveLength(1)
+    expect(store.lives).toHaveLength(0)
+    expect(mockedRecordings).toHaveBeenCalledTimes(1)
+    expect(mockedLives).not.toHaveBeenCalled()
   })
 })
 

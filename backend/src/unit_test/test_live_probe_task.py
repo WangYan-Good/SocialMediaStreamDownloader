@@ -1,4 +1,5 @@
 import unittest
+from backend.src.unit_test.auth_context import install_test_auth
 from datetime import datetime
 
 from backend.src.service.live_probe import (
@@ -927,6 +928,8 @@ class ProbeTaskApiTest(unittest.TestCase):
     from backend.src.web.task_routes import build_task_blueprint, install_task_service
 
     app = Flask(__name__)
+
+    install_test_auth(app)
     tasks = install_task_service(app)
     probe = build_service(
       FakeProber(),

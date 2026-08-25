@@ -19,6 +19,11 @@ from backend.src.service.person_assignment import (
   PersonAssignmentError,
   PersonAssignmentService,
 )
+from backend.src.web.auth_routes import (
+  request_auth_context,
+  require_admin,
+  require_admin_csrf,
+)
 
 
 
@@ -243,6 +248,7 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
     return value
 
   @blueprint.route("/person", methods=["GET"])
+  @require_admin
   def list_people():
     try:
       persons = runtime.table().list_persons()
@@ -252,6 +258,7 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
     return _ok({"persons": persons})
 
   @blueprint.route("/person", methods=["POST"])
+  @require_admin_csrf
   def create_person():
     body = _payload()
     if body is None:
@@ -273,6 +280,7 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
     return _ok({"person_id": person_id})
 
   @blueprint.route("/person/<int:person_id>", methods=["PATCH"])
+  @require_admin_csrf
   def update_person(person_id: int):
     body = _payload()
     if body is None:
@@ -298,6 +306,7 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
     return _ok({"person_id": person_id})
 
   @blueprint.route("/person/<int:person_id>", methods=["DELETE"])
+  @require_admin_csrf
   def delete_person(person_id: int):
     try:
       runtime.table().delete_person(person_id)
@@ -307,6 +316,7 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
     return _ok({"person_id": person_id})
 
   @blueprint.route("/person/<int:person_id>/detail", methods=["GET"])
+  @require_admin
   def person_detail(person_id: int):
     """Everything about one person: accounts, counts, and both sides of the
     collaboration relation.
@@ -329,6 +339,7 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
     return _ok(data)
 
   @blueprint.route("/person/<int:person_id>/works", methods=["GET"])
+  @require_admin
   def works_by_photographer(person_id: int):
     try:
       works = runtime.table().list_works_by_photographer(person_id)
@@ -338,6 +349,7 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
     return _ok({"works": [_serialize_work(work) for work in works]})
 
   @blueprint.route("/person/accounts", methods=["GET"])
+  @require_admin
   def search_accounts():
     keyword = (request.args.get("keyword") or "").strip()
     if not keyword:
@@ -350,6 +362,7 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
     return _ok({"accounts": accounts})
 
   @blueprint.route("/person/account", methods=["POST"])
+  @require_admin_csrf
   def attach_account():
     body = _payload()
     if body is None:
@@ -392,6 +405,7 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
     })
 
   @blueprint.route("/person/account/by-link", methods=["POST"])
+  @require_admin_csrf
   def attach_account_by_link():
     """Attach an account named by a share link, downloaded or not.
 
@@ -470,6 +484,7 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
     })
 
   @blueprint.route("/person/assignment", methods=["POST"])
+  @require_admin_csrf
   def assign_account():
     """Paste a link, and end up with one person holding one more account.
 
@@ -502,7 +517,9 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
       ## Handed over whole.  Validating it here as well as in the service is how
       ## the two come to disagree, and the disagreement would be a hole.
       ##
-      result = service.assign(body)
+      result = service.assign(
+        body, app_user_id=request_auth_context().user.user_id
+      )
     except PersonAssignmentError as e:
       ##
       ## The category, never the request.  A refusal has to be diagnosable from
@@ -536,6 +553,7 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
     })
 
   @blueprint.route("/person/inspect", methods=["POST"])
+  @require_admin_csrf
   def inspect_assignment():
     """Say what a pasted link turns out to be, and whether we already have it.
 
@@ -575,7 +593,9 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
       ## dropped, because dropping it answers as though the request had said
       ## something else.
       ##
-      found = service.inspect(body)
+      found = service.inspect(
+        body, app_user_id=request_auth_context().user.user_id
+      )
     except PersonAssignmentError as e:
       ##
       ## The category, never the request.  A resolve id names a link somebody
@@ -620,6 +640,7 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
     })
 
   @blueprint.route("/person/account", methods=["DELETE"])
+  @require_admin_csrf
   def detach_account():
     owner_user_id = (request.args.get("owner_user_id") or "").strip()
     if not owner_user_id:
@@ -643,6 +664,7 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
     return _ok({"owner_user_id": owner_user_id})
 
   @blueprint.route("/person/collaboration", methods=["POST"])
+  @require_admin_csrf
   def add_collaboration():
     body = _payload()
     if body is None:
@@ -663,6 +685,7 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
     return _ok({"photographer_id": photographer_id, "subject_id": subject_id})
 
   @blueprint.route("/person/collaboration", methods=["DELETE"])
+  @require_admin_csrf
   def remove_collaboration():
     photographer_id = request.args.get("photographer_id")
     subject_id = request.args.get("subject_id")

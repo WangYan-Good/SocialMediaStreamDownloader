@@ -126,3 +126,15 @@ describe('the smoke and the router cannot drift apart', () => {
     expect(missing).toEqual([])
   })
 })
+
+describe('the runtime smoke follows the protected API contract', () => {
+  it('expects anonymous business reads to be unauthorized', () => {
+    expect(workflow).toContain('expect "/api/auth/me" 401')
+    expect(workflow).toContain('expect "/api/tasks?limit=1" 401')
+    expect(workflow).toContain('expect "/api/system/status" 401')
+  })
+
+  it('does not use system status as an anonymous health endpoint', () => {
+    expect(workflow).not.toContain('database disabled")')
+  })
+})

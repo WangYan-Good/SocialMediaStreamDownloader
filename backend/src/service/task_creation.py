@@ -183,13 +183,13 @@ class TaskCreationService:
       raise UnknownTaskType("不支持的任务类型: {!r}".format(task_type))
     return task_type
 
-  def _resolution(self, resolve_id: str):
+  def _resolution(self, resolve_id: str, app_user_id: int):
     ##
     ## Read once, here.  Everything downstream works off this one detached
     ## snapshot, so a receipt expiring mid-request cannot fail a creation that
     ## was already accepted on a valid resolution.
     ##
-    resolution = self._resolve_service.get(resolve_id)
+    resolution = self._resolve_service.get_for_user(resolve_id, app_user_id)
     if resolution is None:
       raise ResolutionNotFound("解析结果不存在或已过期，请重新解析")
     return resolution
@@ -292,14 +292,16 @@ class TaskCreationService:
 ## >>============================= sub class method =============================>>
 ##
   def create(self, resolve_id: str, task_type: str, options: dict = None,
-             app_user_id=None):
+             *, app_user_id: int):
     """Start the work ``task_type`` names for the resource ``resolve_id`` named.
 
     Raises a ``TaskCreateError`` for every expected refusal, each carrying the
     status the api answers with.
     """
     task_type = self._validated_task_type(task_type)
-    resolution = self._resolution(resolve_id)
+    if type(app_user_id) is not int or app_user_id < 1:
+      raise ValueError("app_user_id must be a positive integer")
+    resolution = self._resolution(resolve_id, app_user_id)
 
     allowed = _ALLOWED_TASK_TYPE.get(resolution.resource_type)
     if allowed is None or allowed != task_type:

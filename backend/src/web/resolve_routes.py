@@ -5,6 +5,10 @@ from flask import Blueprint, current_app, jsonify, request
 from backend.src.library.loglib import get_logger
 from backend.src.platform.resource_resolution import ResourceResolveError
 from backend.src.service.resource_resolve import ResourceResolveService
+from backend.src.web.auth_routes import (
+  require_authenticated_csrf,
+  request_auth_context,
+)
 
 
 ##
@@ -74,6 +78,7 @@ def build_resolve_blueprint(service: ResourceResolveService = None) -> Blueprint
   blueprint = Blueprint("resolve", __name__, url_prefix="/api")
 
   @blueprint.route("/resolve", methods=["POST"])
+  @require_authenticated_csrf
   def resolve_resource():
     active = service if service is not None else resolve_service()
     if active is None:
@@ -86,7 +91,9 @@ def build_resolve_blueprint(service: ResourceResolveService = None) -> Blueprint
       return _error("请求体为空或格式错误", 400)
 
     try:
-      record = active.resolve(payload.get("input"))
+      record = active.resolve(
+        payload.get("input"), request_auth_context().user.user_id
+      )
     except ResourceResolveError as e:
       ##
       ## The category, never the input.  A resolve failure has to be
@@ -111,6 +118,7 @@ def build_resolve_blueprint(service: ResourceResolveService = None) -> Blueprint
     return _success(_serialize(record, int(active.retention_seconds)))
 
   @blueprint.route("/resolve/batch", methods=["POST"])
+  @require_authenticated_csrf
   def resolve_resources():
     active = service if service is not None else resolve_service()
     if active is None:
@@ -123,7 +131,9 @@ def build_resolve_blueprint(service: ResourceResolveService = None) -> Blueprint
       return _error("请求体为空或格式错误", 400)
 
     try:
-      batch = active.resolve_many(payload.get("input"))
+      batch = active.resolve_many(
+        payload.get("input"), request_auth_context().user.user_id
+      )
     except ResourceResolveError as e:
       get_logger().info("batch resolve refused: {}".format(e.kind))
       return _error(str(e), e.status_code)

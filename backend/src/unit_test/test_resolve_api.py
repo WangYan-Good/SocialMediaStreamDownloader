@@ -1,8 +1,11 @@
 import unittest
 from unittest.mock import patch
 
-from flask import Flask
+from flask import Flask, g
 
+from backend.src.auth.context import RequestAuthContext
+from backend.src.auth.roles import ROLE_USER
+from backend.src.auth.service import AuthenticatedUser
 from backend.src.platform.resource_resolution import (
   RESOURCE_TYPE_LIVE,
   RESOURCE_TYPE_OWNER,
@@ -17,6 +20,7 @@ from backend.src.service.resource_resolve import (
   ResolveStore,
   ResourceResolveService,
 )
+from backend.src.unit_test.auth_context import install_test_auth
 from backend.src.web.resolve_routes import (
   RESOLVE_SERVICE_KEY,
   build_resolve_blueprint,
@@ -92,6 +96,7 @@ def build_app(resolver=None, service=None, retention_seconds=600.0):
     )
   app = Flask(__name__)
   app.config["TESTING"] = True
+  install_test_auth(app)
   install_resolve_service(app, service)
   app.register_blueprint(build_resolve_blueprint())
   return app, service
@@ -136,6 +141,74 @@ class ResolveSuccessTest(unittest.TestCase):
     self.assertEqual(data["identity"], {"aweme_id": AWEME_ID})
     self.assertEqual(data["expires_in_seconds"], 600)
     self.assertTrue(data["resolve_id"])
+
+
+class ResolveAuthorizationTest(unittest.TestCase):
+  def app_for(self, context):
+    service = ResourceResolveService(
+      resolvers=(StubResolver({SHORT_LINK: resolution()}),)
+    )
+    app = Flask(__name__)
+
+    @app.before_request
+    def request_identity():
+      g.auth_context = context
+
+    install_resolve_service(app, service)
+    app.register_blueprint(build_resolve_blueprint())
+    return app, service
+
+  def test_anonymous_single_and_batch_resolve_are_401(self):
+    app, service = self.app_for(RequestAuthContext.anonymous())
+    client = app.test_client()
+
+    self.assertEqual(401, client.post("/api/resolve", json={}).status_code)
+    self.assertEqual(401, client.post("/api/resolve/batch", json={}).status_code)
+    self.assertEqual(0, service._store.tracked())
+
+  def test_authenticated_resolve_requires_csrf_before_resolving(self):
+    user = AuthenticatedUser(71, "alice", ROLE_USER)
+    app, service = self.app_for(
+      RequestAuthContext.authenticated(user, csrf_expected="proof")
+    )
+
+    response = app.test_client().post(
+      "/api/resolve", json={"input": SHORT_LINK}
+    )
+
+    self.assertEqual(403, response.status_code)
+    self.assertEqual("csrf_invalid", response.get_json()["kind"])
+    self.assertEqual(0, service._store.tracked())
+
+  def test_authenticated_resolve_binds_receipt_to_context_user(self):
+    user = AuthenticatedUser(71, "alice", ROLE_USER)
+    app, service = self.app_for(
+      RequestAuthContext.authenticated(user, csrf_expected="proof")
+    )
+
+    response = app.test_client().post(
+      "/api/resolve",
+      json={"input": SHORT_LINK},
+      headers={"X-CSRF-Token": "proof"},
+    )
+    resolve_id = response.get_json()["data"]["resolve_id"]
+
+    self.assertIsNotNone(service.get_for_user(resolve_id, 71))
+    self.assertIsNone(service.get_for_user(resolve_id, 72))
+
+  def test_auth_unavailable_fails_closed_without_resolving(self):
+    app, service = self.app_for(
+      RequestAuthContext.unavailable(csrf_expected="proof")
+    )
+
+    response = app.test_client().post(
+      "/api/resolve",
+      json={"input": SHORT_LINK},
+      headers={"X-CSRF-Token": "proof"},
+    )
+
+    self.assertEqual(503, response.status_code)
+    self.assertEqual(0, service._store.tracked())
 
   def test_the_answer_carries_exactly_the_documented_fields(self):
     """No extras: every field here becomes something the frontend depends on."""
@@ -390,6 +463,7 @@ class BatchResolveApiTest(unittest.TestCase):
 
   def test_missing_service_and_unexpected_failure_are_503_and_generic_500(self):
     missing = Flask(__name__)
+    install_test_auth(missing)
     missing.register_blueprint(build_resolve_blueprint())
 
     class BrokenService:
@@ -507,6 +581,7 @@ class ResolveWiringTest(unittest.TestCase):
     """Registering the blueprint without wiring is a deployment bug, not a 500."""
     app = Flask(__name__)
     app.config["TESTING"] = True
+    install_test_auth(app)
     app.register_blueprint(build_resolve_blueprint())
 
     response = app.test_client().post("/api/resolve", json={"input": SHORT_LINK})
@@ -656,10 +731,11 @@ class ApplicationFactoryTest(unittest.TestCase):
     import server
     from backend.src.unit_test.config_fixture import unified_config
 
-    return server.create_app(
+    app = server.create_app(
       config=unified_config(),
       schema_guard_factory=lambda config: object(),
     )
+    return install_test_auth(app)
 
   def test_a_configured_app_carries_one_resolve_service(self):
     app = self.build_app()
