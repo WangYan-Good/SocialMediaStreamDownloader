@@ -7,6 +7,7 @@ const navigation: readonly NavEntry[] = [
   { name: 'admin-library', label: '媒体库', hint: 'Library' },
   { name: 'admin-tasks', label: '任务', hint: 'Tasks' },
   { name: 'admin-system', label: '系统', hint: 'System' },
+  { name: 'user-home', label: '返回用户端', hint: 'User Console' },
 ]
 </script>
 

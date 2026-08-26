@@ -1,9 +1,8 @@
 //
 // What the authentication endpoints answer.
 //
-// Identity plus the server-owned role fact. Phase 8A exposes role so later
-// interface work can consume the same vocabulary as backend authorization; it
-// does not use this field as authority or add route guards yet.
+// Identity plus the server-owned role fact. The frontend uses it to shape
+// navigation; backend authorization remains the security authority.
 //
 // There is no session token here either, and there never will be: the token
 // lives in a HttpOnly cookie the browser attaches on its own and this
@@ -30,8 +29,8 @@ export interface LoginRequest {
 //
 // Where the interface believes it stands.
 //
-// Three states rather than a boolean. "Not yet asked" and "asked, nobody" are
-// different, and collapsing them makes every page render its signed-out shape
-// for as long as the first request takes.
+// Four states rather than a boolean. In particular, `unknown` means the first
+// check has not completed; an attempted check that could not answer is
+// `unavailable` and is never silently retried by ordinary navigation.
 //
-export type AuthStatus = 'unknown' | 'anonymous' | 'authenticated'
+export type AuthStatus = 'unknown' | 'anonymous' | 'authenticated' | 'unavailable'

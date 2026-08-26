@@ -7,6 +7,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { ApiError } from '../../src/api/client'
 import { getCurrentUser, login, logout } from '../../src/api/auth'
 import { routes } from '../../src/router'
+import { createAuthorizationGuard } from '../../src/router/authorization'
 import { useAuthStore } from '../../src/stores/auth'
 import LoginView from '../../src/views/LoginView.vue'
 
@@ -75,9 +76,8 @@ describe('the sign-in screen', () => {
 
   it('offers no way to register an account', async () => {
     //
-    // Deliberate. Nothing is owned by anybody yet and no endpoint checks
-    // permissions, so a self-service account would be one that can already see
-    // everything. Accounts are created by whoever runs the deployment.
+    // Deliberate. Account lifecycle and Admin bootstrap are operator actions;
+    // this phase adds navigation UX, not self-service identity management.
     //
     const { wrapper } = await openLogin()
     const text = wrapper.text()
@@ -210,7 +210,7 @@ describe('the sign-in screen', () => {
 describe('the store that remembers who is signed in', () => {
   it('starts out not knowing', async () => {
     //
-    // Three states, not two. Assuming "anonymous" before asking would make the
+    // Four states, not two. Assuming "anonymous" before asking would make the
     // interface flicker through a signed-out shape on every page load, and
     // would be wrong for exactly as long as the request takes.
     //
@@ -252,7 +252,7 @@ describe('the store that remembers who is signed in', () => {
 
     await store.loadCurrentUser()
 
-    expect(store.status).toBe('unknown')
+    expect(store.status).toBe('unavailable')
   })
 
   it('remembers who signed in', async () => {
@@ -299,30 +299,30 @@ describe('the store that remembers who is signed in', () => {
   })
 })
 
-describe('what this phase deliberately does not do', () => {
-  it('leaves every existing route reachable without signing in', async () => {
-    //
-    // No route guard, on purpose. Guarding the interface while no endpoint
-    // checks anything would produce the appearance of protection over an api
-    // that still answers everybody - which is worse than an honest absence.
-    //
+describe('the application route guard', () => {
+  it('sends an anonymous protected route to sign-in', async () => {
     mockedMe.mockRejectedValue(unauthorized())
+    const pinia = createPinia()
+    setActivePinia(pinia)
     const router = createRouter({ history: createMemoryHistory(), routes })
-
-    for (const path of ['/', '/new', '/library', '/tasks', '/admin/creators', '/admin/system']) {
-      await router.push(path)
-      await router.isReady()
-      expect(router.currentRoute.value.path).toBe(path)
-    }
-  })
-
-  it('does not redirect an anonymous browser to the sign-in page', async () => {
-    mockedMe.mockRejectedValue(unauthorized())
-    const router = createRouter({ history: createMemoryHistory(), routes })
+    router.beforeEach(createAuthorizationGuard(router, pinia))
 
     await router.push('/tasks')
-    await router.isReady()
 
-    expect(router.currentRoute.value.path).not.toBe('/login')
+    expect(router.currentRoute.value.name).toBe('login')
+    expect(router.currentRoute.value.query.redirect).toBe('/tasks')
+  })
+
+  it('sends an anonymous Admin route to sign-in before considering its role', async () => {
+    mockedMe.mockRejectedValue(unauthorized())
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const router = createRouter({ history: createMemoryHistory(), routes })
+    router.beforeEach(createAuthorizationGuard(router, pinia))
+
+    await router.push('/admin/system')
+
+    expect(router.currentRoute.value.name).toBe('login')
+    expect(router.currentRoute.value.query.redirect).toBe('/admin/system')
   })
 })

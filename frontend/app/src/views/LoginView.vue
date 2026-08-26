@@ -1,19 +1,18 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import { ApiError } from '@/api/client'
+import { resolveSafeReturnTarget } from '@/router/returnTarget'
 import { useAuthStore } from '@/stores/auth'
 
 //
 // The whole sign-in surface: a name, a password, and a button.
 //
-// No registration, no password reset, no third-party provider. Nothing is
-// owned by anybody yet and no endpoint checks permissions, so a self-service
-// account would be an account that can already see everything in the
-// deployment. Accounts are created deliberately, through the CLI, by whoever
-// runs it.
+// No registration, password reset, or third-party provider. Accounts and Admin
+// bootstrap remain deliberate operator actions through the CLI.
 //
+const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
@@ -70,7 +69,9 @@ async function submit() {
     // navigation.
     //
     password.value = ''
-    await router.push({ name: 'user-home' })
+    await router.push(
+      resolveSafeReturnTarget(router, route.query.redirect) ?? { name: 'user-home' },
+    )
   } catch (caught) {
     failure.value = describe(caught)
   } finally {

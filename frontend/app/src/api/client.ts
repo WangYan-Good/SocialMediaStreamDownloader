@@ -15,6 +15,44 @@ const CSRF_COOKIE_NAME = 'smsd_csrf'
 const CSRF_HEADER_NAME = 'X-CSRF-Token'
 const MUTATION_METHODS = new Set<RequestMethod>(['POST', 'PATCH', 'DELETE'])
 
+export interface AuthorizationFailureEvent {
+  path: string
+  status: 401 | 403
+  backendKind: string | null
+}
+
+export type AuthorizationFailureHandler = (
+  event: AuthorizationFailureEvent,
+) => void | Promise<void>
+
+let authorizationFailureHandler: AuthorizationFailureHandler | null = null
+
+/** Register the application-level observer without importing Router or Pinia. */
+export function setAuthorizationFailureHandler(
+  handler: AuthorizationFailureHandler | null,
+): void {
+  authorizationFailureHandler = handler
+}
+
+function reportAuthorizationFailure(path: string, error: ApiError): void {
+  if (
+    authorizationFailureHandler === null ||
+    (error.status !== 401 && error.status !== 403)
+  ) {
+    return
+  }
+  try {
+    const handled = authorizationFailureHandler({
+      path,
+      status: error.status,
+      backendKind: error.backendKind,
+    })
+    void Promise.resolve(handled).catch(() => undefined)
+  } catch {
+    // Authentication UX must never replace the business request's own error.
+  }
+}
+
 export interface ApiErrorFields {
   kind: ApiErrorKind
   //
@@ -270,13 +308,15 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   }
 
   if (payload.status === 'error') {
-    throw new ApiError({
+    const error = new ApiError({
       kind: 'backend',
       status: response.status,
       code: payload.code,
       message: payload.message,
       ...refusalExtras(payload),
     })
+    reportAuthorizationFailure(path, error)
+    throw error
   }
 
   if (!response.ok) {

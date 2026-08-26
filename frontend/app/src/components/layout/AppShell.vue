@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { RouterView } from 'vue-router'
+import { ref } from 'vue'
+import { RouterView, useRouter } from 'vue-router'
 
 import SidebarNav from '@/components/layout/SidebarNav.vue'
 import type { NavEntry } from '@/components/layout/SidebarNav.vue'
 import { useAppStore } from '@/stores/app'
+import { useAuthStore } from '@/stores/auth'
 
 defineProps<{
   title: string
@@ -15,6 +17,22 @@ defineProps<{
 
 const store = useAppStore()
 const { sidebarOpen } = storeToRefs(store)
+const auth = useAuthStore()
+const router = useRouter()
+const signingOut = ref(false)
+
+async function signOut(): Promise<void> {
+  if (signingOut.value) return
+  signingOut.value = true
+  try {
+    await auth.logout()
+  } catch {
+    // `logout()` has already forgotten the local identity in its finally path.
+  } finally {
+    await router.replace({ name: 'login' })
+    signingOut.value = false
+  }
+}
 </script>
 
 <template>
@@ -32,6 +50,19 @@ const { sidebarOpen } = storeToRefs(store)
       </button>
       <span class="app-shell__title">{{ title }}</span>
       <span v-if="context" class="app-shell__context">{{ context }}</span>
+      <div v-if="auth.user" class="app-shell__account">
+        <span class="app-shell__username">{{ auth.user.username }}</span>
+        <span v-if="auth.isAdmin" class="app-shell__role">Admin</span>
+        <button
+          data-test="logout"
+          class="app-shell__logout"
+          type="button"
+          :disabled="signingOut"
+          @click="signOut"
+        >
+          {{ signingOut ? '正在退出…' : '退出登录' }}
+        </button>
+      </div>
     </header>
 
     <div class="app-shell__body">
@@ -79,6 +110,19 @@ const { sidebarOpen } = storeToRefs(store)
   background: var(--color-accent-soft);
   border-radius: var(--radius-1);
 }
+
+.app-shell__account {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  font-size: 0.8125rem;
+}
+
+.app-shell__username { font-weight: 600; }
+.app-shell__role { padding: 2px var(--space-2); color: var(--color-accent); background: var(--color-accent-soft); border-radius: var(--radius-1); font-weight: 700; }
+.app-shell__logout { padding: var(--space-1) var(--space-2); font: inherit; color: inherit; background: transparent; border: 1px solid var(--color-border); border-radius: var(--radius-1); cursor: pointer; }
+.app-shell__logout:disabled { opacity: 0.6; cursor: wait; }
 
 .app-shell__toggle {
   display: none;
@@ -132,5 +176,8 @@ const { sidebarOpen } = storeToRefs(store)
   .app-shell--nav-open .app-shell__main {
     display: none;
   }
+
+  .app-shell__title { display: none; }
+  .app-shell__account { gap: var(--space-1); }
 }
 </style>

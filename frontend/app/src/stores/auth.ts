@@ -17,9 +17,8 @@ import type { AuthStatus, AuthUser } from '@/types/auth'
  * neither read nor write - so there is nothing here to leak, nothing to put in
  * localStorage, and nothing an XSS on the page could carry away.
  *
- * Nothing in the router or the api layer consults this store to decide whether
- * a request is allowed. Phase 8A establishes the role fact and server helper
- * foundation; business authorization and interface guards remain Phase 8B.
+ * The router consumes this state for navigation UX. It is not authority: every
+ * protected resource remains enforced and scoped by the backend.
  */
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null)
@@ -34,42 +33,98 @@ export const useAuthStore = defineStore('auth', () => {
   const status = ref<AuthStatus>('unknown')
 
   const isAuthenticated = computed(() => status.value === 'authenticated')
+  const isAdmin = computed(
+    () => status.value === 'authenticated' && user.value?.role === 'admin',
+  )
 
-  function remember(next: AuthUser) {
+  let resolutionInFlight: Promise<AuthStatus> | null = null
+  let identityVersion = 0
+
+  function applyAuthenticated(next: AuthUser) {
     user.value = next
     status.value = 'authenticated'
   }
 
-  function forget() {
+  function applyAnonymous() {
     user.value = null
     status.value = 'anonymous'
+  }
+
+  function applyUnavailable() {
+    user.value = null
+    status.value = 'unavailable'
+  }
+
+  function invalidateResolution(): void {
+    identityVersion += 1
+    resolutionInFlight = null
+  }
+
+  function remember(next: AuthUser): void {
+    invalidateResolution()
+    applyAuthenticated(next)
+  }
+
+  function forget(): void {
+    invalidateResolution()
+    applyAnonymous()
+  }
+
+  function beginResolution(): Promise<AuthStatus> {
+    if (resolutionInFlight !== null) return resolutionInFlight
+    const startedAtVersion = identityVersion
+
+    const request = (async (): Promise<AuthStatus> => {
+      try {
+        const next = (await getCurrentUser()).user
+        if (identityVersion === startedAtVersion) applyAuthenticated(next)
+      } catch (caught) {
+        if (identityVersion !== startedAtVersion) return status.value
+        if (
+          caught instanceof ApiError &&
+          caught.kind === 'backend' &&
+          caught.status === 401
+        ) {
+          applyAnonymous()
+        } else {
+          // No backend or transport detail is retained for presentation.
+          applyUnavailable()
+        }
+      }
+      return status.value
+    })()
+
+    resolutionInFlight = request
+    void request.finally(() => {
+      if (resolutionInFlight === request) resolutionInFlight = null
+    })
+    return request
+  }
+
+  function ensureInitialized(): Promise<AuthStatus> {
+    if (status.value !== 'unknown') return Promise.resolve(status.value)
+    return beginResolution()
+  }
+
+  function refreshCurrentUser(): Promise<AuthStatus> {
+    return beginResolution()
   }
 
   return {
     user,
     status,
     isAuthenticated,
+    isAdmin,
 
-    /** Ask the server who this browser is. */
+    ensureInitialized,
+    refreshCurrentUser,
+
+    /** Record a definitive business-endpoint 401 without another request. */
+    markAnonymous: forget,
+
+    /** Compatibility name for callers from the authentication foundation. */
     async loadCurrentUser(): Promise<void> {
-      try {
-        remember((await getCurrentUser()).user)
-      } catch (caught) {
-        if (caught instanceof ApiError && caught.status === 401) {
-          //
-          // A definite answer: this browser is nobody.
-          //
-          forget()
-          return
-        }
-        //
-        // Anything else - a 503, an outage, a malformed reply - leaves the
-        // question unanswered. Recording it as 'anonymous' would appear to log
-        // everybody out whenever the database hiccuped.
-        //
-        status.value = 'unknown'
-        user.value = null
-      }
+      await refreshCurrentUser()
     },
 
     async login(username: string, password: string): Promise<void> {

@@ -335,7 +335,7 @@ jobs:
           # redirects to /admin/creators in the *router*, once the shell has
           # loaded; Flask must answer it with the shell like any other
           # client-side route.
-          for path in new library tasks login \
+          for path in new library tasks login forbidden auth-unavailable \
                       admin admin/creators admin/library admin/tasks admin/system \
                       overview creators system; do
             expect "/${path}" 200

@@ -11,21 +11,43 @@ import AppShell from '../../src/components/layout/AppShell.vue'
 import SidebarNav from '../../src/components/layout/SidebarNav.vue'
 import { routes } from '../../src/router'
 import { useAppStore } from '../../src/stores/app'
+import { useAuthStore } from '../../src/stores/auth'
+import { logout } from '../../src/api/auth'
+import type { AuthUser } from '../../src/types/auth'
 
-async function mountShell(component: Component = App, startAt = '/new') {
+vi.mock('../../src/api/auth', () => ({
+  getCurrentUser: vi.fn(),
+  login: vi.fn(),
+  logout: vi.fn(),
+}))
+
+const mockedLogout = vi.mocked(logout)
+const USER: AuthUser = { user_id: 71, username: 'alice', role: 'user' }
+const ADMIN: AuthUser = { user_id: 72, username: 'operator', role: 'admin' }
+
+async function mountShell(
+  component: Component = App,
+  startAt = '/new',
+  principal: AuthUser = startAt.startsWith('/admin') ? ADMIN : USER,
+) {
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  const auth = useAuthStore(pinia)
+  auth.$patch({ status: 'authenticated', user: principal })
   const router: Router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(startAt)
   await router.isReady()
 
   const wrapper = mount(component, {
-    global: { plugins: [router] },
+    global: { plugins: [pinia, router] },
   })
   await router.isReady()
-  return { wrapper, router }
+  return { wrapper, router, auth }
 }
 
 beforeEach(() => {
-  setActivePinia(createPinia())
+  vi.clearAllMocks()
+  mockedLogout.mockResolvedValue(undefined)
   vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => undefined)))
 })
 
@@ -34,6 +56,33 @@ afterEach(() => {
 })
 
 describe('shared application shell', () => {
+  it('shows the username without exposing the numeric user id', async () => {
+    const { wrapper } = await mountShell()
+
+    const account = wrapper.get('.app-shell__account').text()
+    expect(account).toContain('alice')
+    expect(account).not.toContain('71')
+  })
+
+  it('logs out locally and replaces the current page with login', async () => {
+    const { wrapper, router, auth } = await mountShell()
+
+    await wrapper.get('[data-test="logout"]').trigger('click')
+
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('login'))
+    expect(auth.status).toBe('anonymous')
+  })
+
+  it('still leaves for login when the logout request fails', async () => {
+    mockedLogout.mockRejectedValue(new TypeError('offline'))
+    const { wrapper, router, auth } = await mountShell()
+
+    await wrapper.get('[data-test="logout"]').trigger('click')
+
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('login'))
+    expect(auth.status).toBe('anonymous')
+  })
+
   it('renders the routed layout through the shared shell', async () => {
     const { wrapper } = await mountShell()
 
@@ -98,6 +147,15 @@ describe('user layout', () => {
     }
   })
 
+  it('adds a management entry only for an ADMIN using the user console', async () => {
+    const { wrapper } = await mountShell(App, '/', ADMIN)
+    const labels = wrapper
+      .findAll('.sidebar-nav__list .sidebar-nav__label')
+      .map((node) => node.text())
+
+    expect(labels).toEqual(['首页', '新建下载', '我的资源', '下载任务', '管理后台'])
+  })
+
   it('renders the static user home without starting a resolve flow', async () => {
     const fetched = vi.mocked(fetch)
     const { wrapper } = await mountShell(App, '/')
@@ -135,7 +193,9 @@ describe('admin layout', () => {
     const labels = wrapper
       .findAll('.sidebar-nav__list .sidebar-nav__label')
       .map((node) => node.text())
-    expect(labels).toEqual(['创作者', '媒体库', '任务', '系统'])
+    expect(labels).toEqual(['创作者', '媒体库', '任务', '系统', '返回用户端'])
+    expect(wrapper.get('.app-shell__account').text()).toContain('operator')
+    expect(wrapper.get('.app-shell__account').text()).toContain('Admin')
   })
 
   it('navigates from creators to the admin system route', async () => {
@@ -230,8 +290,9 @@ describe('the boundary between the two consoles', () => {
       '/admin/library',
       '/admin/tasks',
       '/admin/system',
+      '/',
     ])
-    for (const href of hrefs) {
+    for (const href of hrefs.slice(0, -1)) {
       expect(href?.startsWith('/admin/')).toBe(true)
     }
   })
@@ -246,9 +307,8 @@ describe('the boundary between the two consoles', () => {
 
   it('offers a user no way into the admin console', async () => {
     //
-    // Deliberate, and recorded as such: hiding the url is information
-    // architecture, not access control. Nothing here is a security boundary
-    // until authentication exists.
+    // Hiding the entry is navigation UX, never the security boundary; the
+    // backend still enforces every Admin endpoint.
     //
     const { wrapper } = await mountShell(App, '/')
     const navigation = wrapper.find('nav').text()
