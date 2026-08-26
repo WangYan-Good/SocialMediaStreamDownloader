@@ -3,7 +3,9 @@ import type { RouteRecordRaw } from 'vue-router'
 
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import UserLayout from '@/layouts/UserLayout.vue'
+import AuthUnavailableView from '@/views/AuthUnavailableView.vue'
 import CreatorsView from '@/views/CreatorsView.vue'
+import ForbiddenView from '@/views/ForbiddenView.vue'
 import LibraryView from '@/views/LibraryView.vue'
 import LoginView from '@/views/LoginView.vue'
 import NewDownloadView from '@/views/NewDownloadView.vue'
@@ -17,6 +19,7 @@ export const routes: RouteRecordRaw[] = [
   {
     path: '/',
     component: UserLayout,
+    meta: { requiresAuth: true },
     children: [
       {
         path: '',
@@ -43,6 +46,7 @@ export const routes: RouteRecordRaw[] = [
   {
     path: '/admin',
     component: AdminLayout,
+    meta: { requiresAuth: true, requiresAdmin: true },
     children: [
       {
         path: '',
@@ -82,16 +86,24 @@ export const routes: RouteRecordRaw[] = [
   //
   // Sign-in, outside both consoles.
   //
-  // Deliberately not behind a layout: the sidebar is a list of places to go,
-  // and somebody who is not signed in has not been offered them yet. Nothing
-  // redirects here either - see the phase notes: guarding the interface while
-  // no endpoint checks anything would be the appearance of protection over an
-  // api that still answers everybody.
+  // Deliberately not behind a console layout. The authorization guard decides
+  // whether this guest route or a protected destination is appropriate.
   //
   {
     path: '/login',
     name: 'login',
     component: LoginView,
+  },
+  {
+    path: '/forbidden',
+    name: 'forbidden',
+    component: ForbiddenView,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/auth-unavailable',
+    name: 'auth-unavailable',
+    component: AuthUnavailableView,
   },
   {
     path: '/overview',
@@ -110,6 +122,7 @@ export const routes: RouteRecordRaw[] = [
   },
   {
     path: '/:pathMatch(.*)*',
+    name: 'not-found',
     redirect: '/',
   },
 ]
