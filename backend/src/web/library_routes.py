@@ -23,6 +23,7 @@ from backend.src.database.query.library import (
 from backend.src.auth.roles import ROLE_ADMIN
 from backend.src.database.table.share_url import DouyinShareUrlTable
 from backend.src.library.baselib import get_dict_attr
+from backend.src.service.media_asset import MediaAssetResolver
 from backend.src.library.configlib import load_config
 from backend.src.library.loglib import get_logger
 from backend.src.web.auth_routes import (
@@ -151,6 +152,21 @@ class LibraryRuntime:
     if self._config is None:
       self._config = self._config_loader()
     return self._config
+
+  def asset_resolver(self) -> MediaAssetResolver:
+    """The filesystem reader, bound to the configured download root.
+
+    Configuration is the authority on where downloads live - not the container
+    layout. ``/app/downloads`` is where the compose file happens to mount a
+    volume; a host install may legitimately point ``download.save_path``
+    somewhere else entirely, and this must follow it.
+
+    Read through a callable rather than captured, so a reloaded configuration
+    is honoured without rebuilding the runtime.
+    """
+    return MediaAssetResolver(
+      lambda: get_dict_attr(self._settings(), "$.download.save_path")
+    )
 
   def page_size_limit(self) -> int:
     limit = get_dict_attr(self._settings(), "$.library.page_size_limit")
@@ -281,6 +297,100 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
         "page_size": page.page_size,
         "items": [_serialize_live(row) for row in page.items],
       }
+    )
+
+
+  ##
+  ## >>--------------------------- media assets ---------------------------<<
+  ##
+  ##
+  ## What is on disk right now, for one resource the caller is allowed to see.
+  ##
+  ## The ordering below is the security property, not an implementation detail:
+  ##
+  ##     authenticate -> scoped database lookup -> only then, the filesystem
+  ##
+  ## A request for somebody else's resource fails at the lookup and never
+  ## reaches the resolver at all - so it cannot be used to probe which paths
+  ## exist on this host, and cannot be timed to learn whether a post is there.
+  ## ``test_media_asset_routes`` asserts the resolver is untouched on that path.
+  ##
+  ## Neither route serves bytes. They answer what exists; delivering it is a
+  ## later phase with its own boundary to draw.
+  ##
+  def _asset_payload(resource: dict, discovery) -> dict:
+    return {
+      "resource": resource,
+      "storage_state": discovery.storage_state.value,
+      "assets": [asset.as_dict() for asset in discovery.assets],
+    }
+
+  @blueprint.route("/library/posts/<platform>/<aweme_id>/assets", methods=["GET"])
+  @require_authenticated
+  def post_assets(platform, aweme_id):
+    try:
+      context = request_auth_context()
+      query = runtime.query()
+      ##
+      ## The scope comes from the session. No query parameter widens it, and
+      ## there is deliberately none to pass.
+      ##
+      if context.user.role == ROLE_ADMIN:
+        row = query.post(platform, aweme_id)
+      else:
+        row = query.post_for_user(context.user.user_id, platform, aweme_id)
+    except LibraryUnavailable as e:
+      return _error(str(e), 503)
+    except Exception as e:
+      get_logger().error("library post asset lookup failed: {}".format(e))
+      return _error("服务器内部错误，请稍后重试", 500)
+
+    if row is None:
+      ##
+      ## One answer for "no such post", "not yours" and "belongs to nobody".
+      ## Any difference between them would confirm the post exists.
+      ##
+      return _error("资源不存在", 404)
+
+    discovery = runtime.asset_resolver().post_assets(
+      row.get("save_dir"), platform, aweme_id
+    )
+    return _success(
+      _asset_payload(
+        {"kind": "post", "platform": platform, "aweme_id": aweme_id},
+        discovery,
+      )
+    )
+
+  @blueprint.route(
+    "/library/recordings/<int:recording_id>/assets", methods=["GET"]
+  )
+  @require_authenticated
+  def recording_assets(recording_id):
+    try:
+      context = request_auth_context()
+      query = runtime.query()
+      if context.user.role == ROLE_ADMIN:
+        row = query.recording(recording_id)
+      else:
+        row = query.recording_for_user(context.user.user_id, recording_id)
+    except LibraryUnavailable as e:
+      return _error(str(e), 503)
+    except Exception as e:
+      get_logger().error("library recording asset lookup failed: {}".format(e))
+      return _error("服务器内部错误，请稍后重试", 500)
+
+    if row is None:
+      return _error("资源不存在", 404)
+
+    discovery = runtime.asset_resolver().recording_asset(
+      row.get("output_path"), recording_id
+    )
+    return _success(
+      _asset_payload(
+        {"kind": "recording", "recording_id": recording_id},
+        discovery,
+      )
     )
 
   return blueprint

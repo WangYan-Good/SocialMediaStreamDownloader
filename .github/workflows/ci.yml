@@ -393,3 +393,10 @@ jobs:
           expect "/api/auth/me" 401
           expect "/api/tasks?limit=1" 401
           expect "/api/system/status" 401
+
+          # The media asset endpoints read the server's own filesystem, so the
+          # first thing worth proving about them is that nobody unauthenticated
+          # can reach one. No real volume file is involved: an anonymous request
+          # is refused before any path is resolved.
+          expect "/api/library/posts/douyin/test/assets" 401
+          expect "/api/library/recordings/1/assets" 401

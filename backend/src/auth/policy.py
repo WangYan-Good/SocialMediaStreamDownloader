@@ -54,6 +54,16 @@ AUTHORIZATION_POLICY = (
 
   _policy("GET", "/api/library/posts", "role scoped", P.ROLE_SCOPED, "user own / admin global", C.EXEMPT, "enforced"),
   _policy("GET", "/api/library/recordings", "role scoped", P.ROLE_SCOPED, "user own / admin global persistent recordings", C.EXEMPT, "enforced via recordings_for_user/recordings"),
+  ##
+  ## Media asset discovery. Read-only metadata about what is on disk for one
+  ## already-authorized resource - never the bytes, and never a path.
+  ##
+  ## Scoped exactly like the list endpoints above, and for the same reason: the
+  ## scoped database lookup runs before the filesystem is touched at all, so a
+  ## refused request cannot be used to probe which files exist on the host.
+  ##
+  _policy("GET", "/api/library/posts/<platform>/<aweme_id>/assets", "role scoped", P.ROLE_SCOPED, "user own post (404 otherwise) / admin global", C.EXEMPT, "enforced"),
+  _policy("GET", "/api/library/recordings/<int:recording_id>/assets", "role scoped", P.ROLE_SCOPED, "user own recording (404 otherwise) / admin global", C.EXEMPT, "enforced"),
   _policy("GET", "/api/library/lives", "admin", P.ADMIN, "global live observations", C.EXEMPT, "enforced"),
   _policy("GET", "/api/system/status", "admin", P.ADMIN, "deployment configuration/status summary", C.EXEMPT, "enforced"),
 

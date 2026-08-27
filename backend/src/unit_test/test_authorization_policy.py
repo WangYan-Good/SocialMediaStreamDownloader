@@ -50,7 +50,7 @@ class TestAuthorizationPolicyInventory(unittest.TestCase):
 
     self.assertEqual(len(keys), len(set(keys)))
     self.assertEqual(registered_api_routes(), policy_keys())
-    self.assertEqual(34, len(keys))
+    self.assertEqual(36, len(keys))
 
   def test_every_authenticated_unsafe_target_has_a_csrf_policy(self):
     for policy in AUTHORIZATION_POLICY:
