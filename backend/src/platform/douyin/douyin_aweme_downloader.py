@@ -24,6 +24,7 @@ from backend.src.library.loglib import get_logger
 from backend.src.platform.douyin.douyin_aweme_config import DouyinAwemeConfig
 from backend.src.platform.douyin.douyin_archive_notes import write_post_note
 from backend.src.platform.douyin.douyin_aweme_external_info import naming_tick
+from backend.src.platform.douyin.douyin_aweme_naming import carries_aweme_id
 from backend.src.platform.douyin.douyin_owner_directory import (
   choose_owner_directory,
 )
@@ -470,16 +471,11 @@ class DouyinAwemeDownloader(Downloader):
   def carries_aweme_id(file_name: str, aweme_id: str) -> bool:
     """Whether ``file_name`` names this post, on an underscore boundary.
 
-    A plain substring test would let one id match inside a longer one - the id
-    ``7657271784144009946`` appears inside ``9957657271784144009946`` - and skip a
-    download because of an unrelated post's file.  Real ids are all 19 digits, so
-    equal-length ids cannot nest and the bug would never fire on live data; that
-    is a property of the data, not of the code, and not worth relying on.
+    Delegated to ``douyin_aweme_naming`` so that this and media asset discovery
+    cannot drift into answering the same question differently - see the note at
+    the top of that module.  The behaviour is unchanged.
     """
-    if not file_name or not aweme_id:
-      return False
-    stem = file_name.rsplit(".", 1)[0]
-    return aweme_id in stem.split("_")
+    return carries_aweme_id(file_name, aweme_id)
 
   @classmethod
   def match_existing(cls, existing_names, aweme_id: str, item):

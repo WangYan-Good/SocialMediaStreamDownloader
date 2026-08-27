@@ -1,9 +1,14 @@
 <script setup lang="ts">
+import { storeToRefs } from 'pinia'
+import { onBeforeUnmount, watch } from 'vue'
+
+import MediaAssetSection from '@/components/library/MediaAssetSection.vue'
 import {
   TYPE_LABELS,
   creatorName,
   savedCountLabel,
 } from '@/components/library/libraryPresentation'
+import { useLibraryAssetsStore } from '@/stores/libraryAssets'
 import { formatTimestamp } from '@/utils/time'
 import type { LibraryPost, LibraryRecording } from '@/types/library'
 
@@ -14,9 +19,47 @@ import type { LibraryPost, LibraryRecording } from '@/types/library'
 // Server filing fields are absent from this wire contract and therefore cannot
 // accidentally appear in the detail view.
 //
-defineProps<{ post: LibraryPost | null; recording: LibraryRecording | null }>()
+const props = defineProps<{ post: LibraryPost | null; recording: LibraryRecording | null }>()
 
 defineEmits<{ close: [] }>()
+
+//
+// What is on disk, asked for here and nowhere else.
+//
+// Lazily, and per resource. The list endpoints stay database-only, so browsing
+// a page of twenty-five rows performs no filesystem work at all; opening one
+// row is what makes the server look. Anything else would turn a page view into
+// twenty-five directory scans.
+//
+const assetsStore = useLibraryAssetsStore()
+const { assets, storageState, loading, error } = storeToRefs(assetsStore)
+
+watch(
+  () =>
+    props.post
+      ? `post:${props.post.platform}:${props.post.aweme_id}`
+      : props.recording
+        ? `recording:${props.recording.recording_id}`
+        : null,
+  () => {
+    if (props.post) {
+      void assetsStore.loadPostAssets(props.post.platform, props.post.aweme_id)
+    } else if (props.recording) {
+      void assetsStore.loadRecordingAssets(props.recording.recording_id)
+    } else {
+      assetsStore.clear()
+    }
+  },
+  { immediate: true },
+)
+
+//
+// The panel closing is the end of this resource's state. Leaving it behind
+// would flash the previous resource's files under the next one opened.
+//
+onBeforeUnmount(() => {
+  assetsStore.clear()
+})
 </script>
 
 <template>
@@ -50,6 +93,14 @@ defineEmits<{ close: [] }>()
         <div class="facts__row"><dt>录制时间</dt><dd>{{ formatTimestamp(recording.created_at) }}</dd></div>
       </dl>
     </template>
+
+    <MediaAssetSection
+      :storage-state="storageState"
+      :assets="assets"
+      :loading="loading"
+      :error="error"
+      @refresh="assetsStore.refresh()"
+    />
   </aside>
 </template>
 

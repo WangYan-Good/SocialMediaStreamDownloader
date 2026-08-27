@@ -359,6 +359,17 @@ _RECORDING_FROM = '''
 _GLOBAL_RECORDING_SCOPE = object()
 
 
+def _require_identifier(value, field: str) -> None:
+  """Refuse anything that is not a positive integer identifier.
+
+  ``type(...) is not int`` rather than isinstance: ``True`` is an ``int`` in
+  Python, and a boolean reaching a WHERE clause binds as 1 and silently matches
+  a real row.
+  """
+  if type(value) is not int or value < 1:
+    raise ValueError("{} must be a positive integer".format(field))
+
+
 class LibraryQuery:
   """Filtered, sorted, paginated views over what this program downloaded.
 
@@ -499,6 +510,74 @@ class LibraryQuery:
       _OWNED_POST_FROM,
       app_user_id=app_user_id,
     )
+
+  ##
+  ## >>--------------------------- exact lookups ---------------------------<<
+  ##
+  ##
+  ## One row, for the asset endpoints.
+  ##
+  ## Deliberately not "fetch a page and search it in Python": that reads rows
+  ## nobody asked for, and it moves the ownership decision out of the statement
+  ## and into a loop, where the next edit can quietly widen it. The scoped
+  ## variants carry their constraint in the SQL for exactly that reason.
+  ##
+  ## Still database-only, like everything else in this class. Whether the files
+  ## are still on disk is a different question, asked by a different module,
+  ## after authorization has already succeeded.
+  ##
+  def post(self, platform: str, aweme_id: str):
+    """One post, whoever owns it. Admin scope, including historical rows."""
+    return self._one(
+      "SELECT" + _POST_COLUMNS + _POST_FROM
+      + "    WHERE a.platform = %s\n      AND a.aweme_id = %s\n    LIMIT 1\n",
+      (platform, aweme_id),
+    )
+
+  def post_for_user(self, app_user_id: int, platform: str, aweme_id: str):
+    """One post, only if this application user is related to it."""
+    _require_identifier(app_user_id, "app_user_id")
+    return self._one(
+      "SELECT" + _POST_COLUMNS + _OWNED_POST_FROM
+      + "    WHERE uar.app_user_id = %s\n"
+        "      AND a.platform = %s\n"
+        "      AND a.aweme_id = %s\n"
+        "    LIMIT 1\n",
+      (app_user_id, platform, aweme_id),
+    )
+
+  def recording(self, recording_id: int):
+    """One recording, whoever owns it - including rows owned by nobody."""
+    _require_identifier(recording_id, "recording_id")
+    return self._one(
+      "SELECT" + _RECORDING_COLUMNS + _RECORDING_FROM
+      + "    WHERE rr.recording_id = %s\n    LIMIT 1\n",
+      (recording_id,),
+    )
+
+  def recording_for_user(self, app_user_id: int, recording_id: int):
+    """One recording, only if this application user owns it.
+
+    A row with ``app_user_id IS NULL`` never matches: NULL is not equal to
+    anything, which is the answer wanted here - historical recordings belong to
+    nobody and so are nobody's to read.
+    """
+    _require_identifier(app_user_id, "app_user_id")
+    _require_identifier(recording_id, "recording_id")
+    return self._one(
+      "SELECT" + _RECORDING_COLUMNS + _RECORDING_FROM
+      + "    WHERE rr.recording_id = %s\n"
+        "      AND rr.app_user_id = %s\n"
+        "    LIMIT 1\n",
+      (recording_id, app_user_id),
+    )
+
+  def _one(self, statement: str, params: tuple):
+    with self._database.get_connection() as connector:
+      with connector.cursor() as cursor:
+        cursor.execute(statement, params)
+        row = cursor.fetchone()
+    return dict(row) if row else None
 
   def _recording_conditions(
     self,

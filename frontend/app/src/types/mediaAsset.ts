@@ -1,0 +1,62 @@
+//
+// What is on disk right now for one library resource.
+//
+// Deliberately a separate contract from `types/library.ts`. A library row says
+// what a downloader once recorded; these types say what survived. The two are
+// different facts and are allowed to disagree - a post whose record says
+// "3 / 3 saved" can perfectly well have an empty directory today, and both
+// statements stay true.
+//
+// There is no path here, and there must never be one. The server knows where
+// these files are; a browser learning it would learn the shape of the host's
+// filesystem, and would be one step from asking for a file by location.
+//
+
+export type MediaAssetKind = 'video' | 'image' | 'music' | 'cover' | 'recording'
+
+/**
+ * What could be said about a resource's files.
+ *
+ * `missing` is not an error and not a 404: the resource exists, its files do
+ * not. `unavailable` means the server could not safely determine the answer -
+ * the reason is a fact about its own filesystem and is deliberately not sent.
+ */
+export type MediaAssetStorageState = 'available' | 'missing' | 'empty' | 'unavailable'
+
+export interface MediaAsset {
+  //
+  // Derived from the resource and the file name, never stored. It identifies a
+  // file without disclosing where it is - and it is not a capability: a later
+  // phase that serves bytes must still authenticate, authorize the parent
+  // resource and rediscover its assets before honouring one.
+  //
+  asset_id: string
+  kind: MediaAssetKind
+  name: string
+  size_bytes: number
+  media_type: string
+  //
+  // The position an image records in its own name, so pictures stay in order.
+  // Null for everything that is not one of a numbered set.
+  //
+  image_index: number | null
+}
+
+export interface PostAssetResource {
+  kind: 'post'
+  platform: string
+  aweme_id: string
+}
+
+export interface RecordingAssetResource {
+  kind: 'recording'
+  recording_id: number
+}
+
+export type AssetResource = PostAssetResource | RecordingAssetResource
+
+export interface ResourceAssetResult {
+  resource: AssetResource
+  storage_state: MediaAssetStorageState
+  assets: MediaAsset[]
+}
