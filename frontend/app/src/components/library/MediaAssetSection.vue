@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-
 import type { MediaAsset, MediaAssetStorageState } from '@/types/mediaAsset'
 
 //
