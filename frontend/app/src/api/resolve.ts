@@ -11,9 +11,13 @@ import type {
  * Answers identity only - which resource, not what is currently in it - and the
  * receipt that later proves this server resolved it.  Nothing is started.
  */
-export function resolveResource(input: string): Promise<ResolvedResource> {
+export function resolveResource(input: string, signal?: AbortSignal): Promise<ResolvedResource> {
   const body: ResolveRequest = { input }
-  return request<ResolvedResource>('/resolve', { method: 'POST', body })
+  return request<ResolvedResource>('/resolve', {
+    method: 'POST',
+    body,
+    ...(signal ? { signal } : {}),
+  })
 }
 
 export function resolveResources(input: string): Promise<BatchResolveResult> {

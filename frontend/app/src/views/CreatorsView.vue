@@ -6,21 +6,23 @@ import { RouterLink } from 'vue-router'
 import CreatorAccountPanel from '@/components/creators/CreatorAccountPanel.vue'
 import CreatorDirectory from '@/components/creators/CreatorDirectory.vue'
 import CreatorFilters from '@/components/creators/CreatorFilters.vue'
+import CreatorLookupForm from '@/components/creators/CreatorLookupForm.vue'
+import CreatorLookupResult from '@/components/creators/CreatorLookupResult.vue'
 import PeopleList from '@/components/people/PeopleList.vue'
 import PersonAssignmentCard from '@/components/people/PersonAssignmentCard.vue'
 import PersonDetailPanel from '@/components/people/PersonDetailPanel.vue'
 import { useCreatorsStore } from '@/stores/creators'
+import { useCreatorLookupStore } from '@/stores/creatorLookup'
 import { usePeopleStore } from '@/stores/people'
 import type { CollaborationRequest } from '@/stores/people'
 import type { PersonAssignmentResult } from '@/types/person'
 
 //
-// Two views of the same workspace: the accounts a platform knows about, and the
-// people they belong to. Accounts is the default because it is where work
-// starts - the identity layer is something you reach for once you already have
-// accounts in front of you.
+// Three views of the same workspace: action-oriented platform accounts, the
+// people they belong to, and a read-only lookup across the two sources.
+// Accounts stays the default because it is where existing work starts.
 //
-type Tab = 'accounts' | 'people'
+type Tab = 'accounts' | 'people' | 'lookup'
 
 const store = useCreatorsStore()
 const {
@@ -76,6 +78,21 @@ const {
   mutationError,
 } = storeToRefs(peopleStore)
 
+const lookupStore = useCreatorLookupStore()
+const {
+  loading: lookupLoading,
+  hasResult: hasLookupResult,
+  queryError: lookupQueryError,
+  platformProfile: lookupPlatformProfile,
+  platformCredential: lookupPlatformCredential,
+  platformMessage: lookupPlatformMessage,
+  platformError: lookupPlatformError,
+  platformLoading: lookupPlatformLoading,
+  localInspection: lookupLocalInspection,
+  localError: lookupLocalError,
+  localLoading: lookupLocalLoading,
+} = storeToRefs(lookupStore)
+
 const tab = ref<Tab>('accounts')
 
 //
@@ -87,6 +104,25 @@ function showTab(next: Tab) {
   if (next === 'people' && !hasLoadedPeople.value) {
     void peopleStore.loadPeople()
   }
+}
+
+async function openLookupPerson(personId: number) {
+  tab.value = 'people'
+  peopleStore.clearSelection()
+  //
+  // Refresh even if the list was loaded earlier. The inspection receipt may
+  // describe an assignment created after that cache, and selecting against a
+  // stale list would fetch detail without ever rendering its Person summary.
+  //
+  await peopleStore.loadPeople()
+  if (
+    peopleError.value !== null ||
+    !hasLoadedPeople.value ||
+    !people.value.some((person) => person.person_id === personId)
+  ) {
+    return
+  }
+  await peopleStore.selectPerson(personId)
 }
 
 function attach(request: { owner_user_id: string; role: 'main' | 'alt' | 'matrix' }) {
@@ -146,6 +182,7 @@ onMounted(() => {
 //
 onBeforeUnmount(() => {
   store.stopProbePolling()
+  lookupStore.invalidate()
 })
 
 const probeItemForSelected = computed(() =>
@@ -195,7 +232,7 @@ function record() {
 
     <nav class="creators__tabs" aria-label="创作者视角">
       <button
-        v-for="entry in (['accounts', 'people'] as Tab[])"
+        v-for="entry in (['accounts', 'people', 'lookup'] as Tab[])"
         :key="entry"
         type="button"
         class="creators__tab"
@@ -203,7 +240,7 @@ function record() {
         :aria-current="tab === entry ? 'true' : undefined"
         @click="showTab(entry)"
       >
-        {{ entry === 'accounts' ? '账号' : '人物' }}
+        {{ entry === 'accounts' ? '账号' : entry === 'people' ? '人物' : '主播查询' }}
       </button>
     </nav>
 
@@ -347,7 +384,7 @@ function record() {
       />
     </template>
 
-    <template v-else>
+    <template v-else-if="tab === 'people'">
       <!--
         The way in. A person is created as part of adding their first account,
         rather than as a step before it - so the name, which is optional, can be
@@ -399,6 +436,29 @@ function record() {
         @add-collaboration="collaborate"
         @remove-collaboration="uncollaborate"
         @close="peopleStore.clearSelection()"
+      />
+    </template>
+
+    <template v-else>
+      <CreatorLookupForm
+        :loading="lookupLoading"
+        @submit="lookupStore.lookup($event)"
+        @changed="lookupStore.invalidate()"
+      />
+      <p v-if="lookupQueryError" class="creators__notice" role="alert">
+        {{ lookupQueryError }}
+      </p>
+      <CreatorLookupResult
+        v-if="hasLookupResult"
+        :platform-profile="lookupPlatformProfile"
+        :platform-credential="lookupPlatformCredential"
+        :platform-message="lookupPlatformMessage"
+        :platform-error="lookupPlatformError"
+        :platform-loading="lookupPlatformLoading"
+        :local-inspection="lookupLocalInspection"
+        :local-error="lookupLocalError"
+        :local-loading="lookupLocalLoading"
+        @view-person="openLookupPerson"
       />
     </template>
   </section>

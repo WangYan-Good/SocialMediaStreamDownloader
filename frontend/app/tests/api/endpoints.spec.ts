@@ -59,6 +59,17 @@ describe('resolveResource', () => {
     await expect(resolveResource('https://v.douyin.com/abc/')).resolves.toEqual(resolution)
   })
 
+  it('optionally passes an abort signal without changing the request body', async () => {
+    const fake = stubFetch({})
+    const controller = new AbortController()
+
+    await resolveResource('https://v.douyin.com/abc/', controller.signal)
+
+    const { init, body } = callOf(fake)
+    expect(init.signal).toBe(controller.signal)
+    expect(body).toEqual({ input: 'https://v.douyin.com/abc/' })
+  })
+
   it('narrows the identity by resource type', async () => {
     //
     // A type-level assertion as much as a runtime one: reading `sec_user_id`
@@ -391,6 +402,17 @@ describe('inspectPersonAssignment', () => {
     await inspectPersonAssignment('receipt-1')
 
     expect(callOf(fake).body).toEqual({ resolve_id: 'receipt-1' })
+  })
+
+  it('optionally passes an abort signal without adding identity fields', async () => {
+    const fake = stubFetch({ owner: { owner_user_id: 'acc-9' }, known_account: false, assignment: null })
+    const controller = new AbortController()
+
+    await inspectPersonAssignment('receipt-1', controller.signal)
+
+    const { init, body } = callOf(fake)
+    expect(init.signal).toBe(controller.signal)
+    expect(body).toEqual({ resolve_id: 'receipt-1' })
   })
 
   it.each(['owner_user_id', 'sec_user_id', 'nickname', 'person_id', 'role'])(

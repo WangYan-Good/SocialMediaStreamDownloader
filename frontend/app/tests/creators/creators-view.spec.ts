@@ -131,7 +131,7 @@ describe('arriving at the workspace', () => {
     const wrapper = await mountCreators()
 
     const tabs = wrapper.findAll('.creators__tab')
-    expect(tabs.map((one) => one.text())).toEqual(['账号', '人物'])
+    expect(tabs.map((one) => one.text())).toEqual(['账号', '人物', '主播查询'])
     expect(tabs[0].classes()).toContain('creators__tab--active')
   })
 

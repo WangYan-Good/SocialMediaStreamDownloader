@@ -151,6 +151,7 @@ export function assignPersonAccount(
  */
 export function inspectPersonAssignment(
   resolveId: string,
+  signal?: AbortSignal,
 ): Promise<PersonIdentityInspection> {
   return request<PersonIdentityInspection>('/person/inspect', {
     method: 'POST',
@@ -161,6 +162,7 @@ export function inspectPersonAssignment(
     // field rather than ignoring it.
     //
     body: { resolve_id: resolveId },
+    ...(signal ? { signal } : {}),
   })
 }
 
