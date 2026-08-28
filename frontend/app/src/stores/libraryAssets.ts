@@ -3,6 +3,7 @@ import { ref } from 'vue'
 
 import { ApiError } from '@/api/client'
 import { listPostAssets, listRecordingAssets } from '@/api/mediaAssets'
+import type { RecordingId } from '@/types/library'
 import type { MediaAsset, MediaAssetStorageState } from '@/types/mediaAsset'
 
 /**
@@ -104,8 +105,13 @@ export const useLibraryAssetsStore = defineStore('libraryAssets', () => {
       )
     },
 
-    async loadRecordingAssets(recordingId: number | string): Promise<void> {
+    async loadRecordingAssets(recordingId: RecordingId): Promise<void> {
       currentRequest = () => this.loadRecordingAssets(recordingId)
+      //
+      // Interpolated as it arrived. The key exists to tell one open resource
+      // from another, so an identity narrowed on its way into it would make two
+      // different recordings share a key.
+      //
       await run(`recording:${recordingId}`, (signal) =>
         listRecordingAssets(recordingId, signal),
       )

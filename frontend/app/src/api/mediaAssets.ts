@@ -1,4 +1,5 @@
 import { request } from './client'
+import type { RecordingId } from '@/types/library'
 import type { ResourceAssetResult } from '@/types/mediaAsset'
 
 //
@@ -26,18 +27,21 @@ export function listPostAssets(
 /**
  * What is currently on disk for one recording.
  *
- * Accepts either form the identifier arrives in. `recording_record.recording_id`
- * is a BIGINT, while `LibraryRecording` declares it as a string - a mismatch
- * that predates this endpoint. Both stringify to the same url segment, and the
- * route matches integers only, so a value that is not one is refused there
- * rather than being guessed at here.
+ * Takes the identity in the one form it has. The server sends `recording_id` as
+ * decimal text precisely so that it can be put into a url unchanged; converting
+ * it here - to a number, or through one - would undo that at the last step.
+ *
+ * The url segment is the identity verbatim. `encodeURIComponent` still guards
+ * it, because a value that is not a decimal identity must not be able to build
+ * a path of its own; the route matches integers only, so one that is not is
+ * refused there rather than guessed at here.
  */
 export function listRecordingAssets(
-  recordingId: number | string,
+  recordingId: RecordingId,
   signal?: AbortSignal,
 ): Promise<ResourceAssetResult> {
   return request<ResourceAssetResult>(
-    `/library/recordings/${encodeURIComponent(String(recordingId))}/assets`,
+    `/library/recordings/${encodeURIComponent(recordingId)}/assets`,
     { ...(signal ? { signal } : {}) },
   )
 }

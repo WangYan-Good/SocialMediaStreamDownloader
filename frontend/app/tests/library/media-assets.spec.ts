@@ -46,7 +46,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockedPost.mockResolvedValue(available())
   mockedRecording.mockResolvedValue({
-    resource: { kind: 'recording', recording_id: 7 },
+    resource: { kind: 'recording', recording_id: '7' },
     storage_state: 'available',
     assets: [],
   })
@@ -77,10 +77,10 @@ describe('the asset store as a short-lived view of one resource', () => {
   it('reads one recording when one recording is opened', async () => {
     const store = useLibraryAssetsStore()
 
-    await store.loadRecordingAssets(7)
+    await store.loadRecordingAssets('7')
 
     expect(mockedRecording).toHaveBeenCalledTimes(1)
-    expect(mockedRecording.mock.calls[0][0]).toBe(7)
+    expect(mockedRecording.mock.calls[0][0]).toBe('7')
     expect(store.storageState).toBe('available')
   })
 
@@ -147,7 +147,7 @@ describe('a slow answer never lands on the wrong resource', () => {
     const store = useLibraryAssetsStore()
 
     const first = store.loadPostAssets('douyin', AWEME)
-    await store.loadRecordingAssets(7)
+    await store.loadRecordingAssets('7')
 
     slow.settle(available())
     await first

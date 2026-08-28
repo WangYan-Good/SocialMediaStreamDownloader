@@ -16,6 +16,7 @@ import type {
   LibraryPostFilters,
   LibraryRecording,
   LibraryRecordingFilters,
+  RecordingId,
 } from '@/types/library'
 import type { PersonSummaryItem, PersonWork } from '@/types/person'
 
@@ -87,7 +88,7 @@ export const useLibraryStore = defineStore('library', () => {
   const recordingLoading = ref(false)
   const recordingError = ref<string | null>(null)
   const hasLoadedRecordings = ref(false)
-  const selectedRecordingId = ref<string | null>(null)
+  const selectedRecordingId = ref<RecordingId | null>(null)
 
   let recordingGeneration = 0
   let recordingInFlight: AbortController | null = null
@@ -459,7 +460,7 @@ export const useLibraryStore = defineStore('library', () => {
       await loadRecordings()
     },
 
-    selectRecording(recordingId: string | null): void {
+    selectRecording(recordingId: RecordingId | null): void {
       selectedRecordingId.value = recordingId
     },
 

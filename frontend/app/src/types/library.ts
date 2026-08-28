@@ -114,9 +114,26 @@ export interface LibraryLiveFilters {
   page_size?: number
 }
 
+/**
+ * How a recording names itself, everywhere.
+ *
+ * Decimal text, and only ever text. `recording_record.recording_id` is a MySQL
+ * `BIGINT UNSIGNED`, whose domain reaches 18446744073709551615; a JavaScript
+ * number stops being exact at 9007199254740991. An identity that becomes a
+ * `number` anywhere in this application has already been rounded by then, with
+ * nothing left to detect it - the request simply asks for a different
+ * recording.
+ *
+ * Declared here and imported everywhere else rather than restated. A second
+ * declaration is a second contract, and the two would be free to disagree about
+ * what a recording is called - which is exactly what this type was introduced
+ * to end.
+ */
+export type RecordingId = string
+
 /** One completed or persisted recording resource owned by an app user. */
 export interface LibraryRecording {
-  recording_id: string
+  recording_id: RecordingId
   platform: string
   room_id: string
   title: string | null
