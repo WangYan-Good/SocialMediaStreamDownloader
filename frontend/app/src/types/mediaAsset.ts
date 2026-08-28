@@ -12,6 +12,8 @@
 // filesystem, and would be one step from asking for a file by location.
 //
 
+import type { RecordingId } from './library'
+
 export type MediaAssetKind = 'video' | 'image' | 'music' | 'cover' | 'recording'
 
 /**
@@ -50,7 +52,12 @@ export interface PostAssetResource {
 
 export interface RecordingAssetResource {
   kind: 'recording'
-  recording_id: number
+  //
+  // The same type the library row carries. These files belong to that
+  // recording, so the two must name it identically - a resource the browser
+  // could not match back to the row it came from would be no identity at all.
+  //
+  recording_id: RecordingId
 }
 
 export type AssetResource = PostAssetResource | RecordingAssetResource

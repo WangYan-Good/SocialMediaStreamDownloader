@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { creatorName } from '@/components/library/libraryPresentation'
 import { formatTimestamp } from '@/utils/time'
-import type { LibraryRecording } from '@/types/library'
+import type { LibraryRecording, RecordingId } from '@/types/library'
 
 defineProps<{
   recordings: LibraryRecording[]
-  selectedId: string | null
+  selectedId: RecordingId | null
 }>()
 
-defineEmits<{ select: [string] }>()
+defineEmits<{ select: [RecordingId] }>()
 </script>
 
 <template>

@@ -31,6 +31,7 @@ from backend.src.web.auth_routes import (
   require_authenticated,
   request_auth_context,
 )
+from backend.src.web.wire import recording_id_to_wire
 
 
 class LibraryUnavailable(RuntimeError):
@@ -114,7 +115,12 @@ def _serialize_live(row: dict) -> dict:
 def _serialize_recording(row: dict) -> dict:
   """Persistent recording metadata safe for both USER and ADMIN lists."""
   return {
-    "recording_id": row.get("recording_id"),
+    ##
+    ## Text, not a number.  The column is BIGINT UNSIGNED and a browser parses a
+    ## JSON number as a double, so an identity sent as a number would be rounded
+    ## before any code here could be blamed for it.
+    ##
+    "recording_id": recording_id_to_wire(row.get("recording_id")),
     "platform": row.get("platform"),
     "room_id": row.get("room_id"),
     "title": row.get("title"),
@@ -257,6 +263,13 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
         page = runtime.query().recordings_for_user(
           context.user.user_id, recording_filter
         )
+      ##
+      ## Serialized here rather than after the boundary: a row whose identity
+      ## cannot be spelled is refused by ``recording_id_to_wire``, and that
+      ## refusal has to be answered in this endpoint's own words instead of
+      ## escaping as an unhandled exception.
+      ##
+      items = [_serialize_recording(row) for row in page.items]
     except LibraryFilterError as e:
       return _error(str(e), 400)
     except LibraryUnavailable as e:
@@ -270,7 +283,7 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
         "total": page.total,
         "page": page.page,
         "page_size": page.page_size,
-        "items": [_serialize_recording(row) for row in page.items],
+        "items": items,
       }
     )
 
@@ -388,7 +401,12 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
     )
     return _success(
       _asset_payload(
-        {"kind": "recording", "recording_id": recording_id},
+        ##
+        ## The same spelling the list used.  One endpoint answering with a
+        ## number and another with a string would be two contracts for one
+        ## identity, and a browser could not compare them.
+        ##
+        {"kind": "recording", "recording_id": recording_id_to_wire(recording_id)},
         discovery,
       )
     )

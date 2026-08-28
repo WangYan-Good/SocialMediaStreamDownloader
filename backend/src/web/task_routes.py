@@ -21,6 +21,7 @@ from backend.src.web.auth_routes import (
   require_authenticated_csrf,
   request_auth_context,
 )
+from backend.src.web.wire import recording_id_to_wire
 
 
 ##
@@ -45,8 +46,55 @@ TASK_CREATION_SERVICE_KEY = "smsd_task_creation_service"
 ##
 _CREATE_FIELDS = ("resolve_id", "task_type", "options")
 
-_USER_RESULT_COUNT_FIELDS = ("saved_count", "media_count", "recording_id")
+_USER_RESULT_COUNT_FIELDS = ("saved_count", "media_count")
 _USER_RESULT_FLAG_FIELDS = ("skipped", "partial", "recorded")
+
+##
+## Identities, not quantities.  They share the count fields' integer shape and
+## nothing else: a count is a number a browser may add up, while an identity is
+## text a browser sends back in a url.  ``recording_id`` is a BIGINT UNSIGNED,
+## whose domain a JavaScript number cannot hold, so it crosses as a string.
+##
+_RESULT_IDENTITY_FIELDS = {"recording_id": recording_id_to_wire}
+
+
+def _wire_result_identities(result):
+  """A copy of one task result with its identities spelled for a browser.
+
+  Written against the response copy alone.  The store is this process's memory
+  of what a runner did; rewriting an identity there would leave every later
+  reader - including the runner itself - holding the wire's spelling of its own
+  work.
+
+  A value that cannot be spelled is dropped rather than reported.  Task metadata
+  is a loose bag any runner may write into, so an unusable identity here is a
+  runner's mistake, not a broken store, and it must cost the browser that one
+  field rather than the whole account of the task.
+  """
+  if not isinstance(result, dict):
+    return result
+  wired = dict(result)
+  for field, to_wire in _RESULT_IDENTITY_FIELDS.items():
+    if field not in wired:
+      continue
+    try:
+      wired[field] = to_wire(wired[field])
+    except ValueError:
+      del wired[field]
+  return wired
+
+
+def _to_admin_payload(snapshot: dict) -> dict:
+  """The full task, with identities in the browser's spelling.
+
+  ``to_payload`` already deep-copies metadata, so the rewriting below touches
+  only what is about to be serialized.
+  """
+  full = to_payload(snapshot)
+  metadata = full.get("metadata")
+  if isinstance(metadata, dict) and "result" in metadata:
+    metadata["result"] = _wire_result_identities(metadata["result"])
+  return full
 
 _USER_TASK_MESSAGES = {
   TASK_STATE_PENDING: "等待处理",
@@ -88,6 +136,13 @@ def _safe_user_result(metadata: dict) -> dict:
     value = source.get(key)
     if isinstance(value, bool):
       result[key] = value
+  for key, to_wire in _RESULT_IDENTITY_FIELDS.items():
+    if key not in source:
+      continue
+    try:
+      result[key] = to_wire(source[key])
+    except ValueError:
+      continue
   return result
 
 
@@ -292,7 +347,7 @@ def build_task_blueprint() -> Blueprint:
     return _success(
       {
         "items": [
-          to_payload(task) if context.user.role == ROLE_ADMIN
+          _to_admin_payload(task) if context.user.role == ROLE_ADMIN
           else _to_user_payload(task)
           for task in selected
         ],
@@ -322,7 +377,7 @@ def build_task_blueprint() -> Blueprint:
       return _error("任务不存在或已过期", 404)
 
     return _success(
-      to_payload(task)
+      _to_admin_payload(task)
       if context.user.role == ROLE_ADMIN
       else _to_user_payload(task)
     )

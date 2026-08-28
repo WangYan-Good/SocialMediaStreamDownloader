@@ -301,7 +301,11 @@ class LibraryRoleScopedRouteTest(unittest.TestCase):
 
   def test_recordings_are_user_scoped_and_never_expose_paths(self):
     row = {
-      "recording_id": "R1",
+      ##
+      ## An integer, because the column is one.  A recording's identity reaches
+      ## the browser as decimal text, but it is never text in a row.
+      ##
+      "recording_id": 7,
       "app_user_id": 71,
       "platform": "douyin",
       "room_id": "room",
@@ -324,7 +328,7 @@ class LibraryRoleScopedRouteTest(unittest.TestCase):
     self.assertNotIn("source", item)
 
   def test_admin_recordings_are_global_but_still_do_not_dump_output_path(self):
-    row = {"recording_id": "R1", "output_path": "/srv/private/live.flv"}
+    row = {"recording_id": 8, "output_path": "/srv/private/live.flv"}
     query = FakeQuery(recordings=LibraryPage(1, 1, 25, (row,)))
 
     item = client_for(FakeRuntime(query)).get(
