@@ -45,3 +45,52 @@ export function listRecordingAssets(
     { ...(signal ? { signal } : {}) },
   )
 }
+
+//
+// >>------------------------- download addresses -------------------------<<
+//
+// Addresses only. Nothing here fetches: a download is handed to the browser as
+// a same-origin link, so that a recording of any size streams to disk without
+// passing through this tab's memory, and so that the browser's own download UI
+// does the reporting.
+//
+// The parent resource is always named in the path. An asset id is a stable name
+// for a file, never a capability to read one - the server matches it against a
+// fresh discovery of the resource named here, so an id means nothing anywhere
+// but where it was issued.
+//
+// No credential is added. The session cookie already authenticates this request
+// like every other; a token placed in a url would survive in browser history,
+// in referrer headers, and in any proxy log along the way.
+//
+
+/** Where to download one of a post's files. */
+export function postAssetDownloadUrl(
+  platform: string,
+  awemeId: string,
+  assetId: string,
+): string {
+  return (
+    `/api/library/posts/${encodeURIComponent(platform)}` +
+    `/${encodeURIComponent(awemeId)}` +
+    `/assets/${encodeURIComponent(assetId)}/download`
+  )
+}
+
+/**
+ * Where to download the file one recording wrote.
+ *
+ * The identity is interpolated as the text it already is. It is a BIGINT
+ * UNSIGNED whose domain a JavaScript number cannot hold, so converting it -
+ * even incidentally, through arithmetic or a parse - would change which
+ * recording this url addresses.
+ */
+export function recordingAssetDownloadUrl(
+  recordingId: RecordingId,
+  assetId: string,
+): string {
+  return (
+    `/api/library/recordings/${encodeURIComponent(recordingId)}` +
+    `/assets/${encodeURIComponent(assetId)}/download`
+  )
+}

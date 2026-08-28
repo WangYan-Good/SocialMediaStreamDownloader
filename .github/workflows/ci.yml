@@ -394,6 +394,22 @@ jobs:
           expect "/api/tasks?limit=1" 401
           expect "/api/system/status" 401
 
+          # Media delivery is not a public file server. These are the only
+          # endpoints in the application that return bytes from disk, so the
+          # image itself has to prove they refuse an anonymous caller - a unit
+          # test cannot notice a reverse proxy or a route ordering that let one
+          # through in the built artifact.
+          #
+          # 401 rather than 404: the refusal happens at authentication, before
+          # any lookup, so the answer cannot depend on whether the resource or
+          # the file exists.
+          expect "/api/library/posts/douyin/7657271784144009946/assets/$(printf 'a%.0s' $(seq 64))/download" 401
+          expect "/api/library/recordings/7/assets/$(printf 'a%.0s' $(seq 64))/download" 401
+
+          # And the metadata endpoints beside them, for the same reason.
+          expect "/api/library/posts/douyin/7657271784144009946/assets" 401
+          expect "/api/library/recordings/7/assets" 401
+
           # The media asset endpoints read the server's own filesystem, so the
           # first thing worth proving about them is that nobody unauthenticated
           # can reach one. No real volume file is involved: an anonymous request

@@ -9,7 +9,7 @@ import threading
 from datetime import datetime
 
 ## <<Extension>>
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, send_file
 
 ## <<Third-Part>>
 from backend.src.database.query.library import (
@@ -23,7 +23,7 @@ from backend.src.database.query.library import (
 from backend.src.auth.roles import ROLE_ADMIN
 from backend.src.database.table.share_url import DouyinShareUrlTable
 from backend.src.library.baselib import get_dict_attr
-from backend.src.service.media_asset import MediaAssetResolver
+from backend.src.service.media_asset import SECURE_OPEN_SUPPORTED, MediaAssetResolver
 from backend.src.library.configlib import load_config
 from backend.src.library.loglib import get_logger
 from backend.src.web.auth_routes import (
@@ -338,9 +338,15 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
       "assets": [asset.as_dict() for asset in discovery.assets],
     }
 
-  @blueprint.route("/library/posts/<platform>/<aweme_id>/assets", methods=["GET"])
-  @require_authenticated
-  def post_assets(platform, aweme_id):
+  ##
+  ## The scoped lookup, in one place.
+  ##
+  ## Metadata and download must authorize identically, and the surest way to
+  ## keep them identical is for there to be one implementation rather than two
+  ## that agree today. Each returns either the row or a ready response, so a
+  ## caller cannot forget to check.
+  ##
+  def _authorized_post_row(platform, aweme_id):
     try:
       context = request_auth_context()
       query = runtime.query()
@@ -353,17 +359,43 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
       else:
         row = query.post_for_user(context.user.user_id, platform, aweme_id)
     except LibraryUnavailable as e:
-      return _error(str(e), 503)
+      return None, _error(str(e), 503)
     except Exception as e:
       get_logger().error("library post asset lookup failed: {}".format(e))
-      return _error("服务器内部错误，请稍后重试", 500)
+      return None, _error("服务器内部错误，请稍后重试", 500)
 
     if row is None:
       ##
       ## One answer for "no such post", "not yours" and "belongs to nobody".
       ## Any difference between them would confirm the post exists.
       ##
-      return _error("资源不存在", 404)
+      return None, _error("资源不存在", 404)
+    return row, None
+
+  def _authorized_recording_row(recording_id):
+    try:
+      context = request_auth_context()
+      query = runtime.query()
+      if context.user.role == ROLE_ADMIN:
+        row = query.recording(recording_id)
+      else:
+        row = query.recording_for_user(context.user.user_id, recording_id)
+    except LibraryUnavailable as e:
+      return None, _error(str(e), 503)
+    except Exception as e:
+      get_logger().error("library recording asset lookup failed: {}".format(e))
+      return None, _error("服务器内部错误，请稍后重试", 500)
+
+    if row is None:
+      return None, _error("资源不存在", 404)
+    return row, None
+
+  @blueprint.route("/library/posts/<platform>/<aweme_id>/assets", methods=["GET"])
+  @require_authenticated
+  def post_assets(platform, aweme_id):
+    row, refusal = _authorized_post_row(platform, aweme_id)
+    if refusal is not None:
+      return refusal
 
     discovery = runtime.asset_resolver().post_assets(
       row.get("save_dir"), platform, aweme_id
@@ -380,21 +412,9 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
   )
   @require_authenticated
   def recording_assets(recording_id):
-    try:
-      context = request_auth_context()
-      query = runtime.query()
-      if context.user.role == ROLE_ADMIN:
-        row = query.recording(recording_id)
-      else:
-        row = query.recording_for_user(context.user.user_id, recording_id)
-    except LibraryUnavailable as e:
-      return _error(str(e), 503)
-    except Exception as e:
-      get_logger().error("library recording asset lookup failed: {}".format(e))
-      return _error("服务器内部错误，请稍后重试", 500)
-
-    if row is None:
-      return _error("资源不存在", 404)
+    row, refusal = _authorized_recording_row(recording_id)
+    if refusal is not None:
+      return refusal
 
     discovery = runtime.asset_resolver().recording_asset(
       row.get("output_path"), recording_id
@@ -410,5 +430,149 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
         discovery,
       )
     )
+
+  ##
+  ## >>------------------------- media delivery -------------------------<<
+  ##
+  ##
+  ## The bytes. Every request walks the full length of the boundary:
+  ##
+  ##     authenticate
+  ##       -> scoped database lookup for the PARENT resource
+  ##         -> only now, the filesystem
+  ##           -> rediscover what is on disk right now
+  ##             -> match the requested id against THAT
+  ##               -> open it through the root, refusing every symlink
+  ##                 -> fstat the descriptor that was actually opened
+  ##                   -> stream that open file
+  ##
+  ## No step may be skipped for a request that "already" listed the asset. The
+  ## listing is a description of a moment that has passed; the file may since
+  ## have been deleted, replaced, or turned into a link pointing anywhere. An
+  ## asset id names a file - it never grants access to one.
+  ##
+  ## There is deliberately no path anywhere in this section, and no route that
+  ## takes one.
+  ##
+  def _deliver(opened):
+    """Stream an already-open media file as an attachment.
+
+    The file object is passed to ``send_file`` rather than a path. A path would
+    be re-opened by name, which would discard the secure walk that produced
+    this descriptor and reintroduce the race it exists to close.
+    """
+    response = send_file(
+      opened.stream,
+      mimetype=opened.asset.media_type,
+      ##
+      ## Always an attachment, images included. Nothing this server stores is
+      ## rendered inline in this phase, so no media can become a vector for
+      ## anything the browser would execute or embed.
+      ##
+      as_attachment=True,
+      ##
+      ## Werkzeug builds the header - including the RFC 5987 encoding a Chinese
+      ## file name needs, and the escaping that stops a crafted name from
+      ## injecting one. Hand-formatting this header is how that goes wrong.
+      ##
+      download_name=opened.asset.name,
+      ##
+      ## No Range handling in this phase. Conditional responses would advertise
+      ## byte-range support that has not been designed yet, which is how a
+      ## download endpoint quietly becomes a player transport.
+      ##
+      conditional=False,
+      ##
+      ## No entity tag. Computing one means reading the file to hash it, and
+      ## the asset id is a name, not a content digest - using it here would
+      ## claim a guarantee it does not make.
+      ##
+      etag=False,
+      last_modified=None,
+    )
+
+    ##
+    ## From the descriptor, not from the earlier listing. The file may have
+    ## grown since discovery, and Content-Length must describe what is actually
+    ## being sent.
+    ##
+    response.headers["Content-Length"] = str(opened.size_bytes)
+    ##
+    ## Private media must not be retained by any cache between here and the
+    ## browser - a shared proxy holding one user's video would serve it to the
+    ## next person who asked.
+    ##
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+
+    ##
+    ## The descriptor is released when the response is done with it, whether it
+    ## completed, failed, or the client hung up mid-stream. A server that runs
+    ## for weeks cannot leak one per download.
+    ##
+    response.call_on_close(opened.close)
+    return response
+
+  @blueprint.route(
+    "/library/posts/<platform>/<aweme_id>/assets/<asset_id>/download",
+    methods=["GET"],
+  )
+  @require_authenticated
+  def post_asset_download(platform, aweme_id, asset_id):
+    row, refusal = _authorized_post_row(platform, aweme_id)
+    if refusal is not None:
+      return refusal
+
+    if not SECURE_OPEN_SUPPORTED:
+      ##
+      ## This host cannot make the guarantee the walk depends on. Serving the
+      ## file through a plain open would look identical and be a different
+      ## promise, so it refuses instead. Metadata still works.
+      ##
+      return _error("文件暂时不可用", 503)
+
+    try:
+      opened = runtime.asset_resolver().open_post_asset(
+        row.get("save_dir"), platform, aweme_id, asset_id
+      )
+    except Exception as e:
+      get_logger().error("post asset open failed: {}".format(e))
+      return _error("服务器内部错误，请稍后重试", 500)
+
+    if opened is None:
+      ##
+      ## Unknown id, an id from another post, a file deleted since it was
+      ## listed, a name that is now a symlink. One answer: the difference
+      ## between them is a description of this host's filesystem.
+      ##
+      return _error("资源或文件不存在", 404)
+
+    return _deliver(opened)
+
+  @blueprint.route(
+    "/library/recordings/<int:recording_id>/assets/<asset_id>/download",
+    methods=["GET"],
+  )
+  @require_authenticated
+  def recording_asset_download(recording_id, asset_id):
+    row, refusal = _authorized_recording_row(recording_id)
+    if refusal is not None:
+      return refusal
+
+    if not SECURE_OPEN_SUPPORTED:
+      return _error("文件暂时不可用", 503)
+
+    try:
+      opened = runtime.asset_resolver().open_recording_asset(
+        row.get("output_path"), recording_id, asset_id
+      )
+    except Exception as e:
+      get_logger().error("recording asset open failed: {}".format(e))
+      return _error("服务器内部错误，请稍后重试", 500)
+
+    if opened is None:
+      return _error("资源或文件不存在", 404)
+
+    return _deliver(opened)
 
   return blueprint

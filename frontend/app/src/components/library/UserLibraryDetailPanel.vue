@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { onBeforeUnmount, watch } from 'vue'
+import { computed, onBeforeUnmount, watch } from 'vue'
 
+import {
+  postAssetDownloadUrl,
+  recordingAssetDownloadUrl,
+} from '@/api/mediaAssets'
 import MediaAssetSection from '@/components/library/MediaAssetSection.vue'
 import {
   TYPE_LABELS,
@@ -11,6 +15,7 @@ import {
 import { useLibraryAssetsStore } from '@/stores/libraryAssets'
 import { formatTimestamp } from '@/utils/time'
 import type { LibraryPost, LibraryRecording } from '@/types/library'
+import type { MediaAsset } from '@/types/mediaAsset'
 
 //
 // Built from the safe row already on screen: reading one record back by id
@@ -52,6 +57,30 @@ watch(
   },
   { immediate: true },
 )
+
+//
+// How to address a file of whichever resource is open.
+//
+// Built here rather than in the list, because the parent identity is what makes
+// the address meaningful: the server matches an asset id against a fresh
+// discovery of *this* resource, so the same id addressed to another resource
+// buys nothing. The identity is passed along exactly as it arrived - a
+// recording id is text precisely so that it can be, and narrowing it here would
+// address a different recording.
+//
+const downloadUrlFor = computed<((asset: MediaAsset) => string) | null>(() => {
+  const post = props.post
+  if (post) {
+    return (asset) =>
+      postAssetDownloadUrl(post.platform, post.aweme_id, asset.asset_id)
+  }
+  const recording = props.recording
+  if (recording) {
+    return (asset) =>
+      recordingAssetDownloadUrl(recording.recording_id, asset.asset_id)
+  }
+  return null
+})
 
 //
 // The panel closing is the end of this resource's state. Leaving it behind
@@ -99,6 +128,7 @@ onBeforeUnmount(() => {
       :assets="assets"
       :loading="loading"
       :error="error"
+      :download-url-for="downloadUrlFor"
       @refresh="assetsStore.refresh()"
     />
   </aside>

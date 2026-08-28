@@ -1,6 +1,7 @@
 ##<<Base>>
 import hashlib
 import os
+import stat
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -116,6 +117,153 @@ def contained_path(root, candidate):
   return resolved
 
 
+##
+## >>========================= the secure open boundary =========================>>
+##
+##
+## Phase 10A only ever answered questions: it resolved a path, stat'd it, and
+## described what it found.  A wrong answer there is a wrong answer, and the
+## next request asks again.
+##
+## Serving bytes is different.  Discovery and delivery are two moments, and
+## everything between them is somebody else's opportunity:
+##
+##     discover  ->  [ the file is deleted and replaced with a symlink ]  ->  open
+##
+## A path is just a sentence about the filesystem, re-evaluated every time it is
+## used.  ``open(discovered_path)`` re-walks every component, so all the checking
+## Phase 10A did is discarded at exactly the instant it matters.  This is why
+## ``send_file(path)`` is forbidden for media: it re-opens by name.
+##
+## What follows walks down from the root one directory at a time, holding a
+## descriptor at each level and opening the next relative to it.  A descriptor
+## names the directory that was actually opened - not a name that can be
+## repointed afterwards - so an attacker who swaps a component mid-walk finds
+## the walk already past it, or is refused by O_NOFOLLOW at that level.
+##
+
+##
+## Whether this host can make the guarantee above.
+##
+## Probed rather than assumed.  If any piece is missing the honest answer is
+## that binary delivery is unavailable here - never a plain ``open()`` that
+## looks like it works.  Metadata discovery does not depend on this and keeps
+## working either way.
+##
+SECURE_OPEN_SUPPORTED = (
+  hasattr(os, "O_NOFOLLOW")
+  and hasattr(os, "O_DIRECTORY")
+  and os.open in os.supports_dir_fd
+)
+
+_O_CLOEXEC = getattr(os, "O_CLOEXEC", 0)
+##
+## Non-blocking, so that a fifo left where a video should be cannot hold a
+## worker forever waiting for a writer.  For a regular file it has no effect.
+##
+_O_NONBLOCK = getattr(os, "O_NONBLOCK", 0)
+
+
+def _open_within_root(root, target):
+  """Open ``target`` by walking down from ``root``, one descriptor at a time.
+
+  Returns an open binary file object, or ``None``.  ``None`` for every refusal
+  - a component that is a symlink, a target that is not a regular file, a file
+  that vanished - because the caller turns all of them into the same answer and
+  telling them apart would leak the shape of the filesystem.
+
+  ``target`` must already be inside ``root``; ``contained_path`` decides that.
+  This function does not re-decide it, it *enforces* it: even a target that
+  passed containment is only reachable here through components that were each
+  opened without following a link.
+  """
+  if not SECURE_OPEN_SUPPORTED:
+    return None
+
+  try:
+    relative = target.relative_to(root)
+  except ValueError:
+    return None
+
+  parts = relative.parts
+  if not parts:
+    return None
+
+  directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | _O_CLOEXEC
+  file_flags = os.O_RDONLY | os.O_NOFOLLOW | _O_CLOEXEC | _O_NONBLOCK
+
+  ##
+  ## The root itself is opened by name - it is the configured trust anchor, and
+  ## there is nothing above it to walk down from.  O_NOFOLLOW is deliberately
+  ## not set here: an administrator is entitled to point save_path at a symlink.
+  ##
+  try:
+    current = os.open(str(root), os.O_RDONLY | os.O_DIRECTORY | _O_CLOEXEC)
+  except OSError:
+    return None
+
+  fd = None
+  try:
+    ##
+    ## Every directory between the root and the file. O_NOFOLLOW at each level
+    ## is the point: checking only the final component would leave every parent
+    ## free to be swapped for a link to somewhere else entirely.
+    ##
+    for name in parts[:-1]:
+      try:
+        nxt = os.open(name, directory_flags, dir_fd=current)
+      except OSError:
+        return None
+      ##
+      ## Closed as soon as the next level is held, so a deep path costs two
+      ## descriptors rather than one per level.
+      ##
+      os.close(current)
+      current = nxt
+
+    try:
+      fd = os.open(parts[-1], file_flags, dir_fd=current)
+    except OSError:
+      ##
+      ## ENOENT (deleted since discovery), ELOOP (now a symlink), EACCES,
+      ## ENOTDIR - one answer for all of them.
+      ##
+      return None
+
+    ##
+    ## The descriptor is open; this asks what it actually is, which no earlier
+    ## check can answer because no earlier check held this descriptor. A
+    ## directory, fifo, socket or device must not be streamed.
+    ##
+    try:
+      info = os.fstat(fd)
+    except OSError:
+      return None
+    if not stat.S_ISREG(info.st_mode):
+      return None
+
+    ##
+    ## Handed to a file object, which takes ownership of the descriptor.
+    ##
+    stream = os.fdopen(fd, "rb")
+    fd = None
+    return stream, info.st_size
+  finally:
+    ##
+    ## Whatever happened, no directory descriptor outlives this call, and a
+    ## file descriptor that never reached a file object is not leaked either.
+    ##
+    try:
+      os.close(current)
+    except OSError:
+      pass
+    if fd is not None:
+      try:
+        os.close(fd)
+      except OSError:
+        pass
+
+
 def recognise_post_file(file_name: str, aweme_id: str):
   """Which media kind this file is for this post, or None.
 
@@ -199,6 +347,45 @@ class MediaAsset:
       "media_type": self.media_type,
       "image_index": self.image_index,
     }
+
+
+@dataclass(frozen=True)
+class OpenedMediaAsset:
+  """One media file, already open, ready to be streamed.
+
+  Deliberately has no ``as_dict``.  This is the one object in the module that
+  knows a location, and it exists only between the resolver and the response -
+  it must never acquire a way to describe itself to a browser.
+
+  What it carries is the descriptor, not the name: everything downstream reads
+  from an open file that was proven to be the right one, so no later step can
+  re-resolve a path and get a different answer.
+  """
+
+  ##
+  ## The public, path-free description - the same shape discovery reports.
+  ##
+  asset: MediaAsset
+  ##
+  ## The already-open binary file object.
+  ##
+  stream: object
+  ##
+  ## From ``fstat`` on the open descriptor, not from discovery. The file may
+  ## have grown between the two, and the descriptor is the current truth.
+  ##
+  size_bytes: int
+
+  def close(self) -> None:
+    """Release the descriptor. Safe to call more than once."""
+    try:
+      self.stream.close()
+    except Exception:
+      ##
+      ## A close that fails has still released what it could, and the request
+      ## it belonged to is already over.
+      ##
+      pass
 
 
 @dataclass(frozen=True)
@@ -389,15 +576,100 @@ class MediaAssetResolver:
     return AssetDiscovery(storage_state=StorageState.AVAILABLE, assets=(asset,))
 
 
+  ##
+  ## >>--------------------------- opening ---------------------------<<
+  ##
+  ##
+  ## Both methods below rediscover before they open, and neither takes a path
+  ## from a caller.  An asset id is matched against what is on disk *now* -
+  ## never against a remembered listing, and never turned back into a file name
+  ## by inverting the digest, which is not possible and must not be simulated by
+  ## keeping a table.
+  ##
+  ## Returning ``None`` for every refusal is deliberate.  "No such id", "deleted
+  ## since you listed it", "now a symlink" and "outside the root" are one answer
+  ## to a browser; the difference between them describes this host's filesystem.
+  ##
+
+  def _open_matching(self, discovery, asset_id, root, directory):
+    """Find ``asset_id`` in a fresh discovery and open that exact file."""
+    if discovery.storage_state is not StorageState.AVAILABLE:
+      return None
+
+    ##
+    ## The name comes from the asset discovery just found - never from the
+    ## request. The caller supplies an id and nothing else, so there is no
+    ## component of the final path that a browser chose.
+    ##
+    current = next(
+      (one for one in discovery.assets if one.asset_id == asset_id), None
+    )
+    if current is None:
+      return None
+
+    target = contained_path(root, directory / current.name)
+    if target is None:
+      return None
+
+    opened = _open_within_root(Path(os.path.realpath(str(root))), target)
+    if opened is None:
+      return None
+
+    stream, size = opened
+    ##
+    ## The size is re-read from the open descriptor rather than reused from
+    ## discovery: the file may have grown between the two, and Content-Length
+    ## has to describe what is about to be sent.
+    ##
+    return OpenedMediaAsset(asset=current, stream=stream, size_bytes=size)
+
+  def open_post_asset(self, save_dir, platform: str, aweme_id: str, asset_id: str):
+    """Open one of this post's files, chosen by id, as it exists right now."""
+    root = self._root()
+    if root is None:
+      return None
+
+    directory = contained_path(root, save_dir)
+    if directory is None:
+      return None
+
+    ##
+    ## Rediscovered, not remembered. The list this id came from may be minutes
+    ## old, and the only listing that can authorize an open is the current one.
+    ##
+    discovery = self.post_assets(save_dir, platform, aweme_id)
+    return self._open_matching(discovery, asset_id, root, directory)
+
+  def open_recording_asset(self, output_path, recording_id, asset_id: str):
+    """Open the exact file this recording wrote, if it is still that file."""
+    root = self._root()
+    if root is None:
+      return None
+
+    target = contained_path(root, output_path)
+    if target is None:
+      return None
+
+    discovery = self.recording_asset(output_path, recording_id)
+    ##
+    ## The parent directory of the recorded path - never a listing of it. A
+    ## recording owns one file, and its neighbours belong to other recordings,
+    ## possibly other users'.
+    ##
+    return self._open_matching(discovery, asset_id, root, target.parent)
+
+
 class _ScanTooLarge(Exception):
   """A directory with more entries than this program will look at."""
 
 
 __all__ = [
   "MAX_POST_ASSET_SCAN_ENTRIES",
+  "SECURE_OPEN_SUPPORTED",
   "AssetDiscovery",
   "MediaAsset",
   "MediaAssetResolver",
+  "OpenedMediaAsset",
   "StorageState",
   "asset_id_for",
   "contained_path",

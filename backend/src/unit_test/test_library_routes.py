@@ -464,7 +464,21 @@ class LibraryBoundaryTest(unittest.TestCase):
   FILESYSTEM_CALLS = (
     "os.listdir", "os.walk", "os.stat", "os.remove", "os.rename", "os.mkdir",
     "os.makedirs", "os.scandir", "os.open", "open", "glob", "glob.glob",
-    "Path", "shutil.copy", "shutil.move", "send_file", "send_from_directory",
+    "Path", "shutil.copy", "shutil.move", "send_from_directory",
+  )
+
+  ##
+  ## ``send_file`` left the list above when Phase 10B began serving media, and
+  ## the rule it enforced did not go with it - it moved into
+  ## ``test_the_routes_never_hand_a_path_to_send_file`` below.
+  ##
+  ## The distinction is the whole security property.  ``send_file(path)`` opens
+  ## a file by name, which re-walks every component and discards the checking
+  ## that chose it; ``send_file(open_file_object)`` writes out a descriptor that
+  ## was already proven.  Only the first is a filesystem reach from this module.
+  ##
+  SEND_FILE_PATH_SHAPES = (
+    "Path", "os.path.join", "str", "format", "os.fspath",
   )
   PLATFORM_IMPORTS = (
     "requests", "httpx", "urllib", "urllib.request", "aiohttp",
@@ -503,6 +517,62 @@ class LibraryBoundaryTest(unittest.TestCase):
           self.FILESYSTEM_CALLS,
           "{} reaches the filesystem via {}".format(name, called),
         )
+
+  def test_the_routes_never_hand_a_path_to_send_file(self):
+    """Media is sent from an open descriptor, never from a name.
+
+    Handing ``send_file`` a path would reopen the file by walking its
+    components again, throwing away the secure open that selected it - and
+    reopening a name is exactly the window the TOCTOU boundary exists to close.
+
+    The first argument must therefore be a plain reference to something already
+    opened, never anything that constructs or manipulates a path.
+    """
+    import ast
+
+    checked = 0
+    for name, tree in self._trees().items():
+      for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+          continue
+        if ast.unparse(node.func) != "send_file":
+          continue
+        checked += 1
+        self.assertTrue(node.args, "send_file must be given something to send")
+        first = node.args[0]
+
+        ##
+        ## A join, a format, a Path(...) - anything that builds a location.
+        ##
+        if isinstance(first, ast.Call):
+          self.assertNotIn(
+            ast.unparse(first.func),
+            self.SEND_FILE_PATH_SHAPES,
+            "{}: send_file must not be handed a constructed path".format(name),
+          )
+        ##
+        ## A literal path, or a `directory / filename` expression.
+        ##
+        self.assertNotIsInstance(
+          first, ast.Constant, "{}: send_file must not take a literal".format(name)
+        )
+        self.assertNotIsInstance(
+          first, ast.BinOp, "{}: send_file must not take a joined path".format(name)
+        )
+
+        source = ast.unparse(first)
+        for forbidden in ("save_dir", "output_path", "path", "root", "name"):
+          self.assertNotIn(
+            forbidden,
+            source,
+            "{}: send_file argument {} looks like a path".format(name, source),
+          )
+
+    ##
+    ## The guard must be watching something. If the media routes are ever
+    ## removed or renamed, this says so rather than passing vacuously.
+    ##
+    self.assertEqual(1, checked, "expected exactly one send_file call site")
 
   def test_the_library_never_reaches_for_a_platform(self):
     ##

@@ -2,20 +2,35 @@
 import type { MediaAsset, MediaAssetStorageState } from '@/types/mediaAsset'
 
 //
-// What is on disk for the resource this panel is showing.
+// What is on disk for the resource this panel is showing, and the one thing
+// that can be done with it: saving a copy.
 //
-// Read-only, and deliberately inert. Nothing here links to a file, plays one
-// or offers to save one: this phase answers what exists, and an anchor with
-// nothing behind it would be an affordance that invites the route it lacks.
+// Saving happens through a plain same-origin anchor, not through script. A
+// recording can be tens of gigabytes, and fetching one into a Blob would hold
+// all of it in this tab before a byte reached disk - as well as replacing the
+// browser's own download UI, which already reports progress, resumes, and
+// knows where the user keeps things.
 //
-// The only action is to ask again - somebody who deleted files by hand wants
-// the page to agree with them.
+// The cost of that choice is that a failure arrives as the browser's own
+// download error rather than as this application's. That is accepted here: a
+// wrong answer for a file that vanished between listing and clicking is worth
+// less than never loading a video into a tab.
+//
+// Nothing is previewed and nothing is played. The server sends every asset as
+// an attachment, images included, so no stored file becomes something this
+// page renders.
 //
 defineProps<{
   storageState: MediaAssetStorageState | null
   assets: MediaAsset[]
   loading: boolean
   error: string | null
+  //
+  // How to address one of these files. Supplied by the panel that knows which
+  // resource is open, because a url built from a resource identity belongs
+  // with the resource rather than with the list that displays it.
+  //
+  downloadUrlFor: ((asset: MediaAsset) => string) | null
 }>()
 
 defineEmits<{ refresh: [] }>()
@@ -96,13 +111,27 @@ function readableSize(bytes: number): string {
     </p>
 
     <!--
-      A list, never links. See the note at the top of this file.
+      Every row here came from the discovery just performed, and the state
+      above is `available`. The other states are handled before this list is
+      reached, so there is never a download offered for a file this server has
+      just said it cannot see.
     -->
     <ul v-else-if="assets.length" class="assets__list">
       <li v-for="asset in assets" :key="asset.asset_id" class="assets__item">
         <span class="assets__kind">{{ kindLabel(asset.kind) }}</span>
         <span class="assets__name">{{ asset.name }}</span>
         <span class="assets__size">{{ readableSize(asset.size_bytes) }}</span>
+        <!--
+          A same-origin link the browser follows itself. The session cookie
+          goes with it, and the server's Content-Disposition makes it a save
+          rather than a navigation.
+        -->
+        <a
+          v-if="downloadUrlFor"
+          class="assets__download"
+          :href="downloadUrlFor(asset)"
+          >下载</a
+        >
       </li>
     </ul>
   </section>
@@ -120,4 +149,6 @@ function readableSize(bytes: number): string {
 .assets__kind { flex: 0 0 3.5rem; color: var(--color-muted); }
 .assets__name { flex: 1 1 auto; overflow-wrap: anywhere; }
 .assets__size { flex: 0 0 auto; color: var(--color-muted); }
+.assets__download { flex: 0 0 auto; color: var(--color-accent, inherit); text-decoration: underline; }
+.assets__download:focus-visible { outline: 2px solid var(--color-accent, currentColor); outline-offset: 2px; }
 </style>
