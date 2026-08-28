@@ -64,6 +64,21 @@ AUTHORIZATION_POLICY = (
   ##
   _policy("GET", "/api/library/posts/<platform>/<aweme_id>/assets", "role scoped", P.ROLE_SCOPED, "user own post (404 otherwise) / admin global", C.EXEMPT, "enforced"),
   _policy("GET", "/api/library/recordings/<int:recording_id>/assets", "role scoped", P.ROLE_SCOPED, "user own recording (404 otherwise) / admin global", C.EXEMPT, "enforced"),
+  ##
+  ## Authorized media delivery. The bytes, on exactly the terms the metadata
+  ## endpoint one segment above was served on.
+  ##
+  ## The parent resource is named in the path on purpose. An asset id is a
+  ## stable name for a file, not a capability to read it - a route keyed on the
+  ## id alone would authorize whoever holds it, turning a value handed out in a
+  ## listing into a bearer token that never expires.
+  ##
+  ## CSRF exempt because a download is a read. The alternative - a token in the
+  ## url - would put a credential into browser history, referrer headers and
+  ## any proxy log on the path.
+  ##
+  _policy("GET", "/api/library/posts/<platform>/<aweme_id>/assets/<asset_id>/download", "role scoped", P.ROLE_SCOPED, "user own post (404 otherwise) / admin global", C.EXEMPT, "enforced"),
+  _policy("GET", "/api/library/recordings/<int:recording_id>/assets/<asset_id>/download", "role scoped", P.ROLE_SCOPED, "user own recording (404 otherwise) / admin global", C.EXEMPT, "enforced"),
   _policy("GET", "/api/library/lives", "admin", P.ADMIN, "global live observations", C.EXEMPT, "enforced"),
   _policy("GET", "/api/system/status", "admin", P.ADMIN, "deployment configuration/status summary", C.EXEMPT, "enforced"),
 

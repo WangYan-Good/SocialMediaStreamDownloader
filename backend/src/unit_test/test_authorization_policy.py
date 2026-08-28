@@ -50,7 +50,7 @@ class TestAuthorizationPolicyInventory(unittest.TestCase):
 
     self.assertEqual(len(keys), len(set(keys)))
     self.assertEqual(registered_api_routes(), policy_keys())
-    self.assertEqual(36, len(keys))
+    self.assertEqual(38, len(keys))
 
   def test_every_authenticated_unsafe_target_has_a_csrf_policy(self):
     for policy in AUTHORIZATION_POLICY:
@@ -60,6 +60,53 @@ class TestAuthorizationPolicyInventory(unittest.TestCase):
             policy.csrf,
             {CsrfPolicy.REQUIRED, CsrfPolicy.SESSION_IF_PRESENT},
           )
+
+  def test_media_download_is_scoped_exactly_like_the_metadata_it_serves(self):
+    """The bytes cannot be reachable on weaker terms than the listing.
+
+    An asset id is not a capability.  If the download route were classified
+    any wider than the metadata route beside it, the id handed out in a list
+    would become a bearer token - which is the one thing Phase 10A's asset id
+    docstring says it must never be.
+    """
+    downloads = {
+      ("GET", "/api/library/posts/<platform>/<aweme_id>/assets/<asset_id>/download"),
+      ("GET", "/api/library/recordings/<int:recording_id>/assets/<asset_id>/download"),
+    }
+    listed = {one.key for one in AUTHORIZATION_POLICY}
+
+    self.assertTrue(downloads.issubset(listed))
+
+    for key in downloads:
+      policy = next(one for one in AUTHORIZATION_POLICY if one.key == key)
+      with self.subTest(key=key):
+        ##
+        ## The same principal and the same scope as the metadata endpoint one
+        ## path segment above it.
+        ##
+        self.assertEqual(TargetPrincipal.ROLE_SCOPED, policy.target_principal)
+        ##
+        ## A read, so no CSRF - and deliberately so, because the alternative is
+        ## a token in a url that the browser would then put in history.
+        ##
+        self.assertEqual(CsrfPolicy.EXEMPT, policy.csrf)
+        self.assertIn("404", policy.data_scope)
+
+  def test_no_download_route_is_reachable_without_its_parent_resource(self):
+    """Every media path names the resource that owns it.
+
+    A route like ``/api/files/<asset_id>`` would authorize on the id alone.
+    There must not be one.
+    """
+    for policy in AUTHORIZATION_POLICY:
+      if "download" not in policy.path or "/library/" not in policy.path:
+        continue
+      with self.subTest(key=policy.key):
+        parent = policy.path.split("/assets/")[0]
+        self.assertTrue(
+          parent.endswith("<aweme_id>") or parent.endswith("<int:recording_id>"),
+          "download path must be rooted in a parent resource identity",
+        )
 
   def test_phase_8b_inventory_claims_real_enforcement(self):
     self.assertTrue(BUSINESS_ENDPOINT_ENFORCEMENT_ENABLED)

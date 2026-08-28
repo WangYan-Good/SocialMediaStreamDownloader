@@ -12,6 +12,17 @@ import type { MediaAssetStorageState } from '../../src/types/mediaAsset'
 vi.mock('../../src/api/mediaAssets', () => ({
   listPostAssets: vi.fn(),
   listRecordingAssets: vi.fn(),
+  //
+  // Real implementations rather than stubs: these are pure functions over a
+  // resource identity, and a test that faked them would stop noticing if the
+  // url the panel builds ever drifted from the route that serves it.
+  //
+  postAssetDownloadUrl: (platform: string, awemeId: string, assetId: string) =>
+    `/api/library/posts/${encodeURIComponent(platform)}/${encodeURIComponent(awemeId)}` +
+    `/assets/${encodeURIComponent(assetId)}/download`,
+  recordingAssetDownloadUrl: (recordingId: string, assetId: string) =>
+    `/api/library/recordings/${encodeURIComponent(recordingId)}` +
+    `/assets/${encodeURIComponent(assetId)}/download`,
 }))
 
 const mockedPost = vi.mocked(listPostAssets)
@@ -161,27 +172,52 @@ describe('the panel never discloses where a file lives', () => {
     }
   })
 
-  it('renders no link or media element for any asset', async () => {
+  it('renders no media element, and no link but the download', async () => {
     //
-    // Phase 10A answers what exists. Nothing is served, so an anchor, an img
-    // or a video here would be an affordance with nothing behind it - and the
-    // beginning of a route somebody would then be tempted to add.
+    // Phase 10A had no route behind an anchor, so it allowed none. Phase 10B
+    // serves attachments, so exactly one link is expected per asset - and it
+    // must go to the download endpoint rather than anywhere else.
+    //
+    // Media elements stay forbidden. The server sends every asset as an
+    // attachment, images included, so nothing stored here is rendered by this
+    // page; a `<video>` or an `<img src>` pointed at the endpoint would be
+    // inline delivery arriving without the design it needs.
     //
     const wrapper = await openPost()
 
-    expect(wrapper.findAll('a')).toHaveLength(0)
+    for (const link of wrapper.findAll('a')) {
+      expect(link.attributes('href')).toMatch(/^\/api\/library\/.+\/download$/)
+    }
     expect(wrapper.find('video').exists()).toBe(false)
     expect(wrapper.find('img').exists()).toBe(false)
     expect(wrapper.find('audio').exists()).toBe(false)
+    expect(wrapper.find('iframe').exists()).toBe(false)
   })
 
-  it('offers nothing but a refresh', async () => {
+  it('offers saving, and still nothing else', async () => {
+    //
+    // Saving arrived in Phase 10B and is the only action added. Opening,
+    // playing and previewing remain absent - each would need its own boundary,
+    // and an inline media element pointed at the endpoint would be the next
+    // phase arriving without one.
+    //
     const wrapper = await openPost()
 
-    for (const action of ['下载', '打开', '播放', '预览', '复制路径']) {
+    for (const action of ['打开', '播放', '预览', '复制路径']) {
       expect(buttonSaying(wrapper, action)).toBeUndefined()
     }
     expect(buttonSaying(wrapper, '刷新')).toBeTruthy()
+
+    //
+    // A link the browser follows, not a button that fetches. And still no path
+    // anywhere in it - the href names the resource and the asset id, which is
+    // exactly what the server needs and nothing about where the file lives.
+    //
+    const download = wrapper.get('.assets__download')
+    expect(download.element.tagName).toBe('A')
+    expect(download.attributes('href')).toBe(
+      `/api/library/posts/douyin/${AWEME}/assets/${'a'.repeat(64)}/download`,
+    )
   })
 
   it('re-reads on refresh and reflects what changed', async () => {
