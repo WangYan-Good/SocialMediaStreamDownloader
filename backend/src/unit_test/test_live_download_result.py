@@ -318,6 +318,157 @@ class LiveRunResultTest(unittest.TestCase):
       downloader.run_with_result({})
 
 
+HLS_STREAM_URL = "https://stream.example.test/live/index.m3u8?sign=SECRET"
+
+
+class StubNormalizer:
+  """Stands in for the remux, recording what the pipeline asked it to do."""
+
+  def __init__(self, answer=None, on_call=None):
+    self._answer = answer
+    self._on_call = on_call
+    self.calls = []
+
+  def normalize(self, source_path, **kwargs):
+    self.calls.append(Path(source_path))
+    if self._on_call is not None:
+      self._on_call()
+    if self._answer is None:
+      ##
+      ## The fallback contract: a remux that could not run answers with the
+      ## recording exactly as it was captured.
+      ##
+      return Path(source_path)
+    return Path(self._answer)
+
+
+class LiveRecordingNormalizationBoundaryTest(unittest.TestCase):
+  """Where the MP4 remux sits in a finished recording, and what it may change.
+
+  Normalization is a container correction applied to a recording that has
+  already succeeded.  These pin the two things that follow from that: it
+  happens after the recording is complete but before anything is reported, and
+  it can never turn a successful recording into a failed one.
+  """
+
+  def hls_downloader(self, normalizer, download=None, recording_clock=None):
+    downloader, recorded = build_downloader(
+      probe_result(response=LiveResponse(flv=None, hls=HLS_STREAM_URL)),
+      test_mode=False,
+      download=download,
+      recording_clock=recording_clock,
+    )
+    downloader.hls_normalizer = normalizer
+    return downloader, recorded
+
+  def test_a_successful_hls_recording_is_reported_as_the_normalized_mp4(self):
+    normalizer = StubNormalizer(answer="/media/douyin/live/live.mp4")
+    downloader, recorded = self.hls_downloader(
+      normalizer,
+      download=lambda share_url, build: Path("/media/douyin/live/live.ts"),
+    )
+
+    result = downloader.run_with_result({"url": SHARE_URL})
+
+    self.assertEqual([Path("/media/douyin/live/live.ts")], normalizer.calls)
+    self.assertEqual("/media/douyin/live/live.mp4", result.output_path)
+    self.assertIs(True, result.ok)
+    self.assertIs(True, result.recorded)
+
+  def test_normalization_does_not_change_the_source_protocol(self):
+    ##
+    ## ``protocol`` names how the media was captured, not what container it
+    ## ended up in.  A recording that was pulled over HLS remains an HLS
+    ## recording after its container is corrected.
+    ##
+    normalizer = StubNormalizer(answer="/media/douyin/live/live.mp4")
+    downloader, recorded = self.hls_downloader(
+      normalizer,
+      download=lambda share_url, build: Path("/media/douyin/live/live.ts"),
+    )
+
+    result = downloader.run_with_result({"url": SHARE_URL})
+
+    self.assertEqual("hls", result.protocol)
+
+  def test_the_recording_interval_closes_before_normalization_runs(self):
+    ##
+    ## ``finished_at`` answers "when did this broadcast stop being captured",
+    ## which is a fact about the live stream.  Remuxing afterwards can take
+    ## minutes on a long recording, and folding that into the interval would
+    ## report a broadcast that ran longer than it did.
+    ##
+    moments = iter((
+      datetime(2026, 8, 25, 9, 0, 0),
+      datetime(2026, 8, 25, 10, 0, 0),
+      datetime(2026, 8, 25, 10, 30, 0),
+    ))
+    clock = lambda: next(moments)
+    normalizer = StubNormalizer(
+      answer="/media/douyin/live/live.mp4",
+      on_call=clock,
+    )
+    downloader, recorded = self.hls_downloader(
+      normalizer,
+      download=lambda share_url, build: Path("/media/douyin/live/live.ts"),
+      recording_clock=clock,
+    )
+
+    result = downloader.run_with_result({"url": SHARE_URL})
+
+    self.assertEqual(datetime(2026, 8, 25, 9, 0, 0), result.started_at)
+    self.assertEqual(datetime(2026, 8, 25, 10, 0, 0), result.finished_at)
+    self.assertEqual(1, len(normalizer.calls))
+
+  def test_a_failed_normalization_still_reports_a_successful_recording(self):
+    ##
+    ## The recording was captured in full; only the container improvement did
+    ## not happen.  Reporting anything but success would mark a complete
+    ## broadcast as lost over a file that is sitting on disk.
+    ##
+    normalizer = StubNormalizer()
+    downloader, recorded = self.hls_downloader(
+      normalizer,
+      download=lambda share_url, build: Path("/media/douyin/live/live.ts"),
+    )
+
+    result = downloader.run_with_result({"url": SHARE_URL})
+
+    self.assertIs(True, result.ok)
+    self.assertIs(True, result.recorded)
+    self.assertEqual("hls", result.protocol)
+    self.assertEqual("/media/douyin/live/live.ts", result.output_path)
+    self.assertIsNone(result.reason)
+
+  def test_an_flv_recording_never_reaches_the_normalizer(self):
+    normalizer = StubNormalizer(answer="/media/douyin/live/live.mp4")
+    downloader, recorded = build_downloader(
+      probe_result(),
+      test_mode=False,
+      download=lambda share_url, build: Path("/media/douyin/live/live.flv"),
+    )
+    downloader.hls_normalizer = normalizer
+
+    result = downloader.run_with_result({"url": SHARE_URL})
+
+    self.assertEqual([], normalizer.calls)
+    self.assertEqual("flv", result.protocol)
+    self.assertEqual("/media/douyin/live/live.flv", result.output_path)
+
+  def test_test_mode_has_nothing_to_normalize(self):
+    normalizer = StubNormalizer(answer="/media/douyin/live/live.mp4")
+    downloader, recorded = build_downloader(
+      probe_result(response=LiveResponse(flv=None, hls=HLS_STREAM_URL)),
+      test_mode=True,
+    )
+    downloader.hls_normalizer = normalizer
+
+    result = downloader.run_with_result({"url": SHARE_URL})
+
+    self.assertEqual([], normalizer.calls)
+    self.assertIsNone(result.output_path)
+
+
 class LiveRunLegacyContractTest(unittest.TestCase):
   """``run`` keeps answering the way every existing caller expects."""
 

@@ -301,6 +301,69 @@ Douyin 直播录制的主路径是 **FLV 优先、HLS 兜底**
   应作为独立的 hardening 阶段处理。preview 的边界由
   closed MIME allowlist + `nosniff` + CORP same-origin + 授权 + secure-open 共同建立。
 
+## HLS 录制 MP4 归一化（Phase 10F）
+
+Douyin 直播录制是 **FLV 优先、HLS 兜底**。FLV 由 10E 的 mpegts.js 在浏览器内播放；
+HLS 兜底录制的 `.ts` 在 10F 之前只能下载、无法预览。10F 让**采集成功之后**的 `.ts`
+尽力（best-effort）**无损重封装**为 `.mp4`，从而直接复用既有的原生 `<video>` 预览。
+
+- **采集仍然是 MPEG-TS 优先，这一点没有改变**。`HlsRecorder` 依旧
+  `ffmpeg -c copy -f mpegts` 落 `.ts`，其 retry / stall 检测 / partial 保留
+  （`*.attempt-N.partial*.ts`）/ cancel 语义全部原样保留。
+  原因是容器特性：TS 是自描述包流，录制被中断时截断的文件仍然是「到那一刻为止的录制」；
+  普通 MP4 的索引（`moov`）要等 muxer 正常收尾才写出，被 shutdown 杀掉就是一个谁也打不开的文件。
+  所以**先安全采集，再修容器**。
+- **只 remux，不转码**。归一化命令是
+  `-map 0:v? -map 0:a? -c copy -movflags +faststart -f mp4`：
+  **没有** `libx264` / `libx265` / `aac` 或任何 encoder，画面与声音是原始编码包的搬运。
+  代价是一次文件复制，不是一次编码。
+  - `aac_adtstoasc` **不手写**。MOV/MP4 muxer 会在需要时自行插入；手写等于把 muxer 的逻辑
+    抄一份出来自己维护，并且在不需要它的输入上会直接失败。该行为由**真实 ffmpeg 集成测试**钉住。
+  - 只 map video/audio。直播边缘的 TS 可能携带 MP4 无法表达的 timed metadata / private stream，
+    `-map 0` 会让一场画面声音都能完美复制的录制整体失败。
+- **核心不变量：完整 MP4 安全发布之前，TS 永远不删**。
+  - 归一化全程 `source.ts` 保持存在且不被修改：不 rename、不 truncate、不 in-place remux。
+  - ffmpeg 写的是同目录隐藏临时文件 `.<stem>.remux-<random>.part.mp4`，
+    半成品不会被资源库看见，也**绝不进入数据库**。
+  - 发布用同目录 `os.link(temp, final)` 而**不是** `os.replace`：`replace` 会静默摧毁已经占用该名字的文件，
+    而那可能是另一场录制。`link` 在目标已存在时抛 `FileExistsError`，于是「最后一刻被抢名字」
+    变成一次归一化失败，而不是一次数据丢失。文件系统不支持硬链接时同样 **fail closed**——
+    没有安全的 no-clobber 发布方式，就保持录制原样，**不退化为覆盖**。
+  - 顺序严格是：发布完整 MP4 → 确认存在 → **才**删除 source TS。
+- **归一化失败绝不破坏录制**。ffmpeg 缺失 / 非零退出 / 编码无法封装进 MP4 / 进程崩溃 /
+  临时文件创建失败 / 发布撞名 / 权限失败 / 取消，全部收敛为：清理临时文件、保留 TS、返回 TS。
+  录制结果仍然是 **SUCCESS**，不是 FAILED / PARTIAL / CANCELLED。
+  「兼容的 TS → MP4；不兼容的 TS → 保留 TS」才是本阶段的契约，
+  **不承诺**每个 TS 都能变成 MP4。
+- **MP4 发布成功但 TS 删除失败**，仍然返回 MP4、录制成功；残留 TS 只是 orphan 清理问题，
+  不能反过来否定一次已经完成的归一化。
+- **命名预留同时考虑 `.ts` 与 `.mp4`**。成功的录制最终叫 `live.mp4` 且 `live.ts` 已被删除，
+  所以「`.ts` 名字空着」并不代表「这个名字空着」。预留时两种拼写都要空，否则会选到一个
+  `.mp4` 已属于别人的名字。只有 `.ts` 用创建来占位；`.mp4` 只检查不创建——
+  预先创建等于给资源库一个空文件，也会让 no-clobber 发布撞上自己的占位符。
+- **时间语义**：`finished_at` 表示**直播采集结束**，在归一化之前捕获。
+  长录制的 remux 可能耗时数分钟，把它算进区间等于报告一场比实际更长的直播。
+- **`protocol` 表示采集来源协议，不是最终容器**。HLS 采集即使产出 `.mp4`，
+  `protocol` 仍然是 `hls`。
+- **持久化只发生一次，且用最终路径**。归一化在 `LiveDownloadResult` 构造之前完成，
+  所以 `recording_record.output_path` 第一次写入就是最终值；
+  **没有**「先写 TS 行、remux 后 UPDATE 成 MP4」的中间状态，也没有后台队列、转换表或转换任务。
+  流程保持同步：record → normalize → persist。
+- **完全复用既有媒体管线，0 新增 endpoint**。成功的 MP4 自动获得
+  `video/mp4` → `preview_kind: video` → 既有 `/preview` → 既有 Range/ETag/If-Range 传输 →
+  原生 `<video>`。失败回退的 `.ts` 是 `video/mp2t` → `preview_kind: null` → 仍可下载、不可预览，
+  这就是安全的降级。**没有**新增 `normalized_preview_kind`、`hls_preview_url` 或 `mp4_preview` 路由。
+- **不是用户可调用的文件转换 API**。normalizer 只接受 `HlsRecorder` 产出的本地路径，
+  永远不接受 HTTP 请求路径、前端文件名、`asset_id` 或查询参数；它属于录制管线内部，
+  不向 web 层暴露任意路径 remux 能力。授权、secure open、asset 重新发现、Range、ETag、
+  CORP、nosniff、Cache-Control **全部未改动**。
+- **进程与关停**。normalizer 子进程 `shell=False`、`start_new_session=True`，
+  支持 SIGTERM → grace → SIGKILL，与 recorder 相同纪律。`cancel_live_downloads()` 同时通知两者，
+  但语义不同：**recorder 取消 = 录制被取消**（`HlsCancelled`），
+  **normalizer 取消 = 录制保留为 TS 且仍然成功**。`HlsCancelled` 依旧只描述采集取消。
+- **日志不泄露传输凭据**：只记录 basename 与失败类别，不出现签名流地址、headers、cookie 或 token。
+- **只影响新完成的 HLS 录制**。不扫描、不回填、不修改历史 `.ts`；FLV 路径 0 改动。
+
 ## 历史凭据
 
 防止当前配置进入新镜像不等于撤销历史泄露。Git 历史中曾出现过的凭据应由维护者

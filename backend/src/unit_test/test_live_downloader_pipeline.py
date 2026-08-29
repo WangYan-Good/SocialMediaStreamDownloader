@@ -866,6 +866,124 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
       recorded_paths,
     )
 
+  def test_hls_reservation_also_avoids_an_existing_normalized_mp4(self):
+    ##
+    ## A recording captured as ``stream-test.ts`` is published as
+    ## ``stream-test.mp4`` and the .ts is removed, so the .ts name being free
+    ## does not mean the recording is.  Reserving on the .ts alone would send
+    ## this capture to a name whose MP4 already belongs to an earlier
+    ## recording, and normalization would then have to refuse to publish it.
+    ##
+    config = live_config()
+    config["download"]["test_mode"] = False
+    config["download"]["tick_naming"] = False
+    recorded_paths = []
+
+    class RecordingHlsRecorder:
+      def record(self, url, output_path, **kwargs):
+        recorded_paths.append(output_path)
+        output_path.write_bytes(b"new-recording")
+        return output_path
+
+    with tempfile.TemporaryDirectory() as temporary_directory:
+      config["download"]["save_path"] = temporary_directory
+      stream_directory = (
+        Path(temporary_directory) / "douyin" / "live" / "Test_Host"
+      )
+      stream_directory.mkdir(parents=True)
+      existing_normalized = stream_directory / "stream-test.mp4"
+      existing_normalized.write_bytes(b"already-normalized-recording")
+      downloader = live_module.DouyinLiveDownloader(config)
+      downloader.hls_recorder = RecordingHlsRecorder()
+
+      downloader.download_live_stream(
+        "https://v.douyin.com/example/",
+        {
+          "summary": {
+            "stream_url": "https://stream.example.test/index.m3u8",
+            "stream_name": "stream-test.ts",
+            "stream_protocol": "hls",
+            "directory_name": "Test_Host",
+            "nickname": "Test Host",
+          },
+          "external_info": {
+            "data": {"room": {"owner_user_id": "owner-1"}}
+          },
+        },
+      )
+
+      self.assertEqual(
+        b"already-normalized-recording",
+        existing_normalized.read_bytes(),
+      )
+      self.assertFalse((stream_directory / "stream-test.ts").exists())
+      self.assertEqual(
+        b"new-recording",
+        (stream_directory / "re_0_stream-test.ts").read_bytes(),
+      )
+
+    self.assertEqual(
+      [stream_directory / "re_0_stream-test.ts"],
+      recorded_paths,
+    )
+
+  def test_hls_reservation_skips_a_name_whose_ts_or_mp4_is_taken(self):
+    config = live_config()
+    config["download"]["test_mode"] = False
+    config["download"]["tick_naming"] = False
+    recorded_paths = []
+
+    class RecordingHlsRecorder:
+      def record(self, url, output_path, **kwargs):
+        recorded_paths.append(output_path)
+        output_path.write_bytes(b"new-recording")
+        return output_path
+
+    with tempfile.TemporaryDirectory() as temporary_directory:
+      config["download"]["save_path"] = temporary_directory
+      stream_directory = (
+        Path(temporary_directory) / "douyin" / "live" / "Test_Host"
+      )
+      stream_directory.mkdir(parents=True)
+      ##
+      ## The bare name is taken by a .ts, and the first alternative by an .mp4.
+      ##
+      (stream_directory / "stream-test.ts").write_bytes(b"first")
+      (stream_directory / "re_0_stream-test.mp4").write_bytes(b"second")
+      downloader = live_module.DouyinLiveDownloader(config)
+      downloader.hls_recorder = RecordingHlsRecorder()
+
+      downloader.download_live_stream(
+        "https://v.douyin.com/example/",
+        {
+          "summary": {
+            "stream_url": "https://stream.example.test/index.m3u8",
+            "stream_name": "stream-test.ts",
+            "stream_protocol": "hls",
+            "directory_name": "Test_Host",
+            "nickname": "Test Host",
+          },
+          "external_info": {
+            "data": {"room": {"owner_user_id": "owner-1"}}
+          },
+        },
+      )
+
+      self.assertEqual(b"first", (stream_directory / "stream-test.ts").read_bytes())
+      self.assertEqual(
+        b"second",
+        (stream_directory / "re_0_stream-test.mp4").read_bytes(),
+      )
+      self.assertEqual(
+        b"new-recording",
+        (stream_directory / "re_1_stream-test.ts").read_bytes(),
+      )
+
+    self.assertEqual(
+      [stream_directory / "re_1_stream-test.ts"],
+      recorded_paths,
+    )
+
   def test_hls_stream_uses_backward_compatible_supervision_defaults(self):
     config = live_config()
     config["download"]["test_mode"] = False

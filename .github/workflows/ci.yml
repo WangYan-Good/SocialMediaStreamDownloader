@@ -60,6 +60,39 @@ jobs:
       - name: Run unit tests
         run: python -m pytest backend/src/unit_test -q
 
+      # A finished HLS recording is remuxed from MPEG-TS to MP4 so the library
+      # can preview it. Whether a stream-copy into an MP4 container actually
+      # works - including the AAC bitstream conversion the muxer inserts on its
+      # own - is a fact about FFmpeg, and a stand-in process can only assert it.
+      - name: Install ffmpeg for the real remux proof
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
+      # SMSD_REQUIRE_FFMPEG_TESTS is the point of this step, for the same reason
+      # SMSD_REQUIRE_MYSQL_TESTS is the point of the MySQL one: without it, an
+      # ffmpeg that went missing would answer with a green job full of skips.
+      - name: Run the real ffmpeg remux tests
+        env:
+          SMSD_REQUIRE_FFMPEG_TESTS: '1'
+        run: |
+          set -euo pipefail
+          python -m pytest \
+            backend/src/unit_test/test_hls_mp4_normalizer_ffmpeg.py \
+            -q -rs --no-header > /tmp/ffmpeg-tests.txt 2>&1 || {
+              cat /tmp/ffmpeg-tests.txt
+              exit 1
+            }
+          cat /tmp/ffmpeg-tests.txt
+          if grep -qE '[0-9]+ skipped' /tmp/ffmpeg-tests.txt; then
+            echo "FAIL: the real remux tests skipped - they must actually run here"
+            exit 1
+          fi
+          grep -qE '[0-9]+ passed' /tmp/ffmpeg-tests.txt || {
+            echo "FAIL: no tests ran"
+            exit 1
+          }
+
   # The schema proof, kept apart from the unit job on purpose.
   #
   # Everything this exercises is MySQL-specific and cannot be checked any other
@@ -448,3 +481,86 @@ jobs:
           # is refused before any path is resolved.
           expect "/api/library/posts/douyin/test/assets" 401
           expect "/api/library/recordings/1/assets" 401
+
+          # Phase 10F remuxes a finished HLS recording from MPEG-TS to MP4 so
+          # the library can preview it natively. That runs inside this image,
+          # using this image's ffmpeg - so the image is what has to prove it
+          # can. A one-second clip generated in the container: nothing is
+          # downloaded and no fixture is committed.
+          #
+          # Staged as a file and run by path rather than piped to `python -`.
+          # `docker exec` does not attach stdin without `-i`, so a piped
+          # heredoc reaches an immediate EOF: python exits 0 having run
+          # nothing, and the smoke passes without testing anything at all.
+          cat > /tmp/remux-smoke.py <<'PY'
+          import shutil
+          import subprocess
+          import sys
+          import tempfile
+          from pathlib import Path
+
+          sys.path.insert(0, "/app")
+          from backend.src.platform.douyin.hls_mp4_normalizer import HlsMp4Normalizer
+
+          ffmpeg = shutil.which("ffmpeg")
+          ffprobe = shutil.which("ffprobe")
+          if not ffmpeg or not ffprobe:
+            raise SystemExit("FAIL: the runtime image has no ffmpeg/ffprobe")
+
+          # A set, not a string: MPEG-TS lists a stream under each program as
+          # well as in the flat stream list, so the .ts reports a codec more
+          # than once and the .mp4 exactly once. Which codec is there is the
+          # question; how often it is mentioned is not.
+          def codecs(path, stream):
+            out = subprocess.run(
+              [ffprobe, "-v", "error", "-select_streams", stream,
+               "-show_entries", "stream=codec_name",
+               "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
+              capture_output=True, text=True, timeout=60,
+            ).stdout
+            return {line.strip() for line in out.splitlines() if line.strip()}
+
+          with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "live.ts"
+            built = subprocess.run(
+              [ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+               "-f", "lavfi", "-i", "testsrc=size=64x48:rate=10:duration=1",
+               "-f", "lavfi", "-i", "sine=frequency=440:duration=1",
+               "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
+               "-c:a", "aac", "-shortest", "-f", "mpegts", str(source)],
+              capture_output=True, text=True, timeout=180,
+            )
+            if built.returncode != 0 or not source.stat().st_size:
+              raise SystemExit(
+                "FAIL: could not build a TS fixture: " + built.stderr[:400]
+              )
+
+            result = HlsMp4Normalizer().normalize(source)
+
+            if result != source.with_suffix(".mp4") or not result.is_file():
+              raise SystemExit("FAIL: normalization did not publish an MP4")
+            if source.exists():
+              raise SystemExit("FAIL: the source TS survived a successful remux")
+            # The container changed; the codecs did not. A re-encode here would
+            # be a different feature with different costs.
+            if codecs(result, "v:0") != {"h264"} or codecs(result, "a:0") != {"aac"}:
+              raise SystemExit("FAIL: the remux re-encoded the recording")
+            leftovers = [p.name for p in result.parent.iterdir() if "remux" in p.name]
+            if leftovers:
+              raise SystemExit("FAIL: remux temporaries left behind: %s" % leftovers)
+          print("ok   runtime ffmpeg TS->MP4 normalization (stream copy)")
+          PY
+          docker cp /tmp/remux-smoke.py smsd-ci-smoke:/tmp/remux-smoke.py
+          docker exec smsd-ci-smoke python /tmp/remux-smoke.py \
+            > /tmp/remux-smoke.txt 2>&1 || {
+              cat /tmp/remux-smoke.txt
+              echo "FAIL: the runtime remux smoke did not complete"
+              exit 1
+            }
+          cat /tmp/remux-smoke.txt
+          # A smoke that printed nothing did not run. Exit status alone cannot
+          # tell the difference between "proved it" and "silently did nothing".
+          grep -q 'ok   runtime ffmpeg TS->MP4 normalization' /tmp/remux-smoke.txt || {
+            echo "FAIL: the runtime remux smoke produced no result - it did not run"
+            exit 1
+          }
