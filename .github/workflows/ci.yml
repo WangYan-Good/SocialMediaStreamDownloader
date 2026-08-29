@@ -502,13 +502,18 @@ jobs:
           if not ffmpeg or not ffprobe:
             raise SystemExit("FAIL: the runtime image has no ffmpeg/ffprobe")
 
-          def codec(path, stream):
-            return subprocess.run(
+          # A set, not a string: MPEG-TS lists a stream under each program as
+          # well as in the flat stream list, so the .ts reports a codec more
+          # than once and the .mp4 exactly once. Which codec is there is the
+          # question; how often it is mentioned is not.
+          def codecs(path, stream):
+            out = subprocess.run(
               [ffprobe, "-v", "error", "-select_streams", stream,
                "-show_entries", "stream=codec_name",
                "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
               capture_output=True, text=True, timeout=60,
-            ).stdout.strip()
+            ).stdout
+            return {line.strip() for line in out.splitlines() if line.strip()}
 
           with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "live.ts"
@@ -533,7 +538,7 @@ jobs:
               raise SystemExit("FAIL: the source TS survived a successful remux")
             # The container changed; the codecs did not. A re-encode here would
             # be a different feature with different costs.
-            if codec(result, "v:0") != "h264" or codec(result, "a:0") != "aac":
+            if codecs(result, "v:0") != {"h264"} or codecs(result, "a:0") != {"aac"}:
               raise SystemExit("FAIL: the remux re-encoded the recording")
             leftovers = [p.name for p in result.parent.iterdir() if "remux" in p.name]
             if leftovers:

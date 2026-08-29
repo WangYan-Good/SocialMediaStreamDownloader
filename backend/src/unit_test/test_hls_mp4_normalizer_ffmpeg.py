@@ -41,8 +41,18 @@ if REQUIRED and not (FFMPEG and FFPROBE):
   )
 
 
-def _probe(path, stream):
-  return subprocess.run(
+##
+## The distinct codec names ffprobe reports for a stream selector.
+##
+## A set rather than a string.  ``v:0`` names one stream, but MPEG-TS carries
+## programs and ffprobe lists a stream under each program as well as in the
+## flat stream list - so the same codec comes back more than once for the .ts
+## and exactly once for the .mp4.  The question being asked is which codec is
+## there, not how many times the container mentions it, and comparing sets
+## answers that identically on both sides.
+##
+def _codecs(path, stream):
+  completed = subprocess.run(
     [
       FFPROBE,
       "-v", "error",
@@ -54,7 +64,8 @@ def _probe(path, stream):
     capture_output=True,
     text=True,
     timeout=60,
-  ).stdout.strip()
+  )
+  return {line.strip() for line in completed.stdout.splitlines() if line.strip()}
 
 
 ##
@@ -162,10 +173,8 @@ class RealFfmpegRemuxTest(unittest.TestCase):
   def test_the_remux_changes_the_container_and_not_the_codecs(self):
     with tempfile.TemporaryDirectory() as temporary_directory:
       source = self.build_fixture(temporary_directory)
-      source_video = _probe(source, "v:0")
-      source_audio = _probe(source, "a:0")
-      self.assertEqual("h264", source_video)
-      self.assertEqual("aac", source_audio)
+      self.assertEqual({"h264"}, _codecs(source, "v:0"))
+      self.assertEqual({"aac"}, _codecs(source, "a:0"))
 
       result = HlsMp4Normalizer().normalize(source)
 
@@ -174,8 +183,8 @@ class RealFfmpegRemuxTest(unittest.TestCase):
       ## where it would still pass by accident - so the container is checked
       ## too: the codecs are identical *and* the file is now an MP4.
       ##
-      self.assertEqual("h264", _probe(result, "v:0"))
-      self.assertEqual("aac", _probe(result, "a:0"))
+      self.assertEqual({"h264"}, _codecs(result, "v:0"))
+      self.assertEqual({"aac"}, _codecs(result, "a:0"))
       self.assertEqual(".mp4", result.suffix)
       self.assertIn("moov", _top_level_boxes(result))
 
