@@ -23,8 +23,10 @@ import type { MediaAsset, MediaAssetStorageState } from '@/types/mediaAsset'
 // wrong answer for a file that vanished between listing and clicking is worth
 // less than never loading a video into a tab.
 //
-// Nothing is previewed and nothing is played. The server sends every asset as
-// an attachment, images included, so no stored file becomes something this
+// Previewing is offered only where the server said it will render the file,
+// and only when somebody asks: opening a detail panel costs metadata, never
+// media. The server sends every asset as an attachment on the download route,
+// images included, so no stored file becomes something this
 // page renders.
 //
 defineProps<{
@@ -38,9 +40,14 @@ defineProps<{
   // with the resource rather than with the list that displays it.
   //
   downloadUrlFor: ((asset: MediaAsset) => string) | null
+  //
+  // Which asset is being previewed, if any. Owned by the panel above: at most
+  // one is open at a time, and switching resources or refreshing clears it.
+  //
+  previewAssetId: string | null
 }>()
 
-defineEmits<{ refresh: [] }>()
+defineEmits<{ refresh: []; preview: [MediaAsset]; closePreview: [] }>()
 
 const KIND_LABELS: Readonly<Record<string, string>> = {
   video: '视频',
@@ -139,6 +146,24 @@ function readableSize(bytes: number): string {
           :href="downloadUrlFor(asset)"
           >下载</a
         >
+        <!--
+          Offered only for what the server said it will render. An asset with
+          no preview_kind gets no button at all rather than a disabled one -
+          a greyed-out control reads as a fault, and an flv recording being
+          download-only is not a fault.
+        -->
+        <button
+          v-if="asset.preview_kind"
+          type="button"
+          class="assets__preview"
+          @click="
+            asset.asset_id === previewAssetId
+              ? $emit('closePreview')
+              : $emit('preview', asset)
+          "
+        >
+          {{ asset.asset_id === previewAssetId ? '关闭预览' : '预览' }}
+        </button>
       </li>
     </ul>
   </section>
@@ -157,5 +182,7 @@ function readableSize(bytes: number): string {
 .assets__name { flex: 1 1 auto; overflow-wrap: anywhere; }
 .assets__size { flex: 0 0 auto; color: var(--color-muted); }
 .assets__download { flex: 0 0 auto; color: var(--color-accent, inherit); text-decoration: underline; }
+.assets__preview { flex: 0 0 auto; padding: 0 var(--space-2); font: inherit; font-size: 0.8125rem; color: inherit; background: transparent; border: 1px solid var(--color-border); border-radius: var(--radius-1); cursor: pointer; }
+.assets__preview:focus-visible { outline: 2px solid var(--color-accent, currentColor); outline-offset: 2px; }
 .assets__download:focus-visible { outline: 2px solid var(--color-accent, currentColor); outline-offset: 2px; }
 </style>

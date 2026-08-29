@@ -334,6 +334,49 @@ _MEDIA_TYPES = {
 _FALLBACK_MEDIA_TYPE = "application/octet-stream"
 
 
+##
+## >>========================== what may be shown inline ==========================>>
+##
+##
+## The complete set of media types this server will send for a browser to
+## render in place, and the element that would render each.
+##
+## A closed list rather than a rule.  Every plausible rule admits something it
+## should not: "images are safe" admits ``image/svg+xml``, which is a document
+## that can carry script; "video is safe" admits containers no browser can
+## decode without a JavaScript demuxer this project does not ship.  The set
+## worth the risk is small enough to write down, so it is written down, and
+## anything absent is refused without further reasoning.
+##
+## Inline delivery is the thing being decided here.  A file sent as an
+## attachment is inert - the browser saves it. A file sent inline is one the
+## browser interprets, and interpretation is where a stored file becomes
+## behaviour.
+##
+PREVIEWABLE_MEDIA_TYPES = {
+  "image/jpeg": "image",
+  "video/mp4": "video",
+  "audio/mpeg": "audio",
+}
+
+
+def preview_kind_for(media_type):
+  """Which element would render this type inline, or ``None``.
+
+  Exact match only.  A type carrying parameters, an unknown type, and anything
+  that is not a string all answer ``None`` - the question is whether this
+  server has decided to render the value, and it has only decided about the
+  three spellings above.
+
+  This is the single authority.  The route that serves bytes inline and the
+  metadata that tells a browser a preview exists both ask here, so the two
+  cannot drift into disagreeing about what is previewable.
+  """
+  if not isinstance(media_type, str):
+    return None
+  return PREVIEWABLE_MEDIA_TYPES.get(media_type)
+
+
 def media_type_for(file_name: str) -> str:
   suffix = Path(file_name).suffix.lower()
   return _MEDIA_TYPES.get(suffix, _FALLBACK_MEDIA_TYPE)
@@ -355,6 +398,16 @@ class MediaAsset:
   media_type: str
   image_index: int = None
 
+  @property
+  def preview_kind(self):
+    """Which element could render this asset inline, or ``None``.
+
+    Derived rather than stored, and derived from the *media type* rather than
+    from ``kind``: a recording is a ``recording`` whether it was written as mp4
+    or flv, and only one of those is something a browser can show.
+    """
+    return preview_kind_for(self.media_type)
+
   def as_dict(self) -> dict:
     return {
       "asset_id": self.asset_id,
@@ -363,6 +416,11 @@ class MediaAsset:
       "size_bytes": self.size_bytes,
       "media_type": self.media_type,
       "image_index": self.image_index,
+      ##
+      ## Capability metadata, not a location. It says whether a preview is on
+      ## offer; it does not say where the file is or hand out a url.
+      ##
+      "preview_kind": self.preview_kind,
     }
 
 
@@ -793,9 +851,11 @@ __all__ = [
   "OpenedFileVersion",
   "OpenedMediaAsset",
   "StorageState",
+  "PREVIEWABLE_MEDIA_TYPES",
   "asset_id_for",
   "contained_path",
   "image_position",
   "media_type_for",
+  "preview_kind_for",
   "recognise_post_file",
 ]

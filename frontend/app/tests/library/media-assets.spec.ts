@@ -28,6 +28,7 @@ function available(name = `20260824_${AWEME}.mp4`): ResourceAssetResult {
         size_bytes: 1048576,
         media_type: 'video/mp4',
         image_index: null,
+        preview_kind: 'video',
       },
     ],
   }

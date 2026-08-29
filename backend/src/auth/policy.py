@@ -79,6 +79,19 @@ AUTHORIZATION_POLICY = (
   ##
   _policy("GET", "/api/library/posts/<platform>/<aweme_id>/assets/<asset_id>/download", "role scoped", P.ROLE_SCOPED, "user own post (404 otherwise) / admin global", C.EXEMPT, "enforced"),
   _policy("GET", "/api/library/recordings/<int:recording_id>/assets/<asset_id>/download", "role scoped", P.ROLE_SCOPED, "user own recording (404 otherwise) / admin global", C.EXEMPT, "enforced"),
+  ##
+  ## Authorized inline preview. The same bytes as the download beside it, on
+  ## the same terms - the difference is what the browser does with them, never
+  ## who may ask.
+  ##
+  ## A separate route rather than a flag on the download one, so that the
+  ## disposition can never be chosen by the caller: a query parameter deciding
+  ## between attachment and inline would let a link decide that a stored file
+  ## gets rendered rather than saved. Only these two call sites can ask for
+  ## inline, and only for a closed list of media types.
+  ##
+  _policy("GET", "/api/library/posts/<platform>/<aweme_id>/assets/<asset_id>/preview", "role scoped", P.ROLE_SCOPED, "user own post (404 otherwise) / admin global", C.EXEMPT, "enforced"),
+  _policy("GET", "/api/library/recordings/<int:recording_id>/assets/<asset_id>/preview", "role scoped", P.ROLE_SCOPED, "user own recording (404 otherwise) / admin global", C.EXEMPT, "enforced"),
   _policy("GET", "/api/library/lives", "admin", P.ADMIN, "global live observations", C.EXEMPT, "enforced"),
   _policy("GET", "/api/system/status", "admin", P.ADMIN, "deployment configuration/status summary", C.EXEMPT, "enforced"),
 

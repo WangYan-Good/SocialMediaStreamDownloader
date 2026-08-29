@@ -150,6 +150,11 @@ function asset(overrides: Partial<MediaAsset> = {}): MediaAsset {
     size_bytes: 1024,
     media_type: 'video/mp4',
     image_index: null,
+    //
+    // Phase 10D: the server says whether it will render a file. These download
+    // tests do not exercise previewing, but the shape has to be honest.
+    //
+    preview_kind: 'video',
     ...overrides,
   }
 }
@@ -168,6 +173,7 @@ function section(
       downloadUrlFor: withUrl
         ? (one: MediaAsset) => recordingAssetDownloadUrl(BEYOND_SAFE, one.asset_id)
         : null,
+      previewAssetId: null,
     },
   })
 }
@@ -213,6 +219,7 @@ describe('the download affordance', () => {
         loading: false,
         error: '暂时无法读取文件状态，请重试。',
         downloadUrlFor: () => '/api/library/posts/douyin/x/assets/y/download',
+        previewAssetId: null,
       },
     })
 

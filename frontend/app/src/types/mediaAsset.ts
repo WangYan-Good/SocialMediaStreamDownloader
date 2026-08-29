@@ -17,6 +17,15 @@ import type { RecordingId } from './library'
 export type MediaAssetKind = 'video' | 'image' | 'music' | 'cover' | 'recording'
 
 /**
+ * Which element could render an asset in place, when the server permits it.
+ *
+ * The server is the authority. It serves inline only for a closed list of media
+ * types - anything a browser renders is also something it may interpret - and
+ * this is how it says which of them an asset is.
+ */
+export type MediaPreviewKind = 'image' | 'video' | 'audio'
+
+/**
  * What could be said about a resource's files.
  *
  * `missing` is not an error and not a 404: the resource exists, its files do
@@ -42,6 +51,15 @@ export interface MediaAsset {
   // Null for everything that is not one of a numbered set.
   //
   image_index: number | null
+  //
+  // Which element could render this file in place, or `null` for download-only.
+  //
+  // The server decides and this field reports it. FLV and TS recordings are the
+  // ordinary `null` case: no browser decodes either without a JavaScript
+  // demuxer. Recomputing this from the extension here would be a second opinion
+  // that can disagree with the one actually gating the bytes.
+  //
+  preview_kind: MediaPreviewKind | null
 }
 
 export interface PostAssetResource {
