@@ -8,8 +8,15 @@ import type { MediaAsset, MediaAssetStorageState } from '@/types/mediaAsset'
 // Saving happens through a plain same-origin anchor, not through script. A
 // recording can be tens of gigabytes, and fetching one into a Blob would hold
 // all of it in this tab before a byte reached disk - as well as replacing the
-// browser's own download UI, which already reports progress, resumes, and
-// knows where the user keeps things.
+// browser's own download UI, which reports progress and knows where the user
+// keeps things.
+//
+// Resuming an interrupted download is the browser's to do, and it can: the
+// server answers `Range` with 206 and validates a resume against a strong
+// entity tag, so a continuation that would have spliced two different versions
+// of a file together is refused and restarted instead. Nothing here has to
+// participate in that - which is the point of leaving the transfer to the
+// browser rather than reimplementing it in script.
 //
 // The cost of that choice is that a failure arrives as the browser's own
 // download error rather than as this application's. That is accepted here: a

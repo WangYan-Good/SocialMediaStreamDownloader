@@ -150,6 +150,18 @@ def contained_path(root, candidate):
 ## looks like it works.  Metadata discovery does not depend on this and keeps
 ## working either way.
 ##
+##
+## How recently a file must have been modified before its validator stops being
+## trustworthy.
+##
+## One second, chosen to cover the coarsest timestamp resolution a supported
+## filesystem is likely to have rather than the ~1ms this host happens to give.
+## Probing the real granularity per request would be both expensive and racy;
+## being generous costs an occasional re-sent file and never costs correctness.
+##
+WEAK_VALIDATOR_WINDOW_NS = 1_000_000_000
+
+
 SECURE_OPEN_SUPPORTED = (
   hasattr(os, "O_NOFOLLOW")
   and hasattr(os, "O_DIRECTORY")
@@ -247,7 +259,12 @@ def _open_within_root(root, target):
     ##
     stream = os.fdopen(fd, "rb")
     fd = None
-    return stream, info.st_size
+    ##
+    ## The stat is returned rather than re-taken later: it describes the
+    ## descriptor at the moment it was proven, which is the only moment whose
+    ## answer is trustworthy.
+    ##
+    return stream, info
   finally:
     ##
     ## Whatever happened, no directory descriptor outlives this call, and a
@@ -350,6 +367,99 @@ class MediaAsset:
 
 
 @dataclass(frozen=True)
+class OpenedFileVersion:
+  """Which bytes this opening of a file is looking at.
+
+  A resumed download has to answer a question the asset id cannot: not "which
+  file" but "is this still the same content I started".  An asset id is derived
+  from the parent identity and the file name, so replacing a file with entirely
+  different content leaves it identical - and resuming against that would append
+  the tail of a new file to the head of an old one and produce a corrupt result
+  that nothing reported.
+
+  Every field comes from ``fstat`` on the descriptor that was actually opened,
+  never from a path stat that might by then describe a different file.
+
+  ``st_ctime_ns`` is included alongside ``st_mtime_ns`` because mtime can be set
+  backwards deliberately; ctime moves whenever the inode does, so the two
+  together are much harder to make collide by accident.
+
+  Nothing here may ever be serialized.  An inode and a device number describe
+  this host's filesystem, and the only thing that leaves this object is the
+  opaque digest below.
+  """
+
+  st_dev: int
+  st_ino: int
+  st_size: int
+  st_mtime_ns: int
+  st_ctime_ns: int
+
+  def is_strong_at(self, now_ns: int) -> bool:
+    """Whether this validator can be trusted to have noticed a change.
+
+    A filesystem records modification times at some finite resolution - a
+    millisecond or two on the xfs this runs on, a full second on others.  Two
+    writes inside one tick are indistinguishable afterwards, so a file rewritten
+    immediately after being read can carry the identical tuple and therefore the
+    identical tag.
+
+    That matters in exactly one place: ``If-Range``.  Honouring a resume on a
+    tag that could not have noticed the change would append the tail of new
+    content to the head of old content and call it a download - the corruption
+    this validator exists to prevent, arriving through the mechanism meant to
+    prevent it.
+
+    So a representation modified within the margin below is reported as not
+    strong, and the caller falls back to sending the whole thing.  This is the
+    same reasoning RFC 9110 §8.8.2.2 gives for last-modified times, and the
+    conservative direction: the cost is re-sending a file, and the alternative
+    is silent corruption.
+
+    Files written more than a moment ago - which is nearly all of them - are
+    unaffected.  A recording still being written is not, and should not be.
+    """
+    return (now_ns - self.st_mtime_ns) >= WEAK_VALIDATOR_WINDOW_NS
+
+  @property
+  def entity_tag(self) -> str:
+    """An opaque, deterministic name for this exact representation.
+
+    A digest of the metadata rather than of the content: hashing a recording
+    would mean reading tens of gigabytes to answer a question ``fstat`` has
+    already answered, once per request.
+
+    Deterministic rather than ``hash()``, which is randomised per process - a
+    validator issued by one worker has to mean the same thing to the next, or a
+    resume would fail whenever it landed on a different one.
+
+    The digest hides its inputs.  An inode or a device number sent verbatim in
+    a header would describe the host's filesystem to whoever received it.
+    """
+    material = "\0".join(
+      str(one)
+      for one in (
+        self.st_dev,
+        self.st_ino,
+        self.st_size,
+        self.st_mtime_ns,
+        self.st_ctime_ns,
+      )
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+  @classmethod
+  def of(cls, info) -> "OpenedFileVersion":
+    return cls(
+      st_dev=info.st_dev,
+      st_ino=info.st_ino,
+      st_size=info.st_size,
+      st_mtime_ns=info.st_mtime_ns,
+      st_ctime_ns=info.st_ctime_ns,
+    )
+
+
+@dataclass(frozen=True)
 class OpenedMediaAsset:
   """One media file, already open, ready to be streamed.
 
@@ -375,6 +485,11 @@ class OpenedMediaAsset:
   ## have grown between the two, and the descriptor is the current truth.
   ##
   size_bytes: int
+  ##
+  ## Which bytes these are, so a resumed request can be told whether it is
+  ## still talking about the same ones.
+  ##
+  version: OpenedFileVersion
 
   def close(self) -> None:
     """Release the descriptor. Safe to call more than once."""
@@ -615,13 +730,18 @@ class MediaAssetResolver:
     if opened is None:
       return None
 
-    stream, size = opened
+    stream, info = opened
     ##
     ## The size is re-read from the open descriptor rather than reused from
     ## discovery: the file may have grown between the two, and Content-Length
     ## has to describe what is about to be sent.
     ##
-    return OpenedMediaAsset(asset=current, stream=stream, size_bytes=size)
+    return OpenedMediaAsset(
+      asset=current,
+      stream=stream,
+      size_bytes=info.st_size,
+      version=OpenedFileVersion.of(info),
+    )
 
   def open_post_asset(self, save_dir, platform: str, aweme_id: str, asset_id: str):
     """Open one of this post's files, chosen by id, as it exists right now."""
@@ -666,9 +786,11 @@ class _ScanTooLarge(Exception):
 __all__ = [
   "MAX_POST_ASSET_SCAN_ENTRIES",
   "SECURE_OPEN_SUPPORTED",
+  "WEAK_VALIDATOR_WINDOW_NS",
   "AssetDiscovery",
   "MediaAsset",
   "MediaAssetResolver",
+  "OpenedFileVersion",
   "OpenedMediaAsset",
   "StorageState",
   "asset_id_for",
