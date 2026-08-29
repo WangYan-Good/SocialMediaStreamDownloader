@@ -1,9 +1,11 @@
 from collections.abc import Mapping
+import errno
 from math import ceil, isfinite
 from numbers import Real
 import os
 from pathlib import Path
 import signal
+import stat
 import subprocess
 from threading import Event
 from time import monotonic, sleep
@@ -22,6 +24,20 @@ class HlsStalled(HlsDownloadError):
 
 
 class HlsCancelled(HlsDownloadError):
+  pass
+
+
+##
+## The capture finished, but it could not be committed to stable storage.
+##
+## Distinct from every other error here because it is not a network problem and
+## must not be treated as one: the broadcast has already been recorded, and
+## reconnecting to re-record it would be both pointless and impossible - the
+## stream may well have ended.  It is a local storage failure discovered after
+## the media was captured, and the only honest answer is to refuse to report
+## success while leaving every captured byte where it is.
+##
+class HlsDurabilityError(HlsDownloadError):
   pass
 
 
@@ -151,6 +167,105 @@ class HlsRecorder:
       else:
         attempt_path.unlink()
         return
+
+  ##
+  ## Commit this attempt's bytes to stable storage.
+  ##
+  ## ffmpeg has exited by the time this runs, so its writes have returned - but
+  ## returning is not reaching the device.  ``fsync`` is what obliges the kernel
+  ## to put the data, and the inode metadata needed to find it, on disk.
+  ##
+  ## Opened read-only and without following symlinks: this is a second open of
+  ## a name an external program has been writing, so the thing being committed
+  ## should be the regular file that was recorded, not whatever a link now
+  ## points at.  Type and size are re-asked on the descriptor rather than
+  ## trusted from an earlier path stat, because this descriptor is the one
+  ## about to become the recording.
+  ##
+  ## Deliberately its own helper rather than one shared with the normalizer.
+  ## Capture durability is this class's responsibility, and reaching into
+  ## another module's private method to get it would tie the two stages'
+  ## safety together for no gain.
+  ##
+  @staticmethod
+  def _sync_file(path):
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(path, flags)
+    try:
+      info = os.fstat(descriptor)
+      if not stat.S_ISREG(info.st_mode):
+        raise OSError(
+          errno.EINVAL, "HLS attempt is not a regular file", str(path)
+        )
+      if info.st_size == 0:
+        raise OSError(errno.EINVAL, "HLS attempt is empty", str(path))
+      os.fsync(descriptor)
+    finally:
+      os.close(descriptor)
+
+  ##
+  ## Commit a directory's entries to stable storage.
+  ##
+  ## The half that syncing the file does not cover: a name lives in its parent
+  ## directory, so a rename can be complete in the kernel's view while the
+  ## entry that reaches the bytes is still only in an uncommitted journal.
+  ##
+  ## Opened per call and never cached - a directory descriptor held across a
+  ## recording that runs for hours would pin a directory that may be renamed or
+  ## removed underneath it.
+  ##
+  @staticmethod
+  def _sync_directory(path):
+    flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_CLOEXEC", 0)
+    descriptor = os.open(path, flags)
+    try:
+      os.fsync(descriptor)
+    finally:
+      os.close(descriptor)
+
+  ##
+  ## Turn a completed attempt into a durable recording.
+  ##
+  ## Knows only about two paths.  No url, no headers, no proxy, no task, no
+  ## database - the question here is purely "are these captured bytes safely
+  ## the destination now", and answering it needs nothing else.
+  ##
+  ## The sequence, and why each step is where it is:
+  ##
+  ##   fsync(attempt)     the bytes must be on the device before any name is
+  ##                      pointed at them
+  ##   fsync(parent)      commits the *pre-rename* namespace, so the state
+  ##                      holding the hidden attempt is itself durable; a crash
+  ##                      during the rename then falls back to a committed
+  ##                      namespace in which the complete media still has a name
+  ##   os.replace         publication.  A rename rather than the normalizer's
+  ##                      no-clobber link because this destination was reserved
+  ##                      for this recording by the caller before capture began;
+  ##                      the MP4 final name has no such placeholder, which is
+  ##                      why that stage needs different machinery
+  ##   fsync(parent)      commits the new name
+  ##
+  ## Only after all four may the recording be reported as finished.
+  ##
+  def _finalize_successful_attempt(self, attempt_path, destination):
+    try:
+      self._sync_file(attempt_path)
+      self._sync_directory(destination.parent)
+      os.replace(attempt_path, destination)
+      self._sync_directory(destination.parent)
+    except OSError as e:
+      ##
+      ## Nothing captured is removed here, at any step.  Being unable to prove
+      ## the recording is durable is not a reason to destroy it - the bytes are
+      ## either still in the attempt or already in the destination, and both
+      ## are worth more than a tidy directory.
+      ##
+      raise HlsDurabilityError(
+        "ffmpeg HLS recording completed but could not be committed to stable "
+        "storage ({}: {})".format(type(e).__name__, e)
+      ) from e
+    return destination
 
   def _terminate_process(self, process, terminate_grace):
     try:
@@ -289,8 +404,14 @@ class HlsRecorder:
           pass
         raise
       if returncode == 0 and attempt_path.is_file() and attempt_path.stat().st_size:
-        os.replace(attempt_path, destination)
-        return destination
+        ##
+        ## The capture is complete.  Finalization is deliberately outside the
+        ## retry loop's reach: a failure to commit it raises HlsDurabilityError
+        ## straight out of ``record``, so a local storage problem can never
+        ## send this back to re-dial a broadcast that has already been recorded
+        ## and may already be over.
+        ##
+        return self._finalize_successful_attempt(attempt_path, destination)
       self._preserve_failed_attempt(attempt_path, destination, attempt)
     raise HlsDownloadError(
       "ffmpeg HLS recording failed after {} attempts".format(max_retry + 1)
@@ -301,6 +422,7 @@ __all__ = [
   "FfmpegUnavailable",
   "HlsCancelled",
   "HlsDownloadError",
+  "HlsDurabilityError",
   "HlsRecorder",
   "HlsStalled",
 ]

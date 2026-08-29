@@ -501,6 +501,7 @@ jobs:
 
           sys.path.insert(0, "/app")
           from backend.src.platform.douyin.hls_mp4_normalizer import HlsMp4Normalizer
+          from backend.src.platform.douyin.hls_recorder import HlsRecorder
 
           ffmpeg = shutil.which("ffmpeg")
           ffprobe = shutil.which("ffprobe")
@@ -544,6 +545,26 @@ jobs:
             normalizer._sync_directory(source.parent)
             print("ok   runtime file+directory fsync")
 
+            # Phase 10H: capture finalization has its own durability sequence -
+            # attempt fsync, pre-rename directory fsync, replace, final
+            # directory fsync - and it must work on this image's filesystem
+            # too. No ffmpeg needed: this is pure filesystem behaviour.
+            attempt = Path(directory) / ".probe.ts.attempt-1.part"
+            attempt.write_bytes(b"captured-media-bytes")
+            reserved = Path(directory) / "probe.ts"
+            reserved.touch()
+            finalized = HlsRecorder()._finalize_successful_attempt(
+              attempt, reserved
+            )
+            if finalized != reserved or not reserved.is_file():
+              raise SystemExit("FAIL: capture finalization did not publish")
+            if reserved.read_bytes() != b"captured-media-bytes":
+              raise SystemExit("FAIL: finalized capture bytes differ")
+            if attempt.exists():
+              raise SystemExit("FAIL: the attempt survived finalization")
+            reserved.unlink()
+            print("ok   runtime HLS capture durability finalization")
+
             result = normalizer.normalize(source)
 
             if result != source.with_suffix(".mp4") or not result.is_file():
@@ -575,5 +596,9 @@ jobs:
           }
           grep -q 'ok   runtime file+directory fsync' /tmp/remux-smoke.txt || {
             echo "FAIL: the runtime durability primitives did not run"
+            exit 1
+          }
+          grep -q 'ok   runtime HLS capture durability finalization' /tmp/remux-smoke.txt || {
+            echo "FAIL: the runtime capture finalization proof did not run"
             exit 1
           }
