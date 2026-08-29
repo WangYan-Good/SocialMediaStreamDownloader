@@ -432,10 +432,17 @@ class OpenWithinRootTest(SecureOpenTestCase):
     opened = self.walk(directory / name)
 
     self.assertIsNotNone(opened)
-    stream, size = opened
+    ##
+    ## The walk hands back the stat it took on the descriptor it proved, not
+    ## just a size. Phase 10C needs the rest of it to tell one representation
+    ## of a file from another, and re-taking the stat later would describe a
+    ## different moment.
+    ##
+    stream, info = opened
     self.addCleanup(stream.close)
     self.assertEqual(b"POST-BYTES", stream.read())
-    self.assertEqual(len(b"POST-BYTES"), size)
+    self.assertEqual(len(b"POST-BYTES"), info.st_size)
+    self.assertEqual(os.fstat(stream.fileno()).st_ino, info.st_ino)
 
   def test_it_refuses_a_symlinked_final_component(self):
     directory = self.post_dir()

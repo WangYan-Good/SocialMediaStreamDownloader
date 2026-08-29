@@ -2,6 +2,7 @@
 import json
 import os
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -465,18 +466,39 @@ class SuccessfulDeliveryTest(DownloadTestCase):
     self.assertIn("no-store", cache)
     self.assertEqual("nosniff", response.headers["X-Content-Type-Options"])
 
-  def test_no_entity_tag_and_no_range_advertisement(self):
+  def test_it_now_advertises_ranges_and_carries_a_validator(self):
     ##
-    ## An ETag would mean hashing the file, and the asset id is a name rather
-    ## than a content digest. Range support is a later phase with its own
-    ## design; advertising it now would invite requests this cannot answer.
+    ## Phase 10B deliberately had neither: an entity tag with nothing to
+    ## validate against is noise, and advertising ranges that were not
+    ## implemented would invite requests the server could not answer.
     ##
+    ## Phase 10C implements both, so the absence that was correct then is wrong
+    ## now. The validator is derived from the opened descriptor's identity and
+    ## timestamps - still not from hashing the content, which would mean
+    ## reading a multi-gigabyte recording to answer a question stat answers.
+    ##
+    ##
+    ## Aged past the window in which no strong validator is published. A file
+    ## written microseconds ago carries no ETag on purpose - see
+    ## ``ValidatorStrengthTest`` in test_media_range_routes - and that is a
+    ## different case from the ordinary settled download tested here.
+    ##
+    settled = time.time() - 3600
+    os.utime(str(self.creator / self.post_name), (settled, settled))
     client, _ = self.build(FakeQuery(post=self.post_row), principal=self.user(3))
 
     response = client.get(self.post_url())
 
-    self.assertIsNone(response.headers.get("ETag"))
-    self.assertNotEqual("bytes", response.headers.get("Accept-Ranges"))
+    tag = response.headers.get("ETag")
+    self.assertIsNotNone(tag)
+    self.assertFalse(tag.startswith("W/"), tag)
+    self.assertEqual("bytes", response.headers.get("Accept-Ranges"))
+    ##
+    ## A full response still describes the whole thing: no Content-Range, and
+    ## no partial status.
+    ##
+    self.assertEqual(200, response.status_code)
+    self.assertIsNone(response.headers.get("Content-Range"))
 
   def test_a_recording_identity_beyond_the_safe_range_downloads_its_own_file(self):
     row = dict(self.recording_row, recording_id=BEYOND_SAFE)

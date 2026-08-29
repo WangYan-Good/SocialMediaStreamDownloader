@@ -118,8 +118,74 @@ Library 列表回答的是「数据库记录了什么」；资产端点回答的
   不手工拼接 header。
 - **`Cache-Control: private, no-store` 与 `X-Content-Type-Options: nosniff`**，
   避免任何共享缓存保存用户私有媒体。
-- **不做 ETag、不实现 Range**。`etag=False`、`conditional=False`：计算 ETag 需要读全文件，
-  而 `asset_id` 是名字不是内容摘要；Range 属于后续播放阶段，需要单独设计。
+- **单一 byte range（Phase 10C）**。支持 `Range: bytes=...` 的**一个** range，返回 206 与
+  `Content-Range`；`Accept-Ranges: bytes` 在 200 / 206 / 416 / HEAD 上一致给出。
+  目的只有一个：大文件下载中断后可以续传，不是播放。
+  - **Range 发生在边界之后**。解析所用的 complete length 来自 secure-open 后对 fd 的
+    `fstat`，不是元数据里记住的旧 size，也不是打开之前的任何猜测。Range header 只改变
+    「送哪些字节」，不改变认证、授权、重新发现、或是否触碰文件系统。
+  - **不满足的 range** 返回 416 并带 `Content-Range: bytes */<length>`，让客户端能自行纠正。
+  - **multi-range 不实现**。`bytes=0-1,5-6` 不返回 multipart/byteranges，而是返回完整 200；
+    畸形 header、非 `bytes` 单位同样忽略 Range 返回 200——GET 永远可以用完整表示回答。
+  - **suffix range 按 RFC 9110 §14.1.2 归一化**。Werkzeug 只做语法解析，它的
+    `range_for_length()` 是工具而不是本服务的 contract：它拒绝「suffix 长于表示」并接受
+    「suffix 为 0」，与 RFC 恰好相反。解析成功之后有一层**很窄的归一化**：
+    - `bytes=-3`（size=10）→ `206 bytes 7-9/10`
+    - `bytes=-5000`（size=10）→ `206 bytes 0-9/10`，整个表示（§14.1.2：表示短于
+      suffix-length 时使用整个表示）
+    - `bytes=-0` → `416 bytes */10`（suffix-length 为 0 时不可满足）
+    - `bytes=0-100`（size=10）→ `206 bytes 0-9/10`，clamp 行为保持不变
+    注意 `bytes=-0` 与 `bytes=0-` 解析后同为 `(0, None)`——整数零上的符号已经消失——
+    两者语义相反，因此**后缀形式由 header 文本判断**（是否以 `-` 开头），这是唯一
+    需要看原始文本的地方，其余语法仍全部由 Werkzeug 负责。
+  - **零长度表示忽略 Range**。size=0 时任何 Range 都返回普通 `200`、`Content-Length: 0`、
+    空 body（§14.2 允许在所选表示没有内容时忽略 Range）。不构造不存在的零长度
+    `Content-Range`。
+- **representation validator（ETag）**。强 ETag，来自 secure-open 之后对 fd 的 `fstat`：
+  `st_dev / st_ino / st_size / st_mtime_ns / st_ctime_ns` 的 SHA-256 摘要。
+  - **不是内容摘要**。不读取媒体内容计算 hash——一次录制可能几十 GB。
+  - **不是 `asset_id`**。`asset_id` 由资源身份与文件名派生，文件被同名替换时**不会变化**；
+    用它做续传校验会把新文件的尾部接到旧文件的头部，产生无人察觉的损坏文件。
+  - **不是凭证**。知道 ETag 不扩大任何授权；每个请求仍完整重新认证、授权、发现、打开。
+  - 字段本身（inode、设备号）绝不出现在响应中，只有不可逆摘要离开服务端。
+  - **validator strength window 内不发布 ETag**。文件系统的时间戳只有有限精度
+    （本机 xfs 约 1–2ms，其他文件系统可能只有 1 秒）。同一个 tick 内的两次写入事后
+    无法区分，因此「刚被写过」的表示可能在内容不同的情况下给出相同 tuple。
+    - 没有 `W/` 前缀的 ETag 在 HTTP 语义上**就是 strong validator**；RFC 9110 §8.8.1
+      要求生成机制无法满足 strong 特征时服务器必须如实标记。因此
+      `st_mtime_ns` 距当前时间不足 1 秒的表示**根本不发送 `ETag` header**，
+      而不是发送一个看起来 strong 的 tag 再在服务端私下拒绝它——那会让 header
+      声称一个背后机制并不提供的保证，而客户端有权用它构造 `If-Range`。
+    - 选择「不发送」而不是 `W/"..."`：weak tag 同样无法满足 `If-Range`
+      （§13.1.3 要求 strong comparison），只会多出一种状态；而这些响应本就是
+      `no-store`，没有缓存需要 weak validator。
+    - 结果契约：
+      - settled representation → `ETag: "<strong-tag>"`，匹配的 `If-Range` → `206`
+      - recent / 可能仍在变化的 representation → 无 `ETag`，任何 `If-Range` 都无法
+        validate → 忽略 Range → 完整 `200`
+    - 不受影响的部分：完整下载正常；不带 `If-Range` 的普通 Range 请求仍返回 `206`。
+    方向是保守的：代价是重传一次文件，反面是静默产生损坏文件（RFC 9110 §8.8.2.2
+    对 last-modified 给出的是同样的理由）。正在写入的录制文件正属于此类；
+    已经写完一段时间的文件不受影响，续传正常工作。
+- **If-Range 续传安全**。仅当服务器为当前 representation 发布了 strong ETag、
+  且 `If-Range` 与之相同才返回 206；
+  不同则返回**当前表示的完整 200**，绝不返回新文件的尾部。日期形式的 `If-Range` 一律
+  忽略 Range 返回 200——mtime 只有秒级精度，无法区分「刚读完就被替换」的文件，
+  而那正是会破坏续传的情形。没有 `Range` 时 `If-Range` 被忽略。
+- **不扩展为通用条件请求**。本阶段不实现 `If-None-Match` → 304、`If-Match`、
+  `If-Modified-Since`。ETag 仅作为 `If-Range` 的 representation validator。
+  `Cache-Control` 仍为 `private, no-store`，不因引入 ETag 而变成可共享缓存。
+- **206 的字节上限是硬约束**。分片响应交给受限 iterator，不是 file object：
+  交给 WSGI 的 file wrapper 若能拿到 `fileno`，可能走 `sendfile` 直接把描述符拷贝到 socket，
+  绕过一切 Python 层限制并把窗口之后的内容继续发出。该 iterator **不暴露 `fileno`，也不暴露
+  `read`**，且每次最多读取 `min(chunk, remaining)`，读完即停。已有「请求 10 字节、响应恰好
+  10 字节」的测试固定。
+- **HEAD 忽略 Range**。Range 语义定义在 GET；HEAD 描述整个表示，返回完整
+  `Content-Length`、`Accept-Ranges`、ETag，body 为空。HEAD 与 GET 走完全相同的认证与授权，
+  不能成为 existence oracle。
+- **描述符生命周期覆盖所有分支**。200、206、If-Range 不匹配的 200、HEAD 都会释放；
+  416 因为不会发送任何字节，**立即关闭**而不是等到响应结束；分片流在正常结束、
+  被提前放弃、以及读取异常时都会关闭。
 - **描述符生命周期**。响应结束、客户端中断、异常，都通过 `call_on_close` 释放文件；
   遍历过程中的中间目录 fd 用完即关，异常路径亦然，长期运行的进程不会逐次累积。
 - **失败一律 JSON，且统一措辞**。id 不存在、id 属于别的资源、文件已删除、已变成符号链接、

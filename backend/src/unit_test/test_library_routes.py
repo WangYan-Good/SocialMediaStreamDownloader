@@ -569,10 +569,17 @@ class LibraryBoundaryTest(unittest.TestCase):
           )
 
     ##
-    ## The guard must be watching something. If the media routes are ever
-    ## removed or renamed, this says so rather than passing vacuously.
+    ## The guard must be watching something, and it must be watching all of it.
+    ## A fixed count rather than "at least one": a new call site is exactly the
+    ## kind of thing that should have to be looked at deliberately.
     ##
-    self.assertEqual(1, checked, "expected exactly one send_file call site")
+    ## Two, since Phase 10C. The first delivers a whole file. The second builds
+    ## a Content-Disposition for a partial response by asking Werkzeug what it
+    ## would emit for this name, and throws the response away - so that the
+    ## RFC 5987 encoding and escaping stay the framework's job rather than
+    ## being hand-formatted for the 206 path.
+    ##
+    self.assertEqual(2, checked, "expected exactly two send_file call sites")
 
   def test_the_library_never_reaches_for_a_platform(self):
     ##

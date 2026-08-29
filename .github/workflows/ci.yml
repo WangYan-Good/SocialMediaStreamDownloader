@@ -410,6 +410,28 @@ jobs:
           expect "/api/library/posts/douyin/7657271784144009946/assets" 401
           expect "/api/library/recordings/7/assets" 401
 
+          # A Range header must not be a way around authentication. Phase 10C
+          # added byte ranges to these same endpoints, and the refusal has to
+          # happen before anything looks at a file - so a ranged request from
+          # an anonymous caller answers exactly as an unranged one does.
+          #
+          # Serving an actual partial response here would mean seeding a user,
+          # a row and a media fixture inside the smoke container; that is
+          # covered by the route-level integration tests instead. What only the
+          # built image can prove is that the header does not change who may
+          # ask.
+          expect_ranged() {
+            code="$(curl -s -o /dev/null -H 'Range: bytes=0-3' \
+              -w '%{http_code}' "${BASE}$1")"
+            if [ "${code}" != "$2" ]; then
+              echo "FAIL ranged $1 -> ${code}, expected $2"
+              exit 1
+            fi
+            echo "ok   ranged $1 -> ${code}"
+          }
+          expect_ranged "/api/library/posts/douyin/7657271784144009946/assets/$(printf 'a%.0s' $(seq 64))/download" 401
+          expect_ranged "/api/library/recordings/7/assets/$(printf 'a%.0s' $(seq 64))/download" 401
+
           # The media asset endpoints read the server's own filesystem, so the
           # first thing worth proving about them is that nobody unauthenticated
           # can reach one. No real volume file is involved: an anonymous request

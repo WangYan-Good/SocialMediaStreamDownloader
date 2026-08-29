@@ -5,11 +5,13 @@ sys.path.append(os.getcwd())
 ##<< Test
 
 ## <<Base>>
+import io
 import threading
+import time
 from datetime import datetime
 
 ## <<Extension>>
-from flask import Blueprint, jsonify, request, send_file
+from flask import Blueprint, Response, jsonify, request, send_file
 
 ## <<Third-Part>>
 from backend.src.database.query.library import (
@@ -24,6 +26,7 @@ from backend.src.auth.roles import ROLE_ADMIN
 from backend.src.database.table.share_url import DouyinShareUrlTable
 from backend.src.library.baselib import get_dict_attr
 from backend.src.service.media_asset import SECURE_OPEN_SUPPORTED, MediaAssetResolver
+from backend.src.service.media_range import BoundedRangeReader
 from backend.src.library.configlib import load_config
 from backend.src.library.loglib import get_logger
 from backend.src.web.auth_routes import (
@@ -454,6 +457,284 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
   ## There is deliberately no path anywhere in this section, and no route that
   ## takes one.
   ##
+  ##
+  ## >>--------------------------- byte ranges ---------------------------<<
+  ##
+  ##
+  ## Range exists here for one reason: a download of a large recording that was
+  ## interrupted should be able to continue rather than start again.
+  ##
+  ## Everything about it happens *after* the boundary above. The window is
+  ## resolved against the size reported by ``fstat`` on the descriptor that was
+  ## actually opened - never against a size remembered from a listing, and never
+  ## before the file has been proven. A Range header changes which bytes are
+  ## sent and nothing else: not who may ask, not which file is found, not
+  ## whether the filesystem is touched at all.
+  ##
+  ## Only one range. Multiple ranges would mean ``multipart/byteranges``, which
+  ## is a second body format to get right for a case no download client sends;
+  ## a request for several is answered with the whole representation instead.
+  ##
+  def _published_tag(opened):
+    """The entity tag for these bytes, or ``None`` when none may be claimed.
+
+    Not the asset id. That names a file - parent identity plus file name - and
+    is deliberately unchanged when a file is replaced with different content.
+    Resuming against it would splice the tail of a new file onto the head of an
+    old one and call the result a download.
+
+    ``None`` while the representation is too recently written for a timestamp
+    to have noticed a change. An entity tag without a ``W/`` prefix *is* a
+    strong validator as far as HTTP is concerned, and RFC 9110 §8.8.1 requires
+    a server that cannot meet that standard to say so. Sending an unmarked tag
+    here would be the header asserting a guarantee the mechanism behind it does
+    not provide.
+
+    Withheld rather than marked weak. A weak tag could not satisfy ``If-Range``
+    either - §13.1.3 requires a strong comparison - so it would be a second
+    kind of state to carry for no gain, and these responses are already
+    ``no-store``, so there is no cache that wants one.
+    """
+    if not opened.version.is_strong_at(time.time_ns()):
+      return None
+    return opened.version.entity_tag
+
+  def _suffix_length(start):
+    """The suffix-length of a ``bytes=-N`` request, or ``None`` for other forms.
+
+    Read from the header text rather than from the parsed pair, because the
+    parse cannot tell these two apart::
+
+        bytes=-0   ->  (0, None)
+        bytes=0-   ->  (0, None)
+
+    The sign is lost on an integer zero, and the two spellings mean opposite
+    things: the first asks for the last nothing bytes, the second for
+    everything from the first byte on. Only the leading ``-`` distinguishes
+    them, so that one character is what gets looked at.
+
+    Syntax is still entirely Werkzeug's - this runs only after it has accepted
+    the header, agreed the unit is ``bytes``, and produced exactly one range.
+    """
+    spec = request.headers.get("Range", "").partition("=")[2].strip()
+    if not spec.startswith("-"):
+      return None
+    ##
+    ## ``-3`` parses to a start of -3; ``-0`` to a start of 0. Both are the
+    ## suffix-length once the sign has served its purpose.
+    ##
+    return abs(start)
+
+  def _requested_range(complete_length):
+    """Which single window this request asked for, if any.
+
+    Returns ``("full", None)`` when the whole representation should be sent,
+    ``("partial", (start, end))`` for a satisfiable single range, and
+    ``("unsatisfiable", None)`` when a byte range was asked for and cannot be
+    answered.
+
+    Werkzeug parses the header - a hand-written parser would have to get
+    syntax, units, overflow and clamping right, and every one of those is a
+    place to be wrong in a way that reads bytes nobody asked for.
+
+    What it does *not* decide is what a suffix range means when it is longer
+    than the file, or when it is zero. ``range_for_length`` refuses the first
+    and accepts the second; RFC 9110 §14.1.2 says the opposite of both. The
+    helper is a tool, not this server's contract, so those two cases are
+    normalized below - narrowly, and only after parsing has succeeded.
+    """
+    requested = request.range
+    if requested is None:
+      ##
+      ## No Range at all, or one malformed enough that the parser declined it.
+      ## A malformed header is not an error to report - the client simply gets
+      ## the whole file, which is always a correct answer to a GET.
+      ##
+      return "full", None
+
+    if requested.units != "bytes":
+      ##
+      ## Some other unit. Nothing else is implemented, and ignoring an
+      ## unsupported unit is what the standard asks for.
+      ##
+      return "full", None
+
+    if len(requested.ranges) != 1:
+      ##
+      ## Several ranges. Answering properly means multipart/byteranges; the
+      ## whole representation is a valid response and is what gets sent.
+      ##
+      return "full", None
+
+    if complete_length == 0:
+      ##
+      ## Nothing to take a window of. RFC 9110 §14.2 permits ignoring Range
+      ## when the selected representation has no content, and that is the only
+      ## coherent answer here: a 206 would need a Content-Range describing a
+      ## window of an empty file, and there is no such thing to describe.
+      ##
+      return "full", None
+
+    start, _ = requested.ranges[0]
+    suffix = _suffix_length(start)
+    if suffix is not None:
+      if suffix == 0:
+        ##
+        ## "The last zero bytes" cannot be satisfied - there is no such window.
+        ## §14.1.2 makes a suffix range satisfiable only for a non-zero
+        ## suffix-length.
+        ##
+        return "unsatisfiable", None
+      if suffix >= complete_length:
+        ##
+        ## More tail than the file has, so the tail is the whole file. §14.1.2:
+        ## "if the selected representation is shorter than the specified
+        ## suffix-length, the entire representation is used."
+        ##
+        return "partial", (0, complete_length)
+      return "partial", (complete_length - suffix, complete_length)
+
+    window = requested.range_for_length(complete_length)
+    if window is None:
+      ##
+      ## Asked for bytes that are not there.
+      ##
+      return "unsatisfiable", None
+    return "partial", window
+
+  def _honours_if_range(opened):
+    """Whether a conditional resume may proceed.
+
+    ``If-Range`` is a client saying "continue only if this is still the same
+    thing I was downloading". If it is not, the honest answer is the whole of
+    the current representation - never the tail of it, which the client would
+    append to bytes from a file that no longer exists.
+    """
+    condition = request.headers.get("If-Range")
+    if condition is None:
+      return True
+
+    published = _published_tag(opened)
+    if published is None:
+      ##
+      ## No strong validator exists for this representation, so nothing can
+      ## satisfy the condition. Whatever the client is quoting, it was not a
+      ## promise this server is currently in a position to keep - and §13.1.3
+      ## requires a strong comparison, which there is nothing to compare with.
+      ##
+      return False
+
+    ##
+    ## Only strong entity tags are honoured. The date form would have to rest
+    ## on modification time, whose one-second resolution cannot distinguish a
+    ## file replaced moments after it was read - precisely the case that
+    ## corrupts a resume. An unrecognised condition falls back to the whole
+    ## representation, which is always safe.
+    ##
+    return condition.strip() == '"{}"'.format(published)
+
+  def _common_headers(response, opened):
+    response.headers["Accept-Ranges"] = "bytes"
+    tag = _published_tag(opened)
+    if tag is not None:
+      ##
+      ## Set through the header API so the quoting is the framework's problem.
+      ## Absent entirely when no strong validator can be claimed - see
+      ## ``_published_tag``.
+      ##
+      response.set_etag(tag)
+    ##
+    ## Private media must not be retained by any cache between here and the
+    ## browser - a shared proxy holding one user's video would serve it to the
+    ## next person who asked. An entity tag is a resume validator, not an
+    ## invitation to store a copy.
+    ##
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+  def _unsatisfiable(opened):
+    """416, with the one thing a client needs to correct itself.
+
+    ``Content-Range: bytes *​/<length>`` tells it how long the representation
+    actually is, so the next attempt can be right.
+    """
+    complete = opened.size_bytes
+    tag = _published_tag(opened)
+    ##
+    ## Nothing is going to be sent, so the descriptor is released now rather
+    ## than being carried to the end of a response that will never read it.
+    ##
+    opened.close()
+
+    response = jsonify(
+      {"status": "error", "code": 416, "message": "请求的范围无法满足"}
+    )
+    response.status_code = 416
+    response.headers["Content-Range"] = "bytes */{}".format(complete)
+    response.headers["Accept-Ranges"] = "bytes"
+    if tag is not None:
+      response.set_etag(tag)
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+  def _partial(opened, window):
+    """206, carrying exactly the requested window and not one byte more."""
+    start, end = window
+    length = end - start
+    complete = opened.size_bytes
+
+    ##
+    ## An iterable rather than a file object, deliberately. Werkzeug will hand
+    ## a file with a ``fileno`` to the WSGI server, which may copy it to the
+    ## socket with ``sendfile`` and ignore every limit expressed in Python -
+    ## sending the rest of the file after the window. There is no descriptor
+    ## here to find.
+    ##
+    reader = BoundedRangeReader(opened.stream, start, length)
+    response = Response(
+      reader,
+      status=206,
+      mimetype=opened.asset.media_type,
+      direct_passthrough=True,
+    )
+    response.headers["Content-Range"] = "bytes {}-{}/{}".format(
+      start, end - 1, complete
+    )
+    response.headers["Content-Length"] = str(length)
+    ##
+    ## A partial response is still an attachment of the same file, under the
+    ## same name: a resumed download must not suddenly become something else.
+    ##
+    response.headers["Content-Disposition"] = _attachment_disposition(opened)
+    _common_headers(response, opened)
+
+    ##
+    ## The reader closes the file when it finishes, is abandoned, or fails.
+    ## This covers the remaining case: a response discarded before anything
+    ## iterated it at all.
+    ##
+    response.call_on_close(reader.close)
+    return response
+
+  def _attachment_disposition(opened):
+    """The Content-Disposition Werkzeug would build for this file.
+
+    Borrowed from a throwaway ``send_file`` rather than formatted here, so that
+    the RFC 5987 encoding a Chinese file name needs - and the escaping that
+    stops a crafted name from injecting a header - stay the framework's job.
+    """
+    return send_file(
+      io.BytesIO(b""),
+      mimetype=opened.asset.media_type,
+      as_attachment=True,
+      download_name=opened.asset.name,
+      conditional=False,
+      etag=False,
+      last_modified=None,
+    ).headers["Content-Disposition"]
+
   def _deliver(opened):
     """Stream an already-open media file as an attachment.
 
@@ -461,6 +742,34 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
     be re-opened by name, which would discard the secure walk that produced
     this descriptor and reintroduce the race it exists to close.
     """
+    ##
+    ## Resolved against the descriptor, after the file has been proven - never
+    ## against a size remembered from an earlier listing.
+    ##
+    ## HEAD describes the representation rather than a slice of it. Flask
+    ## dispatches HEAD to this same view, so without this it would inherit the
+    ## GET behaviour and answer 206 with a Content-Length for a body that is
+    ## never sent - a worse answer than describing the whole thing. Range
+    ## semantics are defined for GET.
+    ##
+    if request.method == "HEAD":
+      outcome, window = "full", None
+    else:
+      outcome, window = _requested_range(opened.size_bytes)
+
+    if outcome == "unsatisfiable":
+      return _unsatisfiable(opened)
+
+    if outcome == "partial" and _honours_if_range(opened):
+      return _partial(opened, window)
+
+    ##
+    ## Everything else is the whole representation: no Range, an unsupported
+    ## unit, several ranges, a malformed header, or an ``If-Range`` naming a
+    ## version this is no longer. The last of those is the resume-safety case -
+    ## the client gets the current file in full rather than a tail that would
+    ## not match what it already has.
+    ##
     response = send_file(
       opened.stream,
       mimetype=opened.asset.media_type,
@@ -477,15 +786,18 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
       ##
       download_name=opened.asset.name,
       ##
-      ## No Range handling in this phase. Conditional responses would advertise
-      ## byte-range support that has not been designed yet, which is how a
-      ## download endpoint quietly becomes a player transport.
+      ## Ranges are handled above rather than here. Werkzeug's own conditional
+      ## handling would work from the file object it was given, and would have
+      ## to be trusted to respect the window; the explicit path above sends the
+      ## bytes through an iterator that cannot be optimised past.
       ##
       conditional=False,
       ##
-      ## No entity tag. Computing one means reading the file to hash it, and
-      ## the asset id is a name, not a content digest - using it here would
-      ## claim a guarantee it does not make.
+      ## And the entity tag is set by ``_common_headers`` from the opened
+      ## descriptor's identity and timestamps. Werkzeug's own would be derived
+      ## from what it can see of this file object, which is not the same
+      ## question - and neither is a digest of the content, which would mean
+      ## reading a multi-gigabyte recording once per request.
       ##
       etag=False,
       last_modified=None,
@@ -497,13 +809,7 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
     ## being sent.
     ##
     response.headers["Content-Length"] = str(opened.size_bytes)
-    ##
-    ## Private media must not be retained by any cache between here and the
-    ## browser - a shared proxy holding one user's video would serve it to the
-    ## next person who asked.
-    ##
-    response.headers["Cache-Control"] = "private, no-store"
-    response.headers["X-Content-Type-Options"] = "nosniff"
+    _common_headers(response, opened)
 
     ##
     ## The descriptor is released when the response is done with it, whether it
