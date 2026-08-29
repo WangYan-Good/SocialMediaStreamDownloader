@@ -24,12 +24,23 @@ class PreviewKindTest(unittest.TestCase):
     self.assertEqual("video", preview_kind_for("video/mp4"))
     self.assertEqual("audio", preview_kind_for("audio/mpeg"))
 
-  def test_the_recording_container_formats_are_not_previewable(self):
+  def test_flv_is_previewable_but_not_as_native_video(self):
+    """A kind of its own, deliberately.
+
+    Answering ``video`` would put the url straight into a ``<video src>``, and
+    no browser decodes FLV that way - the element would simply fail. The
+    separate kind is what tells the interface to hand these bytes to the
+    bundled transmuxer instead.
+    """
+    self.assertEqual("flv", preview_kind_for("video/x-flv"))
+    self.assertNotEqual("video", preview_kind_for("video/x-flv"))
+
+  def test_the_transport_stream_container_is_still_not_previewable(self):
     ##
-    ## No browser plays either without a JavaScript demuxer. Offering a preview
-    ## that cannot work is worse than not offering one.
+    ## The same library can demux MPEG-TS, but seeking within a static .ts file
+    ## remains limited upstream - so a preview would work until somebody tried
+    ## to scrub, which is worse than not offering one.
     ##
-    self.assertIsNone(preview_kind_for("video/x-flv"))
     self.assertIsNone(preview_kind_for("video/mp2t"))
 
   def test_an_unrecognised_type_is_not_previewable(self):
@@ -66,7 +77,7 @@ class PreviewKindTest(unittest.TestCase):
     ## cannot become previewable without somebody editing the list on purpose.
     ##
     self.assertEqual(
-      {"image/jpeg", "video/mp4", "audio/mpeg"},
+      {"image/jpeg", "video/mp4", "audio/mpeg", "video/x-flv"},
       set(PREVIEWABLE_MEDIA_TYPES),
     )
 
@@ -92,7 +103,7 @@ class PreviewKindTest(unittest.TestCase):
       "x.jpg": "image",
       "x.jpeg": "image",
       "x.mp3": "audio",
-      "x.flv": None,
+      "x.flv": "flv",
       "x.ts": None,
       "x.unknown": None,
     }
@@ -125,12 +136,23 @@ class MediaAssetPreviewFieldTest(unittest.TestCase):
       "audio", self.asset("x.mp3", "audio/mpeg").as_dict()["preview_kind"]
     )
 
+  def test_a_recording_written_as_flv_offers_its_own_preview_kind(self):
+    payload = self.asset("live.flv", "video/x-flv").as_dict()
+
+    self.assertEqual("flv", payload["preview_kind"])
+
+  def test_a_recording_written_as_a_transport_stream_offers_none(self):
+    payload = self.asset("live.ts", "video/mp2t").as_dict()
+
+    self.assertIn("preview_kind", payload)
+    self.assertIsNone(payload["preview_kind"])
+
   def test_an_unpreviewable_asset_says_so_rather_than_omitting_the_field(self):
     ##
     ## Present and null, so a browser reads one contract rather than two - a
     ## missing key would have to be interpreted.
     ##
-    payload = self.asset("x.flv", "video/x-flv").as_dict()
+    payload = self.asset("x.ts", "video/mp2t").as_dict()
 
     self.assertIn("preview_kind", payload)
     self.assertIsNone(payload["preview_kind"])

@@ -81,16 +81,15 @@ const VIDEO_ASSET: MediaAsset = {
   preview_kind: 'video',
 }
 
-const FLV_ASSET: MediaAsset = {
-  asset_id: 'b'.repeat(64),
+const TS_ASSET: MediaAsset = {
+  asset_id: 'f'.repeat(64),
   kind: 'recording',
-  name: 'live.flv',
+  name: 'live.ts',
   size_bytes: 4096,
-  media_type: 'video/x-flv',
+  media_type: 'video/mp2t',
   image_index: null,
   //
-  // No browser decodes flv without a JavaScript demuxer, so the server does not
-  // offer to render it.
+  // Still download-only: seeking within a static .ts file is limited upstream.
   //
   preview_kind: null,
 }
@@ -418,7 +417,7 @@ describe('opening a preview', () => {
   })
 
   it('offers no preview for a file the server will not render', async () => {
-    const wrapper = await openPost('available', [FLV_ASSET])
+    const wrapper = await openPost('available', [TS_ASSET])
 
     expect(previewButtons(wrapper)).toHaveLength(0)
     //
@@ -533,5 +532,95 @@ describe('a recording preview', () => {
       `/api/library/recordings/9007199254740993/assets/${RECORDING_MP4.asset_id}/preview`,
     )
     expect(src).not.toContain('9007199254740992')
+  })
+})
+
+//
+// >>===================== flv recordings through the panel =====================<<
+//
+const FLV_RECORDING: MediaAsset = {
+  asset_id: 'g'.repeat(64),
+  kind: 'recording',
+  name: 'live.flv',
+  size_bytes: 8192,
+  media_type: 'video/x-flv',
+  image_index: null,
+  preview_kind: 'flv',
+}
+
+describe('previewing an flv recording', () => {
+  it('addresses it with an identity beyond the safe range, intact', async () => {
+    mockedRecording.mockResolvedValue({
+      resource: { kind: 'recording', recording_id: '9007199254740993' },
+      storage_state: 'available',
+      assets: [FLV_RECORDING],
+    } as never)
+
+    const wrapper = mount(UserLibraryDetailPanel, {
+      props: {
+        post: null,
+        recording: { ...recording(), recording_id: '9007199254740993' },
+      },
+    })
+    await settle()
+
+    await previewButtons(wrapper)[0].trigger('click')
+    await settle()
+
+    //
+    // The element exists; what feeds it is the transmuxer, which is mocked away
+    // in this file. What matters here is the address the panel built.
+    //
+    const video = wrapper.find('video')
+    expect(video.exists()).toBe(true)
+    //
+    // No src of its own - the bytes are supplied through Media Source
+    // Extensions, not read from the attribute.
+    //
+    expect(video.attributes('src')).toBeUndefined()
+  })
+
+  it('still costs nothing until it is asked for', async () => {
+    mockedRecording.mockResolvedValue({
+      resource: { kind: 'recording', recording_id: '9007199254740993' },
+      storage_state: 'available',
+      assets: [FLV_RECORDING],
+    } as never)
+
+    const wrapper = mount(UserLibraryDetailPanel, {
+      props: {
+        post: null,
+        recording: { ...recording(), recording_id: '9007199254740993' },
+      },
+    })
+    await settle()
+
+    expect(wrapper.find('video').exists()).toBe(false)
+    expect(previewButtons(wrapper)).toHaveLength(1)
+  })
+
+  it('is closed by the same controls as any other preview', async () => {
+    mockedRecording.mockResolvedValue({
+      resource: { kind: 'recording', recording_id: '9007199254740993' },
+      storage_state: 'available',
+      assets: [FLV_RECORDING],
+    } as never)
+
+    const wrapper = mount(UserLibraryDetailPanel, {
+      props: {
+        post: null,
+        recording: { ...recording(), recording_id: '9007199254740993' },
+      },
+    })
+    await settle()
+
+    await previewButtons(wrapper)[0].trigger('click')
+    await settle()
+    expect(wrapper.find('video').exists()).toBe(true)
+
+    await wrapper.get('.preview__close').trigger('click')
+    await settle()
+
+    expect(wrapper.find('video').exists()).toBe(false)
   })
 })

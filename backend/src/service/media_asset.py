@@ -357,11 +357,28 @@ PREVIEWABLE_MEDIA_TYPES = {
   "image/jpeg": "image",
   "video/mp4": "video",
   "audio/mpeg": "audio",
+  ##
+  ## Not ``video``.  The kind names the element that renders it, and no browser
+  ## decodes FLV from a ``<video src>`` - answering ``video`` would produce an
+  ## element that simply fails.  Its own kind is what tells the interface to
+  ## hand these bytes to the bundled transmuxer instead, which turns them into
+  ## something Media Source Extensions can play.
+  ##
+  ## FLV earns this because it is the main recording path: the live downloader
+  ## tries FLV first and only falls back to HLS.  Most recordings on disk are
+  ## flv files that could be downloaded but never watched.
+  ##
+  ## ``video/mp2t`` is deliberately still absent.  The same library can demux
+  ## it, but seeking within a static .ts file remains limited upstream, so a
+  ## preview would work until somebody tried to scrub - which is a worse offer
+  ## than none.
+  ##
+  "video/x-flv": "flv",
 }
 
 
 def preview_kind_for(media_type):
-  """Which element would render this type inline, or ``None``.
+  """Which renderer would show this type inline, or ``None``.
 
   Exact match only.  A type carrying parameters, an unknown type, and anything
   that is not a string all answer ``None`` - the question is whether this

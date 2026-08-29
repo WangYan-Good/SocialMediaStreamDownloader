@@ -112,25 +112,44 @@ describe('the preview affordance', () => {
     },
   )
 
-  it('is absent for a file the server will not render', () => {
+  it('is offered for an flv recording, which the server now renders', () => {
     //
-    // An flv recording is download-only because no browser decodes it. A
-    // disabled button would read as a fault; there simply is no action.
+    // Phase 10E: the live downloader tries FLV first, so most recordings on
+    // disk are flv. They are now previewable through the bundled transmuxer -
+    // as their own kind, never as native `video`.
     //
     const view = section([
-      asset({ name: 'live.flv', media_type: 'video/x-flv', preview_kind: null }),
+      asset({ name: 'live.flv', media_type: 'video/x-flv', preview_kind: 'flv' }),
+    ])
+
+    expect(view.find('.assets__preview').exists()).toBe(true)
+    expect(view.find('.assets__download').exists()).toBe(true)
+  })
+
+  it('is absent for a file the server will not render', () => {
+    //
+    // MPEG-TS stayed download-only: seeking within a static .ts file is limited
+    // upstream. A disabled button would read as a fault; there simply is no
+    // action.
+    //
+    const view = section([
+      asset({ name: 'live.ts', media_type: 'video/mp2t', preview_kind: null }),
     ])
 
     expect(view.find('.assets__preview').exists()).toBe(false)
     expect(view.find('.assets__download').exists()).toBe(true)
   })
 
-  it('is absent for a transport stream', () => {
-    const view = section([
-      asset({ name: 'live.ts', media_type: 'video/mp2t', preview_kind: null }),
-    ])
+  it('distinguishes an flv recording from a native video', () => {
+    //
+    // Both are watchable; only one goes through a `<video src>`. Collapsing
+    // them would send flv bytes to an element that cannot decode them.
+    //
+    const flv = section([asset({ preview_kind: 'flv' })])
+    const native = section([asset({ preview_kind: 'video' })])
 
-    expect(view.find('.assets__preview').exists()).toBe(false)
+    expect(flv.find('.assets__preview').exists()).toBe(true)
+    expect(native.find('.assets__preview').exists()).toBe(true)
   })
 
   it('leaves the download on every asset, previewable or not', () => {
