@@ -25,7 +25,7 @@ from backend.src.database.query.library import (
 from backend.src.auth.roles import ROLE_ADMIN
 from backend.src.database.table.share_url import DouyinShareUrlTable
 from backend.src.library.baselib import get_dict_attr
-from backend.src.service.media_asset import SECURE_OPEN_SUPPORTED, MediaAssetResolver
+from backend.src.service.media_asset import SECURE_OPEN_SUPPORTED, MediaAssetResolver, preview_kind_for
 from backend.src.service.media_range import BoundedRangeReader
 from backend.src.library.configlib import load_config
 from backend.src.library.loglib import get_logger
@@ -633,7 +633,18 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
     ##
     return condition.strip() == '"{}"'.format(published)
 
-  def _common_headers(response, opened):
+  ##
+  ## How a delivered file is presented.
+  ##
+  ## Chosen by the route, never by the caller. A query parameter selecting
+  ## between attachment and inline would let a link decide that a stored file
+  ## gets rendered by the browser rather than saved by it - which is the whole
+  ## security difference between these two endpoints.
+  ##
+  DOWNLOAD = "download"
+  PREVIEW = "preview"
+
+  def _common_headers(response, opened, mode):
     response.headers["Accept-Ranges"] = "bytes"
     tag = _published_tag(opened)
     if tag is not None:
@@ -650,10 +661,24 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
     ## invitation to store a copy.
     ##
     response.headers["Cache-Control"] = "private, no-store"
+    ##
+    ## Both modes. For a download it stops a mislabelled file being reopened as
+    ## something else; for a preview it is load-bearing, because the response
+    ## is about to be rendered - a .jpg that is not a JPEG must not be allowed
+    ## to become HTML.
+    ##
     response.headers["X-Content-Type-Options"] = "nosniff"
+
+    if mode == PREVIEW:
+      ##
+      ## Private media may be used as a subresource by this origin and no
+      ## other. Without it, another site could embed a logged-in user's video
+      ## by url and learn things about it from load timing and dimensions.
+      ##
+      response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
     return response
 
-  def _unsatisfiable(opened):
+  def _unsatisfiable(opened, mode):
     """416, with the one thing a client needs to correct itself.
 
     ``Content-Range: bytes *​/<length>`` tells it how long the representation
@@ -677,9 +702,11 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
       response.set_etag(tag)
     response.headers["Cache-Control"] = "private, no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
+    if mode == PREVIEW:
+      response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
     return response
 
-  def _partial(opened, window):
+  def _partial(opened, window, mode):
     """206, carrying exactly the requested window and not one byte more."""
     start, end = window
     length = end - start
@@ -703,12 +730,17 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
       start, end - 1, complete
     )
     response.headers["Content-Length"] = str(length)
-    ##
-    ## A partial response is still an attachment of the same file, under the
-    ## same name: a resumed download must not suddenly become something else.
-    ##
-    response.headers["Content-Disposition"] = _attachment_disposition(opened)
-    _common_headers(response, opened)
+    if mode == DOWNLOAD:
+      ##
+      ## A partial response is still an attachment of the same file, under the
+      ## same name: a resumed download must not suddenly become something else.
+      ##
+      ## A preview sends no disposition at all - an <img> or <video> has no use
+      ## for a file name, and omitting the header avoids carrying a second
+      ## Unicode-encoding concern for no benefit.
+      ##
+      response.headers["Content-Disposition"] = _attachment_disposition(opened)
+    _common_headers(response, opened, mode)
 
     ##
     ## The reader closes the file when it finishes, is abandoned, or fails.
@@ -735,8 +767,13 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
       last_modified=None,
     ).headers["Content-Disposition"]
 
-  def _deliver(opened):
-    """Stream an already-open media file as an attachment.
+  def _deliver(opened, mode=DOWNLOAD):
+    """Stream an already-open media file, as an attachment or for rendering.
+
+    One transport for both. The range handling, the validator, the descriptor
+    lifecycle and the streaming cap were argued over once and tested hard; a
+    second copy for previews would be a second copy to get wrong, and the
+    difference between the two is three headers.
 
     The file object is passed to ``send_file`` rather than a path. A path would
     be re-opened by name, which would discard the secure walk that produced
@@ -758,10 +795,10 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
       outcome, window = _requested_range(opened.size_bytes)
 
     if outcome == "unsatisfiable":
-      return _unsatisfiable(opened)
+      return _unsatisfiable(opened, mode)
 
     if outcome == "partial" and _honours_if_range(opened):
-      return _partial(opened, window)
+      return _partial(opened, window, mode)
 
     ##
     ## Everything else is the whole representation: no Range, an unsupported
@@ -774,11 +811,11 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
       opened.stream,
       mimetype=opened.asset.media_type,
       ##
-      ## Always an attachment, images included. Nothing this server stores is
-      ## rendered inline in this phase, so no media can become a vector for
-      ## anything the browser would execute or embed.
+      ## An attachment unless this is a preview. Inline delivery is reserved
+      ## for the closed list of types a browser renders natively and cannot be
+      ## talked into interpreting as anything else.
       ##
-      as_attachment=True,
+      as_attachment=(mode == DOWNLOAD),
       ##
       ## Werkzeug builds the header - including the RFC 5987 encoding a Chinese
       ## file name needs, and the escaping that stops a crafted name from
@@ -809,7 +846,15 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
     ## being sent.
     ##
     response.headers["Content-Length"] = str(opened.size_bytes)
-    _common_headers(response, opened)
+    if mode == PREVIEW:
+      ##
+      ## ``send_file`` adds ``Content-Disposition: inline`` with a filename
+      ## when as_attachment is false. Nothing rendering this needs a name, and
+      ## dropping the header keeps the preview response free of a second
+      ## filename-encoding surface.
+      ##
+      response.headers.pop("Content-Disposition", None)
+    _common_headers(response, opened, mode)
 
     ##
     ## The descriptor is released when the response is done with it, whether it
@@ -880,5 +925,100 @@ def build_library_blueprint(runtime: LibraryRuntime = None) -> Blueprint:
       return _error("资源或文件不存在", 404)
 
     return _deliver(opened)
+
+  ##
+  ## >>------------------------- inline preview -------------------------<<
+  ##
+  ##
+  ## The same bytes as the download route, sent for the browser to render
+  ## rather than save.
+  ##
+  ## Every security property above is reused unchanged - authentication, the
+  ## scoped parent lookup, rediscovery, the secure open, the range transport,
+  ## the descriptor lifecycle. What is added is a narrower question asked after
+  ## all of that: is this a type this server is willing to have interpreted.
+  ##
+  ## That question is answered from the asset discovery just performed, by the
+  ## same helper the metadata endpoint uses. A browser cannot propose a media
+  ## type, and the client's opinion about what is previewable is never
+  ## consulted - it is told.
+  ##
+  def _open_for_preview(opened):
+    """Refuse an asset this server will not render, releasing it first.
+
+    Returns a response when the type is not previewable, otherwise ``None``.
+
+    Ordering matters: this runs only after the asset has been matched against
+    the current discovery, so an unknown id is still a 404 and never leaks into
+    a 415 that would confirm the id was real.
+    """
+    if preview_kind_for(opened.asset.media_type) is None:
+      ##
+      ## Nothing will be sent, so the descriptor goes now rather than being
+      ## carried to the end of a response that will never read it.
+      ##
+      opened.close()
+      return _error("当前文件格式不支持预览", 415)
+    return None
+
+  @blueprint.route(
+    "/library/posts/<platform>/<aweme_id>/assets/<asset_id>/preview",
+    methods=["GET"],
+  )
+  @require_authenticated
+  def post_asset_preview(platform, aweme_id, asset_id):
+    row, refusal = _authorized_post_row(platform, aweme_id)
+    if refusal is not None:
+      return refusal
+
+    if not SECURE_OPEN_SUPPORTED:
+      return _error("文件暂时不可用", 503)
+
+    try:
+      opened = runtime.asset_resolver().open_post_asset(
+        row.get("save_dir"), platform, aweme_id, asset_id
+      )
+    except Exception as e:
+      get_logger().error("post asset preview open failed: {}".format(e))
+      return _error("服务器内部错误，请稍后重试", 500)
+
+    if opened is None:
+      return _error("资源或文件不存在", 404)
+
+    unsupported = _open_for_preview(opened)
+    if unsupported is not None:
+      return unsupported
+
+    return _deliver(opened, mode=PREVIEW)
+
+  @blueprint.route(
+    "/library/recordings/<int:recording_id>/assets/<asset_id>/preview",
+    methods=["GET"],
+  )
+  @require_authenticated
+  def recording_asset_preview(recording_id, asset_id):
+    row, refusal = _authorized_recording_row(recording_id)
+    if refusal is not None:
+      return refusal
+
+    if not SECURE_OPEN_SUPPORTED:
+      return _error("文件暂时不可用", 503)
+
+    try:
+      opened = runtime.asset_resolver().open_recording_asset(
+        row.get("output_path"), recording_id, asset_id
+      )
+    except Exception as e:
+      get_logger().error("recording asset preview open failed: {}".format(e))
+      return _error("服务器内部错误，请稍后重试", 500)
+
+    if opened is None:
+      return _error("资源或文件不存在", 404)
+
+    unsupported = _open_for_preview(opened)
+    if unsupported is not None:
+      return unsupported
+
+    return _deliver(opened, mode=PREVIEW)
 
   return blueprint

@@ -94,3 +94,47 @@ export function recordingAssetDownloadUrl(
     `/assets/${encodeURIComponent(assetId)}/download`
   )
 }
+
+//
+// >>------------------------- preview addresses -------------------------<<
+//
+// The same shape as the download addresses above, and for the same reasons: the
+// parent resource is named in the path, nothing carries a credential, and
+// nothing here fetches. The browser requests these directly from an `<img>`,
+// `<video>` or `<audio>` element, which is what lets a large video stream and
+// seek without passing through this tab's memory.
+//
+// A separate endpoint rather than a flag on the download one. Whether a
+// response is rendered or saved is the server's decision, and a query parameter
+// would hand that decision to whoever writes the url.
+//
+
+/** Where to render one of a post's files in place. */
+export function postAssetPreviewUrl(
+  platform: string,
+  awemeId: string,
+  assetId: string,
+): string {
+  return (
+    `/api/library/posts/${encodeURIComponent(platform)}` +
+    `/${encodeURIComponent(awemeId)}` +
+    `/assets/${encodeURIComponent(assetId)}/preview`
+  )
+}
+
+/**
+ * Where to render the file one recording wrote.
+ *
+ * The identity is interpolated as the text it already is - see
+ * `recordingAssetDownloadUrl` for why converting it would address a different
+ * recording.
+ */
+export function recordingAssetPreviewUrl(
+  recordingId: RecordingId,
+  assetId: string,
+): string {
+  return (
+    `/api/library/recordings/${encodeURIComponent(recordingId)}` +
+    `/assets/${encodeURIComponent(assetId)}/preview`
+  )
+}

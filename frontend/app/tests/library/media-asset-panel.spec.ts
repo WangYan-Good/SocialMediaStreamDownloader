@@ -7,7 +7,7 @@ import { nextTick } from 'vue'
 import { listPostAssets, listRecordingAssets } from '../../src/api/mediaAssets'
 import UserLibraryDetailPanel from '../../src/components/library/UserLibraryDetailPanel.vue'
 import type { LibraryPost, LibraryRecording } from '../../src/types/library'
-import type { MediaAssetStorageState } from '../../src/types/mediaAsset'
+import type { MediaAsset, MediaAssetStorageState } from '../../src/types/mediaAsset'
 
 vi.mock('../../src/api/mediaAssets', () => ({
   listPostAssets: vi.fn(),
@@ -23,6 +23,12 @@ vi.mock('../../src/api/mediaAssets', () => ({
   recordingAssetDownloadUrl: (recordingId: string, assetId: string) =>
     `/api/library/recordings/${encodeURIComponent(recordingId)}` +
     `/assets/${encodeURIComponent(assetId)}/download`,
+  postAssetPreviewUrl: (platform: string, awemeId: string, assetId: string) =>
+    `/api/library/posts/${encodeURIComponent(platform)}/${encodeURIComponent(awemeId)}` +
+    `/assets/${encodeURIComponent(assetId)}/preview`,
+  recordingAssetPreviewUrl: (recordingId: string, assetId: string) =>
+    `/api/library/recordings/${encodeURIComponent(recordingId)}` +
+    `/assets/${encodeURIComponent(assetId)}/preview`,
 }))
 
 const mockedPost = vi.mocked(listPostAssets)
@@ -65,13 +71,28 @@ function result(state: MediaAssetStorageState, assets: unknown[] = []) {
   }
 }
 
-const VIDEO_ASSET = {
+const VIDEO_ASSET: MediaAsset = {
   asset_id: 'a'.repeat(64),
   kind: 'video',
   name: `20260824_${AWEME}.mp4`,
   size_bytes: 1572864,
   media_type: 'video/mp4',
   image_index: null,
+  preview_kind: 'video',
+}
+
+const FLV_ASSET: MediaAsset = {
+  asset_id: 'b'.repeat(64),
+  kind: 'recording',
+  name: 'live.flv',
+  size_bytes: 4096,
+  media_type: 'video/x-flv',
+  image_index: null,
+  //
+  // No browser decodes flv without a JavaScript demuxer, so the server does not
+  // offer to render it.
+  //
+  preview_kind: null,
 }
 
 async function settle() {
@@ -188,24 +209,34 @@ describe('the panel never discloses where a file lives', () => {
     for (const link of wrapper.findAll('a')) {
       expect(link.attributes('href')).toMatch(/^\/api\/library\/.+\/download$/)
     }
+    //
+    // Nothing is rendered until somebody asks. Phase 10D added a preview, and
+    // it appears on a click - never on opening the panel. See the on-demand
+    // tests below.
+    //
     expect(wrapper.find('video').exists()).toBe(false)
     expect(wrapper.find('img').exists()).toBe(false)
     expect(wrapper.find('audio').exists()).toBe(false)
     expect(wrapper.find('iframe').exists()).toBe(false)
   })
 
-  it('offers saving, and still nothing else', async () => {
+  it('offers saving and previewing, and still nothing else', async () => {
     //
-    // Saving arrived in Phase 10B and is the only action added. Opening,
-    // playing and previewing remain absent - each would need its own boundary,
-    // and an inline media element pointed at the endpoint would be the next
-    // phase arriving without one.
+    // Saving arrived in Phase 10B, previewing in Phase 10D. Opening a file with
+    // something else, playing it automatically and copying its path remain
+    // absent - the last permanently, since no path exists here to copy.
     //
     const wrapper = await openPost()
 
-    for (const action of ['打开', '播放', '预览', '复制路径']) {
+    for (const action of ['打开', '播放', '复制路径']) {
       expect(buttonSaying(wrapper, action)).toBeUndefined()
     }
+    //
+    // Present, because the server said this mp4 is renderable - and still inert
+    // until it is clicked.
+    //
+    expect(buttonSaying(wrapper, '预览')).toBeTruthy()
+    expect(wrapper.find('video').exists()).toBe(false)
     expect(buttonSaying(wrapper, '刷新')).toBeTruthy()
 
     //
@@ -253,5 +284,254 @@ describe('when the status cannot be read at all', () => {
     expect(text).toContain('暂时无法读取文件状态')
     expect(text).not.toContain('/app/downloads')
     expect(text).not.toContain('PermissionError')
+  })
+})
+
+//
+// >>========================= preview, on demand only =========================<<
+//
+const IMAGE_ASSET: MediaAsset = {
+  asset_id: 'c'.repeat(64),
+  kind: 'image',
+  name: `20260824_${AWEME}_01.jpg`,
+  size_bytes: 2048,
+  media_type: 'image/jpeg',
+  image_index: 1,
+  preview_kind: 'image',
+}
+
+const AUDIO_ASSET: MediaAsset = {
+  asset_id: 'd'.repeat(64),
+  kind: 'music',
+  name: `20260824_${AWEME}_music.mp3`,
+  size_bytes: 4096,
+  media_type: 'audio/mpeg',
+  image_index: null,
+  preview_kind: 'audio',
+}
+
+function previewButtons(wrapper: VueWrapper) {
+  return wrapper.findAll('button').filter((one) => one.text().includes('预览'))
+}
+
+describe('opening a preview', () => {
+  it('renders nothing and requests no media until asked', async () => {
+    //
+    // The whole point of on-demand. Opening a detail panel for a post with a
+    // 300 MB video must cost one metadata call, not the video.
+    //
+    const wrapper = await openPost('available', [VIDEO_ASSET, IMAGE_ASSET])
+
+    expect(wrapper.find('video').exists()).toBe(false)
+    expect(wrapper.find('img').exists()).toBe(false)
+    expect(wrapper.find('audio').exists()).toBe(false)
+    expect(mockedPost).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders an image where the server said it would', async () => {
+    const wrapper = await openPost('available', [IMAGE_ASSET])
+
+    await previewButtons(wrapper)[0].trigger('click')
+    await settle()
+
+    const image = wrapper.get('img')
+    expect(image.attributes('src')).toBe(
+      `/api/library/posts/douyin/${AWEME}/assets/${IMAGE_ASSET.asset_id}/preview`,
+    )
+    expect(image.attributes('alt')).toBe(IMAGE_ASSET.name)
+    expect(image.attributes('loading')).toBe('lazy')
+  })
+
+  it('renders a video with controls and no autoplay', async () => {
+    const wrapper = await openPost('available', [VIDEO_ASSET])
+
+    await previewButtons(wrapper)[0].trigger('click')
+    await settle()
+
+    const video = wrapper.get('video')
+    expect(video.attributes('src')).toBe(
+      `/api/library/posts/douyin/${AWEME}/assets/${VIDEO_ASSET.asset_id}/preview`,
+    )
+    expect(video.attributes('controls')).toBeDefined()
+    expect(video.attributes('preload')).toBe('metadata')
+    expect(video.attributes('autoplay')).toBeUndefined()
+    expect(video.attributes('loop')).toBeUndefined()
+    //
+    // Same-origin, so there is no CORS request to configure and the attribute
+    // has no place here.
+    //
+    expect(video.attributes('crossorigin')).toBeUndefined()
+  })
+
+  it('renders audio with controls and no autoplay', async () => {
+    const wrapper = await openPost('available', [AUDIO_ASSET])
+
+    await previewButtons(wrapper)[0].trigger('click')
+    await settle()
+
+    const audio = wrapper.get('audio')
+    expect(audio.attributes('controls')).toBeDefined()
+    expect(audio.attributes('preload')).toBe('metadata')
+    expect(audio.attributes('autoplay')).toBeUndefined()
+  })
+
+  it('shows one asset at a time', async () => {
+    //
+    // An image set can hold thirty files. Thirty elements would be thirty
+    // requests for media nobody asked to see.
+    //
+    const wrapper = await openPost('available', [IMAGE_ASSET, VIDEO_ASSET])
+
+    await previewButtons(wrapper)[0].trigger('click')
+    await settle()
+    expect(wrapper.findAll('img')).toHaveLength(1)
+
+    await previewButtons(wrapper)[1].trigger('click')
+    await settle()
+
+    expect(wrapper.findAll('video')).toHaveLength(1)
+    expect(wrapper.find('img').exists()).toBe(false)
+  })
+
+  it('closes when the same asset is asked for again', async () => {
+    const wrapper = await openPost('available', [VIDEO_ASSET])
+
+    await previewButtons(wrapper)[0].trigger('click')
+    await settle()
+    expect(wrapper.find('video').exists()).toBe(true)
+
+    await previewButtons(wrapper)[0].trigger('click')
+    await settle()
+
+    expect(wrapper.find('video').exists()).toBe(false)
+  })
+
+  it('closes from the preview own control', async () => {
+    const wrapper = await openPost('available', [VIDEO_ASSET])
+    await previewButtons(wrapper)[0].trigger('click')
+    await settle()
+
+    await wrapper.get('.preview__close').trigger('click')
+    await settle()
+
+    expect(wrapper.find('video').exists()).toBe(false)
+  })
+
+  it('offers no preview for a file the server will not render', async () => {
+    const wrapper = await openPost('available', [FLV_ASSET])
+
+    expect(previewButtons(wrapper)).toHaveLength(0)
+    //
+    // And it is still downloadable - refusing to render is not refusing to
+    // deliver.
+    //
+    expect(wrapper.find('.assets__download').exists()).toBe(true)
+  })
+})
+
+describe('a preview that must not outlive what it shows', () => {
+  it('closes when the panel switches to another resource', async () => {
+    const wrapper = await openPost('available', [VIDEO_ASSET])
+    await previewButtons(wrapper)[0].trigger('click')
+    await settle()
+    expect(wrapper.find('video').exists()).toBe(true)
+
+    mockedPost.mockResolvedValue(result('available', [IMAGE_ASSET]) as never)
+    await wrapper.setProps({
+      post: { ...post(), aweme_id: '1111111111111111111' },
+      recording: null,
+    })
+    await settle()
+
+    //
+    // Showing one post's details above another post's media would be a lie the
+    // interface tells while still streaming it.
+    //
+    expect(wrapper.find('video').exists()).toBe(false)
+  })
+
+  it('closes when the file list is re-read', async () => {
+    //
+    // Refreshing exists because the disk may have changed. The same asset id
+    // can name different bytes afterwards, so an element still pointed at the
+    // old representation is showing something that may no longer exist.
+    //
+    const wrapper = await openPost('available', [VIDEO_ASSET])
+    await previewButtons(wrapper)[0].trigger('click')
+    await settle()
+    expect(wrapper.find('video').exists()).toBe(true)
+
+    await buttonSaying(wrapper, '刷新')?.trigger('click')
+    await settle()
+
+    expect(wrapper.find('video').exists()).toBe(false)
+    expect(mockedPost).toHaveBeenCalledTimes(2)
+  })
+
+  it('closes when the asset it was showing has gone', async () => {
+    const wrapper = await openPost('available', [VIDEO_ASSET])
+    await previewButtons(wrapper)[0].trigger('click')
+    await settle()
+
+    mockedPost.mockResolvedValue(result('missing', []) as never)
+    await buttonSaying(wrapper, '刷新')?.trigger('click')
+    await settle()
+
+    expect(wrapper.find('video').exists()).toBe(false)
+    expect(wrapper.text()).toContain('文件已不在当前下载目录中')
+  })
+
+  it('reports a failure in the interface own words', async () => {
+    const wrapper = await openPost('available', [IMAGE_ASSET])
+    await previewButtons(wrapper)[0].trigger('click')
+    await settle()
+
+    await wrapper.get('img').trigger('error')
+    await settle()
+
+    expect(wrapper.text()).toContain('预览失败，可尝试下载文件。')
+    //
+    // Nothing about the status, the path or the codec - none of which a viewer
+    // could act on differently.
+    //
+    expect(wrapper.text()).not.toContain('404')
+    expect(wrapper.text()).not.toContain('/downloads')
+    //
+    // And the useful next step is still there.
+    //
+    expect(wrapper.find('.assets__download').exists()).toBe(true)
+  })
+})
+
+describe('a recording preview', () => {
+  it('carries an identity beyond the safe range exactly', async () => {
+    const RECORDING_MP4 = {
+      ...VIDEO_ASSET,
+      asset_id: 'e'.repeat(64),
+      kind: 'recording',
+      name: 'live.mp4',
+    }
+    mockedRecording.mockResolvedValue({
+      resource: { kind: 'recording', recording_id: '9007199254740993' },
+      storage_state: 'available',
+      assets: [RECORDING_MP4],
+    } as never)
+
+    const wrapper = mount(UserLibraryDetailPanel, {
+      props: {
+        post: null,
+        recording: { ...recording(), recording_id: '9007199254740993' },
+      },
+    })
+    await settle()
+
+    await previewButtons(wrapper)[0].trigger('click')
+    await settle()
+
+    const src = wrapper.get('video').attributes('src') ?? ''
+    expect(src).toBe(
+      `/api/library/recordings/9007199254740993/assets/${RECORDING_MP4.asset_id}/preview`,
+    )
+    expect(src).not.toContain('9007199254740992')
   })
 })

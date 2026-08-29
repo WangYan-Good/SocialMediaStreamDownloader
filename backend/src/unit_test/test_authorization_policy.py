@@ -50,7 +50,7 @@ class TestAuthorizationPolicyInventory(unittest.TestCase):
 
     self.assertEqual(len(keys), len(set(keys)))
     self.assertEqual(registered_api_routes(), policy_keys())
-    self.assertEqual(38, len(keys))
+    self.assertEqual(40, len(keys))
 
   def test_every_authenticated_unsafe_target_has_a_csrf_policy(self):
     for policy in AUTHORIZATION_POLICY:
@@ -92,6 +92,50 @@ class TestAuthorizationPolicyInventory(unittest.TestCase):
         self.assertEqual(CsrfPolicy.EXEMPT, policy.csrf)
         self.assertIn("404", policy.data_scope)
 
+  def test_media_preview_is_scoped_exactly_like_the_download_beside_it(self):
+    """Inline delivery is not a weaker door onto the same bytes.
+
+    A preview endpoint that authorized differently from the download endpoint
+    would be the easier one to reach, and it is the one whose response a page
+    renders rather than saves.
+    """
+    previews = {
+      ("GET", "/api/library/posts/<platform>/<aweme_id>/assets/<asset_id>/preview"),
+      ("GET", "/api/library/recordings/<int:recording_id>/assets/<asset_id>/preview"),
+    }
+    listed = {one.key for one in AUTHORIZATION_POLICY}
+
+    self.assertTrue(previews.issubset(listed))
+
+    for key in previews:
+      policy = next(one for one in AUTHORIZATION_POLICY if one.key == key)
+      with self.subTest(key=key):
+        self.assertEqual(TargetPrincipal.ROLE_SCOPED, policy.target_principal)
+        self.assertEqual(CsrfPolicy.EXEMPT, policy.csrf)
+        self.assertIn("404", policy.data_scope)
+
+  def test_preview_and_download_are_classified_identically(self):
+    ##
+    ## Same principal, same scope, same CSRF stance. The two differ in what the
+    ## browser does with the bytes, never in who may ask for them.
+    ##
+    for parent in (
+      "/api/library/posts/<platform>/<aweme_id>/assets/<asset_id>",
+      "/api/library/recordings/<int:recording_id>/assets/<asset_id>",
+    ):
+      download = next(
+        one for one in AUTHORIZATION_POLICY
+        if one.key == ("GET", parent + "/download")
+      )
+      preview = next(
+        one for one in AUTHORIZATION_POLICY
+        if one.key == ("GET", parent + "/preview")
+      )
+      with self.subTest(parent=parent):
+        self.assertEqual(download.target_principal, preview.target_principal)
+        self.assertEqual(download.data_scope, preview.data_scope)
+        self.assertEqual(download.csrf, preview.csrf)
+
   def test_no_download_route_is_reachable_without_its_parent_resource(self):
     """Every media path names the resource that owns it.
 
@@ -99,7 +143,9 @@ class TestAuthorizationPolicyInventory(unittest.TestCase):
     There must not be one.
     """
     for policy in AUTHORIZATION_POLICY:
-      if "download" not in policy.path or "/library/" not in policy.path:
+      if "/library/" not in policy.path:
+        continue
+      if "download" not in policy.path and "preview" not in policy.path:
         continue
       with self.subTest(key=policy.key):
         parent = policy.path.split("/assets/")[0]

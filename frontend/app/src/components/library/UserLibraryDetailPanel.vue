@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { computed, onBeforeUnmount, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import {
   postAssetDownloadUrl,
+  postAssetPreviewUrl,
   recordingAssetDownloadUrl,
+  recordingAssetPreviewUrl,
 } from '@/api/mediaAssets'
+import MediaAssetPreview from '@/components/library/MediaAssetPreview.vue'
 import MediaAssetSection from '@/components/library/MediaAssetSection.vue'
 import {
   TYPE_LABELS,
@@ -83,10 +86,86 @@ const downloadUrlFor = computed<((asset: MediaAsset) => string) | null>(() => {
 })
 
 //
+// Which asset is open for preview - at most one, and only because somebody
+// asked.
+//
+// Held here rather than in a store. It lives exactly as long as this panel
+// does, and putting it in `useLibraryStore` would give it a lifetime longer
+// than the thing it describes.
+//
+// One at a time on purpose: an image set can hold thirty files, and thirty
+// media elements would be thirty requests for media nobody has asked to see.
+//
+const previewAsset = ref<MediaAsset | null>(null)
+
+function closePreview(): void {
+  previewAsset.value = null
+}
+
+function openPreview(asset: MediaAsset): void {
+  previewAsset.value = asset
+}
+
+//
+// Switching resources ends the preview immediately.
+//
+// Without this the panel would show one resource's details above another
+// resource's media - and would keep streaming it.
+//
+watch(
+  () => [props.post?.aweme_id ?? null, props.recording?.recording_id ?? null],
+  closePreview,
+)
+
+//
+// Re-reading the file list ends it too.
+//
+// The point of refreshing is that the disk may have changed. The same asset id
+// can name different bytes afterwards, so an element still pointed at the old
+// representation would be showing something that no longer exists.
+//
+function refreshAssets(): void {
+  closePreview()
+  void assetsStore.refresh()
+}
+
+//
+// And an asset that has gone from the list cannot stay open.
+//
+watch(assets, (current) => {
+  const open = previewAsset.value
+  if (open === null) return
+  if (!current.some((one) => one.asset_id === open.asset_id)) {
+    closePreview()
+  }
+})
+
+//
+// Where the open asset is rendered from. Same construction as the download
+// address: parent identity plus asset id, built here rather than handed out by
+// the server.
+//
+const previewSrc = computed<string | null>(() => {
+  const asset = previewAsset.value
+  if (asset === null) return null
+
+  const post = props.post
+  if (post) {
+    return postAssetPreviewUrl(post.platform, post.aweme_id, asset.asset_id)
+  }
+  const recording = props.recording
+  if (recording) {
+    return recordingAssetPreviewUrl(recording.recording_id, asset.asset_id)
+  }
+  return null
+})
+
+//
 // The panel closing is the end of this resource's state. Leaving it behind
 // would flash the previous resource's files under the next one opened.
 //
 onBeforeUnmount(() => {
+  closePreview()
   assetsStore.clear()
 })
 </script>
@@ -129,7 +208,21 @@ onBeforeUnmount(() => {
       :loading="loading"
       :error="error"
       :download-url-for="downloadUrlFor"
-      @refresh="assetsStore.refresh()"
+      :preview-asset-id="previewAsset?.asset_id ?? null"
+      @refresh="refreshAssets"
+      @preview="openPreview"
+      @close-preview="closePreview"
+    />
+
+    <!--
+      Rendered only once somebody has asked. Opening a detail panel reads
+      metadata and nothing else.
+    -->
+    <MediaAssetPreview
+      v-if="previewAsset && previewSrc"
+      :asset="previewAsset"
+      :src="previewSrc"
+      @close="closePreview"
     />
   </aside>
 </template>

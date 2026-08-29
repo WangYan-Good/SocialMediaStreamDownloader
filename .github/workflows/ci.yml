@@ -432,6 +432,16 @@ jobs:
           expect_ranged "/api/library/posts/douyin/7657271784144009946/assets/$(printf 'a%.0s' $(seq 64))/download" 401
           expect_ranged "/api/library/recordings/7/assets/$(printf 'a%.0s' $(seq 64))/download" 401
 
+          # Phase 10D serves the same bytes inline for a closed list of media
+          # types. Inline delivery is the response a page renders rather than
+          # saves, so the built image has to prove it is not a public media
+          # server either - anonymously, and with a Range header, which is how
+          # a <video> element actually asks.
+          expect "/api/library/posts/douyin/7657271784144009946/assets/$(printf 'a%.0s' $(seq 64))/preview" 401
+          expect "/api/library/recordings/7/assets/$(printf 'a%.0s' $(seq 64))/preview" 401
+          expect_ranged "/api/library/posts/douyin/7657271784144009946/assets/$(printf 'a%.0s' $(seq 64))/preview" 401
+          expect_ranged "/api/library/recordings/7/assets/$(printf 'a%.0s' $(seq 64))/preview" 401
+
           # The media asset endpoints read the server's own filesystem, so the
           # first thing worth proving about them is that nobody unauthenticated
           # can reach one. No real volume file is involved: an anonymous request

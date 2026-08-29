@@ -350,10 +350,29 @@ class TestNothingLeaksAPath(ResolverCase):
     rendered = repr(asset.as_dict())
     self.assertNotIn(str(self.root), rendered)
     self.assertNotIn(str(directory), rendered)
+    ##
+    ## An exact set rather than a subset check, so a field cannot appear here
+    ## without somebody deciding it should. ``preview_kind`` joined in Phase
+    ## 10D: it says whether this server is willing to render the asset inline,
+    ## which is a capability statement and not a location.
+    ##
     self.assertEqual(
-      {"asset_id", "kind", "name", "size_bytes", "media_type", "image_index"},
+      {
+        "asset_id",
+        "kind",
+        "name",
+        "size_bytes",
+        "media_type",
+        "image_index",
+        "preview_kind",
+      },
       set(asset.as_dict().keys()),
     )
+    ##
+    ## And it carries no url of its own - the browser builds one from the
+    ## parent identity and the asset id, exactly as it does for downloads.
+    ##
+    self.assertIn(asset.as_dict()["preview_kind"], {"image", "video", "audio", None})
 
 
 if __name__ == "__main__":

@@ -196,6 +196,65 @@ Library 列表回答的是「数据库记录了什么」；资产端点回答的
   处理大文件。代价是文件在点击瞬间消失时，错误由浏览器原生下载提示呈现，而非应用内 UX——
   本阶段接受该限制，不为此改用 Blob 抓取。
 
+## 授权预览边界（Authorized Media Preview）
+
+Preview 与 Download 是**同一批字节、同一套授权**，区别只在浏览器拿到之后做什么：
+download 是保存（`attachment`，惰性），preview 是渲染（inline，浏览器会解释它）。
+**解释**正是风险所在，因此 preview 比 download 多一道更窄的门。
+
+- **不是 public media server**。每一次 preview（含 Range GET 与 HEAD）都完整重走：
+  认证 → 父资源精确 scoped 查询 → 才触碰文件系统 → 重新发现 → 与当前 asset_id 比对 →
+  root-relative no-follow 安全打开 → `fstat` → 交付。
+  匿名 401、跨用户 404、auth 不可用 503，且**文件系统调用为 0**，与 download 同样由测试断言。
+- **独立 endpoint，不是 download 的开关**。
+  `GET .../assets/<asset_id>/preview`，不使用 `?inline=1` 之类参数。
+  「渲染还是保存」是服务端的决定；query 参数会把这个决定交给写 URL 的人。
+  delivery mode 只能由 route call-site 常量给出，客户端无法影响 `Content-Disposition`。
+- **closed MIME allowlist**，由 `preview_kind_for()` 单一权威给出：
+  - `image/jpeg` → `image`
+  - `video/mp4` → `video`
+  - `audio/mpeg` → `audio`
+  - 其他一律 `None`
+  精确匹配，不做前缀规则。任何形如「image/ 开头即安全」的规则都会放进
+  `image/svg+xml`——那是可以携带脚本的文档。`text/html`、`application/pdf`、
+  `application/javascript`、`application/xml` 等**永不**可预览。
+  metadata 的 `preview_kind` 与 preview endpoint 的准入使用**同一个** helper，
+  不存在两份将来会漂移的清单。
+- **FLV / TS 只能下载**。`video/x-flv`、`video/mp2t` 的 `preview_kind` 为 `null`，
+  preview endpoint 返回 `415`；UI 不显示预览按钮（也不显示灰掉的按钮——
+  那会让「本来就只能下载」看起来像故障）。不引入 FLV.js / HLS.js / 转码 / 缩略图。
+- **415 之前必须先 404**。asset_id 不存在、属于其他资源、文件已删除，一律 `404`；
+  只有当前 rediscovery 匹配成功之后，才轮到「这个类型能不能渲染」的问题。
+  否则 `415` 会反过来确认这个 id 是真实存在的。
+- **preview 响应头**：
+  - 不发送 `Content-Disposition`（`<img>`/`<video>`/`<audio>` 不需要文件名，
+    省掉一处 Unicode 文件名编码面）
+  - `Content-Type` 只能来自服务端认定的 `media_type`，不接受任何客户端提供的 MIME
+  - `X-Content-Type-Options: nosniff`——在这里是承重的：即使 `.jpg` 里不是 JPEG，
+    浏览器也不得把它重新解释为 HTML 在本 origin 上执行
+  - `Cross-Origin-Resource-Policy: same-origin`——私有媒体只允许本 origin 作为子资源使用，
+    否则其他站点可以按 URL 嵌入已登录用户的视频，并从加载时序与尺寸推断信息
+  - `Cache-Control: private, no-store` 不变
+- **Range 传输完全复用 Phase 10C**，不存在第二套实现：200 / 206 / 416 / `Accept-Ranges` /
+  `Content-Range` / suffix 归一化 / zero-size 忽略 Range / strong ETag window /
+  `If-Range` / bounded iterator 的字节上限 / 描述符生命周期，全部与 download 共享。
+  415 由于不会发送任何字节，**立即关闭**描述符。
+- **前端不接收媒体字节**。`<img>` / `<video>` / `<audio>` 直接指向 endpoint，
+  不使用 `fetch().blob()`、不使用 `createObjectURL`；大文件由浏览器自己流式获取与 seek。
+  **不设置 `crossorigin`**——预览资源本来就是同源的，该属性只会把元素切换为 CORS fetch，
+  没有任何收益。（它并不会去掉同源凭据：`anonymous` 对同源请求仍然发送 same-origin credentials。
+  不设置的理由是「不适用」，而不是「会丢 cookie」。）
+- **按需、且一次一个**。打开详情面板只读取 metadata，绝不自动请求媒体；
+  用户点击「预览」后才插入媒体元素。同时最多一个 asset 处于预览状态；
+  切换资源、刷新文件状态、以及该 asset 从列表中消失，都会立即关闭预览
+  （刷新之后同一个 asset_id 可能对应不同的字节）。
+- **不 autoplay、不 loop**，`preload="metadata"`：打开预览的代价是一次 header，不是一个文件。
+- **URL 中没有凭据**，也没有 preview token / signed URL / 临时票据；
+  metadata 不返回 `preview_url`，前端由 parent identity + asset_id 纯函数构造，与 download 一致。
+- **本阶段不引入全站 CSP**。当前项目没有 CSP，为 preview 顺手建立全站策略影响面过大，
+  应作为独立的 hardening 阶段处理。preview 的边界由
+  closed MIME allowlist + `nosniff` + CORP same-origin + 授权 + secure-open 共同建立。
+
 ## 历史凭据
 
 防止当前配置进入新镜像不等于撤销历史泄露。Git 历史中曾出现过的凭据应由维护者
