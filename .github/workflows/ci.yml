@@ -487,7 +487,12 @@ jobs:
           # using this image's ffmpeg - so the image is what has to prove it
           # can. A one-second clip generated in the container: nothing is
           # downloaded and no fixture is committed.
-          docker exec smsd-ci-smoke python - <<'PY'
+          #
+          # Staged as a file and run by path rather than piped to `python -`.
+          # `docker exec` does not attach stdin without `-i`, so a piped
+          # heredoc reaches an immediate EOF: python exits 0 having run
+          # nothing, and the smoke passes without testing anything at all.
+          cat > /tmp/remux-smoke.py <<'PY'
           import shutil
           import subprocess
           import sys
@@ -545,3 +550,17 @@ jobs:
               raise SystemExit("FAIL: remux temporaries left behind: %s" % leftovers)
           print("ok   runtime ffmpeg TS->MP4 normalization (stream copy)")
           PY
+          docker cp /tmp/remux-smoke.py smsd-ci-smoke:/tmp/remux-smoke.py
+          docker exec smsd-ci-smoke python /tmp/remux-smoke.py \
+            > /tmp/remux-smoke.txt 2>&1 || {
+              cat /tmp/remux-smoke.txt
+              echo "FAIL: the runtime remux smoke did not complete"
+              exit 1
+            }
+          cat /tmp/remux-smoke.txt
+          # A smoke that printed nothing did not run. Exit status alone cannot
+          # tell the difference between "proved it" and "silently did nothing".
+          grep -q 'ok   runtime ffmpeg TS->MP4 normalization' /tmp/remux-smoke.txt || {
+            echo "FAIL: the runtime remux smoke produced no result - it did not run"
+            exit 1
+          }
