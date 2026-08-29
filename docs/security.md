@@ -428,17 +428,87 @@ S0 fsync(source.ts inode) + fsync(parent directory)   # SOURCE TS DURABILITY BAR
 
 - **保证范围（必须精确）**：Phase 10G 保证的是
   **source-TS durability barrier 完成之后**的崩溃持久性。
-  在该 barrier 完成之前断电，不在本 normalization 阶段的保证范围内——
-  因为 `HlsRecorder` 在返回之前并不对 TS 做持久化 fsync。
-  这属于 **HLS capture completion durability**，是另一个阶段的范围，
-  10G 不通过把 barrier 塞进 `HlsRecorder` 来扩大自身范围。
+  该 barrier 之前的 capture 侧持久性由 **Phase 10H** 补齐（见下节）。
+  10G 本身不通过把 barrier 塞进 `HlsRecorder` 来扩大自身范围。
 
   ```text
   Source Durability Barrier Established Before Remux:            PASS
   Every Crash Point After Source Barrier Retains Durable Media:  PASS
-  Pre-Barrier (HlsRecorder) Crash Durability:                    NOT GUARANTEED
-                                                                 OUT OF PHASE 10G SCOPE
   ```
+
+## HLS 采集完成持久化（Phase 10H）
+
+Phase 10G 之后仍存在一段 capture-stage exposure：`HlsRecorder.record()` 成功返回
+与 normalizer barrier 开始之间，最终 `.ts` 的持久性是未知的。
+10H 在源头关闭它。
+
+**旧的成功路径**：`os.replace(attempt_path, destination)` → `return destination`。
+`os.replace()` 只改变当前内核 namespace，既不保证 `destination.ts` 的数据已经 stable，
+也不保证其目录项已经 stable。
+
+**新的成功路径**（`_finalize_successful_attempt`）：
+
+```text
+ffmpeg exit 0
+→ 用打开的 descriptor 复核 regular + size > 0
+→ fsync(attempt inode)          # 字节进入 stable storage
+→ fsync(parent directory)       # 提交 pre-rename namespace
+→ os.replace(attempt, destination)
+→ fsync(parent directory)       # 提交最终名字
+→ record() 才允许成功 return
+```
+
+因此可以声明：
+
+```text
+Successful HlsRecorder Return Durability: GUARANTEED
+```
+
+调用方**永远不会**观察到「成功返回」与「非持久 final TS」同时成立。
+
+- **为什么 rename 前也要 fsync 目录**。成本极低，收益是让「hidden attempt +
+  reserved destination」这一旧 namespace 成为已提交状态。若在 `os.replace` 之后、
+  最终目录 fsync 之前断电，文件系统至少拥有一个已提交的 pre-rename 状态，
+  其中完整 media 仍可被名字引用。**这不代表程序会自动恢复该 hidden attempt**——
+  本阶段保证的是 media durability，不是 restart reconciliation。
+- **这里用 `os.replace` 而不是 MP4 那侧的 `os.link`**。两个 publication model 不同：
+  `destination.ts` 已由 `_reserve_hls_output_path` 为本次录制预留了占位符，
+  而 MP4 的 final name 没有占位符，所以那边必须用 no-clobber hard link。不要混淆。
+- **`HlsDurabilityError`**（`HlsDownloadError` 子类）：file fsync / pre-rename dir fsync /
+  replace / final dir fsync 任一失败都抛它，**不会**成功 return。
+- **持久化失败绝不重连直播**。这是本地存储 finalization 失败，不是可重试的网络失败，
+  而且直播可能已经结束。即使 `max_retry=5`，post-capture durability failure 的
+  `process_factory` 调用次数仍然是 **1**。
+- **持久化失败绝不删除已捕获媒体**。失败发生在 replace 之前 → 完整 attempt 保留在隐藏名下，
+  且**不会**被降级成普通 failed partial；发生在 replace 之后 → `destination` 中的完整媒体保留。
+  「无法证明持久」≠「删除已录到的媒体」。
+- **既有语义完全不变**：`HlsStalled` 仍按 `max_retry` 重试；普通 ffmpeg 非零退出仍按原逻辑；
+  `HlsCancelled` 仍只描述采集被主动停止。**ffmpeg 成功退出之后不再有取消检查点**——
+  已经录完的直播不会因为随后设置的 cancel flag 被重新解释为 cancelled。
+- **Normalizer 的 source barrier 保留，且是故意重复的第二层证明**。
+  normalizer 也可被直接调用、可处理历史文件、可接到并非来自本 recorder 的路径，
+  因此它自证前提而不是继承 recorder 的保证。**不要为了去重把两者合并。**
+- **`finished_at` 语义**：`download_live_stream()` 现在只有在 capture finalization 持久化完成后才返回，
+  因此 `finished_at` 表示 **completed HLS capture finalization，不包含 MP4 normalization**。
+  不新增第二个时间戳字段。
+- **FLV 路径 0 改动**，不进入 `HlsRecorder`，不加任何 fsync。
+
+**保证范围（必须精确）**：
+
+```text
+Successful HlsRecorder Return Durability:   GUARANTEED
+Active Capture Power-Loss Durability:       NOT GUARANTEED
+                                            （ffmpeg 正在写入，断电会丢失尚未落盘的部分）
+Failed Partial Attempt Durability:          NOT GUARANTEED / OUT OF PHASE 10H SCOPE
+Restart Recovery / Orphan Reconciliation:   OUT OF PHASE 10H SCOPE
+```
+
+本阶段**不**实现 startup scanner / attempt recovery / orphan 扫描 / DB 重建。
+若崩溃发生在 pre-rename durable 状态与 final rename durability 之间，
+磁盘上可能留下一个 durable 的 hidden attempt——**durable bytes 不等于
+automatically catalogued resource**，自动发现与恢复属于独立阶段。
+
+不要写成「录制期间任何崩溃都不丢媒体」。
 
   **任何一点都不会同时失去 TS 与 MP4。**
 - **Rollback 只回滚本次取得的名字**。`os.link` 成功之后才可能进入 rollback；
