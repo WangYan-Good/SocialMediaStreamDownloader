@@ -535,7 +535,16 @@ jobs:
                 "FAIL: could not build a TS fixture: " + built.stderr[:400]
               )
 
-            result = HlsMp4Normalizer().normalize(source)
+            # Phase 10G: the durability primitives have to work on *this*
+            # filesystem, not just in a unit test. A directory file descriptor
+            # is the part most likely to be unavailable on an exotic overlay,
+            # and publication fails closed if it is - so prove it here.
+            normalizer = HlsMp4Normalizer()
+            normalizer._sync_file(source)
+            normalizer._sync_directory(source.parent)
+            print("ok   runtime file+directory fsync")
+
+            result = normalizer.normalize(source)
 
             if result != source.with_suffix(".mp4") or not result.is_file():
               raise SystemExit("FAIL: normalization did not publish an MP4")
@@ -562,5 +571,9 @@ jobs:
           # tell the difference between "proved it" and "silently did nothing".
           grep -q 'ok   runtime ffmpeg TS->MP4 normalization' /tmp/remux-smoke.txt || {
             echo "FAIL: the runtime remux smoke produced no result - it did not run"
+            exit 1
+          }
+          grep -q 'ok   runtime file+directory fsync' /tmp/remux-smoke.txt || {
+            echo "FAIL: the runtime durability primitives did not run"
             exit 1
           }

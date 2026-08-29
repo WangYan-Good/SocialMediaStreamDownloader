@@ -364,6 +364,101 @@ HLS 兜底录制的 `.ts` 在 10F 之前只能下载、无法预览。10F 让**�
 - **日志不泄露传输凭据**：只记录 basename 与失败类别，不出现签名流地址、headers、cookie 或 token。
 - **只影响新完成的 HLS 录制**。不扫描、不回填、不修改历史 `.ts`；FLV 路径 0 改动。
 
+## HLS MP4 发布的崩溃持久性（Phase 10G）
+
+Phase 10F 已经保证 MP4 发布**不会覆盖**（`os.link()` 撞名即失败，而不是 `os.replace()` 静默摧毁）。
+10G 补上另一半：**「安全发布」必须被精确定义成两层，两层都满足才允许删除 TS**。
+
+1. **no-clobber atomic namespace publication**（10F）——最终名字不会抢走别人的文件
+2. **crash durability**（10G）——文件字节与目录项都已进入 stable storage
+
+**`os.link()` 返回成功不是 stable-storage 保证**。它只表示当前运行中的 filesystem
+namespace 里出现了 `final.mp4`：ffmpeg 写的字节可能仍在 page cache，新建的目录项可能仍在
+未提交的 metadata journal 里。断电后两者都可能不存在。
+
+同样关键：**`fsync(file)` 不覆盖名字**。目录项属于父目录，不属于文件本身。
+只 fsync 文件而不 fsync 父目录，可能出现「字节在盘上、但没有任何名字指向它」——
+对使用者而言与录制丢失无法区分。因此 `os.link()` 之后**必须** fsync 父目录。
+
+**Crash-durable normalization 只有在「已完成的 source TS 自身通过 file + parent-directory
+durability barrier」之后才开始。** 这一点是前提，不是可选项：`HlsRecorder` 成功路径是
+`os.replace(attempt_path, destination)`，**从不** fsync TS 的 inode 或父目录。
+因此 TS 到达 normalizer 时只在内核视图中存在——字节可能仍在 page cache，
+`os.replace` 产生的目录项可能仍在未提交 journal 里，理论上甚至可能恢复成当初预留的空占位 `.ts`。
+在这种状态上发布 MP4 并删除 TS，等于用「持久性已证明」的副本换掉「持久性未知」的原件并销毁后者。
+
+所以 `normalize()` 在启动 ffmpeg **之前**先建立 source barrier；
+barrier 失败则**不启动 ffmpeg、不创建/发布 MP4、不删除 TS**，直接返回 TS，
+录制仍然是 SUCCESS，只记录 warning。barrier 放在 normalizer 而不是 `HlsRecorder`：
+想删除 TS 的是这一阶段，因此由这一阶段负责证明删除是安全的，采集语义完全不变。
+
+固定发布顺序（`_establish_source_durability` + `_publish_durably` + `normalize`）：
+
+```text
+S0 fsync(source.ts inode) + fsync(parent directory)   # SOURCE TS DURABILITY BARRIER
+→ ffmpeg 结束
+→ 校验 temp 为 regular file 且非空
+→ fsync(temp inode)          # 字节进入 stable storage
+→ os.link(temp, final)       # no-clobber 取得名字
+→ fsync(parent directory)    # 名字进入 stable storage → FINAL MP4 DURABLE
+→ unlink(temp)
+→ unlink(source.ts)
+→ fsync(parent directory)    # 提交清理
+```
+
+- **安全打开**。`_sync_file` 用 `O_RDONLY | O_CLOEXEC | O_NOFOLLOW` 打开，`fstat` 复核
+  regular file 且 size > 0 之后才 `fsync`，`finally` 关闭 fd。这是 ffmpeg 退出后对同一名字的
+  第二次打开，拒绝跟随符号链接可避免这次打开被重定向。`_sync_directory` 用
+  `O_RDONLY | O_DIRECTORY | O_CLOEXEC`，每次调用现开现关，**不缓存 directory fd**。
+- **fail closed，不静默降级**。目录 fsync 无法执行时，不允许「跳过并仍然声称 durable」——
+  归一化失败、保留 TS。
+- **崩溃点模型**（由测试钉住，不是模拟断电，而是代码顺序证明）：
+
+  | 崩溃点 | 磁盘上剩下什么 |
+  |---|---|
+  | S0. barrier 之前/期间 | TS（持久性未知 → 因此拒绝继续，不会删除它） |
+  | A. temp fsync 之前 | **durable** TS |
+  | B. temp fsync 之后、link 之前 | **durable** TS |
+  | C. link 之后、publish 目录 fsync 之前 | **durable** TS（MP4 名字未提交，TS 仍然 authoritative） |
+  | D. publish 目录 fsync 之后 | durable MP4（+ 尚未清理的 TS） |
+  | E. TS unlink 之后、cleanup fsync 之前 | durable MP4 |
+
+  A/B/C 之所以成立，正是因为 S0 已经先把 TS 提交到 stable storage；
+  没有 S0，这三行只能说「TS 在内核视图中存在」，不能说「断电后仍在」。
+
+- **保证范围（必须精确）**：Phase 10G 保证的是
+  **source-TS durability barrier 完成之后**的崩溃持久性。
+  在该 barrier 完成之前断电，不在本 normalization 阶段的保证范围内——
+  因为 `HlsRecorder` 在返回之前并不对 TS 做持久化 fsync。
+  这属于 **HLS capture completion durability**，是另一个阶段的范围，
+  10G 不通过把 barrier 塞进 `HlsRecorder` 来扩大自身范围。
+
+  ```text
+  Source Durability Barrier Established Before Remux:            PASS
+  Every Crash Point After Source Barrier Retains Durable Media:  PASS
+  Pre-Barrier (HlsRecorder) Crash Durability:                    NOT GUARANTEED
+                                                                 OUT OF PHASE 10G SCOPE
+  ```
+
+  **任何一点都不会同时失去 TS 与 MP4。**
+- **Rollback 只回滚本次取得的名字**。`os.link` 成功之后才可能进入 rollback；
+  `FileExistsError` 意味着本次根本没有取得该名字，因此**绝不会**删除一个 pre-existing final。
+  rollback 之后再 best-effort fsync 目录。
+- **rollback 也失败时仍不删 TS**，可能留下 TS + MP4 并存。
+  优先级明确：**duplicate > data loss**。
+- **durable 之后的清理失败不能撤销录制**。temp unlink 失败 → 只是遗留隐藏文件，
+  属于 storage hygiene，**不是 recording integrity failure**；TS unlink 失败 → 返回 MP4，
+  遗留 TS 只是 orphan；第二次目录 fsync 失败 → 仍返回 MP4，**不试图恢复/编造 TS**
+  （那会指向一个刚被删除的文件）。
+- **取消检查点只有两个**：`normalize` 入口与等待 ffmpeg 期间，**都严格早于发布**。
+  发布开始后不再读取取消标志——durable MP4 已经落盘且 TS 可能已删除，
+  此时回退成 TS 语义会指向不存在的文件。
+- **不使用 `os.sync()` / shell `sync` / `syncfs`**。那会波及整个主机文件系统并带来无谓延迟。
+  只 fsync 确切的那个文件与其父目录。
+- **该 durability contract 只属于 normalization publication**。
+  Preview / Download / Range / MediaAssetResolver **没有**也不应该有 fsync——
+  它们是读路径，加 fsync 只会让每次媒体请求付出无关代价。
+
 ## 历史凭据
 
 防止当前配置进入新镜像不等于撤销历史泄露。Git 历史中曾出现过的凭据应由维护者
