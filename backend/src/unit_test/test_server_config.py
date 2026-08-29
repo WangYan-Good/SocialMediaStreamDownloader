@@ -49,8 +49,13 @@ class ServerConfigTest(unittest.TestCase):
       def cancel_all(self):
         cancel_calls.append("cancel")
 
+    class Normalizer:
+      def cancel_all(self):
+        cancel_calls.append("normalizer")
+
     class Downloader:
       hls_recorder = Recorder()
+      hls_normalizer = Normalizer()
 
     with patch.object(live_module, "downloader", Downloader()), patch.object(
       live_module,
@@ -60,7 +65,61 @@ class ServerConfigTest(unittest.TestCase):
       cancel()
 
     get_downloader.assert_not_called()
-    self.assertEqual(["cancel"], cancel_calls)
+    self.assertEqual(["cancel", "normalizer"], cancel_calls)
+
+  def test_cancel_live_downloads_also_stops_an_active_remux(self):
+    ##
+    ## Shutdown has to reach both, but they mean different things.  A cancelled
+    ## recorder ends the capture and the recording is reported as cancelled; a
+    ## cancelled remux only abandons a container conversion, and the recording
+    ## it was improving survives as the ``.ts`` that was already captured.
+    ##
+    cancel = getattr(live_module, "cancel_live_downloads", None)
+    self.assertIsNotNone(cancel)
+    cancelled = []
+
+    class Recorder:
+      def cancel_all(self):
+        cancelled.append("recorder")
+
+    class Normalizer:
+      def cancel_all(self):
+        cancelled.append("normalizer")
+
+    class Downloader:
+      hls_recorder = Recorder()
+      hls_normalizer = Normalizer()
+
+    with patch.object(live_module, "downloader", Downloader()):
+      cancel()
+
+    self.assertEqual(["recorder", "normalizer"], cancelled)
+
+  def test_a_failing_recorder_cancellation_still_stops_the_remux(self):
+    ##
+    ## Shutdown gets one pass.  If cancelling the recorder throws, an ffmpeg
+    ## remux would otherwise be left running past the process that started it.
+    ##
+    cancel = getattr(live_module, "cancel_live_downloads", None)
+    cancelled = []
+
+    class Recorder:
+      def cancel_all(self):
+        raise RuntimeError("recorder cancellation failed")
+
+    class Normalizer:
+      def cancel_all(self):
+        cancelled.append("normalizer")
+
+    class Downloader:
+      hls_recorder = Recorder()
+      hls_normalizer = Normalizer()
+
+    with patch.object(live_module, "downloader", Downloader()):
+      with self.assertRaises(RuntimeError):
+        cancel()
+
+    self.assertEqual(["normalizer"], cancelled)
 
   def test_create_app_initializes_the_schema_guard(self):
     config = unified_config()

@@ -28,6 +28,7 @@ from backend.src.platform.douyin.douyin_live_external_info  import LiveExternal,
 from backend.src.platform.douyin.douyin_live_prober         import DouyinLiveProber
 from backend.src.database.table.person_identity              import DouyinPersonIdentityTable
 from backend.src.platform.douyin.douyin_owner_directory      import choose_owner_directory
+from backend.src.platform.douyin.hls_mp4_normalizer         import HlsMp4Normalizer
 from backend.src.platform.douyin.hls_recorder               import HlsRecorder
 from backend.src.platform.douyin.douyin_api                 import DouyinApi
 from backend.src.database.table.share_url                   import DouyinShareUrlTable
@@ -114,10 +115,28 @@ class DouyinLiveDownloader(Downloader):
     self._database_retry_seconds = 30.0
     self._recording_clock = recording_clock
     self.hls_recorder = HlsRecorder()
+    self.hls_normalizer = HlsMp4Normalizer()
     self._actived_task_number = 0
     self._lock = Lock()
     self.construct_aggregation_class(config)
 
+  ##
+  ## Pick a name this recording can own for its whole life.
+  ##
+  ## A successful HLS recording is captured as ``.ts`` and then republished as
+  ## ``.mp4``, with the ``.ts`` removed - so a free ``.ts`` name does not mean a
+  ## free name.  Reserving on the ``.ts`` alone would hand this capture a name
+  ## whose ``.mp4`` already belongs to an earlier recording, and normalization
+  ## would then have to refuse to publish rather than overwrite it.  Both
+  ## spellings are checked so the capture starts out owning both.
+  ##
+  ## Only the ``.ts`` is claimed by creating it.  The ``.mp4`` is checked and
+  ## left alone on purpose: creating it here would be an empty file the library
+  ## can see, and it would make the no-clobber publish fail against this
+  ## recording's own placeholder.  That leaves a window in which another actor
+  ## could still take the ``.mp4``, which is exactly what publication is built
+  ## to survive.
+  ##
   @staticmethod
   def _reserve_hls_output_path(save_path, file_name):
     directory = Path(save_path)
@@ -127,13 +146,15 @@ class DouyinLiveDownloader(Downloader):
         duplicate_index
       )
       output_path = directory / (prefix + file_name)
-      try:
-        output_path.touch(exist_ok=False)
-        return output_path
-      except FileExistsError:
-        duplicate_index = (
-          0 if duplicate_index is None else duplicate_index + 1
-        )
+      if not output_path.with_suffix(".mp4").exists():
+        try:
+          output_path.touch(exist_ok=False)
+          return output_path
+        except FileExistsError:
+          pass
+      duplicate_index = (
+        0 if duplicate_index is None else duplicate_index + 1
+      )
 
   def __request_file__(
     self,
@@ -482,6 +503,23 @@ class DouyinLiveDownloader(Downloader):
         started_at = None if test_mode else self._recording_clock()
         output_path = self.download_live_stream(url, build, headers=header)
         finished_at = None if test_mode else self._recording_clock()
+        ##
+        ## The broadcast has stopped and its bytes are on local disk, which is
+        ## the first moment an MP4 can be written safely - so the container is
+        ## corrected here, between the recording ending and anything being
+        ## reported about it.
+        ##
+        ## After ``finished_at`` on purpose: that timestamp answers when the
+        ## live capture ended, and a remux can take minutes on a long recording.
+        ## Before the result is built, also on purpose: the path in the result
+        ## is the one that gets persisted, and this stage exists so that path is
+        ## final the first time it is written down rather than corrected by a
+        ## later update.
+        ##
+        output_path = self._normalize_completed_recording(
+          get_dict_attr(summary, "$.stream_protocol"),
+          output_path,
+        )
         return self._recorded_result(
           probe,
           summary,
@@ -506,6 +544,24 @@ class DouyinLiveDownloader(Downloader):
     except Exception as e:
       get_logger().error("Failed download stream file {} {} {}".format(get_dict_attr(build, "$.summary.nickname"), url, e))
       raise e
+
+  ##
+  ## Correct the container of a recording that has already succeeded.
+  ##
+  ## Only HLS captures are eligible.  FLV recordings are already served by the
+  ## library - the browser-side transmuxer plays them - so there is nothing to
+  ## win and a working preview path to risk.  Test mode has no file at all.
+  ##
+  ## Answers a path either way.  A remux that could not run leaves the ``.ts``
+  ## exactly as it was captured, and that is still a complete recording: it can
+  ## be downloaded, it is simply not previewable in place.  Trading a captured
+  ## broadcast for a nicer container would be a bad bargain, so this stage is
+  ## never allowed to fail a recording.
+  ##
+  def _normalize_completed_recording(self, protocol, output_path):
+    if protocol != "hls" or output_path is None:
+      return output_path
+    return self.hls_normalizer.normalize(output_path)
 
   def _unrecorded_result(self, probe, reason: str) -> LiveDownloadResult:
     """An attempt that reached the platform but recorded nothing."""
@@ -1001,11 +1057,25 @@ def get_live_downloader():
   return downloader
 
 
+##
+## Shutdown reaches both ffmpeg stages, and they answer differently.
+##
+## Cancelling the recorder stops a capture in progress, which is reported as a
+## cancelled recording.  Cancelling the normalizer only abandons a container
+## conversion - the broadcast it was working on has already been captured in
+## full, so that recording stays successful and keeps its ``.ts``.
+##
+## The normalizer is cancelled from a ``finally`` so a recorder that throws on
+## its way out cannot leave a remux running past the process that started it.
+##
 def cancel_live_downloads() -> None:
   with _downloader_lock:
     existing_downloader = downloader
     if existing_downloader is not None:
-      existing_downloader.hls_recorder.cancel_all()
+      try:
+        existing_downloader.hls_recorder.cancel_all()
+      finally:
+        existing_downloader.hls_normalizer.cancel_all()
 
 
 def download_single_live(url):

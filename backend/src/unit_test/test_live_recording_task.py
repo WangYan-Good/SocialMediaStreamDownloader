@@ -459,6 +459,99 @@ class LiveRecordingResourceIntegrationTest(unittest.TestCase):
     self.assertEqual(SOURCE_TASK_API, arguments["source"])
     self.assertEqual(["record", "metadata", "finish_success"], events)
 
+  def test_a_normalized_hls_recording_is_persisted_as_the_mp4(self):
+    ##
+    ## Normalization happens inside the recording pipeline, before the result
+    ## exists, so the path arriving here is already final.  There is no second
+    ## write that corrects a ``.ts`` row into an ``.mp4`` one afterwards - the
+    ## row is right the first time it is inserted.
+    ##
+    tasks = TaskService()
+    resources = FakeRecordingService(recording_id=91)
+    downloader = FakeLiveDownloader(
+      recorded_result(
+        protocol="hls",
+        output_path="/media/douyin/live/A/live.mp4",
+      )
+    )
+    service, _ = build_service(
+      downloader=downloader,
+      task_service=tasks,
+      recording_service=resources,
+    )
+
+    task_id = submit_tracked(service, app_user_id=41)
+
+    persisted, _ = resources.calls[0]
+    self.assertEqual("/media/douyin/live/A/live.mp4", persisted.output_path)
+    ##
+    ## Still an HLS recording: the protocol names how it was captured, not the
+    ## container it ended up in.
+    ##
+    self.assertEqual("hls", persisted.protocol)
+    task = tasks.get_task(task_id)
+    self.assertEqual(TASK_STATE_SUCCESS, task["state"])
+    self.assertEqual(91, task["metadata"]["result"]["recording_id"])
+    self.assertEqual(
+      "/media/douyin/live/A/live.mp4",
+      task["metadata"]["result"]["output_path"],
+    )
+
+  def test_an_unnormalized_hls_recording_is_persisted_as_the_ts(self):
+    ##
+    ## The remux did not run, or could not.  The broadcast was still captured
+    ## in full, so this is a successful recording that happens to be a ``.ts``:
+    ## downloadable, not previewable in place, and definitely not a failure.
+    ##
+    tasks = TaskService()
+    resources = FakeRecordingService(recording_id=92)
+    downloader = FakeLiveDownloader(
+      recorded_result(
+        protocol="hls",
+        output_path="/media/douyin/live/A/live.ts",
+      )
+    )
+    service, _ = build_service(
+      downloader=downloader,
+      task_service=tasks,
+      recording_service=resources,
+    )
+
+    task_id = submit_tracked(service, app_user_id=41)
+
+    persisted, _ = resources.calls[0]
+    self.assertEqual("/media/douyin/live/A/live.ts", persisted.output_path)
+    self.assertEqual("hls", persisted.protocol)
+    task = tasks.get_task(task_id)
+    self.assertEqual(TASK_STATE_SUCCESS, task["state"])
+    self.assertNotEqual(TASK_STATE_PARTIAL, task["state"])
+    self.assertEqual(92, task["metadata"]["result"]["recording_id"])
+    self.assertEqual(
+      "/media/douyin/live/A/live.ts",
+      task["metadata"]["result"]["output_path"],
+    )
+
+  def test_the_recording_is_persisted_exactly_once_whatever_the_container(self):
+    for output_path in (
+      "/media/douyin/live/A/live.mp4",
+      "/media/douyin/live/A/live.ts",
+    ):
+      with self.subTest(output_path=output_path):
+        tasks = TaskService()
+        resources = FakeRecordingService()
+        downloader = FakeLiveDownloader(
+          recorded_result(protocol="hls", output_path=output_path)
+        )
+        service, _ = build_service(
+          downloader=downloader,
+          task_service=tasks,
+          recording_service=resources,
+        )
+
+        submit_tracked(service, app_user_id=41)
+
+        self.assertEqual(1, len(resources.calls))
+
   def test_anonymous_legacy_recording_is_persisted_with_null_owner(self):
     tasks = TaskService()
     resources = FakeRecordingService()
