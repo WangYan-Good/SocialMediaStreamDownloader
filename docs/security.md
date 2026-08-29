@@ -211,18 +211,64 @@ download 是保存（`attachment`，惰性），preview 是渲染（inline，浏
   「渲染还是保存」是服务端的决定；query 参数会把这个决定交给写 URL 的人。
   delivery mode 只能由 route call-site 常量给出，客户端无法影响 `Content-Disposition`。
 - **closed MIME allowlist**，由 `preview_kind_for()` 单一权威给出：
-  - `image/jpeg` → `image`
-  - `video/mp4` → `video`
-  - `audio/mpeg` → `audio`
+  - `image/jpeg` → `image`（原生 `<img>`）
+  - `video/mp4` → `video`（原生 `<video src>`）
+  - `audio/mpeg` → `audio`（原生 `<audio src>`）
+  - `video/x-flv` → `flv`（浏览器内 transmux，见下节）
   - 其他一律 `None`
   精确匹配，不做前缀规则。任何形如「image/ 开头即安全」的规则都会放进
   `image/svg+xml`——那是可以携带脚本的文档。`text/html`、`application/pdf`、
   `application/javascript`、`application/xml` 等**永不**可预览。
   metadata 的 `preview_kind` 与 preview endpoint 的准入使用**同一个** helper，
   不存在两份将来会漂移的清单。
-- **FLV / TS 只能下载**。`video/x-flv`、`video/mp2t` 的 `preview_kind` 为 `null`，
-  preview endpoint 返回 `415`；UI 不显示预览按钮（也不显示灰掉的按钮——
-  那会让「本来就只能下载」看起来像故障）。不引入 FLV.js / HLS.js / 转码 / 缩略图。
+- **TS 只能下载**。`video/mp2t` 的 `preview_kind` 为 `null`，preview endpoint 返回 `415`；
+  UI 不显示预览按钮（也不显示灰掉的按钮——那会让「本来就只能下载」看起来像故障）。
+  理由是 upstream 对**静态 .ts 文件的 seek 仍有限制**：能播到一半、一拖进度条就失效，
+  比不提供预览更糟。不引入 HLS.js、不做服务端转码。
+
+## FLV 录制预览（Phase 10E）
+
+Douyin 直播录制的主路径是 **FLV 优先、HLS 兜底**
+（`get_live_stream_source()` 先试 FLV，失败才回落 HLS）。因此磁盘上大量录制是 `.flv`，
+在 10E 之前只能下载、无法在库内查看。
+
+- **浏览器内 transmux，不是服务端转码**。使用 npm 依赖 **mpegts.js**（Apache-2.0，
+  版本在 `package.json` / `package-lock.json` 中精确锁定），在浏览器里把 FLV 解复用后
+  经 Media Source Extensions 播放。
+  - **没有**服务端 ffmpeg 转码、remux、临时文件、转换缓存或转换任务
+  - **没有**新增 endpoint：字节仍来自同一个已授权的 `/preview` 路由
+  - **没有**改变录制格式或协议选择
+- **`flv` 是独立的 preview kind，不是 `video`**。原生 `<video src>` 无法解码 FLV，
+  映射成 `video` 只会得到一个必然失败的元素。独立 kind 才能让前端把这些字节交给 transmuxer。
+- **安全链完全未变**：认证 → 父资源精确授权 → 重新发现 → 当前 asset_id 比对 →
+  root-relative no-follow 安全打开 → `fstat` → MIME 准入 → Phase 10C 的 Range/If-Range/ETag 传输。
+  FLV 没有第二套 Range 实现；它的 seek 用的就是既有的 206。
+- **第三方解析器的边界**。这引入了一个**浏览器侧的第三方媒体解析器**。它只能拿到
+  **已经通过完整授权**的 `video/x-flv` 字节；它不能选择服务端路径、不能扩大用户范围、
+  不能生成公开 URL、也无法访问其他用户的 asset。它拿到的 URL 由前端用
+  parent identity + asset_id 构造，与 download 完全一致。
+- **同源、带凭据**。`cors: false`、`withCredentials: true`，URL 是同源相对路径。
+  **没有**新增 `Access-Control-Allow-Origin`、`Access-Control-Allow-Credentials`、
+  `Access-Control-Expose-Headers`，也没有新增 `OPTIONS` 预检路由——
+  同源请求不需要这些，加了只会扩大可读范围。响应仍是
+  `Cross-Origin-Resource-Policy: same-origin`。
+- **按需加载**。mpegts.js 通过 `await import('mpegts.js')` 动态引入，构建后是独立 lazy chunk；
+  只有用户点击某个 FLV 的「预览」时浏览器才会请求它。只看图片和 MP4 的用户不为其付费。
+- **不自动播放**。只 `attachMediaElement()` + `load()`，**不调用 `play()`**；
+  `isLive: false`（这是已经落盘的录制，不是直播流），不启用 `liveSync` /
+  `liveBufferLatencyChasing`，`seekType: 'range'`。
+- **不传入过期的 filesize / 编造的 duration**。metadata 里的 `size_bytes` 是发现时刻的值，
+  而 preview endpoint 会在安全打开后 `fstat` 得到更可信的长度；duration 数据库里并不存在，
+  用 `started_at`/`finished_at` 推算等于喂给播放器一个它会当真的数字。两者都不传。
+- **生命周期与竞态**。同一时刻只允许一个 player；关闭预览、切换 asset、切换资源、
+  刷新文件列表、组件卸载、player 报错，都会 `unload → detachMediaElement → destroy`。
+  动态 import 是异步的，因此有 **generation 令牌**：模块加载期间用户若关闭或切换，
+  import 落地后**不会**创建一个已经过期的 player（该保护有 mutation 验证的回归测试）。
+- **失败一律收敛为同一句话**。`mpegts.Events.ERROR`（网络、demux、容器内 codec 不受支持，
+  例如 FLV 里封装 H.265）、`isSupported()` 为 false、创建抛错，全部显示
+  「预览失败，可尝试下载文件。」——不显示 codec、网络细节或解析器内部信息，下载始终可用。
+- **应用代码仍不接收媒体字节**：不使用 `fetch().blob()`、`createObjectURL`。
+  mpegts.js 内部使用 MediaSource 与 object URL 属于其实现细节，不等于项目代码违反该约束。
 - **415 之前必须先 404**。asset_id 不存在、属于其他资源、文件已删除，一律 `404`；
   只有当前 rediscovery 匹配成功之后，才轮到「这个类型能不能渲染」的问题。
   否则 `415` 会反过来确认这个 id 是真实存在的。

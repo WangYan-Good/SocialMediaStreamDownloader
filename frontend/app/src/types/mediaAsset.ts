@@ -17,13 +17,19 @@ import type { RecordingId } from './library'
 export type MediaAssetKind = 'video' | 'image' | 'music' | 'cover' | 'recording'
 
 /**
- * Which element could render an asset in place, when the server permits it.
+ * Which renderer would show an asset in place, when the server permits it.
  *
  * The server is the authority. It serves inline only for a closed list of media
  * types - anything a browser renders is also something it may interpret - and
  * this is how it says which of them an asset is.
+ *
+ * `flv` is deliberately not `video`. A recording written as FLV cannot be
+ * decoded from a `<video src>`; the element would simply fail. It needs the
+ * bundled transmuxer, which is loaded only when one is actually opened - so the
+ * distinction has to survive all the way from the server to the component that
+ * chooses what to draw.
  */
-export type MediaPreviewKind = 'image' | 'video' | 'audio'
+export type MediaPreviewKind = 'image' | 'video' | 'audio' | 'flv'
 
 /**
  * What could be said about a resource's files.

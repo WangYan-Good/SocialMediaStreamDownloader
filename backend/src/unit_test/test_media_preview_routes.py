@@ -173,6 +173,25 @@ class PreviewTestCase(unittest.TestCase):
   def user(self, user_id=3, role=ROLE_USER):
     return AuthenticatedUser(user_id, "u{}".format(user_id), role)
 
+  def refused_recording(self):
+    """A recording of the one container still refused for rendering.
+
+    Phase 10E admitted flv, so it is no longer an example of a refused type.
+    MPEG-TS is - seeking within a static .ts file remains limited upstream - and
+    these tests are about what happens to a refusal, not about which container
+    it happens to be.
+    """
+    target = self.creator / "live.ts"
+    target.write_bytes(BODY)
+    self.settle(target)
+    row = dict(self.recording_row, output_path=str(target))
+    return row, asset_id_for("recording", (BEYOND_SAFE,), "live.ts")
+
+  def refused_url(self, asset_id):
+    return "/api/library/recordings/{}/assets/{}/preview".format(
+      BEYOND_SAFE, asset_id
+    )
+
   def post_id(self, name):
     return asset_id_for("post", ("douyin", AWEME), name)
 
@@ -323,22 +342,18 @@ class PreviewMediaTypeTest(PreviewTestCase):
     self.assertEqual("audio/mpeg", response.headers["Content-Type"])
     self.assertEqual(BODY, response.get_data())
 
-  def test_a_recording_container_is_refused_rather_than_rendered(self):
-    """FLV and TS have no native decoder in any browser.
+  def test_a_transport_stream_recording_is_refused_rather_than_rendered(self):
+    """Refusing is the honest answer where a preview could not work properly.
 
-    Refusing is the honest answer: a preview that cannot work is worse than no
-    preview, and shipping a JavaScript demuxer to make one work is a different
-    project.
+    Phase 10E gave flv a browser-side transmuxer. MPEG-TS did not follow: the
+    same library demuxes it, but seeking within a static .ts file is limited
+    upstream, so a preview would work until somebody scrubbed - a worse offer
+    than none.
     """
-    client, _ = self.build(
-      FakeQuery(recording=self.recording_row), principal=self.user()
-    )
+    row, asset = self.refused_recording()
+    client, _ = self.build(FakeQuery(recording=row), principal=self.user())
 
-    response = client.get(
-      "/api/library/recordings/{}/assets/{}/preview".format(
-        BEYOND_SAFE, asset_id_for("recording", (BEYOND_SAFE,), self.recording_name)
-      )
-    )
+    response = client.get(self.refused_url(asset))
 
     self.assertEqual(415, response.status_code)
     self.assertNotIn(BODY, response.get_data())
@@ -358,20 +373,15 @@ class PreviewMediaTypeTest(PreviewTestCase):
     self.assertEqual(415, response.status_code)
 
   def test_a_refusal_explains_nothing_about_the_filesystem(self):
-    client, _ = self.build(
-      FakeQuery(recording=self.recording_row), principal=self.user()
-    )
+    row, asset = self.refused_recording()
+    client, _ = self.build(FakeQuery(recording=row), principal=self.user())
 
-    response = client.get(
-      "/api/library/recordings/{}/assets/{}/preview".format(
-        BEYOND_SAFE, asset_id_for("recording", (BEYOND_SAFE,), self.recording_name)
-      )
-    )
+    response = client.get(self.refused_url(asset))
 
     body = response.get_data(as_text=True)
     self.assertIn("application/json", response.headers["Content-Type"])
     self.assertEqual("error", json.loads(body)["status"])
-    for secret in (str(self.root), str(self.base), str(self.creator), ".flv"):
+    for secret in (str(self.root), str(self.base), str(self.creator), ".ts"):
       self.assertNotIn(secret, body)
 
   def test_a_range_does_not_talk_the_server_into_rendering_a_refused_type(self):
@@ -379,15 +389,11 @@ class PreviewMediaTypeTest(PreviewTestCase):
     ## The type was refused; asking for part of it changes nothing. A 206 here
     ## would hand a browser bytes it had just been told it may not render.
     ##
-    client, _ = self.build(
-      FakeQuery(recording=self.recording_row), principal=self.user()
-    )
+    row, asset = self.refused_recording()
+    client, _ = self.build(FakeQuery(recording=row), principal=self.user())
 
     response = client.get(
-      "/api/library/recordings/{}/assets/{}/preview".format(
-        BEYOND_SAFE, asset_id_for("recording", (BEYOND_SAFE,), self.recording_name)
-      ),
-      headers={"Range": "bytes=0-3"},
+      self.refused_url(asset), headers={"Range": "bytes=0-3"}
     )
 
     self.assertEqual(415, response.status_code)
@@ -411,14 +417,11 @@ class PreviewMediaTypeTest(PreviewTestCase):
 
   def test_the_download_route_still_serves_what_preview_refuses(self):
     """Refusing to render is not refusing to deliver."""
-    client, _ = self.build(
-      FakeQuery(recording=self.recording_row), principal=self.user()
-    )
+    row, asset = self.refused_recording()
+    client, _ = self.build(FakeQuery(recording=row), principal=self.user())
 
     response = client.get(
-      "/api/library/recordings/{}/assets/{}/download".format(
-        BEYOND_SAFE, asset_id_for("recording", (BEYOND_SAFE,), self.recording_name)
-      )
+      "/api/library/recordings/{}/assets/{}/download".format(BEYOND_SAFE, asset)
     )
 
     self.assertEqual(200, response.status_code)
@@ -706,12 +709,9 @@ class PreviewDescriptorLifecycleTest(PreviewTestCase):
   @unittest.skipUnless(os.path.isdir("/proc/self/fd"), "requires /proc")
   def test_a_refused_media_type_leaks_nothing(self):
     """415 opens the file before it can know the type, so it must release it."""
-    client, _ = self.build(
-      FakeQuery(recording=self.recording_row), principal=self.user()
-    )
-    url = "/api/library/recordings/{}/assets/{}/preview".format(
-      BEYOND_SAFE, asset_id_for("recording", (BEYOND_SAFE,), self.recording_name)
-    )
+    row, asset = self.refused_recording()
+    client, _ = self.build(FakeQuery(recording=row), principal=self.user())
+    url = self.refused_url(asset)
 
     before = self.descriptor_count()
     for _ in range(20):
@@ -755,19 +755,14 @@ class PreviewDescriptorLifecycleTest(PreviewTestCase):
           opened_streams.append(opened.stream)
         return opened
 
+    row, asset = self.refused_recording()
     resolver = WatchingResolver(lambda: str(self.root))
-    runtime = FakeRuntime(
-      query=FakeQuery(recording=self.recording_row), resolver=resolver
-    )
+    runtime = FakeRuntime(query=FakeQuery(recording=row), resolver=resolver)
     app = Flask(__name__)
     install_test_auth(app, user=self.user())
     app.register_blueprint(build_library_blueprint(runtime=runtime))
 
-    response = app.test_client().get(
-      "/api/library/recordings/{}/assets/{}/preview".format(
-        BEYOND_SAFE, asset_id_for("recording", (BEYOND_SAFE,), self.recording_name)
-      )
-    )
+    response = app.test_client().get(self.refused_url(asset))
 
     self.assertEqual(415, response.status_code)
     self.assertEqual(1, len(opened_streams))
@@ -789,7 +784,21 @@ class PreviewMetadataTest(PreviewTestCase):
     self.assertEqual("video", by_name[self.names["video"]]["preview_kind"])
     self.assertEqual("audio", by_name[self.names["audio"]]["preview_kind"])
 
-  def test_a_recording_container_declares_itself_unpreviewable(self):
+  def test_a_transport_stream_recording_declares_itself_unpreviewable(self):
+    row, _ = self.refused_recording()
+    client, _ = self.build(FakeQuery(recording=row), principal=self.user())
+
+    payload = client.get(
+      "/api/library/recordings/{}/assets".format(BEYOND_SAFE)
+    ).get_json()["data"]
+
+    self.assertIsNone(payload["assets"][0]["preview_kind"])
+
+  def test_an_flv_recording_declares_which_renderer_it_needs(self):
+    ##
+    ## Not "video" - that would send it to a native <video src>, which cannot
+    ## decode it.
+    ##
     client, _ = self.build(
       FakeQuery(recording=self.recording_row), principal=self.user()
     )
@@ -798,7 +807,7 @@ class PreviewMetadataTest(PreviewTestCase):
       "/api/library/recordings/{}/assets".format(BEYOND_SAFE)
     ).get_json()["data"]
 
-    self.assertIsNone(payload["assets"][0]["preview_kind"])
+    self.assertEqual("flv", payload["assets"][0]["preview_kind"])
 
   def test_the_listing_still_hands_out_no_location_and_no_url(self):
     client = self.owner_client()
@@ -810,3 +819,287 @@ class PreviewMetadataTest(PreviewTestCase):
     for asset in payload["assets"]:
       for forbidden in ("path", "save_dir", "preview_url", "download_url", "href"):
         self.assertNotIn(forbidden, asset)
+
+
+##
+## >>========================= flv recordings, in place =========================<<
+##
+class FlvPreviewTest(PreviewTestCase):
+  """The recording container that is actually on disk.
+
+  The live downloader tries FLV first and only falls back to HLS, so most
+  recordings are flv files. Until now every one of them could be downloaded and
+  none could be watched.
+
+  Nothing about the transport changes to allow this - the bytes travel exactly
+  as an mp4's would. What changed is that the media type is admitted, and the
+  browser is handed a transmuxer for it.
+  """
+
+  def flv_client(self):
+    return self.build(
+      FakeQuery(recording=self.recording_row), principal=self.user()
+    )
+
+  def flv_url(self, action="preview"):
+    return "/api/library/recordings/{}/assets/{}/{}".format(
+      BEYOND_SAFE,
+      asset_id_for("recording", (BEYOND_SAFE,), self.recording_name),
+      action,
+    )
+
+  def test_an_authorized_flv_recording_is_served_for_rendering(self):
+    client, _ = self.flv_client()
+
+    response = client.get(self.flv_url())
+
+    self.assertEqual(200, response.status_code)
+    self.assertEqual(BODY, response.get_data())
+    self.assertEqual("video/x-flv", response.headers["Content-Type"])
+
+  def test_it_is_not_an_attachment(self):
+    client, _ = self.flv_client()
+
+    self.assertIsNone(
+      client.get(self.flv_url()).headers.get("Content-Disposition")
+    )
+
+  def test_it_carries_the_same_protections_as_every_other_preview(self):
+    client, _ = self.flv_client()
+
+    response = client.get(self.flv_url())
+
+    self.assertEqual("nosniff", response.headers["X-Content-Type-Options"])
+    self.assertEqual(
+      "same-origin", response.headers["Cross-Origin-Resource-Policy"]
+    )
+    self.assertIn("no-store", response.headers["Cache-Control"])
+    self.assertIn("private", response.headers["Cache-Control"])
+    self.assertEqual("bytes", response.headers["Accept-Ranges"])
+
+  def test_no_cross_origin_permission_was_granted_to_make_this_work(self):
+    ##
+    ## The transmuxer fetches same-origin, so none of this is needed. Adding it
+    ## would widen who can read a logged-in user's recording.
+    ##
+    client, _ = self.flv_client()
+
+    headers = client.get(self.flv_url()).headers
+
+    for granted in (
+      "Access-Control-Allow-Origin",
+      "Access-Control-Allow-Credentials",
+      "Access-Control-Expose-Headers",
+    ):
+      self.assertIsNone(headers.get(granted), granted)
+
+  def test_a_range_of_an_flv_uses_the_existing_transport(self):
+    """The seek path. No new range implementation exists for this."""
+    client, _ = self.flv_client()
+
+    response = client.get(self.flv_url(), headers={"Range": "bytes=2-5"})
+
+    self.assertEqual(206, response.status_code)
+    self.assertEqual(b"2345", response.get_data())
+    self.assertEqual("bytes 2-5/10", response.headers["Content-Range"])
+    self.assertEqual("4", response.headers["Content-Length"])
+    self.assertEqual("video/x-flv", response.headers["Content-Type"])
+    self.assertEqual(
+      "same-origin", response.headers["Cross-Origin-Resource-Policy"]
+    )
+
+  def test_an_open_ended_range_of_an_flv_runs_to_the_end(self):
+    client, _ = self.flv_client()
+
+    response = client.get(self.flv_url(), headers={"Range": "bytes=6-"})
+
+    self.assertEqual(206, response.status_code)
+    self.assertEqual(b"6789", response.get_data())
+
+  def test_an_unsatisfiable_flv_range_reports_the_real_length(self):
+    client, _ = self.flv_client()
+
+    response = client.get(self.flv_url(), headers={"Range": "bytes=200-300"})
+
+    self.assertEqual(416, response.status_code)
+    self.assertEqual("bytes */10", response.headers["Content-Range"])
+
+  def test_head_describes_the_flv_without_a_body(self):
+    client, _ = self.flv_client()
+
+    response = client.head(self.flv_url())
+
+    self.assertEqual(200, response.status_code)
+    self.assertEqual("10", response.headers["Content-Length"])
+    self.assertEqual("video/x-flv", response.headers["Content-Type"])
+    self.assertEqual("bytes", response.headers["Accept-Ranges"])
+    self.assertEqual(
+      "same-origin", response.headers["Cross-Origin-Resource-Policy"]
+    )
+    self.assertEqual("nosniff", response.headers["X-Content-Type-Options"])
+    self.assertIsNotNone(response.headers.get("ETag"))
+    self.assertEqual(b"", response.get_data())
+
+  def test_a_matching_condition_resumes_an_flv(self):
+    ##
+    ## Proved once here rather than re-deriving Phase 10C's whole suite: the
+    ## point is that flv goes through the same code, not that the code works.
+    ##
+    client, _ = self.flv_client()
+    tag = client.get(self.flv_url()).headers["ETag"]
+
+    response = client.get(
+      self.flv_url(), headers={"Range": "bytes=6-", "If-Range": tag}
+    )
+
+    self.assertEqual(206, response.status_code)
+    self.assertEqual(b"6789", response.get_data())
+
+  def test_a_stale_condition_sends_the_whole_flv(self):
+    client, _ = self.flv_client()
+
+    response = client.get(
+      self.flv_url(),
+      headers={"Range": "bytes=6-", "If-Range": '"' + "0" * 64 + '"'},
+    )
+
+    self.assertEqual(200, response.status_code)
+    self.assertEqual(BODY, response.get_data())
+
+  def test_the_flv_download_route_is_unchanged(self):
+    client, _ = self.flv_client()
+
+    response = client.get(self.flv_url(action="download"))
+
+    self.assertEqual(200, response.status_code)
+    self.assertTrue(
+      response.headers["Content-Disposition"].startswith("attachment")
+    )
+    self.assertIsNone(response.headers.get("Cross-Origin-Resource-Policy"))
+
+  ##
+  ## >>------------------- authorization, again and unchanged -------------------<<
+  ##
+  def test_an_anonymous_flv_preview_never_reaches_the_disk(self):
+    client, resolver = self.build(FakeQuery(recording=self.recording_row))
+
+    response = client.get(self.flv_url())
+
+    self.assertEqual(401, response.status_code)
+    self.assertEqual([], resolver.calls)
+
+  def test_an_anonymous_ranged_flv_preview_never_reaches_the_disk(self):
+    ##
+    ## The shape the transmuxer actually sends when it seeks.
+    ##
+    client, resolver = self.build(FakeQuery(recording=self.recording_row))
+
+    response = client.get(self.flv_url(), headers={"Range": "bytes=0-3"})
+
+    self.assertEqual(401, response.status_code)
+    self.assertEqual([], resolver.calls)
+
+  def test_a_cross_owner_flv_preview_never_reaches_the_disk(self):
+    client, resolver = self.build(FakeQuery(recording=None), principal=self.user(99))
+
+    response = client.get(self.flv_url())
+
+    self.assertEqual(404, response.status_code)
+    self.assertEqual([], resolver.calls)
+    self.assertNotIn(BODY, response.get_data())
+
+  def test_an_unavailable_backend_refuses_an_flv_preview_without_the_disk(self):
+    client, resolver = self.build(
+      FakeQuery(recording=self.recording_row),
+      principal=self.user(),
+      unavailable=LibraryUnavailable("数据库暂时不可用"),
+    )
+
+    response = client.get(self.flv_url())
+
+    self.assertEqual(503, response.status_code)
+    self.assertEqual([], resolver.calls)
+
+  def test_an_unknown_flv_asset_id_is_missing_rather_than_unsupported(self):
+    client, _ = self.flv_client()
+
+    response = client.get(
+      "/api/library/recordings/{}/assets/{}/preview".format(
+        BEYOND_SAFE, "0" * 64
+      )
+    )
+
+    self.assertEqual(404, response.status_code)
+
+  def test_an_flv_asset_id_from_another_recording_previews_nothing(self):
+    client, _ = self.flv_client()
+
+    response = client.get(
+      "/api/library/recordings/{}/assets/{}/preview".format(
+        BEYOND_SAFE, asset_id_for("recording", (7,), self.recording_name)
+      )
+    )
+
+    self.assertEqual(404, response.status_code)
+
+  def test_the_metadata_declares_the_flv_renderable(self):
+    client, _ = self.flv_client()
+
+    payload = client.get(
+      "/api/library/recordings/{}/assets".format(BEYOND_SAFE)
+    ).get_json()["data"]
+
+    self.assertEqual("flv", payload["assets"][0]["preview_kind"])
+
+
+class TransportStreamStillDownloadOnlyTest(PreviewTestCase):
+  """FLV moved. TS deliberately did not."""
+
+  def ts_setup(self):
+    target = self.creator / "live.ts"
+    target.write_bytes(BODY)
+    row = dict(self.recording_row, output_path=str(target))
+    client, _ = self.build(FakeQuery(recording=row), principal=self.user())
+    return client, asset_id_for("recording", (BEYOND_SAFE,), "live.ts")
+
+  def test_a_transport_stream_preview_is_still_refused(self):
+    client, asset = self.ts_setup()
+
+    response = client.get(
+      "/api/library/recordings/{}/assets/{}/preview".format(BEYOND_SAFE, asset)
+    )
+
+    self.assertEqual(415, response.status_code)
+    self.assertNotIn(BODY, response.get_data())
+
+  def test_a_ranged_transport_stream_preview_is_still_refused(self):
+    client, asset = self.ts_setup()
+
+    response = client.get(
+      "/api/library/recordings/{}/assets/{}/preview".format(BEYOND_SAFE, asset),
+      headers={"Range": "bytes=0-3"},
+    )
+
+    self.assertEqual(415, response.status_code)
+
+  def test_a_transport_stream_still_downloads(self):
+    client, asset = self.ts_setup()
+
+    response = client.get(
+      "/api/library/recordings/{}/assets/{}/download".format(BEYOND_SAFE, asset)
+    )
+
+    self.assertEqual(200, response.status_code)
+    self.assertEqual(BODY, response.get_data())
+    self.assertTrue(
+      response.headers["Content-Disposition"].startswith("attachment")
+    )
+
+  def test_the_metadata_still_declares_it_unrenderable(self):
+    client, _ = self.ts_setup()
+
+    payload = client.get(
+      "/api/library/recordings/{}/assets".format(BEYOND_SAFE)
+    ).get_json()["data"]
+
+    self.assertIsNone(payload["assets"][0]["preview_kind"])

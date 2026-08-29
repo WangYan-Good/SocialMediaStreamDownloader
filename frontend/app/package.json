@@ -15,6 +15,7 @@
     "test:run": "vitest run"
   },
   "dependencies": {
+    "mpegts.js": "1.8.2",
     "pinia": "^4.0.3",
     "vue": "^3.5.41",
     "vue-router": "^5.2.0"
