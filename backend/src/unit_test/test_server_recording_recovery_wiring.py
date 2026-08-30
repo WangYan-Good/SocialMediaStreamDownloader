@@ -163,7 +163,29 @@ class SharedConfigSnapshotTest(unittest.TestCase):
 
 
 class StartupHasNoJournalSideEffectTest(unittest.TestCase):
-  """Wiring a journal is not the same as using one."""
+  """What startup may and may not do to the journal, as of Phase 11C.
+
+  This contract has deliberately changed, and the change is written down here
+  rather than left to be inferred from a deleted test.
+
+  Phase 11B-1 said: **startup must not read a recovery note.** That was correct
+  for a build with no reconciler - a read at startup could only have been an
+  accident, and the test existed to notice the day somebody wired a replay in
+  without saying so.
+
+  Phase 11C says: **startup must reconcile the pending notes.** That is now the
+  whole point. Discovering and replaying them is what closes the gap Phase 11B
+  could only record. ``test_startup_reconciles_pending_recovery_notes`` below
+  is the replacement assertion, and the behaviour it pins is proved properly -
+  against real notes and a real storage root - in
+  ``test_server_recording_recovery_startup.py``.
+
+  Three things did *not* change, and are still asserted:
+
+    - startup must not publish a note.  It catalogues nothing of its own.
+    - startup must not call ``ensure_root()``.
+    - startup against an absent journal directory must not create one.
+  """
 
   def test_building_an_application_does_not_create_the_journal_directory(self):
     ##
@@ -183,42 +205,88 @@ class StartupHasNoJournalSideEffectTest(unittest.TestCase):
       self.assertFalse((Path(storage) / JOURNAL_DIRECTORY_NAME).exists())
       self.assertEqual([], sorted(p.name for p in Path(storage).iterdir()))
 
-  def test_building_an_application_never_touches_the_journal(self):
+  def test_building_an_application_never_writes_to_the_journal(self):
     ##
-    ## Phase 11C has not started. Startup must not publish, read or retire a
-    ## note - and this is the test that will notice the day somebody wires a
-    ## replay in without saying so.
+    ## The half of the 11B-1 contract that survives Phase 11C unchanged.
     ##
+    ## Startup consumes notes; it never produces one and never brings the
+    ## directory into existence. A startup that published would be cataloguing
+    ## a recording nobody made, and one that called ``ensure_root`` would put a
+    ## directory under every deployment that has never recorded - including the
+    ## read-only ones, where it would fail the startup instead.
+    ##
+    ## The scan is answered as empty rather than refused, so this test exercises
+    ## the real reconciliation path and still fails if a write is attempted.
+    ##
+    from backend.src.service.recording_recovery_journal import PendingJournals
+
     calls = []
 
-    class RefusingJournal:
+    class WriteRefusingJournal:
       def __init__(self, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs
+
+      def scan_pending_keys(self, *args, **kwargs):
+        calls.append("scan_pending_keys")
+        return PendingJournals(keys=[], truncated=False)
 
       def publish(self, *args, **kwargs):
         calls.append("publish")
         raise AssertionError("startup must not publish a recovery note")
 
-      def load(self, *args, **kwargs):
-        calls.append("load")
-        raise AssertionError("startup must not read a recovery note")
-
-      def acknowledge(self, *args, **kwargs):
-        calls.append("acknowledge")
-        raise AssertionError("startup must not retire a recovery note")
-
       def ensure_root(self, *args, **kwargs):
         calls.append("ensure_root")
         raise AssertionError("startup must not create the journal directory")
 
-    with patch.object(server, "RecordingRecoveryJournal", RefusingJournal):
+    with patch.object(server, "RecordingRecoveryJournal", WriteRefusingJournal):
       server.create_app(
         config=unified_config(),
         schema_guard_factory=lambda received: object(),
       )
 
-    self.assertEqual([], calls)
+    self.assertEqual(["scan_pending_keys"], calls)
+
+  def test_startup_reconciles_pending_recovery_notes(self):
+    ##
+    ## The half that changed. Phase 11B-1 asserted startup never read a note;
+    ## Phase 11C asserts it goes looking for them, because that is the repair.
+    ##
+    ## Deliberately a replacement rather than a deletion: a contract this
+    ## specific should be migrated in the open, so a reader can see that the
+    ## behaviour was reconsidered rather than that a test quietly stopped
+    ## being enforced.
+    ##
+    from backend.src.service.recording_recovery_journal import PendingJournals
+
+    scans = []
+
+    class CountingJournal:
+      def __init__(self, *args, **kwargs):
+        pass
+
+      def scan_pending_keys(self, *args, **kwargs):
+        scans.append(kwargs.get("limit"))
+        return PendingJournals(keys=[], truncated=False)
+
+    with patch.object(server, "RecordingRecoveryJournal", CountingJournal):
+      server.create_app(
+        config=unified_config(),
+        schema_guard_factory=lambda received: object(),
+      )
+
+    self.assertEqual(1, len(scans))
+
+  def test_the_application_wires_a_reconciler_that_shares_its_journal(self):
+    app, capture = build_application()
+    runtime = server.application_runtime(app)
+    constructed_journal, _ = capture.journals[0]
+
+    self.assertIs(constructed_journal, runtime["recording_reconciler"]._journal)
+    self.assertIs(
+      runtime["recording_service"],
+      runtime["recording_reconciler"]._recording_service,
+    )
 
   def test_constructing_the_journal_does_not_read_configuration(self):
     ##

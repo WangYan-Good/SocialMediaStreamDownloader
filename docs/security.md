@@ -702,7 +702,7 @@ Ack failure after DB success
 Media durable but process dies before durable
 journal publication completes:                        NOT GUARANTEED BY PHASE 11B
 
-Automatic startup replay:                             NOT IMPLEMENTED
+Automatic startup replay:                             见 Phase 11C
 Raw orphan-media discovery:                           NOT IMPLEMENTED
 ```
 
@@ -714,6 +714,111 @@ Raw orphan-media discovery:                           NOT IMPLEMENTED
 Phase 11B 证明的是 **replay mechanism prerequisites = READY**
 （primitive 已端到端可用，含真实 MySQL 上的 crash-after-commit 验证），
 **不是** server 会自动执行 replay。启动扫描与自动重放属于 Phase 11C。
+
+## 启动自动重放（Phase 11C）
+
+Phase 11B 让 journal 变得持久，但没有任何东西读回它：媒体在盘上、行不存在、
+note 永远留着。11C 关闭这个缺口——**应用启动时执行一次自动 reconciliation**。
+
+```text
+application initialization
+→ schema guard ready
+→ scan trusted journal keys
+→ load
+→ media gate
+→ record_prepared(intent, recovery_key=K)
+→ acknowledge
+```
+
+### 可信输入只有 journal
+
+唯一被信任的恢复输入是 `<save_path>/.smsd-recording-recovery/<K>.json`。
+scanner 只接受 `<32 位小写十六进制>.json`，复用 `canonical_recovery_key`，
+其余一律忽略且**不删除、不改名、不隔离**：in-flight temp（`.<K>.journal-*.part`）、
+`<K>.json.bak`、大写名、子目录、任意文件都不是 note。
+
+### journal 目录是信任边界
+
+11C 开始主动消费该目录，因此它按信任边界处理：
+以 `O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC` 打开并 `fstat` 校验为目录，
+`load` / `acknowledge` / `scan` 全部以该 **directory fd** 相对寻址
+（`os.open(..., dir_fd=)` / `os.unlink(..., dir_fd=)`），
+目录持久化直接 `fsync` 同一个 descriptor。
+这修复了 11B 的残留：final note 有 `O_NOFOLLOW`，但中间的
+`.smsd-recording-recovery` 组件仍会被路径解析跟随。
+
+目录不存在 = 正常空结果。**启动不调用 `ensure_root()`**，
+从未录制过的 server 启动后 filesystem diff = 0。
+
+### 媒体存在性是重放前置条件
+
+`load()` 能证明 schema、key、字段类型与 output_path containment，
+但**不能**证明录制文件现在还在。因此写库前必须通过媒体门：
+复用 media 层既有安全边界（`contained_path` + descriptor walk + `O_NOFOLLOW` + `fstat`），
+要求 **regular file** 且 **size > 0**，任一环节失败即 **不写库、不 ack、保留 note**。
+门只做校验：不读全文、不做 hash、不 ffprobe、不修改文件，
+`intent.output_path` 原样入库。
+
+### 幂等与冲突
+
+重放走与正常链路**同一个** `record_prepared(intent, recovery_key=K)`，
+不 fabricate `LiveDownloadResult`、不调用 `prepare()`、不重新规范化字段，
+也**不自己实现第二套幂等**——`uq_recording_record_recovery_key` 仍是唯一权威
+（Phase 11B-0 的 create-or-get）。identity 冲突抛 `RecordingRecoveryConflict`：
+原行不变、不重新归属、不 ack、note 保留。
+
+**owner 永不降级。** 若 `app_user_id` 因用户已删除被外键拒绝，
+不改写为 `None`、不匿名入库、不重新分配——保留 note，由人处理。
+
+### 边界与保证
+
+```text
+valid journal + valid media + writable DB
+→ 自动恢复，row 存在，note 被持久化 ack：              GUARANTEED
+
+同一 recovery_key 的行已存在
+→ 解析为既有 recording_id，不产生第二行：              GUARANTEED
+
+DB 不可用（含 schema guard 非 READY）
+→ 本轮 defer，note 全部保留，应用照常启动：            GUARANTEED
+
+corrupt / unsupported version / identity 冲突
+→ 不写库、不 ack、note 保留、后续 note 继续：          GUARANTEED
+
+媒体缺失 / symlink / 非普通文件 / 0 字节
+→ 不写库、不 ack、note 保留：                          GUARANTEED
+
+ack 失败（DB 已成功）
+→ DB 成功依然有效，不回滚；下次重启同 key 同 id：      GUARANTEED
+
+backlog > MAX_RECOVERY_JOURNALS_PER_RUN (1000)
+→ 本轮只处理上限内的部分，余下原样保留至下次重启：     GUARANTEED
+
+Media durable but process dies before durable
+journal publication completes:                        NOT RECOVERABLE
+Raw orphan-media discovery:                           NOT IMPLEMENTED
+同进程周期性 retry:                                    NOT IMPLEMENTED
+手工 recovery API / 前端入口:                          NOT IMPLEMENTED
+```
+
+### 执行次数与失败隔离
+
+每个 Flask application **至多一次** reconciliation 尝试
+（application-local 状态 + 锁，不是模块全局；两个 app 各自执行各自的）。
+「一次」指**一次尝试**而非一次成功：DB 不可用或出现异常同样计入，
+未恢复的 note 等待下一次进程重启，不做同进程周期性重试。
+
+reconciliation 的任何异常都不得传播到应用启动：
+捕获 `Exception`（不吞 `KeyboardInterrupt` / `SystemExit` / `BaseException`），
+SPA 与其它 API 必须继续可用。
+
+### 不暴露
+
+11C **不新增任何 HTTP API**，不暴露 `/recovery`、`/admin/recovery`、`/journals`，
+前端功能 diff = 0，policy 数量不变（40）。
+reconciliation summary 仅用于测试与内部日志。
+日志只记录 key 前 8 位、失败类别、计数与 recording_id，
+不输出 payload、cookie、token、stream URL 或完整文件路径。
 
 ## 历史凭据
 
