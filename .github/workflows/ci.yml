@@ -597,7 +597,9 @@ jobs:
               owner_user_id="owner-1",
               title="runtime probe",
               protocol="hls",
-              output_path="/media/douyin/live/A/live.mp4",
+              # Root-relative: a note may only describe media inside the
+              # configured storage root, and this probe uses a temporary one.
+              output_path="douyin/live/A/live.mp4",
               started_at=_dt(2026, 8, 30, 9, 0, 0),
               finished_at=_dt(2026, 8, 30, 10, 0, 0),
               source="task_api",
