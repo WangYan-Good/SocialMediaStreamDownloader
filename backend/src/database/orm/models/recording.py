@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import ForeignKey, Index, String, text
+from sqlalchemy import ForeignKey, Index, String, UniqueConstraint, text
 from sqlalchemy.dialects import mysql
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -21,6 +21,19 @@ class RecordingRecordModel(Base):
     ),
     Index("ix_recording_record_owner_user_id", "owner_user_id"),
     Index("ix_recording_record_finished_at", "finished_at"),
+    ##
+    ## The identity a crash recovery replays against.  Unique so the database
+    ## itself refuses a second row for the same replayed recording - a
+    ## check-then-insert in application code cannot do that job, because two
+    ## processes replaying the same journal can both pass the check.
+    ##
+    ## Declared as a constraint rather than a unique Index because that is how
+    ## MySQL reflects it, and the schema comparison reads reflection.
+    ##
+    UniqueConstraint(
+      "recovery_key",
+      name="uq_recording_record_recovery_key",
+    ),
     MYSQL_TABLE_OPTIONS,
   )
 
@@ -50,4 +63,16 @@ class RecordingRecordModel(Base):
     mysql.DATETIME(fsp=3),
     nullable=False,
     server_default=text("CURRENT_TIMESTAMP(3)"),
+  )
+  ##
+  ## Nullable, and never backfilled: rows written before recovery existed have
+  ## no identity a replay could be trusted to match, and MySQL permits many
+  ## NULLs under a unique index so they stay legal.
+  ##
+  ## ``ascii_bin`` so comparison is byte exact - under a case-insensitive
+  ## collation two keys differing only in case would collide.
+  ##
+  recovery_key: Mapped[Optional[str]] = mapped_column(
+    mysql.CHAR(length=32, charset="ascii", collation="ascii_bin"),
+    nullable=True,
   )

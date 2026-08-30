@@ -165,6 +165,7 @@ jobs:
             backend/src/unit_test/test_post_ownership_migration_mysql.py \
             backend/src/unit_test/test_recording_resource_migration_mysql.py \
             backend/src/unit_test/test_rbac_role_migration_mysql.py \
+            backend/src/unit_test/test_recording_recovery_key_migration_mysql.py \
             -q -rs
 
       # Belt and braces. The flag above already turns a missing DSN into a
@@ -183,6 +184,7 @@ jobs:
             backend/src/unit_test/test_post_ownership_migration_mysql.py \
             backend/src/unit_test/test_recording_resource_migration_mysql.py \
             backend/src/unit_test/test_rbac_role_migration_mysql.py \
+            backend/src/unit_test/test_recording_recovery_key_migration_mysql.py \
             -q -rs --no-header > /tmp/mysql-tests.txt 2>&1 || {
               cat /tmp/mysql-tests.txt
               exit 1

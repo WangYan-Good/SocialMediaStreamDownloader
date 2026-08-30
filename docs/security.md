@@ -529,6 +529,71 @@ automatically catalogued resource**，自动发现与恢复属于独立阶段。
   Preview / Download / Range / MediaAssetResolver **没有**也不应该有 fsync——
   它们是读路径，加 fsync 只会让每次媒体请求付出无关代价。
 
+## 录制恢复标识（Phase 11B-0）
+
+未来的 recovery journal 会在崩溃后重放一条已完成的录制：journal 是持久的，
+数据库 INSERT 可能已经成功，而进程可能在 journal 被确认之前死掉；重启后同一条目再次重放。
+没有一个由数据库强制的稳定标识，这次重放会插入第二行，一场直播变成两个资源。
+
+`recording_record.recovery_key` 就是这个标识：
+
+- `CHAR(32) ascii ascii_bin`，nullable，`UNIQUE(uq_recording_record_recovery_key)`
+- 格式固定为 **32 位小写十六进制**（即 `uuid4().hex`）。校验**不做**任何
+  strip / lowercase / 强制转换——它要和一个二进制排序的唯一索引比较，
+  「宽容地接受再默默改写」正好会击穿这个索引所依赖的前提。
+- `ascii_bin` 是**数据库层的精确性保障 / defense in depth**，不是应用正常路径所依赖的唯一条件：
+  服务层校验已经拒绝大写，因此正常写入根本不会出现仅大小写不同的 key。
+  该排序规则的作用是让「绕过服务层直接写库」或「未来新增写入路径」也无法制造
+  大小写混淆——大小写不敏感的排序会让仅大小写不同的两个 key 相撞，
+  从而拒绝一次并不是重放的写入。
+
+**历史行不回填。** 迁移前写入的行 `recovery_key IS NULL`，
+因为无论是行本身还是磁盘上的文件都无法事后建立一个可信、且未来重放能匹配得上的标识。
+MySQL 允许唯一索引下存在多个 NULL，所以历史行与今天所有普通录制都保持合法。
+
+**数据库是并发权威，不是应用代码。** 实现方式是「先 INSERT，撞了再解析」，
+而不是「先 SELECT 再 INSERT」——两个重放同一 journal 的进程可以同时通过 SELECT。
+只有编号 1062 且错误信息中包含
+`uq_recording_record_recovery_key` 的冲突才被理解为重放；
+外键失败、数据格式错误、以及将来新增的其他唯一索引**仍然照常抛出**，
+否则会把一条根本没落库的录制报告成成功。
+
+**同一个 recovery identity 不能代表两个不同的媒体资源。** 若 key 已存在但与本次不一致，
+抛 `RecordingRecoveryConflict`，**既不返回旧 id 也不插入新行**。
+
+最小稳定 identity 集合（缺一不可）：
+
+```text
+app_user_id      应用层归属 —— 决定这条录制出现在谁的资源库里
+platform
+output_path
+source
+```
+
+其中 **`app_user_id` 是 ownership isolation 的承重项**。它与 `owner_user_id` 不是一回事：
+前者是应用用户，后者是平台主播身份。若 journal 因 bug、损坏或 key 复用把同一 `recovery_key`
+带到了另一个应用用户，**绝不能**返回已有 `recording_id` 并把跨用户冲突解释成「幂等 replay」——
+那等于把一个用户的录制交给另一个用户。
+
+`room_id` / `owner_user_id` / `protocol` 作为额外的更强检查一并比较。
+
+比较刻意**不含时间戳**：`DATETIME(3)` 与 Python 微秒精度的差异会凭空制造冲突。
+
+**`recovery_key` 不是能力（capability）**：
+
+- 不是认证凭据、不是 bearer token、不是下载票据、不是 API id
+- 知道它**不足以**访问任何媒体
+- 所有媒体访问仍必须走：认证 → 父资源授权 → 重新发现/安全打开
+- 因此它**不出现在**任何浏览器可见的位置：library recording 响应、asset metadata、
+  download/preview URL、task result、admin/user 响应，全部没有它；
+  `LibraryQuery` 不 SELECT 该列，recovery 查询留在
+  `RecordingRecordTable.find_by_recovery_key()`。
+- 日志默认不输出完整值，排障时只显示前 8 位前缀。
+
+**本阶段只建立 primitive**。`LiveRecordingTaskService` **不生成** recovery key，
+production 路径继续传 `recovery_key=None`，因此「一次执行 = 一个资源」的既有语义完全不变：
+两场看起来相同的普通录制仍然是两行。真正生成 key 并写 journal 属于 Phase 11B。
+
 ## 历史凭据
 
 防止当前配置进入新镜像不等于撤销历史泄露。Git 历史中曾出现过的凭据应由维护者

@@ -29,7 +29,9 @@ class FakeRepository:
   def __init__(self):
     self.records = []
 
-  def create_recording(self, record):
+    self.recovery_keys = []
+  def create_recording(self, record, recovery_key=None):
+    self.recovery_keys.append(recovery_key)
     self.records.append(dict(record))
     return len(self.records)
 

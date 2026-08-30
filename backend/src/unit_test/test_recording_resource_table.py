@@ -74,7 +74,12 @@ class RecordingResourceTableTest(unittest.TestCase):
     sql, params = connection.cursor_value.calls[0]
     self.assertIn("INSERT INTO recording_record", sql)
     self.assertNotIn("stream_url", sql)
-    self.assertEqual(10, len(params))
+    ##
+    ## Eleven now: the recovery key is bound alongside the resource facts.
+    ## It is NULL for an ordinary recording, which is every recording today.
+    ##
+    self.assertEqual(11, len(params))
+    self.assertIsNone(params[10])
     self.assertEqual(71, recording_id)
     self.assertEqual(1, connection.commits)
 

@@ -111,8 +111,17 @@ class RbacRoleMigrationTest(unittest.TestCase):
     checks = {item["name"]: item["sqltext"] for item in inspector.get_check_constraints("app_user")}
     self.assertIn("ck_app_user_role", checks)
     self.assertIn("admin", checks["ck_app_user_role"])
+    ##
+    ## The canonical model always describes head, so a whole-schema comparison
+    ## is only meaningful there: at an intermediate revision it differs by
+    ## exactly whatever the later migrations add, which is not a defect.
+    ## Upgrading to head for the comparison and stepping back keeps this a real
+    ## check instead of one that any future migration would break.
+    ##
+    self.upgrade()
     report = compare_managed_schema(self.engine)
     self.assertTrue(report.is_compatible, report.format_text())
+    self.downgrade("0010_rbac_role_foundation")
 
     with self.engine.connect() as connection:
       migrated = connection.execute(sa.text(

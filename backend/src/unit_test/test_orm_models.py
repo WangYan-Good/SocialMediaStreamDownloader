@@ -89,6 +89,11 @@ class OrmModelTest(unittest.TestCase):
         "finished_at",
         "source",
         "created_at",
+        ##
+        ## A persistence identity for crash recovery replay, not a credential:
+        ## knowing it grants nothing, and no media access path consults it.
+        ##
+        "recovery_key",
       ],
       list(table.columns.keys()),
     )
