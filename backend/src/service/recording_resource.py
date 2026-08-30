@@ -79,8 +79,21 @@ class RecordingResourceService:
     app_user_id=None,
     platform: str,
     source: str,
+    recovery_key=None,
   ) -> int:
-    """Persist a real media result; never copy stream access credentials."""
+    """Persist a real media result; never copy stream access credentials.
+
+    ``recovery_key`` is optional and absent from every caller today: an
+    ordinary recording is one execution and one resource, and passing nothing
+    keeps exactly that behaviour. A future recovery replay supplies the key it
+    journalled, which turns this into create-or-get so the same finished
+    recording cannot be stored twice.
+
+    Deliberately a parameter rather than a field on the result. The result
+    describes what was captured; the recovery key describes an attempt to
+    persist it, and folding the two together would put a persistence concern
+    into the recording pipeline.
+    """
     if result is None or result.recorded is not True:
       raise RecordingNotPersistable("result did not record media")
     if result.test_mode is True:
@@ -109,7 +122,10 @@ class RecordingResourceService:
       "finished_at": getattr(result, "finished_at", None),
       "source": source.strip(),
     }
-    return self._repository().create_recording(record)
+    return self._repository().create_recording(
+      record,
+      recovery_key=recovery_key,
+    )
 
 
 __all__ = [
