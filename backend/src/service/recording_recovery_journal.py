@@ -8,21 +8,31 @@
 ## the insert turns that into a recoverable state - Phase 11C can replay it,
 ## and Phase 11B-0 already guarantees the replay cannot create a duplicate.
 ##
-## What this is not: a queue, a scanner, or a recovery mechanism. It publishes
-## one note, reads one note back, and removes one note. Nothing here enumerates
-## a directory or replays anything.
+## What this is not: a queue or a recovery mechanism. It publishes one note,
+## reads one note back, removes one note, and - since Phase 11C - answers which
+## notes are present. It knows nothing about a database and replays nothing;
+## whoever does the replaying reads this and decides.
+##
+## Enumeration is why the checks below are as strict as they are. Until Phase
+## 11C nothing read this directory without already knowing the exact name it
+## wanted, so a stray file here was inert. A scanner hands names to something
+## that turns them into database rows, which makes the directory a trust
+## boundary: it is opened as a directory, without following a link, and exactly
+## one filename shape is a note.
 ##
 ## Where it lives matters as much as what it says. The journal sits on the same
 ## persistent storage as the media it describes, so replacing the container
 ## leaves the note beside the recording rather than deleting one and keeping
 ## the other.
 ##
+from dataclasses import dataclass
 from datetime import datetime
 import errno
 import json
 import os
 from pathlib import Path
 import stat
+from typing import List
 
 from backend.src.database.table.recording_record import canonical_recovery_key
 from backend.src.library.baselib import get_dict_attr
@@ -60,6 +70,96 @@ JOURNAL_MAX_BYTES = 64 * 1024
 ## the original insert would have made.
 ##
 _TIMESTAMP_PRECISION = "milliseconds"
+
+##
+## The one filename shape that is a note: ``<32-lowercase-hex>.json``.
+##
+## Everything else in this directory is ignored - a half-written temporary, a
+## backup somebody made, an editor's leftovers, a subdirectory. The suffix is
+## split off and the rest is put through ``canonical_recovery_key``, so there
+## is one definition of what a key looks like in this codebase rather than a
+## second regular expression that could drift from it.
+##
+_NOTE_SUFFIX = ".json"
+
+##
+## How much recovery work one process start may take on.
+##
+## Bounded because reconciliation happens during application initialisation: an
+## unbounded backlog would hold a starting server open for as long as it took
+## to drain, and a directory somebody has filled would hold it open forever.
+## The remainder is left untouched for the next restart, never deleted.
+##
+## Deliberately not a configuration option. This is an internal safety bound,
+## not a product setting - an operator who could raise it could only use it to
+## make a startup hang.
+##
+MAX_RECOVERY_JOURNALS_PER_RUN = 1000
+
+##
+## Opening a name relative to a directory descriptor is what makes reading and
+## retiring a note safe, so a host that cannot do it cannot do recovery either.
+## Answered honestly rather than silently falling back to a path-based open
+## that looks identical and is not.
+##
+_SUPPORTS_DIRECTORY_RELATIVE_OPEN = (
+  hasattr(os, "O_DIRECTORY")
+  and hasattr(os, "O_NOFOLLOW")
+  and os.open in os.supports_dir_fd
+  and os.unlink in os.supports_dir_fd
+)
+
+
+##
+## What one scan found.
+##
+## ``truncated`` is not an error: it says a backlog larger than this run's bound
+## is present, that the keys reported are all this run will look at, and that
+## the rest are still on disk waiting for the next restart.
+##
+@dataclass(frozen=True)
+class PendingJournals:
+  keys: List[str]
+  truncated: bool
+
+
+##
+## The configured storage root, resolved.
+##
+## Resolved rather than taken literally because an operator is entitled to
+## point ``save_path`` at a symlink - a mounted volume very often is one - and
+## the target is the real trust root.
+##
+## A module function rather than a method because two things need the same
+## answer from the same snapshot: this service, which decides where notes live
+## and which output paths a note may describe, and the reconciler, which
+## decides whether the media a note names is still there. Two resolutions of
+## one setting would eventually disagree, and the disagreement would be a note
+## judged against a different root than the one it was written under.
+##
+def resolve_storage_root(settings) -> Path:
+  configured = get_dict_attr(settings, "$.download.save_path")
+  if not isinstance(configured, str) or not configured.strip():
+    raise RecordingJournalUnavailable(
+      "recording recovery requires a configured download save path"
+    )
+  try:
+    return Path(os.path.realpath(configured.strip()))
+  except (OSError, ValueError) as e:
+    raise RecordingJournalUnavailable(
+      "configured download save path cannot be resolved"
+    ) from e
+
+
+def _note_key(name):
+  """The recovery key a directory entry names, or ``None`` if it names none."""
+  if not name.endswith(_NOTE_SUFFIX):
+    return None
+  try:
+    return canonical_recovery_key(name[: -len(_NOTE_SUFFIX)])
+  except (TypeError, ValueError):
+    return None
+
 
 _PAYLOAD_FIELDS = (
   "app_user_id",
@@ -270,11 +370,20 @@ class RecordingRecoveryJournal:
   ## A name lives in its parent directory, so a file can be fully written while
   ## the entry that reaches it is still only in an uncommitted journal.
   ##
-  ## Opened per call and never cached: a descriptor held across a long-running
-  ## server would pin a directory that may be replaced underneath it.
+  ## Given a path it opens one per call and never caches it: a descriptor held
+  ## across a long-running server would pin a directory that may be replaced
+  ## underneath it.
+  ##
+  ## Given a descriptor that a caller already holds open, it commits that one.
+  ## An acknowledgement removes its entry through the directory descriptor it
+  ## opened, and the directory to commit is that same one - reopening by name
+  ## would be a second chance for the name to mean something else.
   ##
   @staticmethod
   def _sync_directory(path):
+    if isinstance(path, int):
+      os.fsync(path)
+      return
     flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_CLOEXEC", 0)
     descriptor = os.open(path, flags)
     try:
@@ -283,24 +392,10 @@ class RecordingRecoveryJournal:
       os.close(descriptor)
 
   ##
-  ## The configured storage root, resolved.
-  ##
-  ## Resolved rather than taken literally because an operator is entitled to
-  ## point ``save_path`` at a symlink - a mounted volume very often is one -
-  ## and the target is the real trust root.
+  ## This service's own view of the trust root, from its own snapshot.
   ##
   def _storage_root(self) -> Path:
-    configured = get_dict_attr(self._settings(), "$.download.save_path")
-    if not isinstance(configured, str) or not configured.strip():
-      raise RecordingJournalUnavailable(
-        "recording recovery requires a configured download save path"
-      )
-    try:
-      return Path(os.path.realpath(configured.strip()))
-    except (OSError, ValueError) as e:
-      raise RecordingJournalUnavailable(
-        "configured download save path cannot be resolved"
-      ) from e
+    return resolve_storage_root(self._settings())
 
   ##
   ## A note may only describe media inside the configured storage root.
@@ -347,6 +442,111 @@ class RecordingRecoveryJournal:
   ##
   def root(self) -> Path:
     return self._storage_root() / JOURNAL_DIRECTORY_NAME
+
+  ##
+  ## A descriptor for the journal directory, or ``None`` when there is none.
+  ##
+  ## Every read and every removal below goes through this, and then names the
+  ## note *relative to the descriptor*. A path-based ``root() / name`` re-walks
+  ## the intermediate ``.smsd-recording-recovery`` component on every call, so
+  ## replacing that component with a link would silently redirect a replay to
+  ## notes somebody else wrote - and redirect an acknowledgement to delete a
+  ## file outside the storage root entirely. The descriptor names the directory
+  ## that was actually opened, which cannot be repointed afterwards.
+  ##
+  ## O_NOFOLLOW here rather than an lstat-then-open: this service is the only
+  ## thing that ever creates this directory, so finding a link means something
+  ## else chose where these reads land.
+  ##
+  ## Absent is not a failure. A deployment that has never recorded has no
+  ## journal directory, and that is the ordinary state - which is why nothing
+  ## on this path calls ``ensure_root``. Reconciliation runs on every startup,
+  ## and a scan that created a directory would make one appear under every
+  ## server that never needed it.
+  ##
+  def _open_journal_directory(self):
+    target = self.root()
+    if not _SUPPORTS_DIRECTORY_RELATIVE_OPEN:
+      raise RecordingJournalUnavailable(
+        "this host cannot open recovery notes relative to a directory"
+      )
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    flags |= getattr(os, "O_CLOEXEC", 0)
+    try:
+      descriptor = os.open(target, flags)
+    except FileNotFoundError:
+      return None
+    except OSError as e:
+      raise RecordingJournalUnavailable(
+        "recording recovery journal directory is unusable ({}: {})".format(
+          type(e).__name__, e
+        )
+      ) from e
+    try:
+      ##
+      ## O_DIRECTORY already refused a non-directory, and this asks the open
+      ## descriptor itself rather than trusting that - the same belt-and-braces
+      ## the media boundary applies before streaming a file.
+      ##
+      if not stat.S_ISDIR(os.fstat(descriptor).st_mode):
+        raise RecordingJournalUnavailable(
+          "recording recovery journal path is not a directory"
+        )
+    except BaseException:
+      os.close(descriptor)
+      raise
+    return descriptor
+
+  ##
+  ## Which notes are present, by key.
+  ##
+  ## The whole of this service's contribution to recovery: it says what is
+  ## there. It does not read the notes, decide whether they are valid, or know
+  ## that a database exists - a caller loads each key and makes its own
+  ## decisions, exactly as it would for a key it already knew.
+  ##
+  ## Sorted, so two restarts against the same directory replay in the same
+  ## order and a failure is reproducible. Never filesystem enumeration order,
+  ## which is neither stable across hosts nor across a rewrite of the same
+  ## directory.
+  ##
+  ## Nothing unknown is removed, renamed or moved aside. A quarantine would
+  ## need its own atomic publication and its own recovery semantics, and this
+  ## phase is not building one.
+  ##
+  def scan_pending_keys(self, limit=MAX_RECOVERY_JOURNALS_PER_RUN) -> PendingJournals:
+    descriptor = self._open_journal_directory()
+    if descriptor is None:
+      return PendingJournals(keys=[], truncated=False)
+
+    found = []
+    truncated = False
+    try:
+      with os.scandir(descriptor) as entries:
+        for entry in entries:
+          key = _note_key(entry.name)
+          if key is None:
+            continue
+          if len(found) >= limit:
+            ##
+            ## One entry past the bound is enough to know a backlog exists.
+            ## Counting the rest would be the unbounded work this exists to
+            ## avoid.
+            ##
+            truncated = True
+            break
+          found.append(key)
+    except OSError as e:
+      raise RecordingJournalUnavailable(
+        "recording recovery journal directory could not be read ({}: {})".format(
+          type(e).__name__, e
+        )
+      ) from e
+    finally:
+      os.close(descriptor)
+
+    found.sort()
+    return PendingJournals(keys=found, truncated=truncated)
 
   ##
   ## Create the directory the first time something is actually written.
@@ -556,39 +756,58 @@ class RecordingRecoveryJournal:
     if key is None:
       raise ValueError("loading a recovery journal requires a recovery key")
 
-    target = self.root() / "{}.json".format(key)
-    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0)
-    flags |= getattr(os, "O_NOFOLLOW", 0)
-    try:
-      descriptor = os.open(target, flags)
-    except FileNotFoundError:
+    ##
+    ## Opened relative to the journal directory's own descriptor, so the note
+    ## read is the one inside the directory this service holds open - not
+    ## whatever the name ``.smsd-recording-recovery`` resolves to on the next
+    ## path walk.
+    ##
+    directory = self._open_journal_directory()
+    if directory is None:
       ##
-      ## Nothing to replay is an ordinary answer, not a fault: most keys were
-      ## acknowledged and removed on purpose.
+      ## No journal directory at all: a deployment that has never recorded.
+      ## The same ordinary "nothing to replay" as a missing note.
       ##
       return None
-    except OSError as e:
-      raise RecordingJournalUnavailable(
-        "recording recovery journal {} could not be opened ({}: {})".format(
-          key[:8], type(e).__name__, e
-        )
-      ) from e
 
     try:
-      info = os.fstat(descriptor)
-      if not stat.S_ISREG(info.st_mode):
+      flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+      try:
+        descriptor = os.open(
+          "{}{}".format(key, _NOTE_SUFFIX), flags, dir_fd=directory
+        )
+      except FileNotFoundError:
+        ##
+        ## Nothing to replay is an ordinary answer, not a fault: most keys were
+        ## acknowledged and removed on purpose.
+        ##
+        return None
+      except OSError as e:
         raise RecordingJournalUnavailable(
-          "recording recovery journal {} is not a regular file".format(key[:8])
-        )
-      if info.st_size > JOURNAL_MAX_BYTES:
-        raise RecordingJournalCorrupt(
-          "recording recovery journal {} is larger than {} bytes".format(
-            key[:8], JOURNAL_MAX_BYTES
+          "recording recovery journal {} could not be opened ({}: {})".format(
+            key[:8], type(e).__name__, e
           )
-        )
-      raw = os.read(descriptor, JOURNAL_MAX_BYTES + 1)
+        ) from e
+
+      try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode):
+          raise RecordingJournalUnavailable(
+            "recording recovery journal {} is not a regular file".format(
+              key[:8]
+            )
+          )
+        if info.st_size > JOURNAL_MAX_BYTES:
+          raise RecordingJournalCorrupt(
+            "recording recovery journal {} is larger than {} bytes".format(
+              key[:8], JOURNAL_MAX_BYTES
+            )
+          )
+        raw = os.read(descriptor, JOURNAL_MAX_BYTES + 1)
+      finally:
+        os.close(descriptor)
     finally:
-      os.close(descriptor)
+      os.close(directory)
 
     if len(raw) > JOURNAL_MAX_BYTES:
       raise RecordingJournalCorrupt(
@@ -656,19 +875,34 @@ class RecordingRecoveryJournal:
     if key is None:
       raise ValueError("acknowledging a recovery journal requires a key")
 
-    directory = self.root()
-    target = directory / "{}.json".format(key)
-    try:
-      os.unlink(target)
-    except FileNotFoundError:
+    ##
+    ## Through the directory's own descriptor, for a reason sharper than
+    ## reading: this removes a file. A followed link at the journal directory
+    ## would let an acknowledgement delete something outside the storage root
+    ## that this service never wrote.
+    ##
+    directory = self._open_journal_directory()
+    if directory is None:
       return
-    except OSError as e:
-      raise RecordingJournalUnavailable(
-        "recording recovery journal {} could not be retired ({}: {})".format(
-          key[:8], type(e).__name__, e
-        )
-      ) from e
-    self._sync_directory(directory)
+
+    try:
+      try:
+        os.unlink("{}{}".format(key, _NOTE_SUFFIX), dir_fd=directory)
+      except FileNotFoundError:
+        return
+      except OSError as e:
+        raise RecordingJournalUnavailable(
+          "recording recovery journal {} could not be retired ({}: {})".format(
+            key[:8], type(e).__name__, e
+          )
+        ) from e
+      ##
+      ## The descriptor already held open, rather than a fresh open by name:
+      ## the directory whose entry was just removed is the one to commit.
+      ##
+      self._sync_directory(directory)
+    finally:
+      os.close(directory)
 
   @staticmethod
   def _discard(path):
@@ -681,6 +915,8 @@ class RecordingRecoveryJournal:
 __all__ = [
   "JOURNAL_DIRECTORY_NAME",
   "JOURNAL_MAX_BYTES",
+  "MAX_RECOVERY_JOURNALS_PER_RUN",
+  "PendingJournals",
   "RecordingJournalConflict",
   "RecordingJournalCorrupt",
   "RecordingJournalUnsupportedVersion",
@@ -688,6 +924,7 @@ __all__ = [
   "intent_from_payload",
   "journal_bytes",
   "payload_for",
+  "resolve_storage_root",
   "RecordingJournalUnavailable",
   "RecordingRecoveryJournal",
 ]

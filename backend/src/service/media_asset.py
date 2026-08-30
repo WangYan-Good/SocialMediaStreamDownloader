@@ -281,6 +281,88 @@ def _open_within_root(root, target):
         pass
 
 
+##
+## The secure boundary, addressed by path, for callers outside the web layer.
+##
+## Recovery replay needs exactly one thing from this module: proof that a
+## recorded path is still a real regular file inside the storage root, before a
+## journal note is turned into a database row.  It has no asset ids, no
+## discovery and no request - so it cannot go through ``MediaAssetResolver``,
+## which exists to answer a browser about an already-authorized resource.
+##
+## What it must not do is grow a second answer to the containment question.
+## Everything here is delegation: ``contained_path`` decides what is inside the
+## root, ``_open_within_root`` performs the descriptor walk and the regular-file
+## check.  The only rule added is the one the recording path already applies in
+## ``recording_asset`` - a candidate whose own name is reached through a link is
+## refused, because the recorder writes a regular file and a link where the
+## recording should be means something else chose what is about to be read.
+##
+## Returns ``(stream, stat)`` or ``None``.  One answer for every refusal, as
+## everywhere else on this boundary: "missing", "not a file", "now a symlink"
+## and "outside the root" are the same answer to a caller, and telling them
+## apart describes this host's filesystem.
+##
+## The caller owns the stream and must close it.
+##
+def open_regular_file_within_root(root, candidate):
+  """Open ``candidate`` under ``root`` only if it is genuinely a regular file."""
+  if candidate is None:
+    return None
+  text = str(candidate).strip()
+  if not text:
+    return None
+
+  try:
+    safe_root = Path(os.path.realpath(str(root)))
+  except (OSError, ValueError):
+    return None
+
+  ##
+  ## The components the candidate names *below* the root, exactly as written.
+  ##
+  ## Walked as written rather than as resolved, which is what makes an
+  ## intermediate link refusable: resolution would have already collapsed it,
+  ## and the walk would then see only real directory names.
+  ##
+  ## The configured spelling is tried before the resolved one because a
+  ## recorder builds its output path from the configured save path - so when
+  ## that path is a symlinked mount, the note carries the link's spelling and
+  ## the root is entitled to be a link even though nothing below it is.
+  ##
+  named = Path(text)
+  if named.is_absolute():
+    parts = None
+    for base in (Path(str(root).strip()), safe_root):
+      try:
+        parts = named.relative_to(base).parts
+        break
+      except ValueError:
+        continue
+    if parts is None:
+      return None
+  else:
+    parts = named.parts
+  if not parts:
+    return None
+  ##
+  ## No traversal in the spelling itself. ``contained_path`` below would catch
+  ## one that escapes, but a walk is not the place to interpret ``..`` at all.
+  ##
+  if any(part in ("..", ".") for part in parts):
+    return None
+
+  ##
+  ## Containment is still decided by the shared rule, on the path as given -
+  ## the walk enforces reachability, this decides membership.
+  ##
+  resolved = contained_path(root, candidate)
+  if resolved is None or resolved == safe_root:
+    return None
+
+  return _open_within_root(safe_root, safe_root.joinpath(*parts))
+
+
 def recognise_post_file(file_name: str, aweme_id: str):
   """Which media kind this file is for this post, or None.
 
@@ -873,6 +955,7 @@ __all__ = [
   "contained_path",
   "image_position",
   "media_type_for",
+  "open_regular_file_within_root",
   "preview_kind_for",
   "recognise_post_file",
 ]

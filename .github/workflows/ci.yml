@@ -167,6 +167,7 @@ jobs:
             backend/src/unit_test/test_rbac_role_migration_mysql.py \
             backend/src/unit_test/test_recording_recovery_key_migration_mysql.py \
             backend/src/unit_test/test_recording_recovery_handoff_mysql.py \
+            backend/src/unit_test/test_recording_recovery_reconciliation_mysql.py \
             -q -rs
 
       # Belt and braces. The flag above already turns a missing DSN into a
@@ -187,6 +188,7 @@ jobs:
             backend/src/unit_test/test_rbac_role_migration_mysql.py \
             backend/src/unit_test/test_recording_recovery_key_migration_mysql.py \
             backend/src/unit_test/test_recording_recovery_handoff_mysql.py \
+            backend/src/unit_test/test_recording_recovery_reconciliation_mysql.py \
             -q -rs --no-header > /tmp/mysql-tests.txt 2>&1 || {
               cat /tmp/mysql-tests.txt
               exit 1
@@ -621,6 +623,101 @@ jobs:
               raise SystemExit("FAIL: recovery journal note was not retired")
             print("ok   runtime recording recovery journal durability")
 
+            # Phase 11C: those notes are now consumed automatically when the
+            # application starts. What only the built image can prove is that
+            # the primitives the scan and the media gate are built from work on
+            # this kernel and this filesystem - directory file descriptors,
+            # scandir over one, O_NOFOLLOW, and the descriptor walk the media
+            # boundary performs. Every one of them fails closed, so a host that
+            # cannot do them would recover nothing and say so only in a log.
+            #
+            # No database and no ffmpeg: the repository is a local stand-in,
+            # and the real constraint is proved by the MySQL job.
+            from backend.src.service.recording_recovery import (
+              RecordingRecoveryReconciler,
+            )
+
+            reconcile_root = Path(directory) / "reconcile-probe"
+            (reconcile_root / "douyin" / "live").mkdir(parents=True)
+            recovered_media = reconcile_root / "douyin" / "live" / "live.mp4"
+            recovered_media.write_bytes(b"recovered-media-bytes")
+
+            def reconcile_config():
+              return {"download": {"save_path": str(reconcile_root)}}
+
+            reconcile_journal = RecordingRecoveryJournal(
+              config_loader=reconcile_config
+            )
+            replay_key = "abcdef0123456789abcdef0123456789"
+            replay_intent = RecordingPersistenceIntent(
+              app_user_id=7,
+              platform="douyin",
+              room_id="112233",
+              owner_user_id="owner-2",
+              title="restart probe",
+              protocol="hls",
+              output_path="douyin/live/live.mp4",
+              started_at=_dt(2026, 8, 30, 11, 0, 0),
+              finished_at=_dt(2026, 8, 30, 12, 0, 0),
+              source="task_api",
+            )
+            reconcile_journal.publish(replay_intent, replay_key)
+
+            # Discovery, on a real directory descriptor over a real directory.
+            found = reconcile_journal.scan_pending_keys()
+            if found.keys != [replay_key] or found.truncated:
+              raise SystemExit(
+                "FAIL: the journal scanner did not discover the pending note"
+              )
+
+            replayed = []
+
+            class _Repository:
+              def record_prepared(self, intent, *, recovery_key=None):
+                replayed.append((intent, recovery_key))
+                return 4242
+
+            summary = RecordingRecoveryReconciler(
+              journal=reconcile_journal,
+              recording_service=_Repository(),
+              config_loader=reconcile_config,
+            ).reconcile_once()
+
+            if summary.recovered != 1 or summary.retained != 0:
+              raise SystemExit(
+                "FAIL: reconciliation did not recover the note: %r" % (summary,)
+              )
+            if replayed != [(replay_intent, replay_key)]:
+              raise SystemExit(
+                "FAIL: the replayed intent was not the journalled one"
+              )
+            if reconcile_journal.load(replay_key) is not None:
+              raise SystemExit("FAIL: the recovered note was not acknowledged")
+
+            # And the gate really gates. The same note, with its recording
+            # deleted, must not reach the repository - and must survive.
+            recovered_media.unlink()
+            reconcile_journal.publish(replay_intent, replay_key)
+            refused = []
+
+            class _Refusing:
+              def record_prepared(self, intent, *, recovery_key=None):
+                refused.append(recovery_key)
+                return 1
+
+            gated = RecordingRecoveryReconciler(
+              journal=reconcile_journal,
+              recording_service=_Refusing(),
+              config_loader=reconcile_config,
+            ).reconcile_once()
+            if refused or gated.missing != 1:
+              raise SystemExit(
+                "FAIL: the media gate did not refuse a missing recording"
+              )
+            if reconcile_journal.load(replay_key) is None:
+              raise SystemExit("FAIL: a refused note must be retained")
+            print("ok   runtime recording recovery restart reconciliation")
+
             result = normalizer.normalize(source)
 
             if result != source.with_suffix(".mp4") or not result.is_file():
@@ -660,5 +757,9 @@ jobs:
           }
           grep -q 'ok   runtime recording recovery journal durability' /tmp/remux-smoke.txt || {
             echo "FAIL: the runtime recovery journal proof did not run"
+            exit 1
+          }
+          grep -q 'ok   runtime recording recovery restart reconciliation' /tmp/remux-smoke.txt || {
+            echo "FAIL: the runtime recovery reconciliation proof did not run"
             exit 1
           }

@@ -21,6 +21,7 @@ from backend.src.platform.douyin.douyin_aweme_downloader import shutdown_aweme_d
 from backend.src.platform.douyin.douyin_live_downloader import cancel_live_downloads
 from backend.src.service.direct_post_download_task import DirectPostDownloadTaskService
 from backend.src.service.live_recording_task import LiveRecordingTaskService
+from backend.src.service.recording_recovery import RecordingRecoveryReconciler
 from backend.src.service.recording_recovery_journal import RecordingRecoveryJournal
 from backend.src.service.recording_resource import RecordingResourceService
 from backend.src.service.task_creation import TaskCreationService
@@ -47,6 +48,31 @@ from backend.src.web.task_routes import (
   install_task_creation_service,
   install_task_service,
 )
+
+##
+## The reconciler class, reachable under a second name.
+##
+## A test that wants to *observe* what the application wired patches
+## ``RecordingRecoveryReconciler`` and still needs to build the real thing.
+## Without this the factory it installs would be the only class in scope and
+## the patch would recurse.
+##
+RECONCILER_CLASS = RecordingRecoveryReconciler
+
+##
+## Where an application keeps the collaborators it built.
+##
+## On the application rather than in a module global, for the reason everything
+## else here is: two applications in one interpreter - the lazy wsgi app and a
+## test's - must not share recovery state any more than they share a task store.
+##
+RUNTIME_KEY = "smsd_application_runtime"
+
+
+def application_runtime(configured_app) -> dict:
+  """The collaborators ``configured_app`` was built with."""
+  return configured_app.extensions[RUNTIME_KEY]
+
 
 def _server_options(config: dict) -> dict:
   server = config.get("server")
@@ -78,10 +104,19 @@ def _new_flask_app(
   runtime = {
     "initialized": not lazy_config and initial_config is not None,
     "config": initial_config,
+    ##
+    ## One reconciliation attempt per application, and this is the flag that
+    ## makes it one. Application-local rather than a module global: two
+    ## applications in one interpreter each get their own startup, and a global
+    ## would let the first one silently cancel the second's.
+    ##
+    "recovery_attempted": False,
   }
+  configured_app.extensions[RUNTIME_KEY] = runtime
   if initial_schema_guard is not None:
     configured_app.extensions["smsd_schema_guard"] = initial_schema_guard
   initialization_lock = threading.Lock()
+  reconciliation_lock = threading.Lock()
 
   def initialize_runtime():
     if runtime["initialized"]:
@@ -104,6 +139,21 @@ def _new_flask_app(
       runtime["config"] = source
       runtime["initialized"] = True
 
+    ##
+    ## Strictly after the flag is set, and outside the initialisation lock.
+    ##
+    ## The reconciler reads this application's configuration through
+    ## ``recording_config`` below, which calls back into here when the runtime
+    ## is not yet initialised. Running it any earlier would re-enter this
+    ## function while it holds the lock.
+    ##
+    ## After the schema guard for the same reason: a replay writes, and
+    ## ``require_database_write_ready`` is the thing that decides whether a
+    ## write may be attempted at all. Reconciling before the guard exists would
+    ## be reconciling around it.
+    ##
+    reconcile_pending_recoveries()
+
   def recording_config():
     """Return the exact application snapshot its schema guard validated."""
     if not runtime["initialized"]:
@@ -112,6 +162,45 @@ def _new_flask_app(
     if source is None:
       raise RuntimeError("application configuration is unavailable")
     return source
+
+  ##
+  ## The crash handoff Phase 11B made durable, finally consumed.
+  ##
+  ## A note published before an insert survives the process that wrote it. Until
+  ## now nothing ever read one back, so the gap this whole line of work exists
+  ## to close - media on disk, no row, nobody can see the recording - was
+  ## recorded rather than repaired. This is where the repair happens.
+  ##
+  ## Best-effort, synchronous, and exactly once per application. Synchronous
+  ## because a recovered recording should be visible to the first request, not
+  ## some time after it; bounded, so a backlog cannot hold a startup open; and
+  ## once, because a scan on every request would put the journal directory on
+  ## the hot path forever. Notes this run could not act on wait for the next
+  ## process start - there is no periodic retry in this phase.
+  ##
+  ## The flag is set *before* the attempt, not after. "Once" means one attempt,
+  ## not one success: a database that is down would otherwise be rescanned by
+  ## every request that followed.
+  ##
+  ## Nothing here may reach the caller. This runs inside application startup and
+  ## inside a request hook, and an exception escaping would take the SPA and
+  ## every unrelated API with it. ``Exception`` and not ``BaseException``, so a
+  ## shutdown signal still stops the process.
+  ##
+  def reconcile_pending_recoveries():
+    if runtime["recovery_attempted"]:
+      return
+    with reconciliation_lock:
+      if runtime["recovery_attempted"]:
+        return
+      runtime["recovery_attempted"] = True
+      try:
+        runtime["recording_reconciler"].reconcile_once()
+      except Exception as e:
+        get_logger().error(
+          "recording recovery reconciliation failed during startup "
+          "({}: {})".format(type(e).__name__, e)
+        )
 
   @configured_app.before_request
   def ensure_runtime_initialized():
@@ -167,6 +256,36 @@ def _new_flask_app(
     recording_service=runtime["recording_service"],
     recovery_journal=runtime["recording_recovery_journal"],
   )
+  ##
+  ## The other end of the same handoff.
+  ##
+  ## ``LiveRecordingTaskService`` writes notes for recordings this process is
+  ## making; this replays the notes a *dead* process left behind. Different
+  ## lifetimes, so they are different objects - but they must be looking at the
+  ## same journal directory and writing through the same repository, or one
+  ## would be acknowledging notes the other never wrote.
+  ##
+  ## So all three collaborators are the instances built just above, passed by
+  ## identity. Constructing a second journal or a second resource service here
+  ## is the mistake #157 shipped in mirror image, and the wiring tests pin it
+  ## with ``assertIs`` rather than by comparing fields.
+  ##
+  runtime["recording_reconciler"] = RecordingRecoveryReconciler(
+    journal=runtime["recording_recovery_journal"],
+    recording_service=runtime["recording_service"],
+    config_loader=recording_config,
+  )
+  ##
+  ## The one-shot itself, on the runtime rather than only in this closure.
+  ##
+  ## Both startup paths reach it from inside this function, and each of them
+  ## happens to run once already - so the latch would be belt-and-braces that
+  ## nothing could ever exercise, which is another way of saying nothing could
+  ## ever prove it works. Installing it makes the guarantee this application
+  ## offers - *at most one reconciliation attempt, whoever asks* - a thing that
+  ## can be called twice and tested.
+  ##
+  runtime["reconcile_recoveries_once"] = reconcile_pending_recoveries
 
   ##
   ## download history browsing and live status probing
@@ -275,6 +394,18 @@ def _new_flask_app(
   ## Legacy/static tombstone namespaces before reading the build directory.
   ##
   configured_app.register_blueprint(build_spa_blueprint())
+
+  ##
+  ## An eagerly configured application knows everything it needs before it is
+  ## returned, so its one reconciliation happens here rather than waiting for a
+  ## first request that may never come.
+  ##
+  ## The lazy wsgi application takes the other branch: nothing is known at
+  ## construction - it is built at import, before any configuration exists - so
+  ## its reconciliation is the last step of ``initialize_runtime``.
+  ##
+  if runtime["initialized"]:
+    reconcile_pending_recoveries()
 
   return configured_app
 
