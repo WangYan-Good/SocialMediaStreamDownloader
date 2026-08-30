@@ -21,6 +21,7 @@ from backend.src.platform.douyin.douyin_aweme_downloader import shutdown_aweme_d
 from backend.src.platform.douyin.douyin_live_downloader import cancel_live_downloads
 from backend.src.service.direct_post_download_task import DirectPostDownloadTaskService
 from backend.src.service.live_recording_task import LiveRecordingTaskService
+from backend.src.service.recording_recovery_journal import RecordingRecoveryJournal
 from backend.src.service.recording_resource import RecordingResourceService
 from backend.src.service.task_creation import TaskCreationService
 from backend.src.web.history_routes import build_history_blueprint
@@ -137,9 +138,34 @@ def _new_flask_app(
   runtime["direct_post_service"] = DirectPostDownloadTaskService(
     task_service=task_service
   )
+  ##
+  ## Recording persistence has two application-scoped collaborators, and the
+  ## live service is handed both explicitly rather than being allowed to reach
+  ## for either.
+  ##
+  ## They share one ``recording_config`` because they read the same fact from
+  ## it - ``$.download.save_path``. A journal that resolved storage from a
+  ## different snapshot than the resource service could write its notes beside
+  ## media the rest of the application does not believe in.
+  ##
+  ## Both are constructed once per application, not per recording: two apps in
+  ## one interpreter get their own, and nothing here is a module global.
+  ##
+  ## Injected, never defaulted. ``LiveRecordingTaskService`` treats a missing
+  ## journal as a persistence failure on purpose - catalogue-without-handoff is
+  ## not a state this system supports - so a silent fallback here would turn a
+  ## wiring mistake into a quiet loss of crash recovery.
+  ##
+  runtime["recording_service"] = RecordingResourceService(
+    config_loader=recording_config
+  )
+  runtime["recording_recovery_journal"] = RecordingRecoveryJournal(
+    config_loader=recording_config
+  )
   runtime["live_record_service"] = LiveRecordingTaskService(
     task_service=task_service,
-    recording_service=RecordingResourceService(config_loader=recording_config),
+    recording_service=runtime["recording_service"],
+    recovery_journal=runtime["recording_recovery_journal"],
   )
 
   ##
