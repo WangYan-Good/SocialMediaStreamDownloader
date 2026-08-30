@@ -166,6 +166,7 @@ jobs:
             backend/src/unit_test/test_recording_resource_migration_mysql.py \
             backend/src/unit_test/test_rbac_role_migration_mysql.py \
             backend/src/unit_test/test_recording_recovery_key_migration_mysql.py \
+            backend/src/unit_test/test_recording_recovery_handoff_mysql.py \
             -q -rs
 
       # Belt and braces. The flag above already turns a missing DSN into a
@@ -185,6 +186,7 @@ jobs:
             backend/src/unit_test/test_recording_resource_migration_mysql.py \
             backend/src/unit_test/test_rbac_role_migration_mysql.py \
             backend/src/unit_test/test_recording_recovery_key_migration_mysql.py \
+            backend/src/unit_test/test_recording_recovery_handoff_mysql.py \
             -q -rs --no-header > /tmp/mysql-tests.txt 2>&1 || {
               cat /tmp/mysql-tests.txt
               exit 1
@@ -567,6 +569,58 @@ jobs:
             reserved.unlink()
             print("ok   runtime HLS capture durability finalization")
 
+            # Phase 11B: a recovery note is published to the same persistent
+            # storage as the media, so the image's filesystem has to support
+            # the whole protocol - hidden directory, exclusive temp, fsync,
+            # no-clobber link, read back, retire. No ffmpeg and no database
+            # involved: this is purely filesystem behaviour.
+            from datetime import datetime as _dt
+            from backend.src.service.recording_recovery_journal import (
+              RecordingRecoveryJournal,
+            )
+            from backend.src.service.recording_resource import (
+              RecordingPersistenceIntent,
+            )
+
+            journal_root = Path(directory) / "journal-probe"
+            journal_root.mkdir()
+            journal = RecordingRecoveryJournal(
+              config_loader=lambda: {
+                "download": {"save_path": str(journal_root)}
+              }
+            )
+            probe_key = "0123456789abcdef0123456789abcdef"
+            probe_intent = RecordingPersistenceIntent(
+              app_user_id=41,
+              platform="douyin",
+              room_id="998877",
+              owner_user_id="owner-1",
+              title="runtime probe",
+              protocol="hls",
+              # Root-relative: a note may only describe media inside the
+              # configured storage root, and this probe uses a temporary one.
+              output_path="douyin/live/A/live.mp4",
+              started_at=_dt(2026, 8, 30, 9, 0, 0),
+              finished_at=_dt(2026, 8, 30, 10, 0, 0),
+              source="task_api",
+            )
+            note = journal.publish(probe_intent, probe_key)
+            if not note.is_file():
+              raise SystemExit("FAIL: recovery journal note was not published")
+            if journal.load(probe_key) != probe_intent:
+              raise SystemExit("FAIL: recovery journal did not round-trip")
+            leftovers = [
+              p.name for p in note.parent.iterdir() if ".part" in p.name
+            ]
+            if leftovers:
+              raise SystemExit(
+                "FAIL: recovery journal temporaries left behind: %s" % leftovers
+              )
+            journal.acknowledge(probe_key)
+            if note.exists() or journal.load(probe_key) is not None:
+              raise SystemExit("FAIL: recovery journal note was not retired")
+            print("ok   runtime recording recovery journal durability")
+
             result = normalizer.normalize(source)
 
             if result != source.with_suffix(".mp4") or not result.is_file():
@@ -602,5 +656,9 @@ jobs:
           }
           grep -q 'ok   runtime HLS capture durability finalization' /tmp/remux-smoke.txt || {
             echo "FAIL: the runtime capture finalization proof did not run"
+            exit 1
+          }
+          grep -q 'ok   runtime recording recovery journal durability' /tmp/remux-smoke.txt || {
+            echo "FAIL: the runtime recovery journal proof did not run"
             exit 1
           }

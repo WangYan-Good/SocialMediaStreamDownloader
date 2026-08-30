@@ -88,16 +88,67 @@ class FakeLiveDownloader:
 
 
 class FakeRecordingService:
+  """Stands in for the resource service across the prepare/record split.
+
+  ``calls`` keeps the same ``(result-ish, arguments)`` shape the tests already
+  assert on, so what is recorded is still readable as the facts that reached
+  persistence - now carried by the prepared intent rather than by the raw
+  download result.
+  """
+
   def __init__(self, failure=None, recording_id=73):
     self.failure = failure
     self.recording_id = recording_id
     self.calls = []
+    self.prepared = []
 
-  def record(self, result, **kwargs):
-    self.calls.append((result, dict(kwargs)))
+  def prepare(self, result, **kwargs):
+    intent = _REAL_RESOURCE.prepare(result, **kwargs)
+    self.prepared.append((intent, dict(kwargs)))
+    return intent
+
+  def record_prepared(self, intent, *, recovery_key=None):
+    arguments = next(
+      (a for i, a in self.prepared if i is intent), {}
+    )
+    self.calls.append((intent, dict(arguments)))
     if self.failure is not None:
       raise self.failure
     return self.recording_id
+
+  def record(self, result, **kwargs):
+    return self.record_prepared(
+      self.prepare(result, **kwargs),
+      recovery_key=kwargs.get("recovery_key"),
+    )
+
+
+##
+## The real canonicalisation, so the fake cannot drift from what production
+## actually persists.
+##
+_REAL_RESOURCE = RecordingResourceService(repository_provider=lambda: None)
+
+
+class InMemoryJournal:
+  """A journal that records the protocol without touching a filesystem."""
+
+  def __init__(self, publish_error=None, ack_error=None):
+    self.publish_error = publish_error
+    self.ack_error = ack_error
+    self.published = []
+    self.acknowledged = []
+
+  def publish(self, intent, recovery_key):
+    self.published.append((intent, recovery_key))
+    if self.publish_error is not None:
+      raise self.publish_error
+    return "/storage/.smsd-recording-recovery/{}.json".format(recovery_key)
+
+  def acknowledge(self, recovery_key):
+    self.acknowledged.append(recovery_key)
+    if self.ack_error is not None:
+      raise self.ack_error
 
 
 class InlineListenerItem:
@@ -149,14 +200,23 @@ def build_service(
   task_service=None,
   listener=InlineListenerItem,
   recording_service=None,
+  recovery_journal=None,
 ):
+  ##
+  ## A journal is part of production wiring wherever a recording service is,
+  ## so the default harness provides one. Persisting without a durable recovery
+  ## handoff is not a configuration this service supports.
+  ##
   downloader = downloader if downloader is not None else FakeLiveDownloader()
+  if recovery_journal is None:
+    recovery_journal = InMemoryJournal()
   return (
     LiveRecordingTaskService(
       task_service=task_service,
       downloader_factory=lambda: downloader,
       listener_factory=listener,
       recording_service=recording_service,
+      recovery_journal=recovery_journal,
     ),
     downloader,
   )
@@ -437,9 +497,13 @@ class LiveRecordingResourceIntegrationTest(unittest.TestCase):
         return super().finish_success(*args, **kwargs)
 
     class OrderedRecordingService(FakeRecordingService):
-      def record(self, result, **arguments):
+      ##
+      ## ``record_prepared`` is what writes now; ``record`` is the convenience
+      ## wrapper around it. Spying on the wrapper would observe nothing.
+      ##
+      def record_prepared(self, intent, **arguments):
         events.append("record")
-        return super().record(result, **arguments)
+        return super().record_prepared(intent, **arguments)
 
     tasks = OrderedTaskService()
     resources = OrderedRecordingService(recording_id=73)

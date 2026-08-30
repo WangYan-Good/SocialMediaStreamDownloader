@@ -1,6 +1,7 @@
 ##<<Third-part>>
 from backend.src.library.baselib import get_dict_attr
 from backend.src.library.loglib import get_logger
+from uuid import uuid4
 from backend.src.platform.douyin.douyin_listener import ListenerItem
 from backend.src.platform.douyin.douyin_live_downloader import get_live_downloader
 from backend.src.platform.douyin.hls_recorder import HlsCancelled
@@ -76,6 +77,8 @@ class LiveRecordingTaskService:
     downloader_factory=get_live_downloader,
     listener_factory=ListenerItem,
     recording_service=None,
+    recovery_journal=None,
+    recovery_key_factory=None,
   ) -> None:
     ##
     ## ``None`` is a supported wiring: a dispatch with no task service behind it
@@ -85,6 +88,15 @@ class LiveRecordingTaskService:
     self._downloader_factory = downloader_factory
     self._listener_factory = listener_factory
     self._recording_service = recording_service
+    self._recovery_journal = recovery_journal
+    ##
+    ## Injectable so a test can pin which key was used where. In production it
+    ## is ``uuid4().hex`` - 32 lowercase hex characters, which is exactly the
+    ## canonical recovery key shape.
+    ##
+    self._recovery_key_factory = recovery_key_factory or (
+      lambda: uuid4().hex
+    )
 
   @property
   def enabled(self) -> bool:
@@ -208,6 +220,36 @@ class LiveRecordingTaskService:
       lambda: finishers[outcome](task_id, message=message),
     )
 
+  ##
+  ## How a persistence failure is reported.
+  ##
+  ## Owned recordings have somebody waiting on a library entry, so a failure
+  ## has to reach them. Anonymous ones do not - nobody is expecting a row - so
+  ## they keep the best-effort behaviour they had before any of this existed.
+  ##
+  def _persistence_failure(self, message, app_user_id):
+    if app_user_id is None:
+      get_logger().warning(message)
+      return (None, None)
+    get_logger().error(message)
+    return (None, RECORDING_PERSISTENCE_FAILED_MESSAGE)
+
+  ##
+  ## Persist one finished recording, journal first.
+  ##
+  ## Three regions, deliberately separate, because a failure means something
+  ## different in each and a single ``try`` would blur them:
+  ##
+  ##   1. prepare, key, publish - nothing has been catalogued yet, so failing
+  ##      here must not reach the database at all. A recording nobody can
+  ##      recover is better than one catalogued with no durable handoff.
+  ##   2. the insert - the journal deliberately stays. That note is exactly
+  ##      what a later replay needs, and Phase 11B-0 makes replaying it
+  ##      idempotent.
+  ##   3. acknowledge - the row already exists. A failure here is cleanup, and
+  ##      folding it into region 2's handler would turn a stored recording into
+  ##      a reported failure.
+  ##
   def _persist_recording(self, result, app_user_id, source):
     if (
       result is None
@@ -215,29 +257,77 @@ class LiveRecordingTaskService:
       or result.test_mode is True
     ):
       return (None, None)
+
+    ##
+    ## Region 1 - nothing catalogued yet.
+    ##
     try:
       if self._recording_service is None:
         raise RuntimeError("recording resource service is unavailable")
-      recording_id = self._recording_service.record(
+      if self._recovery_journal is None:
+        raise RuntimeError("recording recovery journal is unavailable")
+      intent = self._recording_service.prepare(
         result,
         app_user_id=app_user_id,
         platform=PLATFORM_DOUYIN,
         source=source,
       )
-      return (recording_id, None)
+      ##
+      ## After the intent, not before: a key names an attempt to persist
+      ## something, and generating one at the top of the run would spend keys
+      ## on broadcasts that recorded nothing.
+      ##
+      recovery_key = self._recovery_key_factory()
+      self._recovery_journal.publish(intent, recovery_key)
     except Exception as e:
-      message = (
+      return self._persistence_failure(
+        "recording recovery handoff failed for room {}: {}: {}".format(
+          result.room_id,
+          type(e).__name__,
+          e,
+        ),
+        app_user_id,
+      )
+
+    ##
+    ## Region 2 - the journal is durable; the note stays on any failure here.
+    ##
+    try:
+      recording_id = self._recording_service.record_prepared(
+        intent,
+        recovery_key=recovery_key,
+      )
+    except Exception as e:
+      return self._persistence_failure(
         "recording resource persistence failed for room {}: {}: {}".format(
           result.room_id,
           type(e).__name__,
           e,
+        ),
+        app_user_id,
+      )
+
+    ##
+    ## Region 3 - the recording is persisted. Nothing below may take that away.
+    ##
+    try:
+      self._recovery_journal.acknowledge(recovery_key)
+    except Exception as e:
+      ##
+      ## The note may survive, and may come back after a crash. That is
+      ## survivable rather than wrong: replaying a key that already has a row
+      ## resolves to that row instead of inserting a second one.
+      ##
+      get_logger().warning(
+        "recording {} persisted but its recovery journal {} could not be "
+        "retired ({}: {})".format(
+          recording_id,
+          recovery_key[:8],
+          type(e).__name__,
+          e,
         )
       )
-      if app_user_id is None:
-        get_logger().warning(message)
-        return (None, None)
-      get_logger().error(message)
-      return (None, RECORDING_PERSISTENCE_FAILED_MESSAGE)
+    return (recording_id, None)
 
   def _run(self, task_id, token: dict, app_user_id=None, source=SOURCE_DIRECT):
     """The recording thread: start the task, record, then report the ending."""

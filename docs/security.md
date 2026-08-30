@@ -594,6 +594,127 @@ source
 production 路径继续传 `recovery_key=None`，因此「一次执行 = 一个资源」的既有语义完全不变：
 两场看起来相同的普通录制仍然是两行。真正生成 key 并写 journal 属于 Phase 11B。
 
+## 录制恢复日志（Phase 11B）
+
+Phase 11B-0 建立了数据库幂等基础（`recovery_key` + `UNIQUE`）。11B 把它真正接入生产持久化链，
+关闭这个崩溃窗口：**媒体已经落盘且持久，但进程在 `recording_record` 写入之前死掉**——
+字节还在，资源库却看不到它。
+
+固定协议：
+
+```text
+prepare canonical intent
+→ generate recovery_key（每次可持久化录制恰好一次）
+→ durable journal publish
+→ keyed DB persistence
+→ durable journal acknowledge
+→ task success
+```
+
+### 一份 canonical intent
+
+`RecordingPersistenceIntent`（frozen dataclass）是「关于这次录制、数据库会存什么」的唯一 canonical 化。
+journal 与 DB 消费**同一个对象**（测试用 `assertIs` 钉住，不是比较字段值）。
+未来 replay 读 journal 而不是 `LiveDownloadResult`，因此不需要伪造 result 对象，
+也不会出现第二套 canonicalization。
+
+### journal 位置与原子发布
+
+与媒体同一持久化存储：`<download.save_path>/.smsd-recording-recovery/`，
+首次真正写入时才 lazy 创建（目录 `0700`，文件 `0600`）。
+隐藏且服务专属命名，不进入 MediaAsset discovery / Library / Download / Preview / Range。
+
+```text
+fsync(parent)        # 首次创建后先提交目录自身的名字
+→ 排他创建隐藏 temp（O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC|O_NOFOLLOW, 0600）
+→ 循环写全部字节
+→ fsync(temp fd)
+→ os.link(temp, final)   # no-clobber，绝不覆盖
+→ fsync(journal dir)     # FINAL JOURNAL DURABLE
+→ unlink(temp) → fsync(dir)
+```
+
+**绝不直接写 final 名字**：崩溃留下的半截 JSON 会被后续读取当成一份正式 note。
+`os.link` 而非 `os.replace`：同一 key 已存在时必须显式冲突，而不是静默覆盖。
+publish 目录 fsync 失败 → 回滚本次创建的 final link → 抛错，**不继续 DB**。
+
+### 三个独立失败区间
+
+`_persist_recording` 刻意分成三段，因为失败含义完全不同：
+
+| 区间 | 失败后果 |
+|---|---|
+| prepare + key + publish | 尚未 catalog 任何东西 → **DB 调用 0 次**；媒体保留 |
+| DB insert | **journal 保留**——那正是 replay 所需的输入 |
+| acknowledge | 行已存在 → 只记 warning，**不得**把已成功的持久化降级 |
+
+合并成单个 `try` 会让 `DB commit → ack 抛异常 → task 变 partial` 成为可能，
+这违反本阶段契约，因此三段是结构性隔离而非仅靠测试约束。
+
+### 安全边界
+
+journal payload 是**封闭字段集**（12 个），由 exact key-set 测试钉住——
+未来有人把整个 task/result dict 合并进来会立刻失败，即使新字段名字完全无害。
+**不写入**：stream_url / resolved_url / source_url / sign / token / cookie /
+Authorization / proxy 凭据 / session / CSRF / task_id。
+
+`recovery_key` 是 **internal persistence identity，不是 capability**：
+不出现在 task 响应、Library 响应、asset metadata、download/preview URL。
+Library recording serializer 本身是**封闭 allowlist**（8 个字段，连 `output_path` 都不含），
+因此数据库新增任何内部列都不会自动进入浏览器响应。
+
+**`output_path` containment**。note 只能描述**配置的存储根之内**的媒体。
+在正常链路里 path 来自 downloader，检查几乎无事可做；但 journal 是**未来 replay 的持久输入**，
+由一个自己没有录制过任何东西的进程读回。若 note 被损坏、错误生成或被本地进程改写成
+`/etc/passwd` 或 `<root>/a/../../outside.mp4`，Phase 11C 会把它当作合法 recording resource 编入目录。
+因此 **publish 与 load 两侧都校验**：
+
+```text
+trust_root = realpath(configured download.save_path)
+candidate  = realpath(intent.output_path)   # 相对路径按 root 解析
+候选必须是 trust_root 的真子孙（不能等于 root 本身）
+```
+
+复用媒体层既有的 `contained_path()`，**不自己写 `startswith()`**——
+containment 是解析之后的路径段关系，而不是字符串前缀：
+`/downloads2` 以 `/downloads` 开头，却是完全不同的目录。
+解析同时正确处理合法情形：operator 把 `save_path` 指向 symlink 或 mount 是允许的，
+两种写法解析到同一个 trust root；而「名字在 root 里、但 symlink 指向外部」的文件解析后不在，
+正是要拒绝的那一类。
+
+`load()` 只按精确文件名读取，**不扫描目录**：`O_NOFOLLOW`、regular file、
+上限 64 KiB、UTF-8、JSON object、`schema_version == 1`、payload key 必须与文件名一致、
+逐字段类型校验。版本不认识 → fail closed；JSON 损坏 → 报告 corruption 且**不删除、不隔离**，
+保留文件供人工排障。
+
+### 保证范围（必须精确）
+
+```text
+Durable journal published
+→ later DB persistence/replay is crash recoverable:   GUARANTEED
+
+DB commit succeeds before journal ack
+→ safe idempotent replay:                             GUARANTEED
+
+Ack failure after DB success
+→ DB success remains valid:                           GUARANTEED
+
+Media durable but process dies before durable
+journal publication completes:                        NOT GUARANTEED BY PHASE 11B
+
+Automatic startup replay:                             NOT IMPLEMENTED
+Raw orphan-media discovery:                           NOT IMPLEMENTED
+```
+
+从 downloader 返回到 journal 发布完成之间**不是**一个文件系统事务，因此
+「每一份持久化媒体都必然有 journal」这句话**不成立**，不要这样写。
+正确表述是：**凡是 durable journal publication 已经成功的完成录制，
+之后的崩溃都可以安全 replay。**
+
+Phase 11B 证明的是 **replay mechanism prerequisites = READY**
+（primitive 已端到端可用，含真实 MySQL 上的 crash-after-commit 验证），
+**不是** server 会自动执行 replay。启动扫描与自动重放属于 Phase 11C。
+
 ## 历史凭据
 
 防止当前配置进入新镜像不等于撤销历史泄露。Git 历史中曾出现过的凭据应由维护者

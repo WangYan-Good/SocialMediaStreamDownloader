@@ -216,18 +216,28 @@ class RecoveryKeyIsNotExposedTest(unittest.TestCase):
           "recovery_key", module.read_text(encoding="utf-8")
         )
 
-  def test_the_recording_task_does_not_generate_one(self):
+  def test_the_recording_task_generates_a_key_but_never_publishes_it(self):
     ##
-    ## Phase 11B-0 builds the primitive only. Production recordings still pass
-    ## nothing, so behaviour is unchanged until the journal exists to supply a
-    ## key that means something.
+    ## Superseded on purpose. Phase 11B-0 asserted the opposite - that
+    ## production generated no key at all - because the primitive existed with
+    ## nothing to use it. Phase 11B wired the journal in, so the persistence
+    ## boundary now mints exactly one key per recording.
+    ##
+    ## What survives from that original assertion is the half that still
+    ## matters: the key is a persistence identity, so it must never reach the
+    ## metadata a browser reads. That is asserted against the serialiser rather
+    ## than the whole module, since the module is now entitled to mention it.
     ##
     source = (
       Path(__file__).resolve().parents[1]
       / "service" / "live_recording_task.py"
     ).read_text(encoding="utf-8")
-    self.assertNotIn("recovery_key", source)
-    self.assertNotIn("uuid4", source)
+    self.assertIn("recovery_key", source)
+
+    metadata = source[source.index("def _result_metadata"):]
+    metadata = metadata[:metadata.index("\n  def ")]
+    self.assertNotIn("recovery", metadata)
+    self.assertNotIn("journal", metadata)
 
 
 class AssetIdentityUnaffectedTest(unittest.TestCase):
