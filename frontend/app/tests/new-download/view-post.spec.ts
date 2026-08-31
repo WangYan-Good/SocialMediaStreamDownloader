@@ -307,7 +307,7 @@ describe('this screen is not the task centre', () => {
     await settle()
 
     expect(listTasks).not.toHaveBeenCalled()
-    expect(spies.getTask).toHaveBeenCalledWith('task-1')
+    expect(spies.getTask).toHaveBeenCalledWith('task-1', expect.any(AbortSignal))
     for (const call of vi.mocked(spies.getTask).mock.calls) {
       expect(call[0]).toBe('task-1')
     }

@@ -41,6 +41,8 @@ export function listTasks(
 }
 
 /** One task, or an ApiError with status 404 once it has expired. */
-export function getTask(taskId: string): Promise<Task> {
-  return request<Task>(`/tasks/${encodeURIComponent(taskId)}`)
+export function getTask(taskId: string, signal?: AbortSignal): Promise<Task> {
+  return request<Task>(`/tasks/${encodeURIComponent(taskId)}`, {
+    ...(signal ? { signal } : {}),
+  })
 }

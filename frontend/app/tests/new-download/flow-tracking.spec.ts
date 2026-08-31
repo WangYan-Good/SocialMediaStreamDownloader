@@ -91,7 +91,7 @@ describe('tracking a task through to the end', () => {
     const flow = await trackingFlow(getTask)
 
     expect(getTask).toHaveBeenCalledTimes(1)
-    expect(getTask).toHaveBeenCalledWith('task-1')
+    expect(getTask).toHaveBeenCalledWith('task-1', expect.any(AbortSignal))
     expect(flow.currentTask.value?.state).toBe('pending')
   })
 
@@ -259,7 +259,7 @@ describe('a read that fails is not a task that failed', () => {
     await flow.retryTracking()
 
     expect(getTask.mock.calls.length).toBe(beforeRetry + 1)
-    expect(getTask).toHaveBeenLastCalledWith('task-1')
+    expect(getTask).toHaveBeenLastCalledWith('task-1', expect.any(AbortSignal))
   })
 })
 

@@ -248,6 +248,23 @@ describe('getTask', () => {
 
     expect(answered.progress.total).toBeNull()
   })
+
+  it('passes an optional abort signal to the transport', async () => {
+    const fake = stubFetch(task)
+    const controller = new AbortController()
+
+    await getTask('task-1', controller.signal)
+
+    expect(callOf(fake).init.signal).toBe(controller.signal)
+  })
+
+  it('keeps the existing request unchanged when no signal is given', async () => {
+    const fake = stubFetch(task)
+
+    await getTask('task-1')
+
+    expect(callOf(fake).init.signal).toBeUndefined()
+  })
 })
 
 describe('listTasks with an abort signal', () => {

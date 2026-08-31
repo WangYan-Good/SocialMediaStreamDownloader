@@ -322,7 +322,7 @@ describe('the status cannot be read', () => {
     await settle()
 
     expect(getTask.mock.calls.length).toBe(before + 1)
-    expect(getTask).toHaveBeenLastCalledWith('task-1')
+    expect(getTask).toHaveBeenLastCalledWith('task-1', expect.any(AbortSignal))
   })
 })
 
