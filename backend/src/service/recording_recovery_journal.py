@@ -28,6 +28,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 import errno
+from bisect import bisect_right
 import json
 import os
 from pathlib import Path
@@ -97,6 +98,20 @@ _NOTE_SUFFIX = ".json"
 MAX_RECOVERY_JOURNALS_PER_RUN = 1000
 
 ##
+## The scanner's filesystem-work bound, independent of the replay-work bound.
+## Every directory entry counts, including names that can never be a journal.
+## One additional entry may be observed only to prove overflow exists.
+##
+MAX_RECOVERY_SCAN_ENTRIES = 4096
+
+##
+## Advisory scheduling state. The name cannot be parsed as a journal note and
+## the payload can contain only one canonical recovery key plus a newline.
+##
+SCAN_CURSOR_NAME = ".scan-cursor"
+SCAN_CURSOR_MAX_BYTES = 64
+
+##
 ## Opening a name relative to a directory descriptor is what makes reading and
 ## retiring a note safe, so a host that cannot do it cannot do recovery either.
 ## Answered honestly rather than silently falling back to a path-based open
@@ -105,9 +120,15 @@ MAX_RECOVERY_JOURNALS_PER_RUN = 1000
 _SUPPORTS_DIRECTORY_RELATIVE_OPEN = (
   hasattr(os, "O_DIRECTORY")
   and hasattr(os, "O_NOFOLLOW")
+  and hasattr(os, "O_NONBLOCK")
   and os.open in os.supports_dir_fd
   and os.unlink in os.supports_dir_fd
 )
+
+## Cursor publication is advisory. A host that cannot atomically rename a
+## name relative to the trusted directory may still safely read and replay
+## journal evidence; it merely cannot persist fair scheduling state.
+_SUPPORTS_DIRECTORY_RELATIVE_RENAME = os.rename in os.supports_dir_fd
 
 
 ##
@@ -312,6 +333,10 @@ class RecordingJournalUnavailable(RuntimeError):
   """The journal cannot be used, so no recording may be catalogued yet."""
 
 
+class RecordingJournalScanOverflow(RecordingJournalUnavailable):
+  """The journal directory exceeded the fixed startup scan-work bound."""
+
+
 ##
 ## A note already exists under this key.
 ##
@@ -497,6 +522,117 @@ class RecordingRecoveryJournal:
       raise
     return descriptor
 
+  @staticmethod
+  def _cursor_warning(action, error):
+    get_logger().warning(
+      "recording recovery scan cursor {} failed ({}); scheduling state "
+      "will be ignored".format(action, type(error).__name__)
+    )
+
+  def _load_scan_cursor(self, directory):
+    """Read advisory scheduling state without following or trusting its name."""
+    flags = (
+      os.O_RDONLY
+      | os.O_NOFOLLOW
+      | os.O_NONBLOCK
+      | getattr(os, "O_CLOEXEC", 0)
+    )
+    try:
+      descriptor = os.open(SCAN_CURSOR_NAME, flags, dir_fd=directory)
+    except FileNotFoundError:
+      return None
+    except OSError as e:
+      self._cursor_warning("read", e)
+      return None
+
+    raw = None
+    failure = None
+    try:
+      info = os.fstat(descriptor)
+      if stat.S_ISREG(info.st_mode) and info.st_size <= SCAN_CURSOR_MAX_BYTES:
+        raw = os.read(descriptor, SCAN_CURSOR_MAX_BYTES + 1)
+    except OSError as e:
+      failure = e
+    try:
+      os.close(descriptor)
+    except OSError as e:
+      if failure is None:
+        failure = e
+
+    if failure is not None:
+      self._cursor_warning("read", failure)
+      return None
+    if raw is None:
+      return None
+
+    if len(raw) > SCAN_CURSOR_MAX_BYTES:
+      return None
+    try:
+      text = raw.decode("ascii")
+    except UnicodeDecodeError:
+      return None
+    if text.endswith("\n"):
+      text = text[:-1]
+    try:
+      return canonical_recovery_key(text)
+    except (TypeError, ValueError):
+      return None
+
+  def _persist_scan_cursor(self, directory, key):
+    """Best-effort durable, atomic advisory cursor publication."""
+    if not _SUPPORTS_DIRECTORY_RELATIVE_RENAME:
+      raise OSError(
+        errno.ENOTSUP,
+        "directory-relative recovery cursor rename is unavailable",
+      )
+    canonical = canonical_recovery_key(key)
+    if canonical is None:
+      raise ValueError("persisting a recovery scan cursor requires a key")
+    payload = (canonical + "\n").encode("ascii")
+    if len(payload) > SCAN_CURSOR_MAX_BYTES:
+      raise ValueError("recording recovery scan cursor payload is oversized")
+
+    temporary = ".scan-cursor-{}.part".format(os.urandom(8).hex())
+    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW
+    flags |= getattr(os, "O_CLOEXEC", 0)
+    descriptor = None
+    renamed = False
+    try:
+      descriptor = os.open(temporary, flags, 0o600, dir_fd=directory)
+      self._write_all(descriptor, payload)
+      self._sync_file(descriptor)
+      closing = descriptor
+      descriptor = None
+      os.close(closing)
+      ## Atomic replacement changes the directory entry itself. A cursor
+      ## symlink is replaced, never followed, and its target is untouched.
+      os.rename(
+        temporary,
+        SCAN_CURSOR_NAME,
+        src_dir_fd=directory,
+        dst_dir_fd=directory,
+      )
+      renamed = True
+      self._sync_directory(directory)
+    finally:
+      try:
+        if descriptor is not None:
+          os.close(descriptor)
+      finally:
+        if not renamed:
+          try:
+            os.unlink(temporary, dir_fd=directory)
+          except OSError:
+            pass
+
+  @staticmethod
+  def _select_pending_keys(found, cursor, limit):
+    if not found or limit <= 0:
+      return []
+    start = bisect_right(found, cursor) if cursor is not None else 0
+    ordered = found[start:] + found[:start]
+    return ordered[:limit]
+
   ##
   ## Which notes are present, by key.
   ##
@@ -520,22 +656,51 @@ class RecordingRecoveryJournal:
       return PendingJournals(keys=[], truncated=False)
 
     found = []
-    truncated = False
+    observed = 0
+    cursor_entry_present = False
     try:
       with os.scandir(descriptor) as entries:
         for entry in entries:
+          observed += 1
+          if observed > MAX_RECOVERY_SCAN_ENTRIES:
+            raise RecordingJournalScanOverflow(
+              "recording recovery journal directory exceeds the scan bound"
+            )
+          if entry.name == SCAN_CURSOR_NAME:
+            cursor_entry_present = True
           key = _note_key(entry.name)
           if key is None:
             continue
-          if len(found) >= limit:
-            ##
-            ## One entry past the bound is enough to know a backlog exists.
-            ## Counting the rest would be the unbounded work this exists to
-            ## avoid.
-            ##
-            truncated = True
-            break
           found.append(key)
+      found.sort()
+      ## The cursor itself counts toward the directory-entry hard bound. If a
+      ## saturated legacy directory has no cursor yet, publishing one would
+      ## turn a scan accepted at 4096 entries into a permanent 4097-entry
+      ## overflow whenever the selected notes are retained. Reserve that one
+      ## metadata entry before any partial batch can escape instead.
+      if (
+        found
+        and limit > 0
+        and not cursor_entry_present
+        and observed >= MAX_RECOVERY_SCAN_ENTRIES
+      ):
+        raise RecordingJournalScanOverflow(
+          "recording recovery journal directory has no cursor capacity"
+        )
+      cursor = self._load_scan_cursor(descriptor)
+      selected = self._select_pending_keys(found, cursor, limit)
+      if selected:
+        try:
+          ## Advance before replay. Retained notes therefore cannot monopolize
+          ## every restart; a crash here delays this batch until wrap-around
+          ## but cannot lose it because no note has been acknowledged.
+          self._persist_scan_cursor(descriptor, selected[-1])
+        except Exception as e:
+          self._cursor_warning("write", e)
+      return PendingJournals(
+        keys=selected,
+        truncated=len(found) > limit,
+      )
     except OSError as e:
       raise RecordingJournalUnavailable(
         "recording recovery journal directory could not be read ({}: {})".format(
@@ -544,9 +709,6 @@ class RecordingRecoveryJournal:
       ) from e
     finally:
       os.close(descriptor)
-
-    found.sort()
-    return PendingJournals(keys=found, truncated=truncated)
 
   ##
   ## Create the directory the first time something is actually written.
@@ -771,7 +933,12 @@ class RecordingRecoveryJournal:
       return None
 
     try:
-      flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+      flags = (
+        os.O_RDONLY
+        | os.O_NOFOLLOW
+        | os.O_NONBLOCK
+        | getattr(os, "O_CLOEXEC", 0)
+      )
       try:
         descriptor = os.open(
           "{}{}".format(key, _NOTE_SUFFIX), flags, dir_fd=directory
@@ -916,9 +1083,13 @@ __all__ = [
   "JOURNAL_DIRECTORY_NAME",
   "JOURNAL_MAX_BYTES",
   "MAX_RECOVERY_JOURNALS_PER_RUN",
+  "MAX_RECOVERY_SCAN_ENTRIES",
+  "SCAN_CURSOR_MAX_BYTES",
+  "SCAN_CURSOR_NAME",
   "PendingJournals",
   "RecordingJournalConflict",
   "RecordingJournalCorrupt",
+  "RecordingJournalScanOverflow",
   "RecordingJournalUnsupportedVersion",
   "JOURNAL_SCHEMA_VERSION",
   "intent_from_payload",

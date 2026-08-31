@@ -22,7 +22,19 @@ services:
       --wait-timeout=28800
       --interactive-timeout=28800
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      # The official image starts a temporary socket-only server while it
+      # creates the database and users. `mysqladmin ping -h localhost` accepts
+      # that bootstrap server and can release the app just as it is shutting
+      # down. Require an authenticated query over the final TCP listener
+      # instead; double dollars defer expansion to the container shell, so no
+      # credential is materialised in the Compose model or process arguments.
+      test:
+        - CMD-SHELL
+        - >-
+          MYSQL_PWD="$${MYSQL_PASSWORD}"
+          mysql --protocol=TCP -h 127.0.0.1 -P 3306
+          -u"$${MYSQL_USER}" "$${MYSQL_DATABASE}"
+          -e 'SELECT 1' >/dev/null 2>&1
       interval: 10s
       timeout: 5s
       retries: 5

@@ -35,6 +35,7 @@ from backend.src.service.recording_recovery_journal import (
   JOURNAL_DIRECTORY_NAME,
   RecordingRecoveryJournal,
 )
+from backend.src.service import recording_recovery_journal as journal_module
 from backend.src.service.recording_resource import (
   RecordingPersistenceIntent,
   RecordingPersistenceUnavailable,
@@ -105,7 +106,7 @@ class Harness:
     directory = self.storage / JOURNAL_DIRECTORY_NAME
     if not directory.exists():
       return []
-    return sorted(p.name for p in directory.iterdir())
+    return sorted(p.name for p in directory.iterdir() if p.name.endswith(".json"))
 
   ##
   ## >>--------------------------- the patches ---------------------------<<
@@ -455,6 +456,26 @@ class StartupIsolationTest(unittest.TestCase):
         self.assertEqual(["{}.json".format(KEY)], harness.notes())
       finally:
         harness.stop_lazy()
+
+  def test_scan_overflow_does_not_stop_the_application_or_touch_the_database(self):
+    with tempfile.TemporaryDirectory() as storage:
+      harness = Harness(storage)
+      journal = RecordingRecoveryJournal(
+        config_loader=lambda: {"download": {"save_path": storage}}
+      )
+      directory = journal.ensure_root()
+      (directory / "README").write_text("ignored", encoding="utf-8")
+      (directory / "backup").write_text("ignored", encoding="utf-8")
+
+      with patch.object(journal_module, "MAX_RECOVERY_SCAN_ENTRIES", 1):
+        app = harness.create_app()
+
+      self.assertIsNotNone(app)
+      self.assertEqual([], harness.repository.rows)
+      self.assertFalse((directory / ".scan-cursor").exists())
+      self.assertEqual(
+        401, app.test_client().get("/api/system/status").status_code
+      )
 
 
 class ExactlyOncePerApplicationTest(unittest.TestCase):

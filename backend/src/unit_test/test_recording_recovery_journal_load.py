@@ -14,7 +14,9 @@
 from datetime import datetime
 from pathlib import Path
 import json
+import multiprocessing
 import os
+import stat
 import tempfile
 import unittest
 
@@ -63,6 +65,18 @@ def write_note(service, key, payload, *, raw=None):
   else:
     target.write_text(json.dumps(payload), encoding="utf-8")
   return target
+
+
+def _load_fifo_in_child(root, connection):
+  """Run the potentially blocking open outside the test process."""
+  try:
+    journal(root).load(KEY)
+  except BaseException as error:
+    connection.send((type(error).__name__, str(error)))
+  else:
+    connection.send((None, None))
+  finally:
+    connection.close()
 
 
 class LoadRoundtripTest(unittest.TestCase):
@@ -300,6 +314,79 @@ class LoadSymlinkTest(unittest.TestCase):
 
       with self.assertRaises(RecordingJournalUnavailable):
         service.load(KEY)
+
+
+class LoadFifoTest(unittest.TestCase):
+  """A canonical-looking named pipe must not hold startup waiting for a writer."""
+
+  @unittest.skipUnless(hasattr(os, "mkfifo"), "requires named pipes")
+  def test_a_fifo_without_a_writer_is_refused_without_blocking(self):
+    with tempfile.TemporaryDirectory() as root:
+      service = journal(root)
+      target = service.ensure_root() / "{}.json".format(KEY)
+      os.mkfifo(target)
+
+      context = multiprocessing.get_context("fork")
+      parent, child = context.Pipe(duplex=False)
+      process = context.Process(
+        target=_load_fifo_in_child,
+        args=(root, child),
+      )
+      process.start()
+      child.close()
+      process.join(timeout=1.0)
+      hung = process.is_alive()
+      if hung:
+        process.terminate()
+        process.join(timeout=5.0)
+      if process.is_alive():
+        process.kill()
+        process.join(timeout=5.0)
+
+      self.assertFalse(hung, "loading a writerless FIFO blocked startup")
+      self.assertTrue(parent.poll(0.5), "the child returned no refusal")
+      error_name, _ = parent.recv()
+      parent.close()
+      self.assertEqual("RecordingJournalUnavailable", error_name)
+      self.assertTrue(stat.S_ISFIFO(os.lstat(target).st_mode))
+
+
+class LoadDirectoryDescriptorLifetimeTest(unittest.TestCase):
+  """A directory path replaced after open cannot redirect the note read."""
+
+  @unittest.skipUnless(hasattr(os, "O_NOFOLLOW"), "requires O_NOFOLLOW")
+  def test_loading_stays_on_the_directory_descriptor_after_path_replacement(self):
+    with tempfile.TemporaryDirectory() as root:
+      service = journal(root)
+      original = intent(title="original journal")
+      attacker = intent(title="replacement journal")
+      service.publish(original, KEY)
+
+      trusted = service.root()
+      moved = Path(root) / "trusted-open-directory"
+      replacement = Path(root) / "replacement-directory"
+      replacement.mkdir()
+      (replacement / "{}.json".format(KEY)).write_text(
+        json.dumps(payload_for(attacker, KEY)), encoding="utf-8"
+      )
+
+      real_open = os.open
+      swapped = False
+
+      def swap_before_note_open(path, flags, *args, **kwargs):
+        nonlocal swapped
+        if not swapped and str(path).endswith("{}.json".format(KEY)):
+          trusted.rename(moved)
+          trusted.symlink_to(replacement, target_is_directory=True)
+          swapped = True
+        return real_open(path, flags, *args, **kwargs)
+
+      from unittest import mock
+      with mock.patch.object(os, "open", swap_before_note_open):
+        restored = service.load(KEY)
+
+      self.assertTrue(swapped)
+      self.assertEqual(original, restored)
 
 
 if __name__ == "__main__":

@@ -677,6 +677,7 @@ jobs:
           # heredoc reaches an immediate EOF: python exits 0 having run
           # nothing, and the smoke passes without testing anything at all.
           cat > /tmp/remux-smoke.py <<'PY'
+          import multiprocessing
           import shutil
           import subprocess
           import sys
@@ -930,6 +931,112 @@ jobs:
               raise SystemExit("FAIL: a refused note must be retained")
             print("ok   runtime recording recovery restart reconciliation")
 
+            # Phase 13C P1-04: a canonical-looking FIFO with no writer must be
+            # refused by the real journal load path before it can hold startup.
+            # This is a real named pipe and real open/fstat on the container's
+            # kernel; no filesystem syscall is mocked.
+            import os as _os
+            import stat as _stat
+            from backend.src.service.recording_recovery_journal import (
+              RecordingJournalUnavailable,
+            )
+
+            def _load_fifo_in_child(root, key, connection):
+              import time
+              child_journal = RecordingRecoveryJournal(
+                config_loader=lambda: {
+                  "download": {"save_path": str(root)}
+                }
+              )
+              started = time.monotonic()
+              try:
+                child_journal.load(key)
+              except RecordingJournalUnavailable:
+                connection.send(("refused", time.monotonic() - started))
+              except BaseException as error:
+                connection.send((type(error).__name__, time.monotonic() - started))
+              else:
+                connection.send(("accepted", time.monotonic() - started))
+              finally:
+                connection.close()
+
+            fifo_root = Path(directory) / "fifo-journal-probe"
+            fifo_root.mkdir()
+            fifo_journal = RecordingRecoveryJournal(
+              config_loader=lambda: {
+                "download": {"save_path": str(fifo_root)}
+              }
+            )
+            fifo_key = "11111111111111111111111111111111"
+            fifo_note = fifo_journal.ensure_root() / (fifo_key + ".json")
+            _os.mkfifo(fifo_note)
+            fifo_context = multiprocessing.get_context("fork")
+            fifo_parent, fifo_child = fifo_context.Pipe(duplex=False)
+            fifo_process = fifo_context.Process(
+              target=_load_fifo_in_child,
+              args=(fifo_root, fifo_key, fifo_child),
+            )
+            fifo_process.start()
+            fifo_child.close()
+            fifo_process.join(timeout=2.0)
+            fifo_hung = fifo_process.is_alive()
+            if fifo_hung:
+              fifo_process.terminate()
+              fifo_process.join(timeout=5.0)
+            if fifo_process.is_alive():
+              fifo_process.kill()
+              fifo_process.join(timeout=5.0)
+            if fifo_hung:
+              raise SystemExit("FAIL: canonical recovery FIFO blocked startup")
+            if not fifo_parent.poll(0.5):
+              raise SystemExit("FAIL: canonical recovery FIFO returned no result")
+            fifo_outcome, fifo_elapsed = fifo_parent.recv()
+            fifo_parent.close()
+            if fifo_outcome != "refused":
+              raise SystemExit(
+                "FAIL: canonical recovery FIFO outcome was " + fifo_outcome
+              )
+            if fifo_elapsed >= 2.0:
+              raise SystemExit(
+                "FAIL: canonical recovery FIFO refusal blocked for %.3fs"
+                % fifo_elapsed
+              )
+            if not _stat.S_ISFIFO(_os.lstat(fifo_note).st_mode):
+              raise SystemExit("FAIL: refused recovery FIFO was modified")
+            print("ok   runtime recovery journal nonblocking FIFO refusal")
+
+            # Phase 13C P1-05: real directory enumeration, cursor publication,
+            # and deterministic rotation. Nothing in the first batch is
+            # acknowledged, so the second scan proves retained-prefix fairness.
+            fair_root = Path(directory) / "fair-journal-probe"
+            fair_root.mkdir()
+            fair_journal = RecordingRecoveryJournal(
+              config_loader=lambda: {
+                "download": {"save_path": str(fair_root)}
+              }
+            )
+            fair_keys = ["%032x" % value for value in range(1, 6)]
+            for fair_key in fair_keys:
+              fair_journal.publish(probe_intent, fair_key)
+            fair_first = fair_journal.scan_pending_keys(limit=2)
+            fair_second = fair_journal.scan_pending_keys(limit=2)
+            if fair_first.keys != fair_keys[:2]:
+              raise SystemExit(
+                "FAIL: fair recovery first batch differs: %r" % fair_first
+              )
+            if fair_second.keys != fair_keys[2:4]:
+              raise SystemExit(
+                "FAIL: retained recovery prefix monopolized next scan: %r"
+                % fair_second
+              )
+            for retained_key in fair_keys[:2]:
+              if fair_journal.load(retained_key) is None:
+                raise SystemExit("FAIL: fair scan modified a retained note")
+            fair_cursor = fair_journal.root() / ".scan-cursor"
+            if fair_cursor.read_text(encoding="ascii") != fair_keys[3] + "\n":
+              raise SystemExit("FAIL: fair scan cursor did not advance")
+            print("ok   runtime recovery journal fair bounded scan")
+
             result = normalizer.normalize(source)
 
             if result != source.with_suffix(".mp4") or not result.is_file():
@@ -977,6 +1084,14 @@ jobs:
           }
           grep -q 'ok   runtime recording recovery restart reconciliation' /tmp/remux-smoke.txt || {
             echo "FAIL: the runtime recovery reconciliation proof did not run"
+            exit 1
+          }
+          grep -Fxq 'ok   runtime recovery journal nonblocking FIFO refusal' /tmp/remux-smoke.txt || {
+            echo "FAIL: the runtime recovery FIFO refusal proof did not run"
+            exit 1
+          }
+          grep -Fxq 'ok   runtime recovery journal fair bounded scan' /tmp/remux-smoke.txt || {
+            echo "FAIL: the runtime recovery fair bounded scan proof did not run"
             exit 1
           }
 

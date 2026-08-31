@@ -204,7 +204,7 @@ class RecordingRecoveryReconciliationTest(unittest.TestCase):
     directory = self.root / ".smsd-recording-recovery"
     if not directory.exists():
       return []
-    return sorted(p.name for p in directory.iterdir())
+    return sorted(p.name for p in directory.iterdir() if p.name.endswith(".json"))
 
   ##
   ## >>=========================== A. journal only ===========================>>

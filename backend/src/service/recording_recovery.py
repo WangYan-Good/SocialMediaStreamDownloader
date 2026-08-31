@@ -47,6 +47,7 @@ from backend.src.service.media_asset import open_regular_file_within_root
 from backend.src.service.recording_recovery_journal import (
   MAX_RECOVERY_JOURNALS_PER_RUN,
   RecordingJournalCorrupt,
+  RecordingJournalScanOverflow,
   RecordingJournalUnavailable,
   RecordingJournalUnsupportedVersion,
   resolve_storage_root,
@@ -141,6 +142,18 @@ class RecordingRecoveryReconciler:
       pending = self._journal.scan_pending_keys(
         limit=MAX_RECOVERY_JOURNALS_PER_RUN
       )
+    except RecordingJournalScanOverflow as e:
+      ##
+      ## A directory larger than the fixed scan-work budget is an explicit
+      ## safe degraded state. No partial prefix is replayed: doing so would
+      ## make attacker-controlled enumeration order choose database work.
+      ##
+      get_logger().error(
+        "recording recovery deferred: journal scan overflow ({})".format(
+          type(e).__name__
+        )
+      )
+      return ReconciliationSummary()
     except RecordingJournalUnavailable as e:
       ##
       ## No usable journal directory - unconfigured storage, a link where the

@@ -20,15 +20,19 @@
 from datetime import datetime
 from pathlib import Path
 import json
+import multiprocessing
 import os
 import tempfile
 import unittest
+from unittest import mock
 
 from backend.src.database.table.recording_record import RecordingRecoveryConflict
 from backend.src.service.recording_recovery import RecordingRecoveryReconciler
+from backend.src.service import recording_recovery_journal as journal_module
 from backend.src.service.recording_recovery_journal import (
   JOURNAL_SCHEMA_VERSION,
   payload_for,
+  RecordingJournalScanOverflow,
   RecordingRecoveryJournal,
 )
 from backend.src.service.recording_resource import (
@@ -71,6 +75,29 @@ class FakeRecordingService:
       return self._ids.pop(0)
     self._next += 1
     return self._next
+
+
+def _reconcile_fifo_batch_in_child(root, connection):
+  """Run the real FIFO isolation path behind a parent-enforced watchdog."""
+  config = {"download": {"save_path": str(root)}}
+  journal = RecordingRecoveryJournal(config_loader=lambda: config)
+  service = FakeRecordingService(ids=[88])
+  try:
+    summary = RecordingRecoveryReconciler(
+      journal=journal,
+      recording_service=service,
+      config_loader=lambda: config,
+    ).reconcile_once()
+    connection.send({
+      "error": None,
+      "calls": [call[1] for call in service.calls],
+      "recovered": summary.recovered,
+      "retained": summary.retained,
+    })
+  except BaseException as error:
+    connection.send({"error": type(error).__name__})
+  finally:
+    connection.close()
 
 
 class Fixture(unittest.TestCase):
@@ -131,7 +158,7 @@ class Fixture(unittest.TestCase):
     directory = self.root / ".smsd-recording-recovery"
     if not directory.exists():
       return []
-    return sorted(p.name for p in directory.iterdir())
+    return sorted(p.name for p in directory.iterdir() if p.name.endswith(".json"))
 
 
 class ReplayTest(Fixture):
@@ -653,6 +680,160 @@ class LoggingTest(Fixture):
     )
     self.assertNotIn("douyin/live/live.mp4", logged)
     self.assertNotIn("a very secret stream title", logged)
+
+
+class ScanOverflowIsolationTest(unittest.TestCase):
+  """An oversized directory is a safe degraded startup, never a partial replay."""
+
+  def test_overflow_performs_no_load_database_or_ack_work(self):
+    calls = []
+
+    class OverflowJournal:
+      def scan_pending_keys(self, *args, **kwargs):
+        calls.append("scan")
+        raise RecordingJournalScanOverflow("bounded scan overflow")
+
+      def load(self, *args, **kwargs):
+        calls.append("load")
+        raise AssertionError("overflow must not return a partial batch")
+
+      def acknowledge(self, *args, **kwargs):
+        calls.append("ack")
+        raise AssertionError("overflow must not acknowledge a note")
+
+    service = FakeRecordingService()
+    reconciler = RecordingRecoveryReconciler(
+      journal=OverflowJournal(),
+      recording_service=service,
+      config_loader=lambda: {"download": {"save_path": "/unused"}},
+    )
+
+    summary = reconciler.reconcile_once()
+
+    self.assertEqual(["scan"], calls)
+    self.assertEqual([], service.calls)
+    self.assertEqual(0, summary.discovered)
+    self.assertEqual(0, summary.attempted)
+
+
+class RealScanOverflowIsolationTest(Fixture):
+  def test_overflow_cannot_turn_a_discovered_prefix_into_database_work(self):
+    self.media()
+    self.publish()
+    service = FakeRecordingService()
+
+    class Entries:
+      def __init__(self):
+        self.entries = iter((
+          type("Entry", (), {"name": "{}.json".format(KEY)})(),
+          type("Entry", (), {"name": "README"})(),
+        ))
+
+      def __enter__(self):
+        return self
+
+      def __exit__(self, *unused):
+        return False
+
+      def __iter__(self):
+        return self.entries
+
+    with mock.patch.object(journal_module, "MAX_RECOVERY_SCAN_ENTRIES", 1), \
+         mock.patch.object(journal_module.os, "scandir", return_value=Entries()):
+      summary = self.reconciler(service).reconcile_once()
+
+    self.assertEqual([], service.calls)
+    self.assertEqual(0, summary.attempted)
+    self.assertEqual(["{}.json".format(KEY)], self.notes())
+
+
+class FairBatchReconciliationTest(Fixture):
+  """Scheduling rotates retained notes without changing recovery authority."""
+
+  def test_retained_prefix_yields_to_later_valid_notes_on_the_next_start(self):
+    keys = [key_for(value) for value in range(1, 5)]
+    for index, key in enumerate(keys, start=1):
+      relative = "douyin/live/{}.mp4".format(index)
+      if index > 2:
+        self.media(relative)
+      self.publish(key=key, output_path=relative)
+    service = FakeRecordingService()
+
+    with mock.patch(
+      "backend.src.service.recording_recovery.MAX_RECOVERY_JOURNALS_PER_RUN", 2
+    ):
+      first = self.reconciler(service).reconcile_once()
+      second = self.reconciler(service).reconcile_once()
+
+    self.assertEqual(2, first.missing)
+    self.assertEqual(0, first.recovered)
+    self.assertEqual(2, second.recovered)
+    self.assertEqual(keys[2:4], [call[1] for call in service.calls])
+    self.assertEqual(
+      ["{}.json".format(keys[0]), "{}.json".format(keys[1])],
+      self.notes(),
+    )
+
+  @unittest.skipUnless(hasattr(os, "mkfifo"), "requires named pipes")
+  def test_canonical_fifo_is_retained_and_does_not_poison_a_later_note(self):
+    fifo_key = key_for(1)
+    valid_key = key_for(2)
+    directory = self.journal.ensure_root()
+    fifo = directory / "{}.json".format(fifo_key)
+    os.mkfifo(fifo)
+    self.media("douyin/live/valid.mp4")
+    self.publish(key=valid_key, output_path="douyin/live/valid.mp4")
+    context = multiprocessing.get_context("fork")
+    parent, child = context.Pipe(duplex=False)
+    process = context.Process(
+      target=_reconcile_fifo_batch_in_child,
+      args=(self.root, child),
+    )
+    process.start()
+    child.close()
+    process.join(timeout=2.0)
+    hung = process.is_alive()
+    if hung:
+      process.terminate()
+      process.join(timeout=5.0)
+    if process.is_alive():
+      process.kill()
+      process.join(timeout=5.0)
+
+    self.assertFalse(hung, "a canonical FIFO blocked the reconciliation batch")
+    self.assertTrue(parent.poll(0.5), "the reconciliation child returned no result")
+    result = parent.recv()
+    parent.close()
+    self.assertIsNone(result["error"])
+    self.assertEqual([valid_key], result["calls"])
+    self.assertEqual(1, result["recovered"])
+    self.assertEqual(1, result["retained"])
+    self.assertTrue(fifo.exists())
+    self.assertEqual(["{}.json".format(fifo_key)], self.notes())
+
+  def test_database_unavailable_keeps_all_notes_despite_cursor_advance(self):
+    keys = [key_for(value) for value in range(1, 4)]
+    for index, key in enumerate(keys, start=1):
+      relative = "douyin/live/{}.mp4".format(index)
+      self.media(relative)
+      self.publish(key=key, output_path=relative)
+
+    unavailable = FakeRecordingService(
+      error=RecordingPersistenceUnavailable("database unavailable")
+    )
+    with mock.patch(
+      "backend.src.service.recording_recovery.MAX_RECOVERY_JOURNALS_PER_RUN", 2
+    ):
+      first = self.reconciler(unavailable).reconcile_once()
+      notes_after_unavailable = self.notes()
+      available = FakeRecordingService()
+      second = self.reconciler(available).reconcile_once()
+
+    self.assertEqual(2, first.deferred)
+    self.assertEqual(3, len(notes_after_unavailable))
+    self.assertEqual([keys[2], keys[0]], [call[1] for call in available.calls])
+    self.assertEqual(2, second.recovered)
+    self.assertEqual(["{}.json".format(keys[1])], self.notes())
 
 
 if __name__ == "__main__":
