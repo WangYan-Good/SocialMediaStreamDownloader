@@ -4,15 +4,14 @@ services:
   # ============================================
   mysql:
     image: mysql:8.0
-    container_name: smd-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: "${SMSD_DB_PASSWORD:?run ./run-docker.sh}"
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
       MYSQL_DATABASE: "${SMSD_DB_NAME:?run ./run-docker.sh}"
       MYSQL_USER: "${SMSD_DB_USER:?run ./run-docker.sh}"
       MYSQL_PASSWORD: "${SMSD_DB_PASSWORD:?run ./run-docker.sh}"
-    ports:
-      - "${SMSD_DB_PORT:?run ./run-docker.sh}:3306"
+    secrets:
+      - mysql_root_password
     volumes:
       - mysql_data:/var/lib/mysql
       - ./config/init-db:/docker-entrypoint-initdb.d
@@ -41,23 +40,23 @@ services:
   # 主应用服务
   # ============================================
   app:
+    image: "${SMSD_IMAGE:-smsd:local}"
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: smd-app
     restart: unless-stopped
     depends_on:
       mysql:
         condition: service_healthy
     ports:
-      - "${SMSD_SERVER_PORT:?run ./run-docker.sh}:${SMSD_SERVER_PORT:?run ./run-docker.sh}"
+      - "127.0.0.1:${SMSD_SERVER_PORT:?run ./run-docker.sh}:${SMSD_SERVER_PORT:?run ./run-docker.sh}"
     volumes:
       # 持久化下载视频
       - download_data:/app/downloads
       # 持久化日志
-      - ./logs:/app/logs
+      - log_data:/app/logs
       # 唯一持久配置源；root 入口复制后立即降权运行应用
-      - ./config/config.yml:/run/secrets/config.yml:ro
+      - "${SMSD_CONFIG_FILE:?run ./run-docker.sh}:/run/secrets/config.yml:ro"
     networks:
       - smd-network
     healthcheck:
@@ -83,6 +82,8 @@ volumes:
     driver: local
   download_data:
     driver: local
+  log_data:
+    driver: local
 
 # ============================================
 # 网络
@@ -90,3 +91,7 @@ volumes:
 networks:
   smd-network:
     driver: bridge
+
+secrets:
+  mysql_root_password:
+    file: "${SMSD_MYSQL_ROOT_SECRET_FILE:?run ./run-docker.sh}"

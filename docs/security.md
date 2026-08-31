@@ -9,6 +9,13 @@
   `appuser` 所有、权限 `0600` 后，通过 `initgroups/setgid/setuid` 降权执行服务。
 - Docker Compose 必需的端口和 MySQL 初始化变量由 `run-docker.sh` 临时派生；
   临时文件权限为 `0600`，并在命令退出时删除。
+- `run-docker.sh` 首次生成独立、随机且权限为 `0600` 的
+  `config/mysql-root-password`，后续复用；该文件被 Git 与 Docker build context 排除。Compose 通过
+  `MYSQL_ROOT_PASSWORD_FILE` 只向 MySQL 服务挂载该 secret。应用服务既不挂载也不接收
+  root secret，且 application database password 必须与它不同。MySQL 无宿主发布端口，
+  app 只通过内部 service name `mysql` 连接。
+- `/app/logs` 使用 named volume `log_data`。镜像在构建期以窄范围 `install -d` 准备
+  appuser 所有权，不在入口执行递归 chown；文件日志可写且跨容器重启保留。
 - 缺失或非法配置会阻止本地与容器启动，错误只说明配置无效，不回显配置值。
 - `download.test_mode` 不是安全隔离开关：它只跳过直播流数据传输，仍会访问平台网络接口
   和已启用的数据库。
@@ -18,6 +25,11 @@
 - 宿主机与容器生产入口均为 `python ./server.py`，由 Waitress 在单进程、4 个应用线程下
   运行。配置中的 `debug_mode` 仅开启项目自己的安全诊断事件；Flask debugger、reloader
   与 Waitress traceback response 始终关闭。
+- 裸机/example 默认只监听 `127.0.0.1`。本机 HTTP profile 使用
+  `cookie_secure: false`；外部 production profile 必须由 **HTTPS reverse proxy** 终止
+  TLS、代理到 loopback/internal Waitress，并设置 `cookie_secure: true`。不得直接对外暴露
+  原始 Waitress HTTP。容器暂存配置时仅把监听地址适配为内部 `0.0.0.0`，Compose 发布仍
+  锁定宿主 `127.0.0.1`。
 - 直播诊断使用正向字段白名单，只允许 operation、host、HTTP status、room id、protocol、
   exception class 和安全布尔状态。即使 `debug_mode: true`，也不记录完整 headers、params、
   config、signed URL query 或 exception message；Cookie、Authorization、msToken、X-Bogus、

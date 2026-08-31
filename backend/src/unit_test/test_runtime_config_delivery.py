@@ -30,6 +30,7 @@ DOCKERIGNORE_FILE = PROJECT_ROOT / ".dockerignore"
 DOCKERFILE = PROJECT_ROOT / "Dockerfile"
 README_FILE = PROJECT_ROOT / "README.md"
 REQUIREMENTS_FILE = PROJECT_ROOT / "requirements.txt"
+CI_FILE = PROJECT_ROOT / ".github" / "workflows" / "ci.yml"
 
 
 class RuntimeConfigDeliveryTest(unittest.TestCase):
@@ -37,6 +38,12 @@ class RuntimeConfigDeliveryTest(unittest.TestCase):
     config = yaml.safe_load(CONFIG_EXAMPLE_PATH.read_text(encoding="utf-8"))
 
     self.assertFalse(config["server"]["debug_mode"])
+
+  def test_example_binds_direct_startup_to_loopback(self):
+    config = yaml.safe_load(CONFIG_EXAMPLE_PATH.read_text(encoding="utf-8"))
+
+    self.assertEqual(config["server"]["host"], "127.0.0.1")
+    self.assertFalse(config["auth"]["cookie_secure"])
 
   def test_waitress_is_exactly_pinned(self):
     requirements = REQUIREMENTS_FILE.read_text(encoding="utf-8").splitlines()
@@ -87,6 +94,7 @@ class RuntimeConfigDeliveryTest(unittest.TestCase):
     config = unified_config()
     config["server"]["port"] = 5123
     config["database"].update({
+      "host": "mysql",
       "name": "smsd_test",
       "port": 33306,
       "username": "smsd_test_user",
@@ -99,8 +107,9 @@ class RuntimeConfigDeliveryTest(unittest.TestCase):
 
     with tempfile.TemporaryDirectory() as temp_directory:
       output_path = Path(temp_directory) / "compose.env"
+      root_secret_path = Path(temp_directory) / "mysql-root-password"
       runtime_config.write_compose_environment(
-        self.compose_config(), output_path
+        self.compose_config(), output_path, root_secret_path
       )
       output = output_path.read_text(encoding="utf-8")
       mode = stat.S_IMODE(output_path.stat().st_mode)
@@ -110,12 +119,57 @@ class RuntimeConfigDeliveryTest(unittest.TestCase):
       output.splitlines(),
       [
         "SMSD_SERVER_PORT=5123",
-        "SMSD_DB_PORT=33306",
         "SMSD_DB_NAME='smsd_test'",
         "SMSD_DB_USER='smsd_test_user'",
         "SMSD_DB_PASSWORD='db-pass-for-test'",
+        f"SMSD_CONFIG_FILE='{PROJECT_ROOT / 'config' / 'config.yml'}'",
+        f"SMSD_MYSQL_ROOT_SECRET_FILE='{root_secret_path}'",
       ],
     )
+
+  def test_compose_environment_requires_internal_mysql_host(self):
+    runtime_config = self.load_runtime_config_module()
+    config = self.compose_config()
+    config["database"]["host"] = "localhost"
+
+    with self.assertRaisesRegex(ValueError, "database.host"):
+      runtime_config.compose_environment(config)
+
+  def test_mysql_root_secret_is_generated_once_private_and_distinct(self):
+    runtime_config = self.load_runtime_config_module()
+    generated = iter(("db-pass-for-test", "root-only-secret"))
+
+    with tempfile.TemporaryDirectory() as temp_directory:
+      secret_path = Path(temp_directory) / "mysql-root-password"
+      first = runtime_config.ensure_mysql_root_secret(
+        secret_path,
+        "db-pass-for-test",
+        token_factory=lambda: next(generated),
+      )
+      mode = stat.S_IMODE(secret_path.stat().st_mode)
+      second = runtime_config.ensure_mysql_root_secret(
+        secret_path,
+        "db-pass-for-test",
+        token_factory=lambda: self.fail("existing secret was regenerated"),
+      )
+
+    self.assertEqual(first, "root-only-secret")
+    self.assertEqual(second, "root-only-secret")
+    self.assertEqual(mode, 0o600)
+
+  def test_mysql_root_secret_rejects_application_password_reuse(self):
+    runtime_config = self.load_runtime_config_module()
+
+    with tempfile.TemporaryDirectory() as temp_directory:
+      secret_path = Path(temp_directory) / "mysql-root-password"
+      secret_path.write_text("db-pass-for-test\n", encoding="utf-8")
+      secret_path.chmod(0o600)
+
+      with self.assertRaisesRegex(ValueError, "distinct"):
+        runtime_config.ensure_mysql_root_secret(
+          secret_path,
+          "db-pass-for-test",
+        )
 
   def test_runtime_validation_reports_missing_fields_in_canonical_order(self):
     runtime_config = self.load_runtime_config_module()
@@ -332,6 +386,14 @@ Path(os.environ["FAKE_DOCKER_RECORD"]).write_text(
 
       self.assertEqual(record["env_mode"], 0o600)
       self.assertIn("SMSD_SERVER_PORT=5123", record["env_content"])
+      self.assertIn("SMSD_MYSQL_ROOT_SECRET_FILE=", record["env_content"])
+      root_secret_path = project / "config" / "mysql-root-password"
+      root_secret = root_secret_path.read_text(encoding="utf-8").strip()
+      self.assertTrue(root_secret)
+      self.assertNotEqual(root_secret, "db-pass-for-test")
+      self.assertEqual(stat.S_IMODE(root_secret_path.stat().st_mode), 0o600)
+      self.assertNotIn(root_secret, record["env_content"])
+      self.assertNotIn(root_secret, result.stdout + result.stderr)
       self.assertIsNone(record["inherited_server_port"])
       self.assertEqual(record["arguments"][0:2], ["compose", "--env-file"])
       self.assertEqual(record["arguments"][-1], "config")
@@ -361,7 +423,10 @@ Path(os.environ["FAKE_DOCKER_RECORD"]).write_text(
         os.getgid(),
       )
 
-      self.assertEqual(target_path.read_text(encoding="utf-8"), config_text)
+      staged_config = yaml.safe_load(target_path.read_text(encoding="utf-8"))
+      source_config = yaml.safe_load(source_path.read_text(encoding="utf-8"))
+      self.assertEqual(source_config["server"]["host"], "127.0.0.1")
+      self.assertEqual(staged_config["server"]["host"], "0.0.0.0")
       self.assertEqual(stat.S_IMODE(target_path.stat().st_mode), 0o600)
       self.assertEqual(target_path.stat().st_uid, os.getuid())
       self.assertEqual(target_path.stat().st_gid, os.getgid())
@@ -441,15 +506,45 @@ Path(os.environ["FAKE_DOCKER_RECORD"]).write_text(
       call.execvp("python", ["python", "./server.py"]),
     ])
 
+  def test_container_entrypoint_always_drops_privileges_before_server_exec(self):
+    runtime_config = self.load_runtime_config_module()
+    account = pwd.struct_passwd(
+      ("appuser", "x", 2345, 3456, "", "/app", "/sbin/nologin")
+    )
+    source_path = Path("/run/secrets/config.yml")
+    command = ["python", "./server.py"]
+
+    with (
+      patch.object(runtime_config.pwd, "getpwnam", return_value=account),
+      patch.object(runtime_config, "stage_container_config") as stage,
+      patch.object(runtime_config, "drop_privileges_and_exec") as drop,
+      patch.object(runtime_config.os, "execvp") as direct_exec,
+    ):
+      runtime_config.run_container_entrypoint(
+        source_path, "appuser", command
+      )
+
+    stage.assert_called_once_with(
+      source_path,
+      runtime_config.CANONICAL_CONFIG_PATH,
+      2345,
+      3456,
+    )
+    drop.assert_called_once_with("appuser", command)
+    direct_exec.assert_not_called()
+
   def test_compose_mounts_only_the_read_only_container_secret(self):
     compose = yaml.safe_load(COMPOSE_FILE.read_text(encoding="utf-8"))
     app = compose["services"]["app"]
 
     self.assertNotIn("environment", app)
     self.assertIn(
-      "./config/config.yml:/run/secrets/config.yml:ro",
+      "${SMSD_CONFIG_FILE:?run ./run-docker.sh}:/run/secrets/config.yml:ro",
       app["volumes"],
     )
+    self.assertIn("log_data:/app/logs", app["volumes"])
+    self.assertNotIn("./logs:/app/logs", app["volumes"])
+    self.assertIn("log_data", compose["volumes"])
     self.assertFalse(
       any(
         str(volume).startswith("./config/config.yml:/app/config/")
@@ -460,7 +555,7 @@ Path(os.environ["FAKE_DOCKER_RECORD"]).write_text(
       any(".env" in str(volume) for volume in app["volumes"])
     )
     self.assertEqual(app["ports"], [
-      "${SMSD_SERVER_PORT:?run ./run-docker.sh}:"
+      "127.0.0.1:${SMSD_SERVER_PORT:?run ./run-docker.sh}:"
       "${SMSD_SERVER_PORT:?run ./run-docker.sh}",
     ])
     self.assertEqual(
@@ -470,23 +565,84 @@ Path(os.environ["FAKE_DOCKER_RECORD"]).write_text(
         "http://localhost:${SMSD_SERVER_PORT:?run ./run-docker.sh}/",
       ],
     )
+    self.assertNotIn("container_name", app)
+    self.assertEqual(app["image"], "${SMSD_IMAGE:-smsd:local}")
+
+  def test_container_staging_adapts_loopback_source_to_internal_bind_only(self):
+    runtime_config = self.load_runtime_config_module()
+    config = self.compose_config()
+    config["server"]["host"] = "127.0.0.1"
+
+    with tempfile.TemporaryDirectory() as temp_directory:
+      temporary_root = Path(temp_directory)
+      source_path = temporary_root / "secrets" / "config.yml"
+      target_path = temporary_root / "app" / "config" / "config.yml"
+      source_path.parent.mkdir()
+      target_path.parent.mkdir(parents=True)
+      source_path.write_text(
+        yaml.safe_dump(config, sort_keys=False), encoding="utf-8"
+      )
+
+      runtime_config.stage_container_config(
+        source_path,
+        target_path,
+        os.getuid(),
+        os.getgid(),
+      )
+
+      source = yaml.safe_load(source_path.read_text(encoding="utf-8"))
+      staged = yaml.safe_load(target_path.read_text(encoding="utf-8"))
+      self.assertEqual(source["server"]["host"], "127.0.0.1")
+      self.assertEqual(staged["server"]["host"], "0.0.0.0")
+
+  def test_security_docs_define_local_and_external_transport_profiles(self):
+    readme = README_FILE.read_text(encoding="utf-8")
+    security = (PROJECT_ROOT / "docs" / "security.md").read_text(
+      encoding="utf-8"
+    )
+    documentation = readme + "\n" + security
+
+    self.assertIn("127.0.0.1", documentation)
+    self.assertIn("HTTPS reverse proxy", documentation)
+    self.assertIn("cookie_secure: true", documentation)
+    self.assertIn("cookie_secure: false", documentation)
+    self.assertIn("0.0.0.0", documentation)
+    self.assertIn("不得直接对外暴露", security)
+    self.assertIn("cookie_secure: true", security)
 
   def test_compose_mysql_bootstrap_uses_only_yaml_derived_values(self):
     compose = yaml.safe_load(COMPOSE_FILE.read_text(encoding="utf-8"))
     mysql = compose["services"]["mysql"]
 
     self.assertEqual(mysql["environment"], {
-      "MYSQL_ROOT_PASSWORD": "${SMSD_DB_PASSWORD:?run ./run-docker.sh}",
+      "MYSQL_ROOT_PASSWORD_FILE": "/run/secrets/mysql_root_password",
       "MYSQL_DATABASE": "${SMSD_DB_NAME:?run ./run-docker.sh}",
       "MYSQL_USER": "${SMSD_DB_USER:?run ./run-docker.sh}",
       "MYSQL_PASSWORD": "${SMSD_DB_PASSWORD:?run ./run-docker.sh}",
     })
+    self.assertNotIn("ports", mysql)
+    self.assertEqual(mysql["secrets"], ["mysql_root_password"])
     self.assertEqual(
-      mysql["ports"],
-      ["${SMSD_DB_PORT:?run ./run-docker.sh}:3306"],
+      compose["secrets"]["mysql_root_password"]["file"],
+      "${SMSD_MYSQL_ROOT_SECRET_FILE:?run ./run-docker.sh}",
     )
+    self.assertNotIn("secrets", compose["services"]["app"])
+    self.assertNotIn("container_name", mysql)
 
-  def test_docker_build_context_excludes_the_canonical_config(self):
+  def test_ci_runs_real_compose_baseline_with_independent_marker_guard(self):
+    workflow = CI_FILE.read_text(encoding="utf-8")
+    marker = "ok   runtime secure compose deployment baseline"
+
+    self.assertIn("./run-docker.sh -p", workflow)
+    self.assertIn("/run/secrets/mysql_root_password", workflow)
+    self.assertIn("docker cp", workflow)
+    self.assertIn("docker exec --user appuser", workflow)
+    self.assertIn("--force-recreate", workflow)
+    self.assertIn(marker, workflow)
+    self.assertIn(f"grep -Fxq '{marker}'", workflow)
+    self.assertNotIn("docker exec smsd-ci-compose-app python -", workflow)
+
+  def test_docker_build_context_excludes_runtime_config_and_root_secret(self):
     with tempfile.TemporaryDirectory() as temp_directory:
       test_repository = Path(temp_directory) / "repository"
       test_repository.mkdir()
@@ -499,19 +655,24 @@ Path(os.environ["FAKE_DOCKER_RECORD"]).write_text(
       )
       shutil.copy2(DOCKERIGNORE_FILE, test_repository / ".gitignore")
 
-      ignored = subprocess.run(
-        ["git", "check-ignore", "--no-index", "config/config.yml"],
-        cwd=test_repository,
-        check=False,
-        capture_output=True,
-        text=True,
-      )
+      results = {
+        path: subprocess.run(
+          ["git", "check-ignore", "--no-index", path],
+          cwd=test_repository,
+          check=False,
+          capture_output=True,
+          text=True,
+        ).returncode
+        for path in (
+          "config/config.yml",
+          "config/mysql-root-password",
+        )
+      }
 
-    self.assertEqual(
-      ignored.returncode,
-      0,
-      "config/config.yml would enter the Docker build context",
-    )
+    self.assertEqual(results, {
+      "config/config.yml": 0,
+      "config/mysql-root-password": 0,
+    })
 
   def test_local_startup_check_rejects_invalid_yaml_without_echoing_values(self):
     secret_marker = "LOCAL_STARTUP_MUST_NOT_PRINT"
@@ -631,6 +792,29 @@ Path(os.environ["FAKE_DOCKER_RECORD"]).write_text(
     ]
 
     self.assertEqual(runtime_copies, ["COPY . ."])
+
+  def test_image_prepares_runtime_volumes_without_recursive_chown(self):
+    instructions = self.dockerfile_instructions()
+    combined = "\n".join(instructions)
+
+    self.assertNotIn("chown -R", combined)
+    self.assertIn("install -d", combined)
+    self.assertIn("/app/logs", combined)
+    self.assertIn("/app/downloads", combined)
+    self.assertIn("appuser", combined)
+
+  def test_deployment_docs_define_private_root_secret_and_named_logs(self):
+    documentation = (
+      README_FILE.read_text(encoding="utf-8")
+      + "\n"
+      + (PROJECT_ROOT / "docs" / "security.md").read_text(encoding="utf-8")
+    )
+
+    self.assertIn("MYSQL_ROOT_PASSWORD_FILE", documentation)
+    self.assertIn("mysql-root-password", documentation)
+    self.assertIn("0600", documentation)
+    self.assertIn("log_data", documentation)
+    self.assertIn("MySQL", documentation)
 
 
 if __name__ == "__main__":
