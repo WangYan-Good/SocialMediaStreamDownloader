@@ -15,7 +15,8 @@ import yaml as yml
 from requests import exceptions
 
 ## <<Third-Part>>
-from backend.src.library.baselib                            import set_dict_attr, get_dict_attr, output_dict
+from backend.src.library.baselib                            import set_dict_attr, get_dict_attr
+from backend.src.library.safe_diagnostics                  import live_diagnostic
 from backend.src.platform.douyin.douyin_header              import DouyinShareHeader, DouyinLiveInfoHeader
 from backend.src.platform.douyin.douyin_live_external_info  import observed_at
 from backend.src.library.loglib                             import get_logger
@@ -179,10 +180,7 @@ class DouyinLiveProber:
 
     api = self._context.API.get_config_dict_attr("$.LIVE_INFO_ROOM_ID")
     if self._debug_enabled():
-      get_logger().info("Url query response:")
-      output_dict(params)
-      output_dict(header)
-      get_logger().info(api)
+      get_logger().info(live_diagnostic("live_info_request", url=api))
 
     live_response = self._context.query_url(
       method="GET",
@@ -193,6 +191,14 @@ class DouyinLiveProber:
     )
     if live_response.status_code != 200:
       raise exceptions.HTTPError
+    if self._debug_enabled():
+      get_logger().info(
+        live_diagnostic(
+          "live_info_response",
+          url=api,
+          status=live_response.status_code,
+        )
+      )
     return live_response, header
 
 ##
@@ -216,21 +222,26 @@ class DouyinLiveProber:
     ##
     try:
       if self._debug_enabled():
-        get_logger().info("Share url: {}".format(url))
+        get_logger().info(live_diagnostic("share_url_request", url=url))
       response, share_header = self._resolve_share_url(url, header)
-    except TimeoutError:
-      get_logger().error("Timeout, please try again later! {}".format(url))
+    except TimeoutError as e:
+      get_logger().error(live_diagnostic("share_url_failed", url=url, error=e))
       return LiveProbeResult(url=url, error="请求超时")
-    except exceptions.ReadTimeout:
-      get_logger().error("Read timeout, please try again later! {}".format(url))
+    except exceptions.ReadTimeout as e:
+      get_logger().error(live_diagnostic("share_url_failed", url=url, error=e))
       return LiveProbeResult(url=url, error="请求超时")
-    except UnboundLocalError:
-      get_logger().error("UnboundLocalError, please check the code! {}".format(url))
+    except UnboundLocalError as e:
+      get_logger().error(live_diagnostic("share_url_failed", url=url, error=e))
       return LiveProbeResult(url=url, error="分享链接解析失败")
     except Exception as e:
       status_code = getattr(locals().get("response"), "status_code", "unavailable")
       get_logger().error(
-        "Query share url failed! \tstatus:{} \tERROR:{}".format(status_code, e)
+        live_diagnostic(
+          "share_url_failed",
+          url=url,
+          status=status_code,
+          error=e,
+        )
       )
       return LiveProbeResult(url=url, error="分享链接请求失败")
 
@@ -248,7 +259,9 @@ class DouyinLiveProber:
           share_header,
         )
     except Exception as e:
-      get_logger().error("Parse share live url failed! {} {}".format(e, url))
+      get_logger().error(
+        live_diagnostic("share_url_parse_failed", url=url, error=e)
+      )
       return LiveProbeResult(url=url, error="分享链接解析失败")
 
     ##
@@ -256,27 +269,31 @@ class DouyinLiveProber:
     ##
     try:
       live_response, header = self._request_live_info(params, header)
-    except exceptions.HTTPError:
+    except exceptions.HTTPError as e:
       status_code = getattr(locals().get("live_response"), "status_code", "unavailable")
-      get_logger().error("Query live response failed! {}".format(status_code))
+      get_logger().error(
+        live_diagnostic(
+          "live_info_failed", url=url, status=status_code, error=e
+        )
+      )
       return LiveProbeResult(
         url=url,
         error="直播信息请求失败",
         share_info=share_info,
         live_payload=params,
       )
-    except TimeoutError:
-      get_logger().error("Timeout, please try again later! {}".format(url))
+    except TimeoutError as e:
+      get_logger().error(live_diagnostic("live_info_failed", url=url, error=e))
       return LiveProbeResult(
         url=url, error="请求超时", share_info=share_info, live_payload=params
       )
-    except exceptions.ReadTimeout:
-      get_logger().error("Read timeout, please try again later! {}".format(url))
+    except exceptions.ReadTimeout as e:
+      get_logger().error(live_diagnostic("live_info_failed", url=url, error=e))
       return LiveProbeResult(
         url=url, error="请求超时", share_info=share_info, live_payload=params
       )
     except Exception as e:
-      get_logger().error("Query live response failed! {}".format(e))
+      get_logger().error(live_diagnostic("live_info_failed", url=url, error=e))
       raise e
 
     ##
@@ -285,8 +302,11 @@ class DouyinLiveProber:
     self._context.pause()
 
     if self._debug_enabled():
-      get_logger().info("Live external information:")
-      get_logger().info("Live external response received")
+      get_logger().info(
+        live_diagnostic(
+          "live_info_response", url=url, status=live_response.status_code
+        )
+      )
 
     ##
     ##<<========================== read live status =========================>>
@@ -318,15 +338,14 @@ class DouyinLiveProber:
         get_logger().info("当前 {0} 正在直播...".format(nickname))
     except exceptions.HTTPError:
       if rejection is None:
-        get_logger().error("forbidden, please try via other way {}".format(url))
+        get_logger().error(live_diagnostic("live_query_rejected", url=url))
         reason = "平台拒绝了本次查询"
       else:
         get_logger().error(
-          "platform rejected the live query: status_code={} message={} prompts={} url={}".format(
-            rejection["status_code"],
-            rejection["message"],
-            rejection["prompts"],
-            url,
+          live_diagnostic(
+            "live_query_rejected",
+            url=url,
+            status=rejection["status_code"],
           )
         )
         reason = rejection["reason"]
@@ -337,7 +356,9 @@ class DouyinLiveProber:
         live_payload=params,
       )
     except Exception as e:
-      get_logger().error("Transformation response to json failed {}".format(e))
+      get_logger().error(
+        live_diagnostic("live_response_parse_failed", url=url, error=e)
+      )
       raise e
 
     ##

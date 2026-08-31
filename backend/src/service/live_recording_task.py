@@ -1,6 +1,7 @@
 ##<<Third-part>>
 from backend.src.library.baselib import get_dict_attr
 from backend.src.library.loglib import get_logger
+from backend.src.library.safe_diagnostics import live_diagnostic
 from uuid import uuid4
 from backend.src.platform.douyin.douyin_listener import ListenerItem
 from backend.src.platform.douyin.douyin_live_downloader import get_live_downloader
@@ -108,7 +109,9 @@ class LiveRecordingTaskService:
       return call()
     except Exception as e:
       get_logger().error(
-        "live recording task: {} failed for task {}: {}".format(action, task_id, e)
+        "live recording task: {} failed for task {}: error={}".format(
+          action, task_id, type(e).__name__
+        )
       )
       return None
 
@@ -281,10 +284,10 @@ class LiveRecordingTaskService:
       self._recovery_journal.publish(intent, recovery_key)
     except Exception as e:
       return self._persistence_failure(
-        "recording recovery handoff failed for room {}: {}: {}".format(
-          result.room_id,
-          type(e).__name__,
-          e,
+        live_diagnostic(
+          "live_recovery_handoff_failed",
+          room_id=result.room_id,
+          error=e,
         ),
         app_user_id,
       )
@@ -299,10 +302,10 @@ class LiveRecordingTaskService:
       )
     except Exception as e:
       return self._persistence_failure(
-        "recording resource persistence failed for room {}: {}: {}".format(
-          result.room_id,
-          type(e).__name__,
-          e,
+        live_diagnostic(
+          "live_recording_persistence_failed",
+          room_id=result.room_id,
+          error=e,
         ),
         app_user_id,
       )
@@ -319,12 +322,10 @@ class LiveRecordingTaskService:
       ## resolves to that row instead of inserting a second one.
       ##
       get_logger().warning(
-        "recording {} persisted but its recovery journal {} could not be "
-        "retired ({}: {})".format(
-          recording_id,
-          recovery_key[:8],
-          type(e).__name__,
-          e,
+        live_diagnostic(
+          "live_recovery_ack_failed",
+          room_id=result.room_id,
+          error=e,
         )
       )
     return (recording_id, None)
@@ -347,19 +348,26 @@ class LiveRecordingTaskService:
       ## nothing here should be read as "recordings can be cancelled".
       ##
       get_logger().info(
-        "live recording cancelled for {}: {}".format(
-          get_dict_attr(token, "$.url"), e
+        live_diagnostic(
+          "live_recording_cancelled",
+          url=get_dict_attr(token, "$.url"),
+          error=e,
         )
       )
       self._finish(task_id, "cancelled", CANCELLED_MESSAGE, {})
       raise
     except Exception as e:
       ##
-      ## The full trace goes to the log; the task keeps one short sentence,
-      ## because task metadata is read by a browser.
+      ## Exception messages and tracebacks may contain signed URLs, cookies or
+      ## transport headers. Emit only the closed diagnostic fields; the task
+      ## keeps one fixed sentence because task metadata is read by a browser.
       ##
-      get_logger().exception(
-        "live recording crashed for {}: {}".format(get_dict_attr(token, "$.url"), e)
+      get_logger().error(
+        live_diagnostic(
+          "live_recording_failed",
+          url=get_dict_attr(token, "$.url"),
+          error=e,
+        )
       )
       self._finish(task_id, "failed", RECORDING_FAILED_MESSAGE, {})
       ##
@@ -419,7 +427,9 @@ class LiveRecordingTaskService:
       )
     except Exception as e:
       get_logger().error(
-        "live recording task: strict create failed: {}".format(e)
+        "live recording task: strict create failed: error={}".format(
+          type(e).__name__
+        )
       )
       raise TaskCreationUnavailable(NOT_CREATED_MESSAGE)
 
@@ -482,13 +492,15 @@ class LiveRecordingTaskService:
         ## what it should be looking at.
         ##
         get_logger().info(
-          "live recording task {} failed while running inline: {}".format(
-            task_id, e
+          "live recording task {} failed while running inline: error={}".format(
+            task_id, type(e).__name__
           )
         )
       else:
         get_logger().error(
-          "live recording was not started for task {}: {}".format(task_id, e)
+          "live recording was not started for task {}: error={}".format(
+            task_id, type(e).__name__
+          )
         )
         self._finish(task_id, "failed", NOT_STARTED_MESSAGE, {})
     return task_id
@@ -529,8 +541,8 @@ class LiveRecordingTaskService:
         ##
         raise
       get_logger().error(
-        "live recording was not started for {}: {}".format(
-          get_dict_attr(token, "$.url"), e
+        "live recording was not started: error={}".format(
+          type(e).__name__
         )
       )
       self._finish(task_id, "failed", NOT_STARTED_MESSAGE, {})

@@ -128,7 +128,10 @@ def _new_flask_app(
       options = _server_options(source)
       LoggerManager(source["log"])
       schema_guard = schema_guard_factory(source)
-      configured_app.debug = options["debug"]
+      ## ``debug_mode`` controls this project's own diagnostic events.  It is
+      ## never permission to enable Flask's debugger or exception propagation
+      ## on the production WSGI application.
+      configured_app.debug = False
       configured_app.extensions["smsd_schema_guard"] = schema_guard
       ##
       ## Reduced to the publishable fields here, at the moment this application
@@ -425,7 +428,10 @@ def create_app(
     initial_schema_guard=schema_guard,
     initial_config=source,
   )
-  configured_app.debug = options["debug"]
+  ## Production always serves the plain Flask WSGI application.  Project
+  ## diagnostics may still be enabled in the source configuration, but Flask's
+  ## development debugger is not part of that contract.
+  configured_app.debug = False
   ##
   ## The same reduction for an application built around an explicit
   ## configuration.  Without this an application created here would report the
@@ -435,11 +441,17 @@ def create_app(
   return configured_app
 
 
-def run_server(config: dict = None):
+def run_server(config: dict = None, serve_application=None):
   source = load_config() if config is None else config
   options = _server_options(source)
   configured_app = create_app(source)
+  if serve_application is None:
+    ## Imported only at the executable production boundary.  Application
+    ## factories and unit tests can still import ``server`` without starting or
+    ## configuring a socket server.
+    from waitress import serve as serve_application
   cancellation_requested = False
+  shutdown_signal = None
   previous_handlers = {}
   installed_signals = []
 
@@ -469,14 +481,29 @@ def run_server(config: dict = None):
         pass
 
   def handle_shutdown(signum, _frame):
-    cancel_once()
-    raise SystemExit(128 + signum)
+    nonlocal shutdown_signal
+    if shutdown_signal is None:
+      shutdown_signal = signum
+    ## Waitress catches SystemExit to stop its dispatcher. Cleanup belongs
+    ## after that shutdown begins, in the outer finally; doing it here races
+    ## worker threads that have not stopped yet.
+    raise SystemExit(128 + shutdown_signal)
 
   try:
     for signum in (signal.SIGINT, signal.SIGTERM):
       previous_handlers[signum] = signal.signal(signum, handle_shutdown)
       installed_signals.append(signum)
-    configured_app.run(**options)
+    serve_application(
+      configured_app,
+      host=options["host"],
+      port=options["port"],
+      threads=4,
+      expose_tracebacks=False,
+    )
+    ## Waitress 3 consumes the handler's SystemExit and returns normally. Keep
+    ## the process exit contract explicit for supervisors and container smoke.
+    if shutdown_signal is not None:
+      raise SystemExit(128 + shutdown_signal)
   finally:
     try:
       cancel_once()

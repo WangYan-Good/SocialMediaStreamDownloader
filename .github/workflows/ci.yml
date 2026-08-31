@@ -291,8 +291,10 @@ jobs:
           cleanup() {
             echo "::group::container logs"
             docker logs smsd-ci-smoke 2>&1 || true
+            docker logs smsd-ci-sigterm 2>&1 || true
             echo "::endgroup::"
             docker rm -f smsd-ci-smoke >/dev/null 2>&1 || true
+            docker rm -f smsd-ci-sigterm >/dev/null 2>&1 || true
           }
           trap cleanup EXIT
 
@@ -354,6 +356,182 @@ jobs:
           # root asset mount rather than carrying the retired /app/ base.
           expect / 200
           curl -fsS "${BASE}/" > /tmp/smsd-smoke/root.html
+          curl -fsS -D /tmp/smsd-smoke/server-headers.txt \
+            -o /dev/null "${BASE}/"
+          grep -qiE '^server: waitress([[:space:]]|$)' \
+            /tmp/smsd-smoke/server-headers.txt || {
+              echo "FAIL: production response was not served by Waitress"
+              cat /tmp/smsd-smoke/server-headers.txt
+              exit 1
+            }
+
+          # Exercise the image's real foreground process and the project's
+          # signal choreography. Unit tests prove both cleanup callbacks are
+          # exactly-once; this proves a production Waitress process accepts
+          # SIGTERM and exits promptly instead of hanging in its thread pool.
+          docker run -d --name smsd-ci-sigterm \
+            -v /tmp/smsd-smoke/config.yml:/run/secrets/config.yml:ro \
+            smsd:ci
+          for attempt in $(seq 1 60); do
+            if docker exec smsd-ci-sigterm \
+              curl -fsS http://127.0.0.1:5000/ >/dev/null 2>&1; then
+              break
+            fi
+            if [ "${attempt}" = "60" ]; then
+              echo "FAIL: SIGTERM probe server never became ready"
+              exit 1
+            fi
+            sleep 1
+          done
+          docker kill --signal=TERM smsd-ci-sigterm >/dev/null
+          SIGNAL_STATUS="$(docker wait smsd-ci-sigterm)"
+          test "${SIGNAL_STATUS}" = "143" || {
+            echo "FAIL: Waitress SIGTERM exit=${SIGNAL_STATUS}, expected 143"
+            exit 1
+          }
+          echo "ok   runtime production WSGI server profile" \
+            > /tmp/production-wsgi-smoke.txt
+          cat /tmp/production-wsgi-smoke.txt
+          grep -q 'ok   runtime production WSGI server profile' \
+            /tmp/production-wsgi-smoke.txt || {
+              echo "FAIL: production WSGI runtime marker was absent"
+              exit 1
+            }
+
+          # Phase 13A-B: exercise the actual live-info diagnostic method with
+          # fake responses. Network is deliberately absent; the boundary under
+          # test is what the debug path emits when transport material is rich
+          # in credentials.
+          cat > /tmp/sensitive-diagnostic-smoke.py <<'PY'
+          import contextlib
+          import io
+          import logging
+          import sys
+          from pathlib import Path
+
+          import yaml
+
+          sys.path.insert(0, "/app")
+          from backend.src.library.baselib import get_dict_attr
+          from backend.src.platform.douyin import douyin_live_prober as module
+          from backend.src.platform.douyin import douyin_listener as listener_module
+          from backend.src.service import live_recording_task as task_module
+          from backend.src.platform.douyin.douyin_listener import ListenerItem
+          from backend.src.service.live_recording_task import LiveRecordingTaskService
+
+          secrets = (
+            "SECRET_COOKIE_13A",
+            "SECRET_AUTHORIZATION_13A",
+            "SECRET_MSTOKEN_13A",
+            "SECRET_X_BOGUS_13A",
+            "SECRET_VERIFY_FP_13A",
+            "SECRET_SIGN_13A",
+            "SECRET_QUERY_TOKEN_13A",
+            "SECRET_PROXY_PASSWORD_13A",
+            "SECRET_SESSION_13A",
+            "SECRET_CSRF_13A",
+          )
+          config = yaml.safe_load(Path(
+            "/app/docs/design/config.yml.example"
+          ).read_text(encoding="utf-8"))
+          config["server"]["debug_mode"] = True
+          config["download"]["user_login"] = True
+          config["database"]["password"] = secrets[7]
+
+          class _Config:
+            def get_config_dict_attr(self, path):
+              return get_dict_attr(config, path)
+
+          class _Api:
+            def get_config_dict_attr(self, path):
+              return (
+                "https://webcast.amemv.com/webcast/room/reflow/info/"
+                "?sign=" + secrets[5]
+              )
+
+          class _Response:
+            status_code = 200
+
+          class _Context:
+            config = _Config()
+            API = _Api()
+
+            def query_url(self, **unused):
+              return _Response()
+
+          log_output = io.StringIO()
+          logger = logging.Logger("phase13a-runtime-diagnostic")
+          logger.propagate = False
+          logger.addHandler(logging.StreamHandler(log_output))
+          module.get_logger = lambda: logger
+          task_module.get_logger = lambda: logger
+          listener_module.get_logger = lambda: logger
+          params = {
+            "msToken": secrets[2],
+            "X-Bogus": secrets[3],
+            "verifyFp": secrets[4],
+            "sign": secrets[5],
+            "token": secrets[6],
+          }
+          headers = {
+            "Cookie": secrets[0],
+            "Authorization": secrets[1],
+            "X-Session": secrets[8],
+            "X-CSRF-Token": secrets[9],
+          }
+          stdout = io.StringIO()
+          stderr = io.StringIO()
+          with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            module.DouyinLiveProber(_Context())._request_live_info(
+              params, headers
+            )
+
+            class _FailingDownloader:
+              def run_with_result(self, unused_token):
+                raise RuntimeError("signed-exception=" + secrets[6])
+
+            service = LiveRecordingTaskService(
+              downloader_factory=lambda: _FailingDownloader(),
+            )
+            item = ListenerItem(
+              func=lambda: service._run(
+                None,
+                {"url": "https://live.example.test/room?token=" + secrets[6]},
+              ),
+              args=(),
+            )
+            item.start_item()
+            item._thread.join(timeout=5)
+            if item._thread.is_alive():
+              raise SystemExit("FAIL: diagnostic failure thread did not exit")
+
+          visible = stdout.getvalue() + stderr.getvalue() + log_output.getvalue()
+          leaked = [secret for secret in secrets if secret in visible]
+          if leaked:
+            raise SystemExit("FAIL: sensitive diagnostic leaked sentinels")
+          if "live diagnostic event=live_info_request" not in visible:
+            raise SystemExit("FAIL: safe live diagnostic event was absent")
+          if "host=webcast.amemv.com" not in visible:
+            raise SystemExit("FAIL: safe diagnostic host was absent")
+          if "live diagnostic event=live_recording_failed" not in visible:
+            raise SystemExit("FAIL: safe failure diagnostic event was absent")
+          print("ok   runtime sensitive diagnostic logging redaction")
+          PY
+          docker cp /tmp/sensitive-diagnostic-smoke.py \
+            smsd-ci-smoke:/tmp/sensitive-diagnostic-smoke.py
+          docker exec smsd-ci-smoke \
+            python /tmp/sensitive-diagnostic-smoke.py \
+            > /tmp/sensitive-diagnostic-smoke.txt 2>&1 || {
+              cat /tmp/sensitive-diagnostic-smoke.txt
+              echo "FAIL: sensitive diagnostic runtime proof failed"
+              exit 1
+            }
+          cat /tmp/sensitive-diagnostic-smoke.txt
+          grep -q 'ok   runtime sensitive diagnostic logging redaction' \
+            /tmp/sensitive-diagnostic-smoke.txt || {
+              echo "FAIL: sensitive diagnostic runtime marker was absent"
+              exit 1
+            }
           grep -q '<div id="app">' /tmp/smsd-smoke/root.html \
             || { echo "FAIL / is not the Vue shell"; exit 1; }
           if grep -q 'sidebar-menu-text\|/app/assets/' /tmp/smsd-smoke/root.html; then
@@ -571,6 +749,40 @@ jobs:
             reserved.unlink()
             print("ok   runtime HLS capture durability finalization")
 
+            # Phase 13A-C: the production HTTP fetch path, with only the
+            # transport replaced. File write/flush, file fsync, close,
+            # directory open/fsync/close all execute against this container's
+            # real filesystem.
+            from backend.src.base import file_fetcher as _file_fetcher
+
+            class _FlvResponse:
+              status_code = 200
+              headers = {"Content-Length": "22"}
+
+              def raise_for_status(self):
+                return None
+
+              def iter_content(self, chunk_size=None):
+                return iter((b"durable-flv-like-bytes",))
+
+              def close(self):
+                return None
+
+            original_request = _file_fetcher.request
+            _file_fetcher.request = lambda **unused: _FlvResponse()
+            try:
+              flv_target = _file_fetcher.fetch_file(
+                "https://cdn.example.test/live.flv",
+                Path(directory),
+                "live.flv",
+                durable_success=True,
+              )
+            finally:
+              _file_fetcher.request = original_request
+            if flv_target.read_bytes() != b"durable-flv-like-bytes":
+              raise SystemExit("FAIL: durable FLV bytes differ")
+            print("ok   runtime FLV capture durability finalization")
+
             # Phase 11B: a recovery note is published to the same persistent
             # storage as the media, so the image's filesystem has to support
             # the whole protocol - hidden directory, exclusive temp, fsync,
@@ -753,6 +965,10 @@ jobs:
           }
           grep -q 'ok   runtime HLS capture durability finalization' /tmp/remux-smoke.txt || {
             echo "FAIL: the runtime capture finalization proof did not run"
+            exit 1
+          }
+          grep -q 'ok   runtime FLV capture durability finalization' /tmp/remux-smoke.txt || {
+            echo "FAIL: the runtime FLV durability proof did not run"
             exit 1
           }
           grep -q 'ok   runtime recording recovery journal durability' /tmp/remux-smoke.txt || {

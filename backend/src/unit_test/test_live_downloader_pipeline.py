@@ -208,18 +208,21 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
 
     self.assertFalse(downloader.is_exceed_max_download_task())
 
-  def test_no_login_params_use_unified_live_config(self):
+  def test_no_login_params_use_unified_live_config_without_dumping_secrets(self):
     config = live_config()
+    config["server"]["debug_mode"] = True
     downloader = live_module.DouyinLiveDownloader(config)
     downloader.header.init_share_live_header(False)
-    downloader.header.create_douyin_msToken = lambda: "test-token"
+    downloader.header.create_douyin_msToken = lambda: "SECRET_MSTOKEN_13A"
     query_response = {
       "url": "https://live.douyin.com/douyin/webcast/reflow/123?sec_user_id=user",
       "path": "/douyin/webcast/reflow/123",
       "query": {"sec_user_id": ["user"]},
     }
 
-    params = downloader.construct_live_params_no_login(query_response)
+    visible = StringIO()
+    with redirect_stdout(visible):
+      params = downloader.construct_live_params_no_login(query_response)
 
     self.assertEqual(params["type_id"], "0")
     self.assertEqual(params["live_id"], "1")
@@ -227,9 +230,35 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
     self.assertEqual(params["sec_user_id"], "user")
     self.assertEqual(params["version_code"], "99.99.99")
     self.assertEqual(params["app_id"], "1128")
-    self.assertEqual(params["msToken"], "test-token")
+    self.assertEqual(params["msToken"], "SECRET_MSTOKEN_13A")
     self.assertTrue(params["verifyFp"])
     self.assertTrue(params["X-Bogus"])
+    self.assertNotIn("SECRET_MSTOKEN_13A", visible.getvalue())
+
+  def test_debug_wrapper_never_calls_the_raw_config_dump(self):
+    received = []
+
+    class Config:
+      def get_config_dict_attr(self, attr):
+        return attr == "$.server.debug_mode"
+
+    class Downloader:
+      config = Config()
+
+      def dump_config(self):
+        raise AssertionError("production must not dump the full config")
+
+      def run(self, token):
+        received.append(token)
+
+    original_downloader = live_module.downloader
+    live_module.downloader = Downloader()
+    try:
+      live_module.download_single_live("https://example.test/live")
+    finally:
+      live_module.downloader = original_downloader
+
+    self.assertEqual(received, [{"url": "https://example.test/live"}])
 
   def test_run_in_test_mode_resolves_share_url_and_extracts_live_stream(self):
     config = live_config()
@@ -606,14 +635,25 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
 
     with tempfile.TemporaryDirectory() as temporary_directory:
       temporary_path = Path(temporary_directory)
-      source_path = temporary_path / "source.flv"
-      source_path.write_bytes(b"live-stream-bytes")
       save_path = temporary_path / "downloads"
       config["download"]["save_path"] = str(save_path)
       downloader = live_module.DouyinLiveDownloader(config)
+
+      class StreamResponse:
+        headers = {"Content-Length": "17"}
+
+        def raise_for_status(self):
+          return None
+
+        def iter_content(self, chunk_size):
+          return iter((b"live-stream-bytes",))
+
+        def close(self):
+          return None
+
       build = {
         "summary": {
-          "stream_url": source_path.as_uri(),
+          "stream_url": "https://stream.example.test/live.flv",
           "stream_name": "stream.flv",
           "directory_name": "Test_Host",
           "nickname": "Test Host",
@@ -623,10 +663,13 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
         },
       }
 
-      downloader.download_live_stream(
-        "https://v.douyin.com/example/",
-        build,
-      )
+      with mock.patch.object(
+        fetcher_module, "request", return_value=StreamResponse()
+      ):
+        downloader.download_live_stream(
+          "https://v.douyin.com/example/",
+          build,
+        )
 
       downloaded_path = (
         save_path / "douyin" / "live" / "Test_Host" / "stream.flv"
@@ -1363,26 +1406,26 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
     config = live_config()
     config["download"]["max_retry"] = 2
     downloader = live_module.DouyinLiveDownloader(config)
-    original_urlretrieve = fetcher_module.urlretrieve
+    original_request = fetcher_module.request
     attempts = []
 
-    def fail_download(url, file_name):
-      attempts.append((url, file_name))
+    def fail_download(**kwargs):
+      attempts.append(kwargs["url"])
       if len(attempts) > 3:
         raise AssertionError("download exceeded configured retry count")
       raise ContentTooShortError("incomplete stream", b"")
 
-    fetcher_module.urlretrieve = fail_download
+    fetcher_module.request = fail_download
     try:
       with self.assertRaises(ContentTooShortError):
         downloader.auto_down(
-          "file:///tmp/live.flv",
+          "https://stream.example.test/live.flv",
           "/tmp",
           "live.flv",
           0,
         )
     finally:
-      fetcher_module.urlretrieve = original_urlretrieve
+      fetcher_module.request = original_request
 
     self.assertEqual(len(attempts), 3)
     ##
@@ -1394,24 +1437,24 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
     config = live_config()
     config["download"]["max_retry"] = 1
     downloader = live_module.DouyinLiveDownloader(config)
-    original_urlretrieve = fetcher_module.urlretrieve
+    original_request = fetcher_module.request
     attempts = []
 
-    def timeout_download(url, file_name):
-      attempts.append((url, file_name))
+    def timeout_download(**kwargs):
+      attempts.append(kwargs["url"])
       raise TimeoutError("stream timed out")
 
-    fetcher_module.urlretrieve = timeout_download
+    fetcher_module.request = timeout_download
     try:
       with self.assertRaises(TimeoutError):
         downloader.auto_down(
-          "file:///tmp/live.flv",
+          "https://stream.example.test/live.flv",
           "/tmp",
           "live.flv",
           0,
         )
     finally:
-      fetcher_module.urlretrieve = original_urlretrieve
+      fetcher_module.request = original_request
 
     self.assertEqual(len(attempts), 2)
 
@@ -1424,24 +1467,24 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
     config = live_config()
     config["download"]["max_retry"] = 3
     downloader = live_module.DouyinLiveDownloader(config)
-    original_urlretrieve = fetcher_module.urlretrieve
+    original_request = fetcher_module.request
     attempts = []
 
-    def timeout_download(url, file_name):
-      attempts.append((url, file_name))
+    def timeout_download(**kwargs):
+      attempts.append(kwargs["url"])
       raise TimeoutError("stream timed out")
 
-    fetcher_module.urlretrieve = timeout_download
+    fetcher_module.request = timeout_download
     try:
       with self.assertRaises(TimeoutError):
         downloader.auto_down(
-          "file:///tmp/live.flv",
+          "https://stream.example.test/live.flv",
           "/tmp",
           "live.flv",
           2,
         )
     finally:
-      fetcher_module.urlretrieve = original_urlretrieve
+      fetcher_module.request = original_request
 
     ##
     ## budget 3 minus 2 already spent leaves 1 retry, so 2 attempts here

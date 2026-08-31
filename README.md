@@ -39,10 +39,19 @@ chmod 600 config/config.yml
 状态判断、流地址提取、数据库读写、目录准备和任务调度与正常模式保持一致，因此测试模式
 仍会访问网络和数据库，也不能作为离线或沙箱模式使用。
 
+生产入口固定为 `python ./server.py`，由单进程、4 个应用线程的 **Waitress** WSGI server
+提供服务；`run-server.sh` 与 Docker 均进入这个入口。`server.debug_mode` 只控制项目自身经过
+字段白名单约束的安全诊断日志，即使设为 `true` 也不会启用 Werkzeug development server、
+interactive debugger、reloader 或 traceback response。示例配置默认关闭该选项。
+
 直播流始终优先选择 FLV；所有 FLV 清晰度均无可用地址时，才按 `hls_clarity` 自动回退
 HLS，并通过 ffmpeg stream-copy 保存为 `.ts` 文件。Docker 镜像已经安装 ffmpeg；直接在
 宿主机运行时必须保证 `ffmpeg` 可执行文件位于 `PATH`。测试模式不会启动 ffmpeg，因此
 不要求宿主机安装该程序。
+
+FLV 录制只有在完整传输与 Content-Length 校验后，依次完成 Python buffer flush、媒体文件
+`fsync`、文件关闭和父目录 `fsync` 才报告成功。任一存储提交步骤失败都会保留已捕获字节，
+但不会产生成功结果、recovery journal 或数据库记录，也不会重新请求直播流。
 
 HLS 的短暂网络中断由 ffmpeg 有界重连处理：`max_timeout` 限制单次网络 I/O 等待，
 `hls_stall_timeout` 限制无输出进展时长，`hls_terminate_grace` 是 TERM 后的退出宽限，
@@ -308,6 +317,8 @@ python -m backend.src.database.migration_cli downgrade \
 脚本仅在本次 Compose 命令期间派生权限为 `0600` 的临时插值文件，并在退出时删除；
 应用容器将 `config/config.yml` 只读挂载到 `/run/secrets/`，入口以 root 校验并复制到
 容器可写层的 canonical 路径，设置 `appuser` 所有权和 `0600` 后立即降权运行服务。
+镜像仍执行 `python ./server.py`，因此与宿主机启动使用同一个 Waitress production launcher
+和同一套 SIGINT/SIGTERM 清理流程。
 容器内连接配套 MySQL 时，将
 `database.host` 配置为 `mysql`。
 

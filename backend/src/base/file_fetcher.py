@@ -12,6 +12,7 @@ from requests import request, exceptions
 
 ##<<Third-part>>
 from backend.src.library.loglib import get_logger
+from backend.src.library.safe_diagnostics import safe_url_host
 
 
 ##
@@ -140,9 +141,11 @@ def _stream_to_file(
   proxies: dict,
   timeout: int,
   chunk_size: int,
+  durable_success: bool,
 ):
   """Download ``url`` into ``target``, verifying the advertised length."""
   response = None
+  primary_error = None
   try:
     response = request(
       method="GET",
@@ -161,12 +164,46 @@ def _stream_to_file(
         output.write(chunk)
         written_size += len(chunk)
 
-    content_length = response.headers.get("Content-Length")
-    if content_length is not None and written_size < int(content_length):
-      raise ContentTooShortError("incomplete download", written_size)
+      content_length = response.headers.get("Content-Length")
+      if content_length is not None:
+        expected_size = int(content_length)
+        if expected_size < 0:
+          raise ValueError("Content-Length must not be negative")
+        if written_size != expected_size:
+          raise ContentTooShortError("download length mismatch", written_size)
+
+      if durable_success:
+        ## A successful live capture means stable bytes, not bytes accepted by
+        ## Python's userspace buffer.  The context manager closes only after
+        ## both calls return; a close error therefore also prevents the parent
+        ## namespace from being committed or success from being reported.
+        output.flush()
+        os.fsync(output.fileno())
+
+    if durable_success:
+      _sync_parent_directory(target.parent)
+  except BaseException as error:
+    primary_error = error
+    raise
   finally:
     if response is not None and hasattr(response, "close"):
-      response.close()
+      try:
+        response.close()
+      except BaseException:
+        ## A secondary transport-close error must never reclassify or mask a
+        ## storage/durability failure that is already propagating.
+        if primary_error is None:
+          raise
+
+
+def _sync_parent_directory(path: Path) -> None:
+  """Commit one completed file's directory entry to stable storage."""
+  flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_CLOEXEC", 0)
+  descriptor = os.open(path, flags)
+  try:
+    os.fsync(descriptor)
+  finally:
+    os.close(descriptor)
 
 
 def _discard_partial(target: Path) -> None:
@@ -179,7 +216,7 @@ def _discard_partial(target: Path) -> None:
       target.unlink()
   except OSError as e:
     get_logger().warning(
-      "could not remove partial file {}: {}".format(target, e)
+      "could not remove partial file: error={}".format(type(e).__name__)
     )
 
 
@@ -197,6 +234,7 @@ def fetch_file(
   retry_backoff: float = DEFAULT_RETRY_BACKOFF,
   retry_backoff_max: float = DEFAULT_RETRY_BACKOFF_MAX,
   rate_limit_backoff: float = DEFAULT_RATE_LIMIT_BACKOFF,
+  durable_success: bool = False,
 ):
   """Fetch ``url`` into ``save_path/file_name`` and return the path written.
 
@@ -216,6 +254,12 @@ def fetch_file(
     truncated file would later read as a completed download and suppress the
     retry that would have finished it.
 
+  ``durable_success`` is the narrow live-recording contract. For HTTP(S), a
+  successful return means the validated bytes were flushed and fsynced, the
+  file closed successfully, and the parent directory fsynced. Storage errors
+  are not transport errors and therefore never consume the network retry
+  budget. Non-HTTP transfers cannot request this contract.
+
   Retries are paced: ``retry_backoff`` doubles per attempt up to
   ``retry_backoff_max``, and a rate-limited response waits on the wider
   ``rate_limit_backoff`` schedule instead, or on ``Retry-After`` when the server
@@ -231,6 +275,12 @@ def fetch_file(
     )
   if max_retry < 0:
     raise ValueError("max_retry must not be negative")
+  if type(durable_success) is not bool:
+    raise ValueError("durable_success must be a boolean")
+
+  is_http = urlparse(url).scheme in ("http", "https")
+  if durable_success and not is_http:
+    raise ValueError("durable_success requires an HTTP(S) transfer")
 
   directory = Path(save_path)
   os.makedirs(directory, exist_ok=True)
@@ -242,12 +292,19 @@ def fetch_file(
     )
     return None
 
-  is_http = urlparse(url).scheme in ("http", "https")
   attempt = 0
   while True:
     try:
       if is_http:
-        _stream_to_file(url, target, headers, proxies, timeout, chunk_size)
+        _stream_to_file(
+          url,
+          target,
+          headers,
+          proxies,
+          timeout,
+          chunk_size,
+          durable_success,
+        )
       else:
         urlretrieve(url, str(target))
       return target
@@ -265,12 +322,12 @@ def fetch_file(
         rate_limit_backoff,
       )
       get_logger().warning(
-        "download attempt {} of {} failed{}, retrying in {:.1f}s: {}".format(
+        "download attempt {} of {} failed{}, retrying in {:.1f}s: host={}".format(
           attempt,
           max_retry + 1,
           " (rate limited)" if _is_rate_limited(e) else "",
           delay,
-          url,
+          safe_url_host(url),
         )
       )
       sleep(delay)

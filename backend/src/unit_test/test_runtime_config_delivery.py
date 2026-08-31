@@ -28,9 +28,29 @@ RUN_SERVER_SCRIPT = PROJECT_ROOT / "run-server.sh"
 COMPOSE_FILE = PROJECT_ROOT / "docker-compose.yml"
 DOCKERIGNORE_FILE = PROJECT_ROOT / ".dockerignore"
 DOCKERFILE = PROJECT_ROOT / "Dockerfile"
+README_FILE = PROJECT_ROOT / "README.md"
+REQUIREMENTS_FILE = PROJECT_ROOT / "requirements.txt"
 
 
 class RuntimeConfigDeliveryTest(unittest.TestCase):
+  def test_example_uses_a_production_safe_debug_default(self):
+    config = yaml.safe_load(CONFIG_EXAMPLE_PATH.read_text(encoding="utf-8"))
+
+    self.assertFalse(config["server"]["debug_mode"])
+
+  def test_waitress_is_exactly_pinned(self):
+    requirements = REQUIREMENTS_FILE.read_text(encoding="utf-8").splitlines()
+
+    self.assertIn("waitress==3.0.2", requirements)
+
+  def test_documented_production_entry_uses_the_server_launcher_and_waitress(self):
+    readme = README_FILE.read_text(encoding="utf-8")
+
+    self.assertIn("run-server.sh", readme)
+    self.assertIn("run-docker.sh", readme)
+    self.assertIn("Waitress", readme)
+    self.assertNotIn("Flask development server", readme)
+
   def load_runtime_config_module(self):
     if not RUNTIME_CONFIG_SCRIPT.is_file():
       self.fail("runtime configuration helper is not available")

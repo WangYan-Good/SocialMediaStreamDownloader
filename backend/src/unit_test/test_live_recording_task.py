@@ -1,8 +1,14 @@
+import contextlib
+import io
+import logging
 import unittest
 from datetime import datetime
+from unittest.mock import patch
 
 from backend.src.platform.douyin.douyin_live_downloader import LiveDownloadResult
 from backend.src.platform.douyin.hls_recorder import HlsCancelled
+from backend.src.platform.douyin.douyin_listener import ListenerItem
+from backend.src.service import live_recording_task as task_module
 from backend.src.service.live_recording_task import (
   PLATFORM_DOUYIN,
   SOURCE_DIRECT,
@@ -979,6 +985,102 @@ class LiveTaskIndependenceTest(unittest.TestCase):
     ##
     self.assertEqual(2, len(downloader.calls))
     self.assertEqual(2, len(tasks.list_tasks()))
+
+
+class LiveTaskDiagnosticSafetyTest(unittest.TestCase):
+  def test_a_downloader_exception_cannot_log_its_signed_url_or_message(self):
+    secret = "SECRET_QUERY_TOKEN_13A"
+    messages = []
+
+    class Logger:
+      def error(self, message):
+        messages.append(str(message))
+
+    service, unused = build_service(
+      downloader=FakeLiveDownloader(
+        crash=RuntimeError("request failed at signed=" + secret)
+      )
+    )
+
+    with patch.object(task_module, "get_logger", return_value=Logger()):
+      with self.assertRaises(RuntimeError):
+        service._run(
+          None,
+          token(url="https://live.example.test/room?token=" + secret),
+        )
+
+    visible = "\n".join(messages)
+    self.assertNotIn(secret, visible)
+    self.assertIn("live diagnostic event=live_recording_failed", visible)
+
+  def test_real_logger_and_thread_boundary_never_render_exception_secrets(self):
+    secret = "SECRET_THREAD_EXCEPTION_13A"
+    output = io.StringIO()
+    logger = logging.Logger("phase13a-live-thread")
+    logger.addHandler(logging.StreamHandler(output))
+    service, unused = build_service(
+      downloader=FakeLiveDownloader(
+        crash=RuntimeError("signed-url-token=" + secret)
+      )
+    )
+
+    stderr = io.StringIO()
+    with patch.object(task_module, "get_logger", return_value=logger), patch(
+      "backend.src.platform.douyin.douyin_listener.get_logger",
+      return_value=logger,
+    ), contextlib.redirect_stderr(stderr):
+      item = ListenerItem(
+        func=lambda: service._run(
+          None,
+          token(url="https://live.example.test/room?token=" + secret),
+        ),
+        args=(),
+      )
+      item.start_item()
+      item._thread.join(timeout=2)
+
+    visible = output.getvalue() + stderr.getvalue()
+    self.assertFalse(item._thread.is_alive())
+    self.assertNotIn(secret, visible)
+    self.assertIn("live diagnostic event=live_recording_failed", visible)
+
+  def test_persistence_failure_regions_log_only_closed_diagnostics(self):
+    secret = "SECRET_PERSISTENCE_EXCEPTION_13A"
+
+    cases = (
+      (
+        FakeRecordingService(),
+        InMemoryJournal(publish_error=RuntimeError(secret + "-publish")),
+        "live_recovery_handoff_failed",
+      ),
+      (
+        FakeRecordingService(failure=RuntimeError(secret + "-database")),
+        InMemoryJournal(),
+        "live_recording_persistence_failed",
+      ),
+      (
+        FakeRecordingService(),
+        InMemoryJournal(ack_error=RuntimeError(secret + "-ack")),
+        "live_recovery_ack_failed",
+      ),
+    )
+
+    for recording_service, journal, event in cases:
+      with self.subTest(event=event):
+        output = io.StringIO()
+        logger = logging.Logger("phase13a-" + event)
+        logger.addHandler(logging.StreamHandler(output))
+        service, unused = build_service(
+          recording_service=recording_service,
+          recovery_journal=journal,
+        )
+
+        with patch.object(task_module, "get_logger", return_value=logger):
+          service._run(None, token())
+
+        visible = output.getvalue()
+        self.assertNotIn(secret, visible)
+        self.assertIn("live diagnostic event=" + event, visible)
 
 
 if __name__ == "__main__":
