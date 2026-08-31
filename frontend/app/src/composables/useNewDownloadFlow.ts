@@ -41,7 +41,7 @@ export const TASK_POLL_INTERVAL_MS = 2000
 export interface NewDownloadApi {
   resolveResource: (input: string) => Promise<ResolvedResource>
   createTask: (request: CreateTaskRequest) => Promise<CreatedTask>
-  getTask: (taskId: string) => Promise<Task>
+  getTask: (taskId: string, signal?: AbortSignal) => Promise<Task>
 }
 
 function messageOf(caught: unknown, fallback: string): string {
@@ -147,6 +147,15 @@ export function useNewDownloadFlow(api: Partial<NewDownloadApi> = {}) {
 
   let timer: ReturnType<typeof setTimeout> | null = null
   let stopped = false
+  let activeTrackingController: AbortController | null = null
+
+  //
+  // The identity of the polling session, separate from the identity of a
+  // resolve question. `stopped` alone cannot carry this meaning: startOver()
+  // deliberately reopens the flow, and doing so must never make a request from
+  // the previous task current again.
+  //
+  let trackingGeneration = 0
 
   //
   // Which question the screen is currently waiting on an answer to.
@@ -357,7 +366,37 @@ export function useNewDownloadFlow(api: Partial<NewDownloadApi> = {}) {
     // "creating" for as long as the first status read takes - or forever, if it
     // never answers - while a task was in fact already running.
     //
-    void track()
+    beginTracking(created)
+  }
+
+  function isCurrentTracking(generation: number, taskId: string): boolean {
+    return (
+      generation === trackingGeneration &&
+      !stopped &&
+      createdTask.value?.task_id === taskId
+    )
+  }
+
+  /** Permanently stale every timer and continuation owned by the old epoch. */
+  function invalidateTracking(): void {
+    trackingGeneration += 1
+    if (timer !== null) {
+      clearTimeout(timer)
+      timer = null
+    }
+    if (activeTrackingController !== null) {
+      activeTrackingController.abort()
+      activeTrackingController = null
+    }
+  }
+
+  function beginTracking(created: CreatedTask): void {
+    invalidateTracking()
+    const generation = trackingGeneration
+    if (stopped) {
+      return
+    }
+    void track(created.task_id, generation)
   }
 
   /**
@@ -368,15 +407,16 @@ export function useNewDownloadFlow(api: Partial<NewDownloadApi> = {}) {
    * of a slow first one, then a third, and the answers would start landing out
    * of order - the newest state overwritten by an older one still in flight.
    */
-  async function track(): Promise<void> {
-    const created = createdTask.value
-    if (created === null || stopped) {
+  async function track(taskId: string, generation: number): Promise<void> {
+    if (!isCurrentTracking(generation, taskId)) {
       return
     }
 
+    const controller = new AbortController()
+    activeTrackingController = controller
     let task: Task
     try {
-      task = await getTask(created.task_id)
+      task = await getTask(taskId, controller.signal)
     } catch (caught) {
       //
       // Checked here as well as on the success path. The screen may already be
@@ -384,7 +424,7 @@ export function useNewDownloadFlow(api: Partial<NewDownloadApi> = {}) {
       // and a late failure written into a torn-down flow is a message nobody
       // will see attached to a screen nobody is on.
       //
-      if (stopped) {
+      if (controller.signal.aborted || !isCurrentTracking(generation, taskId)) {
         return
       }
       if (caught instanceof ApiError && caught.status === 404) {
@@ -413,9 +453,15 @@ export function useNewDownloadFlow(api: Partial<NewDownloadApi> = {}) {
         ? `暂时无法获取任务状态：${reason}`
         : '暂时无法获取任务状态'
       return
+    } finally {
+      // A superseded request may settle after its replacement started. Only
+      // the request that still owns this slot may clear it.
+      if (activeTrackingController === controller) {
+        activeTrackingController = null
+      }
     }
 
-    if (stopped) {
+    if (!isCurrentTracking(generation, taskId)) {
       return
     }
 
@@ -429,26 +475,29 @@ export function useNewDownloadFlow(api: Partial<NewDownloadApi> = {}) {
     }
 
     timer = setTimeout(() => {
-      void track()
+      if (!isCurrentTracking(generation, taskId)) {
+        return
+      }
+      timer = null
+      void track(taskId, generation)
     }, TASK_POLL_INTERVAL_MS)
   }
 
   function stop(): void {
     stopped = true
-    if (timer !== null) {
-      clearTimeout(timer)
-      timer = null
-    }
+    invalidateTracking()
   }
 
   /** Read again after a failure the user has chosen to retry. */
   async function retryTracking(): Promise<void> {
-    if (createdTask.value === null) {
+    const created = createdTask.value
+    if (created === null) {
       return
     }
+    invalidateTracking()
     stopped = false
     trackError.value = null
-    await track()
+    await track(created.task_id, trackingGeneration)
   }
 
   function startOver(): void {

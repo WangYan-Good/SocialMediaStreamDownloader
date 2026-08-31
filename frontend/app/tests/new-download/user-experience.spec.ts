@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 
 import { ApiError } from '../../src/api/client'
+import CurrentTaskCard from '../../src/components/new-download/CurrentTaskCard.vue'
 import ResourceResolutionCard from '../../src/components/new-download/ResourceResolutionCard.vue'
 import { TASK_POLL_INTERVAL_MS } from '../../src/composables/useNewDownloadFlow'
 import { routes } from '../../src/router'
@@ -108,6 +109,14 @@ async function settle() {
     await Promise.resolve()
   }
   await nextTick()
+}
+
+function deferred<T>() {
+  let settlePromise: (value: T) => void = () => {}
+  const promise = new Promise<T>((resolve) => {
+    settlePromise = resolve
+  })
+  return { promise, settle: settlePromise }
 }
 
 async function mountDownload(api: Record<string, unknown> = {}) {
@@ -366,19 +375,95 @@ describe('protections the simpler wording must not have removed', () => {
     expect(spies.createTask).not.toHaveBeenCalled()
   })
 
-  it('stops reading the status once the screen is gone', async () => {
+  it('aborts and invalidates the active status read once the screen is gone', async () => {
     vi.useFakeTimers()
-    const getTask = vi.fn(async () => taskIn('running'))
+    const pending = deferred<Task>()
+    const signals: AbortSignal[] = []
+    const getTask = vi.fn((_taskId: string, signal?: AbortSignal) => {
+      if (signal) {
+        signals.push(signal)
+      }
+      return pending.promise
+    })
     const { wrapper } = await mountDownload({ getTask })
     await identify(wrapper)
     await buttonSaying(wrapper, '开始下载')?.trigger('click')
     await settle()
     const before = getTask.mock.calls.length
+    expect(signals).toHaveLength(1)
+    expect(signals[0].aborted).toBe(false)
 
     wrapper.unmount()
+    expect(signals[0].aborted).toBe(true)
+
+    pending.settle(taskIn('success', { title: 'late unmounted result' }))
+    await settle()
     await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS * 5)
 
     expect(getTask).toHaveBeenCalledTimes(before)
+  })
+
+  it('keeps a mounted view on task B when task A answers last', async () => {
+    const oldTask = deferred<Task>()
+    const resolutionB: ResolvedResource = {
+      ...postResolution,
+      resolve_id: 'receipt-B',
+      source_url: 'https://v.douyin.com/BBB/',
+      resolved_url: 'https://www.douyin.com/video/B',
+      identity: { aweme_id: 'B' },
+    }
+    const resolveResource = vi
+      .fn<() => Promise<ResolvedResource>>()
+      .mockResolvedValueOnce(postResolution)
+      .mockResolvedValueOnce(resolutionB)
+    const createTask = vi
+      .fn()
+      .mockResolvedValueOnce(CREATED)
+      .mockResolvedValueOnce({
+        task_id: 'task-B',
+        task_type: 'post_download' as const,
+        resolve_id: 'receipt-B',
+      })
+    const getTask = vi.fn((taskId: string) =>
+      taskId === 'task-1'
+        ? oldTask.promise
+        : Promise.resolve(taskIn('success', {
+            task_id: 'task-B',
+            title: 'current task B',
+            finished_at: '2026-08-24T10:01:00',
+            progress: { current: 1, total: 1 },
+          })),
+    )
+    const { wrapper } = await mountDownload({
+      resolveResource,
+      createTask,
+      getTask,
+    })
+
+    await identify(wrapper, 'https://v.douyin.com/AAA/')
+    await buttonSaying(wrapper, '开始下载')?.trigger('click')
+    await settle()
+
+    // The event is the same one the card's start-over button emits. Triggering
+    // it directly keeps task A pending, which is the race under test.
+    wrapper.getComponent(CurrentTaskCard).vm.$emit('startOver')
+    await settle()
+
+    await identify(wrapper, 'https://v.douyin.com/BBB/')
+    await buttonSaying(wrapper, '开始下载')?.trigger('click')
+    await settle()
+    expect(wrapper.text()).toContain('current task B')
+
+    oldTask.settle(taskIn('success', {
+      title: 'stale task A',
+      finished_at: '2026-08-24T10:02:00',
+      progress: { current: 1, total: 1 },
+    }))
+    await settle()
+
+    expect(wrapper.text()).toContain('current task B')
+    expect(wrapper.text()).not.toContain('stale task A')
+    expect(getTask).toHaveBeenCalledTimes(2)
   })
 
   it('still refuses to start a whole back catalogue without a tick', async () => {

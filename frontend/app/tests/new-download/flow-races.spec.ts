@@ -236,7 +236,13 @@ describe('a status read that lands after the screen is gone', () => {
 
   async function trackingWithPendingRead() {
     const pending = deferred<Task>()
-    const getTask = vi.fn(() => pending.promise)
+    const signals: AbortSignal[] = []
+    const getTask = vi.fn((_taskId: string, signal?: AbortSignal) => {
+      if (signal) {
+        signals.push(signal)
+      }
+      return pending.promise
+    })
     const flow = useNewDownloadFlow({
       resolveResource: vi.fn(async () => postResolution),
       createTask: vi.fn(async () => ({
@@ -250,7 +256,47 @@ describe('a status read that lands after the screen is gone', () => {
     await flow.resolve()
     await flow.create()
     await drain()
-    return { flow, getTask, pending }
+    return { flow, getTask, pending, signals }
+  }
+
+  async function failedThenRetryPending() {
+    const retry = deferred<Task>()
+    const signals: AbortSignal[] = []
+    let reads = 0
+    const getTask = vi.fn((_taskId: string, signal?: AbortSignal) => {
+      reads += 1
+      if (signal) {
+        signals.push(signal)
+      }
+      if (reads === 1) {
+        return Promise.reject(new ApiError({
+          kind: 'network',
+          status: null,
+          code: null,
+          message: 'initial status failure',
+        }))
+      }
+      return retry.promise
+    })
+    const flow = useNewDownloadFlow({
+      resolveResource: vi.fn(async () => postResolution),
+      createTask: vi.fn(async () => ({
+        task_id: 'task-1',
+        task_type: 'post_download' as const,
+        resolve_id: 'receipt-1',
+      })),
+      getTask,
+    })
+    flow.input.value = INPUT_A
+    await flow.resolve()
+    await flow.create()
+    await drain()
+    expect(flow.trackError.value).toContain('状态')
+
+    void flow.retryTracking()
+    await drain()
+    expect(getTask).toHaveBeenCalledTimes(2)
+    return { flow, getTask, retry, signals }
   }
 
   it('schedules nothing after the flow was stopped', async () => {
@@ -347,6 +393,710 @@ describe('a status read that lands after the screen is gone', () => {
       await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS * 5)
       expect(getTask).toHaveBeenCalledTimes(1)
     } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('cannot write a successful answer after start over reopens the flow', async () => {
+    vi.useFakeTimers()
+    try {
+      const { flow, getTask, pending } = await trackingWithPendingRead()
+
+      flow.startOver()
+      pending.settle({
+        task_id: 'task-1',
+        task_type: 'post_download',
+        state: 'success',
+        title: 'old task',
+        message: null,
+        created_at: '2026-08-15T09:30:15.250',
+        started_at: null,
+        finished_at: '2026-08-15T09:31:00.000',
+        progress: { current: 1, total: 1 },
+        metadata: {},
+        items: [],
+      })
+      await drain()
+
+      expect(flow.phase.value).toBe('editing')
+      expect(flow.createdTask.value).toBeNull()
+      expect(flow.currentTask.value).toBeNull()
+      expect(flow.trackError.value).toBeNull()
+      expect(flow.taskRecordMissing.value).toBe(false)
+
+      await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS * 5)
+      expect(getTask).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('cannot resurrect a missing-record result after start over', async () => {
+    const { flow, pending } = await trackingWithPendingRead()
+
+    flow.startOver()
+    pending.fail(new ApiError({
+      kind: 'backend',
+      status: 404,
+      code: 404,
+      message: 'old task is gone',
+    }))
+    await drain()
+
+    expect(flow.phase.value).toBe('editing')
+    expect(flow.createdTask.value).toBeNull()
+    expect(flow.currentTask.value).toBeNull()
+    expect(flow.trackError.value).toBeNull()
+    expect(flow.taskRecordMissing.value).toBe(false)
+    expect(flow.canStartOver.value).toBe(false)
+  })
+
+  it('cannot attach an old network failure after start over', async () => {
+    const { flow, pending } = await trackingWithPendingRead()
+
+    flow.startOver()
+    pending.fail(new ApiError({
+      kind: 'network',
+      status: null,
+      code: null,
+      message: 'Failed to fetch',
+    }))
+    await drain()
+
+    expect(flow.phase.value).toBe('editing')
+    expect(flow.createdTask.value).toBeNull()
+    expect(flow.currentTask.value).toBeNull()
+    expect(flow.trackError.value).toBeNull()
+    expect(flow.taskRecordMissing.value).toBe(false)
+  })
+
+  it.each([
+    [
+      '404',
+      new ApiError({
+        kind: 'backend',
+        status: 404,
+        code: 404,
+        message: 'old task is gone',
+      }),
+    ],
+    [
+      'network failure',
+      new ApiError({
+        kind: 'network',
+        status: null,
+        code: null,
+        message: 'old task failed',
+      }),
+    ],
+  ])(
+    'uses generation to reject stale %s even if abort is ineffective',
+    async (_label, error) => {
+      const NativeAbortController = globalThis.AbortController
+      class IneffectiveAbortController {
+        readonly signal = new NativeAbortController().signal
+
+        abort(): void {
+          // Fault injection: correctness must not depend on cancellation being
+          // delivered by the runtime or adapter.
+        }
+      }
+      vi.stubGlobal('AbortController', IneffectiveAbortController)
+      try {
+        const { flow, pending, signals } = await trackingWithPendingRead()
+
+        flow.startOver()
+        expect(signals[0].aborted).toBe(false)
+        pending.fail(error)
+        await drain()
+
+        expect(flow.phase.value).toBe('editing')
+        expect(flow.currentTask.value).toBeNull()
+        expect(flow.trackError.value).toBeNull()
+        expect(flow.taskRecordMissing.value).toBe(false)
+      } finally {
+        vi.unstubAllGlobals()
+      }
+    },
+  )
+
+  it('aborts the active status read when starting over', async () => {
+    const { flow, pending, signals } = await trackingWithPendingRead()
+
+    expect(signals).toHaveLength(1)
+    expect(signals[0].aborted).toBe(false)
+
+    flow.startOver()
+
+    expect(signals[0].aborted).toBe(true)
+
+    // Abort is an optimisation, not the correctness proof: an adapter may
+    // ignore it, so let the old promise answer and prove generation still wins.
+    pending.settle({
+      task_id: 'task-1',
+      task_type: 'post_download',
+      state: 'success',
+      title: 'old task',
+      message: null,
+      created_at: '2026-08-15T09:30:15.250',
+      started_at: null,
+      finished_at: '2026-08-15T09:31:00.000',
+      progress: { current: 1, total: 1 },
+      metadata: {},
+      items: [],
+    })
+    await drain()
+
+    expect(flow.phase.value).toBe('editing')
+    expect(flow.currentTask.value).toBeNull()
+    expect(flow.trackError.value).toBeNull()
+  })
+
+  it('does not let an old finally forget the newer active controller', async () => {
+    const first = deferred<Task>()
+    const second = deferred<Task>()
+    const signals: AbortSignal[] = []
+    const getTask = vi
+      .fn((_taskId: string, signal?: AbortSignal) => {
+        if (signal) {
+          signals.push(signal)
+        }
+        return signals.length === 1 ? first.promise : second.promise
+      })
+    const flow = useNewDownloadFlow({
+      resolveResource: vi.fn(async () => postResolution),
+      createTask: vi.fn(async () => ({
+        task_id: 'task-1',
+        task_type: 'post_download' as const,
+        resolve_id: 'receipt-1',
+      })),
+      getTask,
+    })
+    flow.input.value = INPUT_A
+    await flow.resolve()
+    await flow.create()
+    await drain()
+
+    expect(signals).toHaveLength(1)
+    void flow.retryTracking()
+    await drain()
+    expect(signals).toHaveLength(2)
+    expect(signals[0].aborted).toBe(true)
+    expect(signals[1].aborted).toBe(false)
+
+    first.settle({
+      task_id: 'task-1',
+      task_type: 'post_download',
+      state: 'running',
+      title: 'superseded read',
+      message: null,
+      created_at: '2026-08-15T09:30:15.250',
+      started_at: '2026-08-15T09:30:16.250',
+      finished_at: null,
+      progress: { current: 0, total: 1 },
+      metadata: {},
+      items: [],
+    })
+    await drain()
+
+    expect(flow.currentTask.value).toBeNull()
+    expect(flow.trackError.value).toBeNull()
+    expect(flow.taskRecordMissing.value).toBe(false)
+
+    flow.stop()
+    expect(signals[1].aborted).toBe(true)
+
+    second.settle({
+      task_id: 'task-1',
+      task_type: 'post_download',
+      state: 'running',
+      title: null,
+      message: null,
+      created_at: '2026-08-15T09:30:15.250',
+      started_at: '2026-08-15T09:30:16.250',
+      finished_at: null,
+      progress: { current: 0, total: 1 },
+      metadata: {},
+      items: [],
+    })
+    await drain()
+  })
+
+  it.each([
+    [
+      '404',
+      new ApiError({
+        kind: 'backend',
+        status: 404,
+        code: 404,
+        message: 'superseded record is gone',
+      }),
+    ],
+    [
+      'network failure',
+      new ApiError({
+        kind: 'network',
+        status: null,
+        code: null,
+        message: 'superseded read failed',
+      }),
+    ],
+  ])('ignores a superseded same-task %s after retry starts', async (_label, error) => {
+    const first = deferred<Task>()
+    const second = deferred<Task>()
+    const getTask = vi
+      .fn()
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise)
+    const flow = useNewDownloadFlow({
+      resolveResource: vi.fn(async () => postResolution),
+      createTask: vi.fn(async () => ({
+        task_id: 'task-1',
+        task_type: 'post_download' as const,
+        resolve_id: 'receipt-1',
+      })),
+      getTask,
+    })
+    flow.input.value = INPUT_A
+    await flow.resolve()
+    await flow.create()
+    await drain()
+
+    void flow.retryTracking()
+    await drain()
+    first.fail(error)
+    await drain()
+
+    expect(flow.currentTask.value).toBeNull()
+    expect(flow.trackError.value).toBeNull()
+    expect(flow.taskRecordMissing.value).toBe(false)
+
+    flow.stop()
+    second.settle({
+      task_id: 'task-1',
+      task_type: 'post_download',
+      state: 'running',
+      title: null,
+      message: null,
+      created_at: '2026-08-15T09:30:15.250',
+      started_at: '2026-08-15T09:30:16.250',
+      finished_at: null,
+      progress: { current: 0, total: 1 },
+      metadata: {},
+      items: [],
+    })
+    await drain()
+  })
+
+  it('rejects an answer whose frozen task identity no longer matches', async () => {
+    const { flow, pending } = await trackingWithPendingRead()
+
+    flow.createdTask.value = {
+      task_id: 'task-B',
+      task_type: 'post_download',
+      resolve_id: 'receipt-B',
+    }
+    pending.settle({
+      task_id: 'task-1',
+      task_type: 'post_download',
+      state: 'success',
+      title: 'wrong identity',
+      message: null,
+      created_at: '2026-08-15T09:30:15.250',
+      started_at: null,
+      finished_at: '2026-08-15T09:31:00.000',
+      progress: { current: 1, total: 1 },
+      metadata: {},
+      items: [],
+    })
+    await drain()
+
+    expect(flow.currentTask.value).toBeNull()
+    expect(flow.phase.value).toBe('tracking')
+    expect(flow.trackError.value).toBeNull()
+  })
+
+  it('keeps an old timer stale even if cancelling the timer is ineffective', async () => {
+    vi.useFakeTimers()
+    const ineffectiveClear = vi
+      .spyOn(globalThis, 'clearTimeout')
+      .mockImplementation(() => undefined)
+    try {
+      const resolutionA = taggedAs(postResolution, 'receipt-A', INPUT_A)
+      const resolutionB = taggedAs(postResolution, 'receipt-B', INPUT_B)
+      const resolveResource = vi
+        .fn<() => Promise<ResolvedResource>>()
+        .mockResolvedValueOnce(resolutionA)
+        .mockResolvedValueOnce(resolutionB)
+      const createTask = vi
+        .fn()
+        .mockResolvedValueOnce({
+          task_id: 'same-task-id',
+          task_type: 'post_download' as const,
+          resolve_id: 'receipt-A',
+        })
+        .mockResolvedValueOnce({
+          task_id: 'same-task-id',
+          task_type: 'post_download' as const,
+          resolve_id: 'receipt-B',
+        })
+      const getTask = vi
+        .fn()
+        .mockResolvedValueOnce({
+          task_id: 'same-task-id',
+          task_type: 'post_download' as const,
+          state: 'running' as const,
+          title: 'old task',
+          message: null,
+          created_at: '2026-08-15T09:30:15.250',
+          started_at: '2026-08-15T09:30:16.250',
+          finished_at: null,
+          progress: { current: 0, total: 1 },
+          metadata: {},
+          items: [],
+        })
+        .mockResolvedValue({
+          task_id: 'same-task-id',
+          task_type: 'post_download' as const,
+          state: 'success' as const,
+          title: 'new task',
+          message: null,
+          created_at: '2026-08-15T10:00:00.000',
+          started_at: '2026-08-15T10:00:01.000',
+          finished_at: '2026-08-15T10:01:00.000',
+          progress: { current: 1, total: 1 },
+          metadata: {},
+          items: [],
+        })
+      const flow = useNewDownloadFlow({ resolveResource, createTask, getTask })
+
+      flow.input.value = INPUT_A
+      await flow.resolve()
+      await flow.create()
+      await drain()
+      expect(getTask).toHaveBeenCalledTimes(1)
+
+      flow.startOver()
+      flow.input.value = INPUT_B
+      await flow.resolve()
+      await flow.create()
+      await drain()
+      expect(getTask).toHaveBeenCalledTimes(2)
+
+      await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS * 2)
+
+      expect(getTask).toHaveBeenCalledTimes(2)
+      expect(flow.currentTask.value?.title).toBe('new task')
+      expect(flow.phase.value).toBe('terminal')
+    } finally {
+      ineffectiveClear.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
+  it('ignores a retry success that arrives after start over', async () => {
+    const { flow, retry, signals } = await failedThenRetryPending()
+    expect(signals).toHaveLength(2)
+    expect(signals[1].aborted).toBe(false)
+
+    flow.startOver()
+    expect(signals[1].aborted).toBe(true)
+    retry.settle({
+      task_id: 'task-1',
+      task_type: 'post_download',
+      state: 'success',
+      title: 'old retry',
+      message: null,
+      created_at: '2026-08-15T09:30:15.250',
+      started_at: null,
+      finished_at: '2026-08-15T09:31:00.000',
+      progress: { current: 1, total: 1 },
+      metadata: {},
+      items: [],
+    })
+    await drain()
+
+    expect(flow.phase.value).toBe('editing')
+    expect(flow.createdTask.value).toBeNull()
+    expect(flow.currentTask.value).toBeNull()
+    expect(flow.trackError.value).toBeNull()
+    expect(flow.taskRecordMissing.value).toBe(false)
+  })
+
+  it.each([
+    [
+      'network failure',
+      new ApiError({
+        kind: 'network',
+        status: null,
+        code: null,
+        message: 'old retry failed',
+      }),
+    ],
+    [
+      '404',
+      new ApiError({
+        kind: 'backend',
+        status: 404,
+        code: 404,
+        message: 'old retry record is gone',
+      }),
+    ],
+  ])('ignores a retry %s that arrives after start over', async (_label, error) => {
+    const { flow, retry, signals } = await failedThenRetryPending()
+
+    flow.startOver()
+    expect(signals[1].aborted).toBe(true)
+    retry.fail(error)
+    await drain()
+
+    expect(flow.phase.value).toBe('editing')
+    expect(flow.createdTask.value).toBeNull()
+    expect(flow.currentTask.value).toBeNull()
+    expect(flow.trackError.value).toBeNull()
+    expect(flow.taskRecordMissing.value).toBe(false)
+  })
+})
+
+describe('an old task answer that lands after a new task exists', () => {
+  async function pendingTaskAThenTaskB() {
+    const taskA = deferred<Task>()
+    const resolutionA = taggedAs(postResolution, 'receipt-A', INPUT_A)
+    const resolutionB = taggedAs(postResolution, 'receipt-B', INPUT_B)
+    const resolveResource = vi
+      .fn<() => Promise<ResolvedResource>>()
+      .mockResolvedValueOnce(resolutionA)
+      .mockResolvedValueOnce(resolutionB)
+    const createTask = vi
+      .fn()
+      .mockResolvedValueOnce({
+        task_id: 'task-A',
+        task_type: 'post_download' as const,
+        resolve_id: 'receipt-A',
+      })
+      .mockResolvedValueOnce({
+        task_id: 'task-B',
+        task_type: 'post_download' as const,
+        resolve_id: 'receipt-B',
+      })
+    const getTask = vi.fn((taskId: string) => {
+      if (taskId === 'task-A') {
+        return taskA.promise
+      }
+      return Promise.resolve({
+        task_id: 'task-B',
+        task_type: 'post_download' as const,
+        state: 'success' as const,
+        title: 'current task B',
+        message: null,
+        created_at: '2026-08-15T10:00:00.000',
+        started_at: '2026-08-15T10:00:01.000',
+        finished_at: '2026-08-15T10:01:00.000',
+        progress: { current: 1, total: 1 },
+        metadata: {},
+        items: [],
+      })
+    })
+    const flow = useNewDownloadFlow({ resolveResource, createTask, getTask })
+
+    flow.input.value = INPUT_A
+    await flow.resolve()
+    await flow.create()
+    await drain()
+    expect(getTask).toHaveBeenCalledWith('task-A', expect.any(AbortSignal))
+
+    flow.startOver()
+    flow.input.value = INPUT_B
+    await flow.resolve()
+    await flow.create()
+    await drain()
+    expect(flow.createdTask.value?.task_id).toBe('task-B')
+    expect(flow.currentTask.value?.task_id).toBe('task-B')
+    expect(flow.currentTask.value?.title).toBe('current task B')
+    expect(flow.phase.value).toBe('terminal')
+
+    return { flow, getTask, taskA }
+  }
+
+  async function sameIdPendingAThenRunningB() {
+    const taskA = deferred<Task>()
+    const resolutionA = taggedAs(postResolution, 'receipt-A', INPUT_A)
+    const resolutionB = taggedAs(postResolution, 'receipt-B', INPUT_B)
+    const resolveResource = vi
+      .fn<() => Promise<ResolvedResource>>()
+      .mockResolvedValueOnce(resolutionA)
+      .mockResolvedValueOnce(resolutionB)
+    const createTask = vi
+      .fn()
+      .mockResolvedValueOnce({
+        task_id: 'same-task-id',
+        task_type: 'post_download' as const,
+        resolve_id: 'receipt-A',
+      })
+      .mockResolvedValueOnce({
+        task_id: 'same-task-id',
+        task_type: 'post_download' as const,
+        resolve_id: 'receipt-B',
+      })
+    const getTask = vi
+      .fn()
+      .mockReturnValueOnce(taskA.promise)
+      .mockResolvedValueOnce({
+        task_id: 'same-task-id',
+        task_type: 'post_download' as const,
+        state: 'running' as const,
+        title: 'current running task B',
+        message: null,
+        created_at: '2026-08-15T10:00:00.000',
+        started_at: '2026-08-15T10:00:01.000',
+        finished_at: null,
+        progress: { current: 0, total: 1 },
+        metadata: {},
+        items: [],
+      })
+      .mockResolvedValue({
+        task_id: 'same-task-id',
+        task_type: 'post_download' as const,
+        state: 'success' as const,
+        title: 'current finished task B',
+        message: null,
+        created_at: '2026-08-15T10:00:00.000',
+        started_at: '2026-08-15T10:00:01.000',
+        finished_at: '2026-08-15T10:01:00.000',
+        progress: { current: 1, total: 1 },
+        metadata: {},
+        items: [],
+      })
+    const flow = useNewDownloadFlow({ resolveResource, createTask, getTask })
+
+    flow.input.value = INPUT_A
+    await flow.resolve()
+    await flow.create()
+    await drain()
+    flow.startOver()
+    flow.input.value = INPUT_B
+    await flow.resolve()
+    await flow.create()
+    await drain()
+
+    expect(flow.createdTask.value?.task_id).toBe('same-task-id')
+    expect(flow.currentTask.value?.title).toBe('current running task B')
+    expect(flow.phase.value).toBe('tracking')
+    return { flow, getTask, taskA }
+  }
+
+  it('cannot overwrite task B or schedule task A again with a late success', async () => {
+    vi.useFakeTimers()
+    try {
+      const { flow, getTask, taskA } = await pendingTaskAThenTaskB()
+
+      taskA.settle({
+        task_id: 'task-A',
+        task_type: 'post_download',
+        state: 'success',
+        title: 'stale task A',
+        message: null,
+        created_at: '2026-08-15T09:30:15.250',
+        started_at: '2026-08-15T09:30:16.250',
+        finished_at: '2026-08-15T09:31:00.000',
+        progress: { current: 1, total: 1 },
+        metadata: {},
+        items: [],
+      })
+      await drain()
+      await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS * 5)
+
+      expect(flow.createdTask.value?.task_id).toBe('task-B')
+      expect(flow.currentTask.value?.task_id).toBe('task-B')
+      expect(flow.currentTask.value?.title).toBe('current task B')
+      expect(flow.phase.value).toBe('terminal')
+      expect(flow.trackError.value).toBeNull()
+      expect(getTask).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('cannot attach task A failure state to task B', async () => {
+    const { flow, taskA } = await pendingTaskAThenTaskB()
+
+    taskA.fail(new ApiError({
+      kind: 'network',
+      status: null,
+      code: null,
+      message: 'task A failed late',
+    }))
+    await drain()
+
+    expect(flow.createdTask.value?.task_id).toBe('task-B')
+    expect(flow.currentTask.value?.task_id).toBe('task-B')
+    expect(flow.currentTask.value?.title).toBe('current task B')
+    expect(flow.phase.value).toBe('terminal')
+    expect(flow.trackError.value).toBeNull()
+    expect(flow.taskRecordMissing.value).toBe(false)
+  })
+
+  it('uses generation when task A and task B have the same id', async () => {
+    vi.useFakeTimers()
+    try {
+      const { flow, taskA } = await sameIdPendingAThenRunningB()
+
+      taskA.settle({
+        task_id: 'same-task-id',
+        task_type: 'post_download',
+        state: 'success',
+        title: 'stale terminal task A',
+        message: null,
+        created_at: '2026-08-15T09:30:15.250',
+        started_at: '2026-08-15T09:30:16.250',
+        finished_at: '2026-08-15T09:31:00.000',
+        progress: { current: 1, total: 1 },
+        metadata: {},
+        items: [],
+      })
+      await drain()
+
+      expect(flow.currentTask.value?.title).toBe('current running task B')
+      expect(flow.phase.value).toBe('tracking')
+      expect(flow.trackError.value).toBeNull()
+      flow.stop()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not let stale non-terminal task A schedule another poll', async () => {
+    vi.useFakeTimers()
+    const scheduled = vi.spyOn(globalThis, 'setTimeout')
+    try {
+      const { flow, getTask, taskA } = await sameIdPendingAThenRunningB()
+      const timersBeforeA = scheduled.mock.calls.length
+
+      taskA.settle({
+        task_id: 'same-task-id',
+        task_type: 'post_download',
+        state: 'running',
+        title: 'stale running task A',
+        message: null,
+        created_at: '2026-08-15T09:30:15.250',
+        started_at: '2026-08-15T09:30:16.250',
+        finished_at: null,
+        progress: { current: 0, total: 1 },
+        metadata: {},
+        items: [],
+      })
+      await drain()
+
+      expect(scheduled).toHaveBeenCalledTimes(timersBeforeA)
+      expect(flow.currentTask.value?.title).toBe('current running task B')
+      expect(flow.phase.value).toBe('tracking')
+
+      await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS)
+      expect(getTask).toHaveBeenCalledTimes(3)
+      expect(flow.currentTask.value?.title).toBe('current finished task B')
+      expect(flow.phase.value).toBe('terminal')
+    } finally {
+      scheduled.mockRestore()
       vi.useRealTimers()
     }
   })

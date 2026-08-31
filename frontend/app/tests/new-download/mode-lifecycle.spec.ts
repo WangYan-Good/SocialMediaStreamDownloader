@@ -79,7 +79,8 @@ async function settle() {
 async function mountView({
   resolveResources = vi.fn(async () => batchResult),
   batchCreateTask = vi.fn(async (request) => created(request.resolve_id)),
-  getTask = vi.fn(async () => runningTask()),
+  singleCreateTask = vi.fn(async (request) => created(request.resolve_id)),
+  getTask = vi.fn(async (_taskId: string, _signal?: AbortSignal) => runningTask()),
 } = {}) {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push('/new')
@@ -88,14 +89,14 @@ async function mountView({
     props: {
       api: {
         resolveResource: vi.fn(async () => postResolution),
-        createTask: vi.fn(async (request) => created(request.resolve_id)),
+        createTask: singleCreateTask,
         getTask,
       },
       batchApi: { resolveResources, createTask: batchCreateTask },
     },
     global: { plugins: [router] },
   })
-  return { wrapper, resolveResources, batchCreateTask, getTask }
+  return { wrapper, resolveResources, batchCreateTask, singleCreateTask, getTask }
 }
 
 afterEach(() => {
@@ -144,9 +145,38 @@ describe('new-download mode lifecycle', () => {
     expect(wrapper.find('.batch-review').exists()).toBe(false)
   })
 
-  it('stops hidden single-task polling after switching to batch mode', async () => {
-    vi.useFakeTimers()
+  it('does not start hidden polling when task creation finishes after mode switch', async () => {
+    const pendingCreate = deferred<CreatedTask>()
+    const singleCreateTask = vi.fn(() => pendingCreate.promise)
     const getTask = vi.fn(async () => runningTask())
+    const { wrapper } = await mountView({ singleCreateTask, getTask })
+    await wrapper.get('textarea').setValue('https://v.douyin.com/abc/')
+    await wrapper.get('button').trigger('click')
+    await settle()
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('开始下载'))
+      ?.trigger('click')
+    await settle()
+    expect(singleCreateTask).toHaveBeenCalledTimes(1)
+
+    await wrapper.get('[data-mode="batch"]').trigger('click')
+    pendingCreate.settle(created('receipt-1'))
+    await settle()
+
+    expect(getTask).not.toHaveBeenCalled()
+  })
+
+  it('aborts and invalidates an in-flight single-task poll when batch mode hides it', async () => {
+    vi.useFakeTimers()
+    const pending = deferred<Task>()
+    const signals: AbortSignal[] = []
+    const getTask = vi.fn((_taskId: string, signal?: AbortSignal) => {
+      if (signal) {
+        signals.push(signal)
+      }
+      return pending.promise
+    })
     const { wrapper } = await mountView({ getTask })
     await wrapper.get('textarea').setValue('https://v.douyin.com/abc/')
     await wrapper.get('button').trigger('click')
@@ -157,11 +187,28 @@ describe('new-download mode lifecycle', () => {
       ?.trigger('click')
     await settle()
     expect(getTask).toHaveBeenCalledTimes(1)
+    expect(signals).toHaveLength(1)
+    expect(signals[0].aborted).toBe(false)
 
     await wrapper.get('[data-mode="batch"]').trigger('click')
+    expect(signals[0].aborted).toBe(true)
+
+    pending.settle({
+      ...runningTask(),
+      state: 'success',
+      title: 'stale single-task result',
+      finished_at: '2026-08-16T12:01:00',
+      progress: { current: 1, total: 1 },
+    })
+    await settle()
     const visibleCalls = getTask.mock.calls.length
     await vi.advanceTimersByTimeAsync(TASK_POLL_INTERVAL_MS * 5)
 
     expect(getTask).toHaveBeenCalledTimes(visibleCalls)
+
+    await wrapper.get('[data-mode="single"]').trigger('click')
+    await settle()
+    expect(wrapper.text()).not.toContain('stale single-task result')
+    expect(wrapper.text()).not.toContain('下载已完成')
   })
 })
