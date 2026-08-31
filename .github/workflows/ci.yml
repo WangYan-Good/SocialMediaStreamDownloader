@@ -273,7 +273,7 @@ jobs:
           config["download"]["save_path"] = "/tmp/smsd-smoke-downloads/"
           config["log"]["log_save"] = False
           config["server"]["debug_mode"] = False
-          config["server"]["host"] = "0.0.0.0"
+          config["server"]["host"] = "127.0.0.1"
 
           Path("/tmp/smsd-smoke/config.yml").write_text(
             yaml.safe_dump(config, allow_unicode=True, sort_keys=False),
@@ -979,3 +979,181 @@ jobs:
             echo "FAIL: the runtime recovery reconciliation proof did not run"
             exit 1
           }
+
+      # Keep this separate from the direct docker-run smoke above. It proves
+      # the checked-in deployment topology, including its real MySQL image,
+      # secret boundary, internal network and named log volume.
+      - name: Secure Compose deployment baseline
+        run: |
+          set -euo pipefail
+          PROJECT=smsd-ci-compose
+          export SMSD_IMAGE=smsd:ci
+
+          cleanup() {
+            echo "::group::compose logs"
+            ./run-docker.sh -p "${PROJECT}" logs --no-color 2>&1 || true
+            echo "::endgroup::"
+            ./run-docker.sh -p "${PROJECT}" down -v --remove-orphans \
+              >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          mkdir -p config /tmp/smsd-compose-smoke
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+
+          config = yaml.safe_load(
+            Path("docs/design/config.yml.example").read_text(encoding="utf-8")
+          )
+          config["database"].update({
+            "enable": True,
+            "host": "mysql",
+            "port": 3306,
+            "name": "smsd_compose_ci",
+            "username": "smsd_compose_app",
+            "password": "compose-application-password",
+          })
+          config["download"]["test_mode"] = True
+          config["download"]["save_response"] = False
+          config["download"]["save_error_response"] = False
+          config["download"]["save_path"] = "/app/downloads"
+          config["log"].update({
+            "log_enable": True,
+            "log_level": "INFO",
+            "log_save": True,
+            "log_file_path": "/app/logs/server.log",
+          })
+          config["server"].update({
+            "host": "127.0.0.1",
+            "port": 5013,
+            "debug_mode": False,
+          })
+          target = Path("config/config.yml")
+          target.write_text(
+            yaml.safe_dump(config, allow_unicode=True, sort_keys=False),
+            encoding="utf-8",
+          )
+          target.chmod(0o600)
+          PY
+
+          ./run-docker.sh -p "${PROJECT}" up -d --no-build
+          test "$(stat -c '%a' config/mysql-root-password)" = "600" || {
+            echo "FAIL: generated MySQL root secret is not mode 0600"
+            exit 1
+          }
+          ROOT_SECRET_FINGERPRINT="$(sha256sum config/mysql-root-password)"
+          MYSQL_ID="$(./run-docker.sh -p "${PROJECT}" ps -q mysql)"
+          APP_ID="$(./run-docker.sh -p "${PROJECT}" ps -q app)"
+          test -n "${MYSQL_ID}" && test -n "${APP_ID}"
+          test "${ROOT_SECRET_FINGERPRINT}" = \
+            "$(sha256sum config/mysql-root-password)" || {
+              echo "FAIL: MySQL root secret was regenerated"
+              exit 1
+            }
+
+          for attempt in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:5013/ >/dev/null 2>&1; then
+              break
+            fi
+            if [ "${attempt}" = "90" ]; then
+              echo "FAIL: Compose application never became ready"
+              exit 1
+            fi
+            sleep 1
+          done
+
+          docker port "${APP_ID}" 5013/tcp | grep -Fxq '127.0.0.1:5013' || {
+            echo "FAIL: application port is not host-loopback-only"
+            exit 1
+          }
+          if docker port "${MYSQL_ID}" 3306/tcp 2>/dev/null | grep -q .; then
+            echo "FAIL: MySQL has a published host port"
+            exit 1
+          fi
+          curl -fsS -D /tmp/smsd-compose-smoke/headers.txt \
+            -o /dev/null http://127.0.0.1:5013/
+          grep -qiE '^server: waitress([[:space:]]|$)' \
+            /tmp/smsd-compose-smoke/headers.txt || {
+              echo "FAIL: Compose HTTP was not served by Waitress"
+              exit 1
+            }
+
+          cat > /tmp/smsd-compose-smoke/mysql-proof.sh <<'SH'
+          #!/bin/sh
+          set -eu
+          root_password="$(cat /run/secrets/mysql_root_password)"
+          MYSQL_PWD="${root_password}" mysql -h 127.0.0.1 -uroot \
+            -e 'SELECT 1' >/dev/null
+          MYSQL_PWD="${MYSQL_PASSWORD}" mysql -h 127.0.0.1 \
+            -u"${MYSQL_USER}" "${MYSQL_DATABASE}" -e 'SELECT 1' >/dev/null
+          if MYSQL_PWD="${MYSQL_PASSWORD}" mysql -h 127.0.0.1 -uroot \
+            -e 'SELECT 1' >/dev/null 2>&1; then
+            echo 'FAIL: application password authenticated as root'
+            exit 1
+          fi
+          SH
+          chmod 700 /tmp/smsd-compose-smoke/mysql-proof.sh
+          docker cp /tmp/smsd-compose-smoke/mysql-proof.sh \
+            "${MYSQL_ID}:/tmp/mysql-proof.sh"
+          docker exec "${MYSQL_ID}" /tmp/mysql-proof.sh
+
+          cat > /tmp/smsd-compose-smoke/app-proof.py <<'PY'
+          import os
+          import pwd
+          import socket
+          import sys
+          from pathlib import Path
+
+          if os.getuid() == 0 or pwd.getpwuid(os.getuid()).pw_name != "appuser":
+            raise SystemExit("FAIL: application proof is not running as appuser")
+          forbidden_environment = {
+            "MYSQL_ROOT_PASSWORD",
+            "MYSQL_ROOT_PASSWORD_FILE",
+            "SMSD_MYSQL_ROOT_SECRET_FILE",
+          }
+          if forbidden_environment.intersection(os.environ):
+            raise SystemExit("FAIL: application received MySQL root secret metadata")
+          if Path("/run/secrets/mysql_root_password").exists():
+            raise SystemExit("FAIL: application received the MySQL root secret")
+          with socket.create_connection(("mysql", 3306), timeout=5):
+            pass
+
+          sys.path.insert(0, "/app")
+          from backend.src.base.log import LoggerManager
+          logger = LoggerManager.get_instance().get_logger()
+          marker = "secure-compose-file-log-proof"
+          logger.warning(marker)
+          for handler in logger.handlers:
+            handler.flush()
+          log_path = Path("/app/logs/server.log")
+          if marker not in log_path.read_text(encoding="utf-8"):
+            raise SystemExit("FAIL: configured file logging did not write")
+          PY
+          docker cp /tmp/smsd-compose-smoke/app-proof.py \
+            "${APP_ID}:/tmp/app-proof.py"
+          docker exec --user appuser "${APP_ID}" python /tmp/app-proof.py
+
+          ./run-docker.sh -p "${PROJECT}" up -d --no-deps \
+            --force-recreate --no-build app
+          APP_ID="$(./run-docker.sh -p "${PROJECT}" ps -q app)"
+          for attempt in $(seq 1 60); do
+            if docker exec --user appuser "${APP_ID}" \
+              grep -q 'secure-compose-file-log-proof' /app/logs/server.log; then
+              break
+            fi
+            if [ "${attempt}" = "60" ]; then
+              echo "FAIL: named-volume log did not survive app recreation"
+              exit 1
+            fi
+            sleep 1
+          done
+
+          echo 'ok   runtime secure compose deployment baseline' \
+            > /tmp/smsd-compose-smoke/result.txt
+          cat /tmp/smsd-compose-smoke/result.txt
+          grep -Fxq 'ok   runtime secure compose deployment baseline' \
+            /tmp/smsd-compose-smoke/result.txt || {
+              echo "FAIL: secure Compose runtime marker was absent"
+              exit 1
+            }

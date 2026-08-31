@@ -82,9 +82,14 @@ COPY . .
 # builder 阶段是镜像体积和攻击面都更小的做法。
 COPY --from=frontend-builder /frontend/dist ./frontend/app/dist
 
-# 创建必要的目录
-RUN mkdir -p /app/logs /app/downloads /app/config/build /app/config/export && \
-    chown -R appuser:appuser /app/logs /app/downloads /app/config
+# Named volumes inherit these ownership/mode bits on first mount. Keep the
+# preparation explicit and narrow: never recursively chown application or
+# captured-media trees during startup.
+RUN install -d -o appuser -g appuser -m 0750 \
+    /app/logs \
+    /app/downloads \
+    /app/config/build \
+    /app/config/export
 
 # 入口仅以 root 复制只读挂载的配置，随后立即降权执行应用
 USER root

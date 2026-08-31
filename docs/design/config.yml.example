@@ -27,7 +27,9 @@ log:
   log_save: true
   log_file_path: ./logs/server.log
 server:
-  host: 0.0.0.0
+  # Safe direct/bare-metal default. Containers adapt this copy to an internal
+  # 0.0.0.0 bind while Compose publishes the port on host loopback only.
+  host: 127.0.0.1
   port: 5000
   debug_mode: false
 auth:

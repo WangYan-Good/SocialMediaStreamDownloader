@@ -44,6 +44,12 @@ chmod 600 config/config.yml
 字段白名单约束的安全诊断日志，即使设为 `true` 也不会启用 Werkzeug development server、
 interactive debugger、reloader 或 traceback response。示例配置默认关闭该选项。
 
+默认的直接部署只监听 `127.0.0.1`。本机通过 HTTP 使用时保留 `cookie_secure: false`；需要
+对外服务时，使用 **HTTPS reverse proxy** 终止 TLS、反向代理到该 loopback Waitress，且将
+`cookie_secure: true`。禁止把原始 Waitress HTTP 端口直接暴露到外网，也不要把裸机配置改成
+`0.0.0.0`。Docker 内部会显式适配为 `0.0.0.0`，但 Compose 只把应用端口发布到宿主机
+`127.0.0.1`，该内部 bind 不是外部暴露许可。
+
 直播流始终优先选择 FLV；所有 FLV 清晰度均无可用地址时，才按 `hls_clarity` 自动回退
 HLS，并通过 ffmpeg stream-copy 保存为 `.ts` 文件。Docker 镜像已经安装 ffmpeg；直接在
 宿主机运行时必须保证 `ffmpeg` 可执行文件位于 `PATH`。测试模式不会启动 ffmpeg，因此
@@ -319,8 +325,21 @@ python -m backend.src.database.migration_cli downgrade \
 容器可写层的 canonical 路径，设置 `appuser` 所有权和 `0600` 后立即降权运行服务。
 镜像仍执行 `python ./server.py`，因此与宿主机启动使用同一个 Waitress production launcher
 和同一套 SIGINT/SIGTERM 清理流程。
+Compose 只在宿主 `127.0.0.1` 发布应用端口；外部访问仍必须通过 HTTPS reverse proxy，
+并在配置中使用 `cookie_secure: true`。本机直接 HTTP 可使用 `cookie_secure: false`。
 容器内连接配套 MySQL 时，将
 `database.host` 配置为 `mysql`。
+
+首次执行 `run-docker.sh` 会在被 Git 忽略的 `config/mysql-root-password` 生成独立的随机
+MySQL root secret，权限固定为 `0600`，以后启动复用同一值；该文件同时被 Git 与 Docker
+build context 排除。Compose 只把它作为
+`MYSQL_ROOT_PASSWORD_FILE` secret 挂载给 MySQL；应用容器看不到 root secret，并继续只用
+`config/config.yml` 中的 application database credential。MySQL 不发布任何宿主端口，只能
+由 Compose 内部网络上的 app 访问。
+
+应用日志保存在 Compose named volume `log_data`，而不是宿主 bind mount；该卷从镜像中继承
+仅供非 root `appuser` 写入的目录权限，容器重启后日志仍保留。如需查看日志，使用 Docker
+提供的容器/volume 工具，不要对 `/app` 或下载目录做递归 `chown`。
 
 # 🔐 安全配置\(Security Configuration\)
 本项目使用本地且被 Git/Docker 构建上下文排除的 `config/config.yml` 管理敏感配置。
