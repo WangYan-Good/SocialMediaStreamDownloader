@@ -656,6 +656,23 @@ Path(os.environ["FAKE_DOCKER_RECORD"]).write_text(
     self.assertIn(f"grep -Fxq '{marker}'", workflow)
     self.assertNotIn("docker exec smsd-ci-compose-app python -", workflow)
 
+  def test_ci_runs_bounded_login_runtime_with_an_independent_exact_marker(self):
+    workflow = CI_FILE.read_text(encoding="utf-8")
+    marker = "ok   runtime bounded login abuse resistance"
+
+    self.assertEqual(2, workflow.count(marker))
+    self.assertIn(f'print("{marker}")', workflow)
+    self.assertIn(f"grep -Fxq '{marker}'", workflow)
+    self.assertIn(
+      "docker cp /tmp/login-abuse-smoke.py",
+      workflow,
+    )
+    self.assertIn(
+      "docker exec smsd-ci-smoke python /tmp/login-abuse-smoke.py",
+      workflow,
+    )
+    self.assertNotIn("docker exec smsd-ci-smoke python -", workflow)
+
   def test_docker_build_context_excludes_runtime_config_and_root_secret(self):
     with tempfile.TemporaryDirectory() as temp_directory:
       test_repository = Path(temp_directory) / "repository"

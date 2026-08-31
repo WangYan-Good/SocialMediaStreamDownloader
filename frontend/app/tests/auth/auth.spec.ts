@@ -175,6 +175,28 @@ describe('the sign-in screen', () => {
     expect(alert).not.toContain('密码错误')
   })
 
+  it('shows one fixed safe message when login is rate limited', async () => {
+    mockedLogin.mockRejectedValue(
+      new ApiError({
+        kind: 'backend',
+        status: 429,
+        code: 429,
+        message: 'attacker-controlled limiter detail',
+        backendKind: 'rate_limited',
+      }),
+    )
+    const { wrapper } = await openLogin()
+
+    await wrapper.get('input[name="username"]').setValue('alice')
+    await wrapper.get('input[name="password"]').setValue('wrong')
+    await wrapper.get('form').trigger('submit')
+    await settle()
+
+    const alert = wrapper.get('[role="alert"]').text()
+    expect(alert).toBe('登录尝试过于频繁，请稍后重试')
+    expect(alert).not.toContain('attacker-controlled')
+  })
+
   it('shows nothing of the machinery when something breaks', async () => {
     mockedLogin.mockRejectedValue(
       new ApiError({

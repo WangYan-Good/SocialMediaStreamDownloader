@@ -37,6 +37,17 @@
 - FLV live capture 的成功边界包含 file flush/fsync、file close 与 parent-directory fsync；
   只有全部完成才允许生成成功结果并继续 journal/DB handoff。存储提交失败保留媒体字节、
   不重试网络且不报告录制成功。post download 与既有 HLS durability contract 不受影响。
+- 登录入口的 request body 固定上限为 4096 bytes；超长用户名或密码在 scrypt 前以统一 401
+  拒绝。合法长度的未知/格式错误用户名仍执行 dummy scrypt，保持 enumeration-safe timing。
+  application-local guard 使用 monotonic clock、单锁、固定窗口与有界 peer/username map，
+  每 60 秒全局最多 60 次、每 transport peer 最多 20 次，同时昂贵认证最多 2 个；第三个
+  立即 429，不 sleep、不排队。用户名连续失败从第 3 次开始按 1/2/4/8/16/32/60 秒
+  backoff，成功后清除；DB 不可用与内部异常只释放 slot，不计为密码失败。
+- 登录 peer 身份只来自 `request.remote_addr`。`X-Forwarded-For`、`X-Real-IP` 与
+  `access_route` 均不受信任，也不能绕过 peer bucket。HTTPS reverse proxy 后的默认行为是
+  所有客户端保守共享代理 peer bucket；trusted-proxy 身份重写需要独立架构阶段，本阶段
+  不配置 `ProxyFix`。429 只返回固定 `rate_limited` envelope 与正整数 `Retry-After`，不泄露
+  limiter 原因、不创建 session/CSRF cookie，也不写入原始 credential 日志。
 
 ## 初始化
 

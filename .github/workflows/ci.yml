@@ -398,6 +398,193 @@ jobs:
               exit 1
             }
 
+          # Phase 13D: exercise the real four-thread Waitress scheduling model
+          # around the production login blueprint. Two expensive authentication
+          # calls occupy two slots, the third is an immediate 429, and a fourth
+          # Waitress worker remains available for unrelated traffic. The fake
+          # service is deliberately network/database-free; the concurrency and
+          # HTTP boundaries are the runtime facts under test.
+          cat > /tmp/login-abuse-smoke.py <<'PY'
+          import http.client
+          import json
+          import sys
+          import threading
+          import time
+
+          sys.path.insert(0, "/app")
+          from flask import Flask, jsonify
+          from waitress import create_server
+          from backend.src.auth.login_abuse import LoginAbuseGuard
+          from backend.src.auth.service import AuthenticatedUser, IssuedSession
+          from backend.src.web.auth_routes import build_auth_blueprint
+
+          class _Service:
+            def __init__(self):
+              self.calls = []
+              self.entered = threading.Barrier(3)
+              self.release = threading.Event()
+
+            def authenticate(self, username, password):
+              self.calls.append(username)
+              if len(self.calls) <= 2:
+                self.entered.wait(timeout=10)
+                self.release.wait(timeout=10)
+              return AuthenticatedUser(1, username, "user")
+
+            def create_session(self, user_id):
+              return IssuedSession("runtime-opaque-session", None)
+
+            def resolve_session(self, token):
+              return None
+
+          class _Runtime:
+            def __init__(self, service):
+              self._service = service
+
+            def service(self):
+              return self._service
+
+            def cookie_secure(self):
+              return False
+
+            def session_ttl_seconds(self):
+              return 60
+
+          service = _Service()
+          guard = LoginAbuseGuard()
+          app = Flask(__name__)
+          app.register_blueprint(
+            build_auth_blueprint(runtime=_Runtime(service), abuse_guard=guard)
+          )
+
+          @app.get("/harmless")
+          def harmless():
+            return jsonify({"status": "success"})
+
+          server = create_server(
+            app,
+            host="127.0.0.1",
+            port=0,
+            threads=4,
+            expose_tracebacks=False,
+          )
+          serving = threading.Thread(target=server.run, daemon=True)
+          serving.start()
+          port = server.effective_port
+
+          def request(path, *, username=None, forwarded=None):
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+            headers = {}
+            body = None
+            method = "GET"
+            if username is not None:
+              method = "POST"
+              body = json.dumps({
+                "username": username,
+                "password": "correct horse battery",
+              })
+              headers["Content-Type"] = "application/json"
+            if forwarded is not None:
+              headers["X-Forwarded-For"] = forwarded
+            connection.request(method, path, body=body, headers=headers)
+            response = connection.getresponse()
+            payload = response.read()
+            result = (response.status, dict(response.getheaders()), payload)
+            connection.close()
+            return result
+
+          for readiness_attempt in range(100):
+            try:
+              if request("/harmless")[0] == 200:
+                break
+            except OSError:
+              pass
+            time.sleep(0.05)
+          else:
+            raise SystemExit("FAIL: Waitress login proof server never became ready")
+
+          responses = []
+
+          def blocked(username):
+            responses.append(request("/api/auth/login", username=username))
+
+          first = threading.Thread(target=blocked, args=("runtime-first",))
+          second = threading.Thread(target=blocked, args=("runtime-second",))
+          first.start()
+          second.start()
+          service.entered.wait(timeout=10)
+
+          third_status, third_headers, third_body = request(
+            "/api/auth/login", username="runtime-third"
+          )
+          harmless_status, _, _ = request("/harmless")
+          if third_status != 429 or harmless_status != 200:
+            raise SystemExit(
+              "FAIL: saturated login status=%s harmless=%s"
+              % (third_status, harmless_status)
+            )
+          if len(service.calls) != 2:
+            raise SystemExit("FAIL: third request entered expensive auth")
+          if int(third_headers.get("Retry-After", "0")) < 1:
+            raise SystemExit("FAIL: 429 omitted positive Retry-After")
+          if "Set-Cookie" in third_headers:
+            raise SystemExit("FAIL: 429 created an authentication cookie")
+          refused = json.loads(third_body)
+          if refused.get("kind") != "rate_limited" or "reason" in refused:
+            raise SystemExit("FAIL: 429 exposed the wrong contract")
+
+          service.release.set()
+          first.join(timeout=10)
+          second.join(timeout=10)
+          if first.is_alive() or second.is_alive():
+            raise SystemExit("FAIL: admitted authentication did not finish")
+          if sorted(item[0] for item in responses) != [200, 200]:
+            raise SystemExit("FAIL: admitted authentication response failed")
+          if guard.inflight != 0:
+            raise SystemExit("FAIL: authentication slots leaked after release")
+
+          next_status, _, _ = request(
+            "/api/auth/login", username="runtime-next"
+          )
+          if next_status != 200:
+            raise SystemExit("FAIL: legitimate login could not enter after release")
+
+          # A total of twenty attempts now share the one socket peer even
+          # though every request claims a different forwarding address.
+          for index in range(16):
+            status, _, _ = request(
+              "/api/auth/login",
+              username="xff-%d" % index,
+              forwarded="203.0.113.%d" % index,
+            )
+            if status != 200:
+              raise SystemExit("FAIL: XFF setup attempt %d -> %s" % (index, status))
+          spoofed_status, _, _ = request(
+            "/api/auth/login",
+            username="xff-overflow",
+            forwarded="198.51.100.250",
+          )
+          if spoofed_status != 429:
+            raise SystemExit("FAIL: spoofed XFF bypassed transport peer bound")
+
+          server.close()
+          print("ok   runtime bounded login abuse resistance")
+          PY
+          docker cp /tmp/login-abuse-smoke.py \
+            smsd-ci-smoke:/tmp/login-abuse-smoke.py
+          docker exec smsd-ci-smoke python /tmp/login-abuse-smoke.py \
+            > /tmp/login-abuse-smoke.txt 2>&1 || {
+              cat /tmp/login-abuse-smoke.txt
+              echo "FAIL: bounded login abuse runtime proof did not complete"
+              exit 1
+            }
+          cat /tmp/login-abuse-smoke.txt
+          grep -Fxq 'ok   runtime bounded login abuse resistance' \
+            /tmp/login-abuse-smoke.txt || {
+              echo "FAIL: bounded login abuse runtime marker was absent"
+              exit 1
+            }
+
           # Phase 13A-B: exercise the actual live-info diagnostic method with
           # fake responses. Network is deliberately absent; the boundary under
           # test is what the debug path emits when transport material is rich

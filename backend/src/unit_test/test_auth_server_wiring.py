@@ -1,7 +1,14 @@
 ##<<Base>>
 import unittest
+from unittest.mock import patch
 
 ##<<Third-part>>
+import server
+from backend.src.auth.login_abuse import (
+  LOGIN_ABUSE_GUARD_EXTENSION,
+  LoginAbuseGuard,
+  LoginAttemptOutcome,
+)
 from backend.src.unit_test.config_fixture import unified_config
 from backend.src.web.auth_routes import SESSION_COOKIE_NAME, build_auth_runtime
 
@@ -90,6 +97,55 @@ class TestTheCookieNameIsStable(unittest.TestCase):
     ## old name presents a cookie nothing looks for.
     ##
     self.assertEqual("smsd_session", SESSION_COOKIE_NAME)
+
+
+class TestLoginAbuseGuardWiring(unittest.TestCase):
+  def configured_app(self):
+    config = unified_config()
+    config["database"]["enable"] = False
+    with patch.object(
+      server.RecordingRecoveryReconciler,
+      "reconcile_once",
+      return_value=None,
+    ):
+      return server.create_app(
+        config,
+        schema_guard_factory=lambda unused_config: object(),
+      )
+
+  def test_application_factory_passes_the_exact_extension_instance_to_auth(self):
+    original = server.build_auth_blueprint
+    with patch.object(server, "build_auth_blueprint", wraps=original) as build:
+      app = self.configured_app()
+
+    guard = app.extensions[LOGIN_ABUSE_GUARD_EXTENSION]
+    self.assertIsInstance(guard, LoginAbuseGuard)
+    self.assertIs(guard, build.call_args.kwargs["abuse_guard"])
+
+  def test_two_applications_never_share_limiter_state(self):
+    first = self.configured_app()
+    second = self.configured_app()
+    first_guard = first.extensions[LOGIN_ABUSE_GUARD_EXTENSION]
+    second_guard = second.extensions[LOGIN_ABUSE_GUARD_EXTENSION]
+
+    self.assertIsNot(first_guard, second_guard)
+    first_attempt = first_guard.begin("127.0.0.1", "alice")
+    first_guard.finish(first_attempt.ticket, LoginAttemptOutcome.INVALID_CREDENTIALS)
+    self.assertEqual(1, first_guard.username_state_size)
+    self.assertEqual(0, second_guard.username_state_size)
+
+  def test_lazy_application_build_constructs_no_database_or_configuration_work(self):
+    with patch.object(server, "load_config") as load, patch.object(
+      server, "LoginAbuseGuard", wraps=LoginAbuseGuard
+    ) as guard_factory:
+      app = server._new_flask_app(lazy_config=True)
+
+    load.assert_not_called()
+    guard_factory.assert_called_once_with()
+    self.assertIsInstance(
+      app.extensions[LOGIN_ABUSE_GUARD_EXTENSION],
+      LoginAbuseGuard,
+    )
 
 
 if __name__ == "__main__":

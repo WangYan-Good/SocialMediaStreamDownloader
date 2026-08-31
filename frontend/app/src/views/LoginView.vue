@@ -37,6 +37,7 @@ const canSubmit = computed(
 // reset a password that was fine.
 //
 const UNAVAILABLE = '认证服务暂时不可用，请稍后重试'
+const RATE_LIMITED = '登录尝试过于频繁，请稍后重试'
 const UNEXPECTED = '暂时无法登录，请稍后重试'
 
 function describe(caught: unknown): string {
@@ -45,6 +46,9 @@ function describe(caught: unknown): string {
   }
   if (caught.status === 401) {
     return caught.message || '用户名或密码错误'
+  }
+  if (caught.status === 429) {
+    return RATE_LIMITED
   }
   if (caught.status === 503) {
     return UNAVAILABLE

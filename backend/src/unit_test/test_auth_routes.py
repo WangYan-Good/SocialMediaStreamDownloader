@@ -11,6 +11,7 @@ from flask import Flask, g, jsonify
 
 ##<<Third-part>>
 from backend.src.auth.errors import AuthUnavailable
+from backend.src.auth.login_abuse import LoginAbuseGuard
 from backend.src.auth.roles import ROLE_ADMIN, ROLE_USER
 from backend.src.auth.service import AuthenticationService
 from backend.src.unit_test.test_auth_service import FakeRepository
@@ -53,7 +54,9 @@ def build(repository=None, *, unavailable=None, cookie_secure=False):
   )
   runtime = FakeRuntime(service=service, unavailable=unavailable, cookie_secure=cookie_secure)
   app = Flask(__name__)
-  app.register_blueprint(build_auth_blueprint(runtime=runtime))
+  app.register_blueprint(
+    build_auth_blueprint(runtime=runtime, abuse_guard=LoginAbuseGuard())
+  )
   return app, repository, service
 
 
@@ -171,14 +174,20 @@ class TestLogin(unittest.TestCase):
 
   def test_a_disabled_account_is_refused_like_any_other(self):
     app, repository, _ = with_account()
+    client = app.test_client()
+    wrong = client.post(
+      "/api/auth/login",
+      json={"username": "alice", "password": "not the password"},
+    )
     repository.users[1]["is_active"] = False
 
-    response = app.test_client().post(
+    response = client.post(
       "/api/auth/login",
       json={"username": "alice", "password": "correct horse battery"},
     )
 
     self.assertEqual(401, response.status_code)
+    self.assertEqual(body_of(wrong), body_of(response))
 
   def test_a_failed_login_sets_no_cookie(self):
     app, _, _ = with_account()

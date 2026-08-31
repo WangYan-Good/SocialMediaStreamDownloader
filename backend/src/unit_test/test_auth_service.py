@@ -220,6 +220,22 @@ class TestSigningIn(unittest.TestCase):
     self.assertEqual(1, len(seen))
     self.assertTrue(seen[0].startswith("scrypt:"))
 
+  def test_a_bounded_malformed_username_still_pays_for_one_dummy_hash_check(self):
+    seen = []
+    original = self.auth._verify
+
+    def counting(stored_hash, password):
+      seen.append(stored_hash)
+      return original(stored_hash, password)
+
+    self.auth._verify = counting
+
+    with self.assertRaises(InvalidCredentials):
+      self.auth.authenticate("mal formed", "correct horse battery")
+
+    self.assertEqual(1, len(seen))
+    self.assertTrue(seen[0].startswith("scrypt:"))
+
   def test_a_disabled_account_cannot_sign_in(self):
     self.repository.users[1]["is_active"] = False
 
