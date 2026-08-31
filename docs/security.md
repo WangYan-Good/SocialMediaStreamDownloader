@@ -772,6 +772,46 @@ scanner 只接受 `<32 位小写十六进制>.json`，复用 `canonical_recovery
 目录不存在 = 正常空结果。**启动不调用 `ensure_root()`**，
 从未录制过的 server 启动后 filesystem diff = 0。
 
+canonical note 使用
+`O_RDONLY|O_NOFOLLOW|O_CLOEXEC|O_NONBLOCK` 相对 directory fd 打开，
+然后才 `fstat` 并只接受 regular file。`O_NONBLOCK` 对普通文件不改变读取语义，
+但保证没有 writer 的 FIFO 会在进入读取前快速 fail closed；device、socket、目录等
+其它非普通对象同样不读取、不写库、不 ack，且不会阻塞后续 note。
+
+### 扫描工作量与公平批次
+
+数据库 replay 上限仍为每次启动 `MAX_RECOVERY_JOURNALS_PER_RUN = 1000`；
+除此之外，目录枚举有独立固定 hard bound
+`MAX_RECOVERY_SCAN_ENTRIES = 4096`。**所有** immediate directory entry 都计数，
+包括 unknown、`.part`、backup、子目录和 cursor；scanner 最多观察 `4096 + 1`
+个 entry，第 4097 个只用于证明 overflow，绝不继续遍历目录以统计总数。
+
+目录 entry 超过 4096 时抛出 typed `RecordingJournalScanOverflow`。cursor 自身也必须
+占用这 4096 个 entry 中的一个：若旧目录恰有 4096 个 entry、存在待选 note、但还没有
+cursor，scanner 会在 replay 前按同一 typed overflow 安全降级并预留 metadata 容量，
+而不是先接受该目录、写入第 4097 个 entry，再让 retained batch 把后续所有启动永久
+锁入 overflow。本轮不返回或 replay 任何 partial prefix：DB calls = 0、ack = 0、
+cursor advance = 0，文件原位保留，应用继续启动。这是 safe degraded state，不是删除、
+quarantine 或启动失败。
+
+在 scan bound 内，canonical keys 全部排序后由 `.scan-cursor` 进行 round-robin
+批次选择。cursor payload 只允许一个 32 位小写十六进制 key（可带一个换行，读取
+上限 64 bytes），以 directory-fd relative、`O_NOFOLLOW|O_NONBLOCK` 安全读取；
+missing、corrupt、oversized、uppercase、symlink、FIFO 或 unreadable cursor 都按
+`cursor=None` fail open，不能阻止 recovery。
+
+cursor 在 batch selection 后、实际 replay 前 best-effort 推进到本批最后一个 key：
+0600 hidden temp → file fsync → directory-relative atomic rename → directory fsync。
+directory-relative rename 能力也是 advisory：缺少该能力不会禁止安全 scan/load，
+只会令这次 cursor 写入 fail open。任何写失败都只可能让下次重复选择旧批次，不能
+改变 journal/DB 正确性。cursor 只回答
+「下一批从哪里开始」，不参与 journal validity、ownership、media gate、DB identity、
+recovery key 或 ack；并发 cursor race 最多影响调度，DB unique constraint 仍是幂等权威。
+在总 entry 数不超过 4096、cursor 已占用其中一个 entry 且可持久化时，N 个 canonical
+journals 中每个都在 `ceil(N / 1000)` 次 reconciliation starts 内至少被选择一次，
+retained prefix 不能永久垄断每次启动。cursor 尚不存在时必须至少留一个 entry 容量
+供其原子发布；恰好饱和的旧目录会安全降级而不会产生 self-induced overflow。
+
 ### 媒体存在性是重放前置条件
 
 `load()` 能证明 schema、key、字段类型与 output_path containment，
@@ -813,8 +853,12 @@ corrupt / unsupported version / identity 冲突
 ack 失败（DB 已成功）
 → DB 成功依然有效，不回滚；下次重启同 key 同 id：      GUARANTEED
 
-backlog > MAX_RECOVERY_JOURNALS_PER_RUN (1000)
-→ 本轮只处理上限内的部分，余下原样保留至下次重启：     GUARANTEED
+canonical backlog > MAX_RECOVERY_JOURNALS_PER_RUN (1000)，总 entry <= 4096，
+且 cursor 已计入总 entry（或目录为其保留一个 entry）
+→ round-robin 只处理本批，余下原样保留并在后续启动公平选择： GUARANTEED
+
+total directory entries > MAX_RECOVERY_SCAN_ENTRIES (4096)
+→ typed overflow，本轮不 partial replay，全部 evidence 原样保留： GUARANTEED
 
 Media durable but process dies before durable
 journal publication completes:                        NOT RECOVERABLE
