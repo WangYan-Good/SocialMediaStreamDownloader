@@ -4,12 +4,19 @@ from functools import wraps
 
 ##<<Extension>>
 from flask import Blueprint, g, jsonify, request
+from werkzeug.exceptions import RequestEntityTooLarge
 
 ##<<Third-part>>
 from backend.src.auth.context import RequestAuthContext, RequestAuthStatus
 from backend.src.auth.credentials import hash_session_token  # noqa: F401  (re-exported for callers)
+from backend.src.auth.credentials import MAX_PASSWORD_LENGTH, MAX_USERNAME_LENGTH
 from backend.src.auth.csrf import csrf_token_for_session, csrf_tokens_match
 from backend.src.auth.errors import AuthUnavailable, InvalidCredentials
+from backend.src.auth.login_abuse import (
+  LOGIN_MAX_REQUEST_BYTES,
+  LoginAbuseGuard,
+  LoginAttemptOutcome,
+)
 from backend.src.auth.roles import ROLE_ADMIN, role_satisfies, validate_role
 from backend.src.auth.repository import AuthRepository
 from backend.src.auth.service import AuthenticationService
@@ -46,6 +53,7 @@ INVALID_CREDENTIALS_MESSAGE = "用户名或密码错误"
 UNAVAILABLE_MESSAGE = "认证服务暂时不可用，请稍后重试"
 CSRF_INVALID_MESSAGE = "请求验证失败，请刷新页面后重试"
 FORBIDDEN_MESSAGE = "没有权限执行此操作"
+RATE_LIMITED_MESSAGE = "登录尝试过于频繁，请稍后重试"
 
 
 def _ok(data, status=200):
@@ -219,7 +227,11 @@ def _serialize(user) -> dict:
   }
 
 
-def build_auth_blueprint(*, runtime: AuthRuntime) -> Blueprint:
+def build_auth_blueprint(
+  *,
+  runtime: AuthRuntime,
+  abuse_guard: LoginAbuseGuard,
+) -> Blueprint:
   blueprint = Blueprint("auth", __name__, url_prefix="/api")
 
   @blueprint.before_app_request
@@ -275,7 +287,14 @@ def build_auth_blueprint(*, runtime: AuthRuntime) -> Blueprint:
 
   @blueprint.route("/auth/login", methods=["POST"])
   def login():
-    body = request.get_json(silent=True)
+    # This is a route-local limit. Other upload and media routes retain their
+    # own contracts, while an unauthenticated login can never make Flask read
+    # an unbounded request body into memory.
+    request.max_content_length = LOGIN_MAX_REQUEST_BYTES
+    try:
+      body = request.get_json(silent=True)
+    except RequestEntityTooLarge:
+      return _error("请求体过大", 413, kind="request_too_large")
     if not isinstance(body, dict):
       return _error("请求格式不正确", 400)
 
@@ -286,12 +305,50 @@ def build_auth_blueprint(*, runtime: AuthRuntime) -> Blueprint:
     if not username or not password:
       return _error("请求格式不正确", 400)
 
+    decision = abuse_guard.begin(request.remote_addr, username)
+    if not decision.allowed:
+      response = jsonify({
+        "status": "error",
+        "code": 429,
+        "message": RATE_LIMITED_MESSAGE,
+        "kind": "rate_limited",
+      })
+      response.headers["Retry-After"] = str(decision.retry_after_seconds)
+      # Suppress the global CSRF repair hook too. A refusal must never create
+      # either authentication cookie, even if the caller sent an old session.
+      g.auth_cookies_managed = True
+      return response, 429
+
+    if (
+      len(username) > MAX_USERNAME_LENGTH
+      or len(password) > MAX_PASSWORD_LENGTH
+    ):
+      abuse_guard.finish(
+        decision.ticket,
+        LoginAttemptOutcome.INVALID_CREDENTIALS,
+      )
+      return _error(INVALID_CREDENTIALS_MESSAGE, 401)
+
     try:
       service = runtime.service()
       user = service.authenticate(username, password)
-      issued = service.create_session(user.user_id)
     except InvalidCredentials:
+      abuse_guard.finish(
+        decision.ticket,
+        LoginAttemptOutcome.INVALID_CREDENTIALS,
+      )
       return _error(INVALID_CREDENTIALS_MESSAGE, 401)
+    except AuthUnavailable:
+      abuse_guard.finish(decision.ticket, LoginAttemptOutcome.NEUTRAL)
+      return _error(UNAVAILABLE_MESSAGE, 503)
+    except BaseException:
+      abuse_guard.finish(decision.ticket, LoginAttemptOutcome.NEUTRAL)
+      raise
+    else:
+      abuse_guard.finish(decision.ticket, LoginAttemptOutcome.SUCCESS)
+
+    try:
+      issued = service.create_session(user.user_id)
     except AuthUnavailable:
       return _error(UNAVAILABLE_MESSAGE, 503)
 

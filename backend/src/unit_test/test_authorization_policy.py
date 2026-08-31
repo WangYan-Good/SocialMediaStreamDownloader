@@ -10,6 +10,7 @@ from backend.src.auth.policy import (
   TargetPrincipal,
   policy_keys,
 )
+from backend.src.auth.login_abuse import LoginAbuseGuard
 from backend.src.web.auth_routes import AuthRuntime, build_auth_blueprint
 from backend.src.web.history_routes import build_history_blueprint
 from backend.src.web.library_routes import build_library_blueprint
@@ -30,7 +31,7 @@ def registered_api_routes():
     build_library_blueprint(),
     build_system_blueprint(),
     build_task_blueprint(),
-    build_auth_blueprint(runtime=runtime),
+    build_auth_blueprint(runtime=runtime, abuse_guard=LoginAbuseGuard()),
     build_resolve_blueprint(),
   ):
     app.register_blueprint(blueprint)

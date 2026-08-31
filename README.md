@@ -50,6 +50,13 @@ interactive debugger、reloader 或 traceback response。示例配置默认关�
 `0.0.0.0`。Docker 内部会显式适配为 `0.0.0.0`，但 Compose 只把应用端口发布到宿主机
 `127.0.0.1`，该内部 bind 不是外部暴露许可。
 
+`POST /api/auth/login` 具有进程内、application-local 的有界滥用防护：请求体最多 4096
+bytes；每 60 秒全局最多 60 次、同一 transport peer 最多 20 次；最多同时执行 2 个
+scrypt 认证，第三个请求立即返回带 `Retry-After` 的 429。连续密码失败从第 3 次开始采用
+1、2、4…最多 60 秒的无 sleep backoff。peer 只取直连 socket 的 `remote_addr`，不信任
+`X-Forwarded-For` 或 `X-Real-IP`；因此在反向代理后，所有请求会保守地共享代理 peer bucket。
+本阶段不启用 trusted-proxy 重写，部署者不能用转发 header 绕过该边界。
+
 直播流始终优先选择 FLV；所有 FLV 清晰度均无可用地址时，才按 `hls_clarity` 自动回退
 HLS，并通过 ffmpeg stream-copy 保存为 `.ts` 文件。Docker 镜像已经安装 ffmpeg；直接在
 宿主机运行时必须保证 `ffmpeg` 可执行文件位于 `PATH`。测试模式不会启动 ffmpeg，因此

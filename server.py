@@ -43,6 +43,10 @@ from backend.src.web.system_routes import (
   install_system_config,
 )
 from backend.src.web.auth_routes import build_auth_blueprint, build_auth_runtime
+from backend.src.auth.login_abuse import (
+  LOGIN_ABUSE_GUARD_EXTENSION,
+  LoginAbuseGuard,
+)
 from backend.src.web.task_routes import (
   build_task_blueprint,
   install_task_creation_service,
@@ -113,6 +117,8 @@ def _new_flask_app(
     "recovery_attempted": False,
   }
   configured_app.extensions[RUNTIME_KEY] = runtime
+  login_abuse_guard = LoginAbuseGuard()
+  configured_app.extensions[LOGIN_ABUSE_GUARD_EXTENSION] = login_abuse_guard
   if initial_schema_guard is not None:
     configured_app.extensions["smsd_schema_guard"] = initial_schema_guard
   initialization_lock = threading.Lock()
@@ -353,7 +359,10 @@ def _new_flask_app(
   ## resolves the session once and never chooses a business scope itself.
   ##
   configured_app.register_blueprint(
-    build_auth_blueprint(runtime=build_auth_runtime(load_config))
+    build_auth_blueprint(
+      runtime=build_auth_runtime(load_config),
+      abuse_guard=login_abuse_guard,
+    )
   )
 
   ##
