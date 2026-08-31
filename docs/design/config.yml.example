@@ -29,7 +29,7 @@ log:
 server:
   host: 0.0.0.0
   port: 5000
-  debug_mode: true
+  debug_mode: false
 auth:
   ##
   ## How long a signed-in browser stays signed in, in seconds.  A fixed

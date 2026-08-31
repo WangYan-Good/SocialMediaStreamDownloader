@@ -18,7 +18,8 @@ from datetime import datetime
 import yaml as yml
 
 ## <<Third-Part>>
-from backend.src.library.baselib                            import set_dict_attr, get_dict_attr, output_dict, save_dict_as_file
+from backend.src.library.baselib                            import set_dict_attr, get_dict_attr, save_dict_as_file
+from backend.src.library.safe_diagnostics                  import live_diagnostic
 from backend.src.base.downloader                            import Downloader
 from backend.src.base.file_fetcher                          import ON_EXISTS_UNIQUE, fetch_file
 from backend.src.platform.douyin.douyin_header              import DouyinShareHeader, DouyinLiveInfoHeader
@@ -251,7 +252,14 @@ class DouyinLiveDownloader(Downloader):
           )
       succeeded = True
     except Exception as e:
-      get_logger().error("request error: {err}".format(err=e))
+      get_logger().error(
+        live_diagnostic(
+          "live_download_failed",
+          url=url,
+          protocol=protocol,
+          error=e,
+        )
+      )
       get_logger().error(
         "\tname:{}\n\tpath:{}\n\tprotocol:{}\n\tdownload failed!!!\n".format(
           nickname,
@@ -324,7 +332,9 @@ class DouyinLiveDownloader(Downloader):
         # self.header.create_douyin_msToken()
         # self.config.update_verifyFp()
     except Exception as e:
-      get_logger().error("construct aggregation member failed!\n{}".format(e))
+      get_logger().error(
+        live_diagnostic("live_download_failed", error=e)
+      )
       raise e
   
   def dump_config(self):
@@ -421,7 +431,9 @@ class DouyinLiveDownloader(Downloader):
             )
           )
     except Exception as e:
-      get_logger().error("Try download live stream {} failed! {}".format(url, e))
+      get_logger().error(
+        live_diagnostic("stream_selection_failed", url=url, error=e)
+      )
 
       ##
       ## save error information
@@ -483,7 +495,9 @@ class DouyinLiveDownloader(Downloader):
           )
         except Exception as e:
           get_logger().warning(
-            "database persistence failed, continue live download: {}".format(e)
+            "database persistence failed, continue live download: error={}".format(
+              type(e).__name__
+            )
           )
           self._mark_database_unavailable()
 
@@ -538,11 +552,15 @@ class DouyinLiveDownloader(Downloader):
     except FileNotFoundError:
       get_logger().error("stream url is not found, please double check")
       return self._unrecorded_result(probe, NO_STREAM_REASON)
-    except KeyError:
-      get_logger().error("KeyError, please check the code {} {}".format(get_dict_attr(build, "$.summary.nickname"), url))
+    except KeyError as e:
+      get_logger().error(
+        live_diagnostic("live_download_failed", url=url, error=e)
+      )
       return self._unrecorded_result(probe, MALFORMED_RESPONSE_REASON)
     except Exception as e:
-      get_logger().error("Failed download stream file {} {} {}".format(get_dict_attr(build, "$.summary.nickname"), url, e))
+      get_logger().error(
+        live_diagnostic("live_download_failed", url=url, error=e)
+      )
       raise e
 
   ##
@@ -620,7 +638,8 @@ class DouyinLiveDownloader(Downloader):
       import_douyin_live_info_to_database(self.database, live_response_dict)
     except Exception as e:
       get_logger().warning(
-        "live response database import failed, continue share-url persistence: {}".format(e)
+        "live response database import failed, continue share-url persistence: "
+        "error={}".format(type(e).__name__)
       )
 
     record_tuple = self.database.get_share_url_table_tuple().copy()
@@ -698,7 +717,9 @@ class DouyinLiveDownloader(Downloader):
         database.count_identities_using_directory_name(directory_name),
       )
     except Exception as e:
-      get_logger().warning("identity count failed, assume unique: {}".format(e))
+      get_logger().warning(
+        "identity count failed, assume unique: error={}".format(type(e).__name__)
+      )
       return 1
 
   def _person_folder(self, owner_user_id: str):
@@ -717,7 +738,9 @@ class DouyinLiveDownloader(Downloader):
       return database.find_person_folder(owner_user_id)
     except Exception as e:
       get_logger().warning(
-        "person directory lookup failed, use the owner's own: {}".format(e)
+        "person directory lookup failed, use the owner's own: error={}".format(
+          type(e).__name__
+        )
       )
       return None
 
@@ -735,7 +758,9 @@ class DouyinLiveDownloader(Downloader):
         database=self.config.get_config_dict_attr("$.database.name"),
       )
     except Exception as e:
-      get_logger().warning("person table unavailable: {}".format(e))
+      get_logger().warning(
+        "person table unavailable: error={}".format(type(e).__name__)
+      )
       return None
     return self._person_database
 
@@ -871,7 +896,12 @@ class DouyinLiveDownloader(Downloader):
       # self.config.set_config_dict_attr("$.web_rid", compile(self.REGULAR_ROOM_ID).findall(get_dict_attr(query_response, "$.path")))
 
     if self.config.get_config_dict_attr("$.server.debug_mode") is True:
-      output_dict(params)
+      get_logger().info(
+        live_diagnostic(
+          "live_params_constructed",
+          room_id=get_dict_attr(params, "$.room_id"),
+        )
+      )
     
     return params
 
@@ -963,7 +993,9 @@ class DouyinLiveDownloader(Downloader):
           )
       except Exception as e:
         get_logger().warning(
-          "database directory lookup failed, use live nickname: {}".format(e)
+          "database directory lookup failed, use live nickname: error={}".format(
+            type(e).__name__
+          )
         )
         self._mark_database_unavailable()
         directory_name = choose_owner_directory(
@@ -1039,6 +1071,7 @@ class DouyinLiveDownloader(Downloader):
       timeout=timeout,
       max_retry=remaining_retry,
       on_exists=ON_EXISTS_UNIQUE,
+      durable_success=True,
     )
 
 ##
@@ -1080,11 +1113,6 @@ def cancel_live_downloads() -> None:
 
 def download_single_live(url):
   downloader = get_live_downloader()
-  ##
-  ## construct live downloader
-  ##
-  if downloader.config.get_config_dict_attr("$.server.debug_mode") is True:
-    downloader.dump_config()
   
   ##
   ## start download live
@@ -1096,11 +1124,6 @@ def download_single_live(url):
 
 def download_multiple_live_with_patrolman(urls: list[str]):
   downloader = get_live_downloader()
-  ##
-  ## construct live downloader
-  ##
-  if downloader.config.get_config_dict_attr("$.server.debug_mode") is True:
-    downloader.dump_config()
 
   for url in urls:
     item = ListenerItem(func=downloader.run, args=({"url": url},))
@@ -1110,11 +1133,6 @@ def download_multiple_live_with_patrolman(urls: list[str]):
 
 def download_multiple_live(token_list:list):
   downloader = get_live_downloader()
-  ##
-  ## construct live downloader
-  ##
-  if downloader.config.get_config_dict_attr("$.server.debug_mode") is True:
-    downloader.dump_config()
 
   ##
   ## get live url list
@@ -1133,8 +1151,6 @@ def download_multiple_live(token_list:list):
 def download_live_stream_by_score():
   downloader = get_live_downloader()
   token = dict()
-  if downloader.config.get_config_dict_attr("$.server.debug_mode") is True:
-    downloader.dump_config()
   database = downloader._database_for_read()
   if database is None:
     get_logger().warning("database unavailable, skip score-based URL lookup")
@@ -1162,8 +1178,6 @@ def run_score_download_entrypoint():
 ##
 def download_live_test(urls: list[str]):
   downloader = get_live_downloader()
-  if downloader.config.get_config_dict_attr("$.server.debug_mode") is True:
-    downloader.dump_config()
   for url in urls:
     downloader.run({"url": url})
     

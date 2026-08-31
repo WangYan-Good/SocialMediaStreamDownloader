@@ -269,6 +269,40 @@ class FileFetcherRetryTest(unittest.TestCase):
 
       self.assertEqual(len(attempts), 2)
 
+  def test_retry_logging_keeps_the_signed_query_secret_out(self):
+    messages = []
+    attempts = []
+
+    class Logger:
+      def warning(self, message):
+        messages.append(str(message))
+
+    def fake_request(**kwargs):
+      attempts.append(kwargs["url"])
+      raise exceptions.ConnectionError("refused")
+
+    with tempfile.TemporaryDirectory() as directory:
+      original_request = fetcher_module.request
+      fetcher_module.request = fake_request
+      try:
+        with unittest.mock.patch.object(
+          fetcher_module, "get_logger", return_value=Logger()
+        ):
+          with self.assertRaises(exceptions.ConnectionError):
+            fetch_file(
+              "https://cdn.example.test/live.flv?sign=SECRET_SIGN_13A",
+              directory,
+              "live.flv",
+              max_retry=1,
+            )
+      finally:
+        fetcher_module.request = original_request
+
+    visible = "\n".join(messages)
+    self.assertEqual(2, len(attempts))
+    self.assertNotIn("SECRET_SIGN_13A", visible)
+    self.assertIn("host=cdn.example.test", visible)
+
   def test_response_is_closed_even_when_the_write_fails(self):
     created = []
 

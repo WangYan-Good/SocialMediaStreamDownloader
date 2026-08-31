@@ -1,8 +1,12 @@
+import contextlib
+import io
 import unittest
+from unittest.mock import patch
 
 from requests import exceptions
 
 from backend.src.library.baselib import get_dict_attr
+from backend.src.platform.douyin import douyin_live_prober as prober_module
 from backend.src.platform.douyin.douyin_api import DouyinApi
 from backend.src.platform.douyin.douyin_live_external_info import LiveExternal, observed_at
 from backend.src.platform.douyin.douyin_live_prober import DouyinLiveProber
@@ -50,8 +54,8 @@ def living_payload(room_status=2):
 class FakeContext:
   """Minimal collaborator exposing the primitives the prober calls back into."""
 
-  def __init__(self, responses, params=None, raise_on_live=None):
-    source = unified_config()
+  def __init__(self, responses, params=None, raise_on_live=None, source=None):
+    source = unified_config() if source is None else source
     self.config = FakeConfig(source)
     self.API = DouyinApi(get_dict_attr(source, "$.platform.douyin.api"))
     self.live_external_info = LiveExternal()
@@ -87,6 +91,93 @@ class ObservedAtTest(unittest.TestCase):
 
 
 class LiveProberSuccessTest(unittest.TestCase):
+  def test_debug_diagnostics_are_positive_but_never_emit_transport_secrets(self):
+    sentinels = (
+      "SECRET_COOKIE_13A",
+      "SECRET_AUTHORIZATION_13A",
+      "SECRET_MSTOKEN_13A",
+      "SECRET_X_BOGUS_13A",
+      "SECRET_VERIFY_FP_13A",
+      "SECRET_SIGN_13A",
+      "SECRET_QUERY_TOKEN_13A",
+      "SECRET_PROXY_PASSWORD_13A",
+      "SECRET_SESSION_13A",
+      "SECRET_CSRF_13A",
+    )
+    source = unified_config()
+    source["server"]["debug_mode"] = True
+    source["platform"]["douyin"]["headers"]["share_live_url_no_login"].update({
+      "cookie": sentinels[0],
+      "Authorization": sentinels[1],
+      "X-Session": sentinels[8],
+      "X-CSRF-Token": sentinels[9],
+    })
+    source["platform"]["douyin"]["api"]["LIVE_INFO_ROOM_ID"] = (
+      "https://webcast.amemv.com/webcast/room/reflow/info/"
+      "?sign=" + sentinels[5]
+    )
+    source["platform"]["douyin"]["login"]["proxies"] = {
+      "https": "http://user:{}@proxy.example.test".format(sentinels[7])
+    }
+    params = {
+      "room_id": "123",
+      "msToken": sentinels[2],
+      "X-Bogus": sentinels[3],
+      "verifyFp": sentinels[4],
+      "sign": sentinels[5],
+      "token": sentinels[6],
+    }
+    context = FakeContext(
+      [FakeResponse(), FakeResponse(payload=living_payload(2))],
+      params=params,
+      source=source,
+    )
+    login_source = unified_config()
+    login_source["server"]["debug_mode"] = True
+    login_source["download"]["user_login"] = True
+    login_source["platform"]["douyin"]["headers"]["share_live_url"].update({
+      "cookie": sentinels[0],
+      "Authorization": sentinels[1],
+      "X-Session": sentinels[8],
+      "X-CSRF-Token": sentinels[9],
+    })
+    login_context = FakeContext(
+      [FakeResponse(), FakeResponse(payload=living_payload(2))],
+      source=login_source,
+    )
+
+    messages = []
+
+    class Logger:
+      def _record(self, message):
+        messages.append(str(message))
+
+      debug = _record
+      info = _record
+      warning = _record
+      error = _record
+      exception = _record
+
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    with patch.object(prober_module, "get_logger", return_value=Logger()):
+      with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+        result = DouyinLiveProber(context).probe(
+          "https://v.douyin.com/example/?token=" + sentinels[6]
+        )
+        login_result = DouyinLiveProber(login_context).probe(
+          "https://v.douyin.com/login-example/?token=" + sentinels[6]
+        )
+
+    visible = stdout.getvalue() + stderr.getvalue() + "\n".join(messages)
+    self.assertTrue(result.ok)
+    self.assertTrue(login_result.ok)
+    for sentinel in sentinels:
+      with self.subTest(sentinel=sentinel):
+        self.assertNotIn(sentinel, visible)
+    self.assertIn("live diagnostic event=live_info_request", visible)
+    self.assertIn("host=webcast.amemv.com", visible)
+
   def test_a_broadcasting_room_is_reported_with_its_details(self):
     context = FakeContext([FakeResponse(), FakeResponse(payload=living_payload(2))])
 

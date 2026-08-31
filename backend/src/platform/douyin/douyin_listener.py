@@ -56,7 +56,18 @@ class ListenerItem():
     self._args     = args
     self._target   = func
     self._identify = self._generate_item_identify()
-    self._thread   = Thread(target=self._target, args=self._args)
+    self._thread   = Thread(target=self._run_target_safely)
+
+
+  def _run_target_safely(self):
+    """Keep worker exceptions out of Python's raw thread traceback channel."""
+    try:
+      return self._target(*self._args)
+    except Exception as e:
+      get_logger().error(
+        "listener item failed: error={}".format(type(e).__name__)
+      )
+      return None
 
 
   ##
@@ -88,7 +99,7 @@ class ListenerItem():
     try:
       self._thread.start()
     except RuntimeError:
-      self._thread = Thread(target=self._target, args=self._args)
+      self._thread = Thread(target=self._run_target_safely)
       self._thread.start()
   
   ##

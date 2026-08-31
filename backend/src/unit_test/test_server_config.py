@@ -258,7 +258,12 @@ class ServerConfigTest(unittest.TestCase):
 
     class App:
       def run(self, **options):
-        captured.append(options)
+        raise AssertionError("production must not call Flask.run")
+
+    application = App()
+
+    def serve(received_app, **options):
+      captured.append((received_app, options))
 
     with patch.dict(os.environ, {
       "SERVER_HOST": "environment.invalid",
@@ -267,14 +272,45 @@ class ServerConfigTest(unittest.TestCase):
     }), patch.object(
       server,
       "create_app",
-      return_value=App(),
-    ), patch.object(server, "cancel_live_downloads") as cancel:
-      server.run_server(config)
+      return_value=application,
+    ), patch.object(server, "cancel_live_downloads") as cancel, patch.object(
+      server, "shutdown_aweme_downloads"
+    ) as shutdown:
+      server.run_server(config, serve_application=serve)
 
-    self.assertEqual(captured, [{
-      "host": "127.0.0.7", "port": 5102, "debug": False,
-    }])
+    self.assertEqual(captured, [(application, {
+      "host": "127.0.0.7",
+      "port": 5102,
+      "threads": 4,
+      "expose_tracebacks": False,
+    })])
     cancel.assert_called_once_with()
+    shutdown.assert_called_once_with()
+
+  def test_debug_mode_true_never_enables_flask_debug_or_changes_wsgi_profile(self):
+    config = unified_config()
+    config["server"]["debug_mode"] = True
+    application = server.create_app(
+      config=config,
+      schema_guard_factory=lambda unused: object(),
+    )
+    calls = []
+
+    with patch.object(server, "create_app", return_value=application), patch.object(
+      server, "cancel_live_downloads"
+    ), patch.object(server, "shutdown_aweme_downloads"):
+      server.run_server(
+        config,
+        serve_application=lambda app, **options: calls.append((app, options)),
+      )
+
+    self.assertFalse(application.debug)
+    self.assertEqual(calls, [(application, {
+      "host": config["server"]["host"],
+      "port": config["server"]["port"],
+      "threads": 4,
+      "expose_tracebacks": False,
+    })])
 
   def test_run_server_sigterm_cancels_once_and_restores_handlers(self):
     signal_module = getattr(server, "signal", None)
@@ -294,24 +330,33 @@ class ServerConfigTest(unittest.TestCase):
       events.append(("handler", signum, handler))
       return previous
 
-    class App:
-      def run(self, **options):
-        events.append(("run", options))
-        active_handlers[signal.SIGTERM](signal.SIGTERM, None)
+    application = object()
+
+    def serve(received_app, **options):
+      self.assertIs(application, received_app)
+      events.append(("run", options))
+      active_handlers[signal.SIGTERM](signal.SIGTERM, None)
 
     def cancel():
       events.append(("cancel",))
 
-    with patch.object(server, "create_app", return_value=App()), patch.object(
+    with patch.object(server, "create_app", return_value=application), patch.object(
       signal_module,
       "signal",
       side_effect=install_handler,
-    ), patch.object(server, "cancel_live_downloads", side_effect=cancel):
+    ), patch.object(
+      server, "cancel_live_downloads", side_effect=cancel
+    ), patch.object(
+      server,
+      "shutdown_aweme_downloads",
+      side_effect=lambda: events.append(("shutdown-post",)),
+    ):
       with self.assertRaises(SystemExit) as raised:
-        server.run_server(config)
+        server.run_server(config, serve_application=serve)
 
     self.assertEqual(128 + signal.SIGTERM, raised.exception.code)
     self.assertEqual(1, events.count(("cancel",)))
+    self.assertEqual(1, events.count(("shutdown-post",)))
     self.assertIs(prior_handlers[signal.SIGINT], active_handlers[signal.SIGINT])
     self.assertIs(
       prior_handlers[signal.SIGTERM],
@@ -324,6 +369,41 @@ class ServerConfigTest(unittest.TestCase):
       if event[0] == "handler" and event[2] in prior_handlers.values()
     ]
     self.assertTrue(all(cancel_index < index for index in restore_indices))
+
+  def test_run_server_re_raises_signal_after_waitress_consumes_the_interrupt(self):
+    config = unified_config()
+    events = []
+    active_handlers = {}
+
+    def install_handler(signum, handler):
+      active_handlers[signum] = handler
+      return signal.SIG_DFL
+
+    def waitress_like_serve(unused_app, **unused_options):
+      try:
+        active_handlers[signal.SIGTERM](signal.SIGTERM, None)
+      except SystemExit:
+        events.append("waitress-stopped")
+
+    with patch.object(server, "create_app", return_value=object()), patch.object(
+      server.signal, "signal", side_effect=install_handler
+    ), patch.object(
+      server,
+      "cancel_live_downloads",
+      side_effect=lambda: events.append("cancel-live"),
+    ), patch.object(
+      server,
+      "shutdown_aweme_downloads",
+      side_effect=lambda: events.append("cancel-post"),
+    ):
+      with self.assertRaises(SystemExit) as raised:
+        server.run_server(config, serve_application=waitress_like_serve)
+
+    self.assertEqual(128 + signal.SIGTERM, raised.exception.code)
+    self.assertEqual(
+      ["waitress-stopped", "cancel-live", "cancel-post"],
+      events,
+    )
 
   def test_run_server_normal_return_cancels_once_and_restores_handlers(self):
     signal_module = getattr(server, "signal", None)
@@ -343,11 +423,13 @@ class ServerConfigTest(unittest.TestCase):
       events.append(("handler", signum, handler))
       return previous
 
-    class App:
-      def run(self, **options):
-        events.append(("run", options))
+    application = object()
 
-    with patch.object(server, "create_app", return_value=App()), patch.object(
+    def serve(received_app, **options):
+      self.assertIs(application, received_app)
+      events.append(("run", options))
+
+    with patch.object(server, "create_app", return_value=application), patch.object(
       signal_module,
       "signal",
       side_effect=install_handler,
@@ -355,10 +437,15 @@ class ServerConfigTest(unittest.TestCase):
       server,
       "cancel_live_downloads",
       side_effect=lambda: events.append(("cancel",)),
+    ), patch.object(
+      server,
+      "shutdown_aweme_downloads",
+      side_effect=lambda: events.append(("shutdown-post",)),
     ):
-      server.run_server(config)
+      server.run_server(config, serve_application=serve)
 
     self.assertEqual(1, events.count(("cancel",)))
+    self.assertEqual(1, events.count(("shutdown-post",)))
     self.assertIs(prior_handlers[signal.SIGINT], active_handlers[signal.SIGINT])
     self.assertIs(
       prior_handlers[signal.SIGTERM],
@@ -384,9 +471,10 @@ class ServerConfigTest(unittest.TestCase):
       active_handlers[signum] = handler
       return previous
 
-    class App:
-      def run(self, **options):
-        active_handlers[signal.SIGTERM](signal.SIGTERM, None)
+    application = object()
+
+    def serve(received_app, **options):
+      active_handlers[signal.SIGTERM](signal.SIGTERM, None)
 
     class Logger:
       def error(self, message):
@@ -396,7 +484,7 @@ class ServerConfigTest(unittest.TestCase):
       raise RuntimeError("cancel-sensitive-marker")
 
     caught = None
-    with patch.object(server, "create_app", return_value=App()), patch.object(
+    with patch.object(server, "create_app", return_value=application), patch.object(
       server.signal,
       "signal",
       side_effect=install_handler,
@@ -404,9 +492,11 @@ class ServerConfigTest(unittest.TestCase):
       server,
       "cancel_live_downloads",
       side_effect=fail_cancellation,
-    ), patch.object(server, "get_logger", return_value=Logger()):
+    ), patch.object(server, "shutdown_aweme_downloads"), patch.object(
+      server, "get_logger", return_value=Logger()
+    ):
       try:
-        server.run_server(config)
+        server.run_server(config, serve_application=serve)
       except BaseException as exc:
         caught = exc
 
@@ -436,9 +526,10 @@ class ServerConfigTest(unittest.TestCase):
       active_handlers[signum] = handler
       return previous
 
-    class App:
-      def run(self, **options):
-        raise expected_error
+    application = object()
+
+    def serve(received_app, **options):
+      raise expected_error
 
     class FailingLogger:
       def error(self, message):
@@ -449,7 +540,7 @@ class ServerConfigTest(unittest.TestCase):
       raise RuntimeError("cancel-sensitive-marker")
 
     caught = None
-    with patch.object(server, "create_app", return_value=App()), patch.object(
+    with patch.object(server, "create_app", return_value=application), patch.object(
       server.signal,
       "signal",
       side_effect=install_handler,
@@ -457,9 +548,11 @@ class ServerConfigTest(unittest.TestCase):
       server,
       "cancel_live_downloads",
       side_effect=fail_cancellation,
-    ), patch.object(server, "get_logger", return_value=FailingLogger()):
+    ), patch.object(server, "shutdown_aweme_downloads"), patch.object(
+      server, "get_logger", return_value=FailingLogger()
+    ):
       try:
-        server.run_server(config)
+        server.run_server(config, serve_application=serve)
       except BaseException as exc:
         caught = exc
 
@@ -470,3 +563,26 @@ class ServerConfigTest(unittest.TestCase):
       prior_handlers[signal.SIGTERM],
       active_handlers[signal.SIGTERM],
     )
+
+  def test_run_server_sigint_invokes_both_cleanup_paths_once(self):
+    config = unified_config()
+    active_handlers = {}
+
+    def install_handler(signum, handler):
+      active_handlers[signum] = handler
+      return signal.SIG_DFL
+
+    def serve(unused_app, **unused_options):
+      active_handlers[signal.SIGINT](signal.SIGINT, None)
+
+    with patch.object(server, "create_app", return_value=object()), patch.object(
+      server.signal, "signal", side_effect=install_handler
+    ), patch.object(server, "cancel_live_downloads") as cancel, patch.object(
+      server, "shutdown_aweme_downloads"
+    ) as shutdown:
+      with self.assertRaises(SystemExit) as raised:
+        server.run_server(config, serve_application=serve)
+
+    self.assertEqual(128 + signal.SIGINT, raised.exception.code)
+    cancel.assert_called_once_with()
+    shutdown.assert_called_once_with()

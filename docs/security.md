@@ -15,6 +15,16 @@
 - Alembic 不使用包含凭据的 `alembic.ini` 或 `sqlalchemy.url`；迁移 Engine 仅从统一 YAML
   在进程内构造，CLI 输出不会显示完整 URL 或密码。
 - 服务启动只执行只读版本/schema 检查，不自动 `upgrade`、`stamp`、建表或删表。
+- 宿主机与容器生产入口均为 `python ./server.py`，由 Waitress 在单进程、4 个应用线程下
+  运行。配置中的 `debug_mode` 仅开启项目自己的安全诊断事件；Flask debugger、reloader
+  与 Waitress traceback response 始终关闭。
+- 直播诊断使用正向字段白名单，只允许 operation、host、HTTP status、room id、protocol、
+  exception class 和安全布尔状态。即使 `debug_mode: true`，也不记录完整 headers、params、
+  config、signed URL query 或 exception message；Cookie、Authorization、msToken、X-Bogus、
+  verifyFp、session/CSRF token 与 proxy password 不得进入 stdout、stderr 或应用日志。
+- FLV live capture 的成功边界包含 file flush/fsync、file close 与 parent-directory fsync；
+  只有全部完成才允许生成成功结果并继续 journal/DB handoff。存储提交失败保留媒体字节、
+  不重试网络且不报告录制成功。post download 与既有 HLS durability contract 不受影响。
 
 ## 初始化
 
