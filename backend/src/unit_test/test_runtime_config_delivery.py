@@ -628,6 +628,20 @@ Path(os.environ["FAKE_DOCKER_RECORD"]).write_text(
     )
     self.assertNotIn("secrets", compose["services"]["app"])
     self.assertNotIn("container_name", mysql)
+    self.assertEqual(mysql["healthcheck"]["test"][0], "CMD-SHELL")
+    readiness = mysql["healthcheck"]["test"][1]
+    self.assertIn("mysql --protocol=TCP", readiness)
+    self.assertIn("127.0.0.1", readiness)
+    self.assertIn("-P 3306", readiness)
+    self.assertIn("$${MYSQL_USER}", readiness)
+    self.assertIn("$${MYSQL_PASSWORD}", readiness)
+    self.assertIn("$${MYSQL_DATABASE}", readiness)
+    self.assertIn("SELECT 1", readiness)
+    self.assertNotIn("mysqladmin ping", readiness)
+    self.assertEqual(
+      compose["services"]["app"]["depends_on"]["mysql"]["condition"],
+      "service_healthy",
+    )
 
   def test_ci_runs_real_compose_baseline_with_independent_marker_guard(self):
     workflow = CI_FILE.read_text(encoding="utf-8")
