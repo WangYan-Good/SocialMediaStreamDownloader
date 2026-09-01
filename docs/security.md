@@ -901,3 +901,11 @@ reconciliation summary 仅用于测试与内部日志。
 
 防止当前配置进入新镜像不等于撤销历史泄露。Git 历史中曾出现过的凭据应由维护者
 在外部完成轮换；如需历史重写，必须单独协调所有协作者，本次配置迁移不执行该操作。
+
+## 上游 API 响应捕获
+
+真实上游 API 响应只属于诊断或开发过程，不是 release asset：不得以 JSON capture
+形式跟踪在 `api/douyin/` 下，也不得进入 production image。此类响应可能包含个人资料、
+用户标识以及带签名的资源 URL，因此不能作为文档或测试数据复用。需要 response fixture
+的测试只能使用按实际断言字段构造的最小 synthetic fixture，并使用虚假身份、URL 与时间戳，
+不得从真实 capture 删改生成。

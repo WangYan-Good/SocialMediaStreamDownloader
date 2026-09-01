@@ -21,6 +21,9 @@ config/build/
 # directory elsewhere may well be source worth tracking.
 /downloads/
 
+# Captured upstream API responses are diagnostic artifacts, not source files.
+/api/douyin/*.json
+
 .vscode/
 .obsidian/
 nohup.out

@@ -76,3 +76,7 @@ frontend/app/node_modules/
 frontend/app/dist/
 frontend/app/coverage/
 frontend/app/.vite/
+
+# Development captures can contain personal data and signed resource URLs.
+# The production image has no runtime contract with this directory.
+/api/douyin/
