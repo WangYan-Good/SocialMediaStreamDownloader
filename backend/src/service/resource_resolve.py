@@ -15,6 +15,7 @@ from backend.src.platform.resource_resolution import (
   MultipleUrls,
   NoUrlFound,
   ResourceResolution,
+  ResolveCapacityExceeded,
   ResourceResolveError,
   UnsupportedPlatform,
   extract_urls,
@@ -28,6 +29,8 @@ from backend.src.platform.resource_resolution import (
 ##
 DEFAULT_RETENTION_SECONDS = 600.0
 MAX_BATCH_RESOURCES = 20
+MAX_RESOLVE_STORE_ENTRIES = 512
+MAX_RESOLVE_ENTRIES_PER_USER = 128
 
 
 class ResolveStore:
@@ -53,6 +56,8 @@ class ResolveStore:
     self,
     retention_seconds: float = DEFAULT_RETENTION_SECONDS,
     clock=monotonic,
+    max_entries: int = MAX_RESOLVE_STORE_ENTRIES,
+    max_entries_per_user: int = MAX_RESOLVE_ENTRIES_PER_USER,
   ) -> None:
     ##
     ## The monotonic clock, not the wall clock: nothing here is shown to a user
@@ -60,8 +65,18 @@ class ResolveStore:
     ##
     self._retention_seconds = retention_seconds
     self._clock = clock
+    self._max_entries = self._positive_limit(max_entries, "max_entries")
+    self._max_entries_per_user = self._positive_limit(
+      max_entries_per_user, "max_entries_per_user"
+    )
     self._guard = Lock()
     self._entries = dict()
+
+  @staticmethod
+  def _positive_limit(value, label: str) -> int:
+    if type(value) is not int or value < 1:
+      raise ValueError("{} must be a positive integer".format(label))
+    return value
 
   def _evict_expired(self) -> None:
     ##
@@ -75,6 +90,17 @@ class ResolveStore:
     ]
     for resolve_id in expired:
       del self._entries[resolve_id]
+
+  def _ensure_capacity_locked(self, requested_slots: int, app_user_id: int) -> None:
+    if len(self._entries) + requested_slots > self._max_entries:
+      raise ResolveCapacityExceeded("服务当前繁忙，请稍后重试")
+    owned = sum(
+      1
+      for entry in self._entries.values()
+      if entry["app_user_id"] == app_user_id
+    )
+    if owned + requested_slots > self._max_entries_per_user:
+      raise ResolveCapacityExceeded("服务当前繁忙，请稍后重试")
 
 ##
 ## >>============================= sub class method =============================>>
@@ -97,20 +123,37 @@ class ResolveStore:
     resource this server never resolved, which is exactly the guarantee the id
     exists to provide.
     """
+    return self.put_many((resolution,), app_user_id)[0]
+
+  def ensure_capacity(self, requested_slots: int, app_user_id: int) -> None:
+    """Cheap advisory preflight; ``put_many`` remains the final authority."""
     app_user_id = self._app_user_id(app_user_id)
-    resolve_id = uuid4().hex
+    if type(requested_slots) is not int or requested_slots < 0:
+      raise ValueError("requested_slots must be a non-negative integer")
     with self._guard:
       self._evict_expired()
-      self._entries[resolve_id] = {
+      self._ensure_capacity_locked(requested_slots, app_user_id)
+
+  def put_many(self, resolutions, app_user_id: int) -> list[str]:
+    """Atomically store every resolution, or leave the store unchanged."""
+    app_user_id = self._app_user_id(app_user_id)
+    pending = tuple(resolutions)
+    with self._guard:
+      self._evict_expired()
+      self._ensure_capacity_locked(len(pending), app_user_id)
+      now = self._clock()
+      resolve_ids = [uuid4().hex for _ in pending]
+      for resolve_id, resolution in zip(resolve_ids, pending):
+        self._entries[resolve_id] = {
         ##
         ## Copied on the way in, so a caller that keeps and later edits the
         ## resolution it handed over cannot reach into the record.
         ##
-        "resolution": deepcopy(resolution),
-        "app_user_id": app_user_id,
-        "stored_at": self._clock(),
-      }
-    return resolve_id
+          "resolution": deepcopy(resolution),
+          "app_user_id": app_user_id,
+          "stored_at": now,
+        }
+      return resolve_ids
 
   def get(self, resolve_id: str):
     """Return a detached copy of one resolution, or ``None``.
@@ -265,13 +308,13 @@ class ResourceResolveService:
         "一次最多解析 {} 个不同链接".format(MAX_BATCH_RESOURCES)
       )
 
-    items = []
-    resolved_count = 0
+    pending_items = []
+    successful = []
     for index, url in enumerate(urls):
       try:
         resolution = self._resolver_for(url).resolve(url)
       except ResourceResolveError as e:
-        items.append(
+        pending_items.append(
           BatchFailedItem(
             index=index,
             status="failed",
@@ -281,11 +324,20 @@ class ResourceResolveService:
         )
         continue
 
-      record = ResolveRecord(
-        resolve_id=self._store.put(resolution, app_user_id), resolution=resolution
-      )
-      resolved_count += 1
+      successful.append(resolution)
+      pending_items.append((index, resolution))
+
+    resolve_ids = iter(self._store.put_many(successful, app_user_id))
+    items = []
+    for item in pending_items:
+      if isinstance(item, BatchFailedItem):
+        items.append(item)
+        continue
+      index, resolution = item
+      record = ResolveRecord(resolve_id=next(resolve_ids), resolution=resolution)
       items.append(BatchResolvedItem(index=index, status="resolved", record=record))
+
+    resolved_count = len(successful)
 
     return BatchResolveRecord(
       total=len(urls),

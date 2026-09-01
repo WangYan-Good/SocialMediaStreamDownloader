@@ -3,7 +3,11 @@ from threading import Lock
 
 ##<<Third-part>>
 from backend.src.library.loglib import get_logger
-from backend.src.service.task_creation import TaskCreationUnavailable
+from backend.src.service.task_creation import (
+  CAPACITY_MESSAGE,
+  TaskCreationCapacityExceeded,
+  TaskCreationUnavailable,
+)
 from backend.src.task.model import (
   ITEM_STATE_FAILED,
   ITEM_STATE_RUNNING,
@@ -13,6 +17,7 @@ from backend.src.task.model import (
   UNSET,
   is_terminal,
 )
+from backend.src.task.errors import TaskCapacityExceeded
 
 
 ##
@@ -201,6 +206,13 @@ class OwnerTaskMirror:
         total=total,
         app_user_id=app_user_id,
       )
+    except TaskCapacityExceeded:
+      get_logger().warning(
+        "owner task mirror: strict create rejected for job {}: capacity".format(
+          job_id
+        )
+      )
+      raise TaskCreationCapacityExceeded(CAPACITY_MESSAGE)
     except Exception as e:
       get_logger().error(
         "owner task mirror: strict create failed for job {}: {}".format(job_id, e)

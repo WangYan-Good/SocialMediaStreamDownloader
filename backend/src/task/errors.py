@@ -13,6 +13,10 @@ class TaskNotFound(TaskError):
   """Raised when a task id is unknown, or has already been evicted."""
 
 
+class TaskCapacityExceeded(TaskError):
+  """Raised when this process cannot admit another active task."""
+
+
 class TaskValidationError(TaskError, ValueError):
   """Raised when the caller's input cannot describe a task.
 
@@ -35,6 +39,10 @@ class InvalidTaskItemState(TaskValidationError):
 
 class InvalidProgress(TaskValidationError):
   """Raised when progress numbers cannot describe a position in a total."""
+
+
+class TaskItemCapacityExceeded(TaskValidationError):
+  """Raised when one task would exceed its fixed item safety ceiling."""
 
 
 class TaskAlreadyFinished(TaskError):

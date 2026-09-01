@@ -6,7 +6,12 @@ from uuid import uuid4
 from backend.src.platform.douyin.douyin_listener import ListenerItem
 from backend.src.platform.douyin.douyin_live_downloader import get_live_downloader
 from backend.src.platform.douyin.hls_recorder import HlsCancelled
-from backend.src.service.task_creation import TaskCreationUnavailable
+from backend.src.service.task_creation import (
+  CAPACITY_MESSAGE,
+  TaskCreationCapacityExceeded,
+  TaskCreationUnavailable,
+)
+from backend.src.task.errors import TaskCapacityExceeded
 from backend.src.task.model import TASK_TYPE_LIVE_RECORD
 
 
@@ -425,6 +430,9 @@ class LiveRecordingTaskService:
         total=None,
         app_user_id=app_user_id,
       )
+    except TaskCapacityExceeded:
+      get_logger().info("live recording task refused: task_capacity")
+      raise TaskCreationCapacityExceeded(CAPACITY_MESSAGE)
     except Exception as e:
       get_logger().error(
         "live recording task: strict create failed: error={}".format(

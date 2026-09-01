@@ -76,6 +76,16 @@ class TaskCreationUnavailable(TaskCreateError):
   status_code = 503
 
 
+CAPACITY_MESSAGE = "服务当前繁忙，请稍后重试"
+
+
+class TaskCreationCapacityExceeded(TaskCreateError):
+  """This process cannot safely admit another task right now."""
+
+  kind = "task_capacity"
+  status_code = 503
+
+
 ##
 ## >>============================= result =============================>>
 ##

@@ -1,4 +1,5 @@
 ##<<Base>>
+from collections import OrderedDict
 from threading import Lock
 from time import monotonic
 
@@ -24,12 +25,19 @@ from backend.src.service.job_store import (
   STATE_ERROR,
   STATE_RUNNING,
   STATE_SKIPPED,
+  MAX_OWNER_JOB_ITEMS,
+  JobCapacityExceeded,
+  JobItemCapacityExceeded,
   JobStore,
 )
 from backend.src.service.owner_task_mirror import (
   PLATFORM_DOUYIN,
   SOURCE_TASK_API,
   OwnerTaskMirror,
+)
+from backend.src.service.task_creation import (
+  CAPACITY_MESSAGE,
+  TaskCreationCapacityExceeded,
 )
 from backend.src.task.model import (
   ITEM_STATE_FAILED,
@@ -39,6 +47,7 @@ from backend.src.task.model import (
 
 
 OWNERSHIP_FAILED_MESSAGE = "作品已保存，但未能记录到当前用户资源库"
+MAX_PAYLOAD_CACHE_ENTRIES = 1024
 
 
 class PayloadCache:
@@ -49,11 +58,19 @@ class PayloadCache:
   what gets downloaded.  The browser sends ids; the payloads stay here.
   """
 
-  def __init__(self, retention_seconds: float = 1800.0, clock=monotonic) -> None:
+  def __init__(
+    self,
+    retention_seconds: float = 1800.0,
+    clock=monotonic,
+    max_entries: int = MAX_PAYLOAD_CACHE_ENTRIES,
+  ) -> None:
     self._retention_seconds = retention_seconds
     self._clock = clock
+    if type(max_entries) is not int or max_entries < 1:
+      raise ValueError("max_entries must be a positive integer")
+    self._max_entries = max_entries
     self._guard = Lock()
-    self._entries = {}
+    self._entries = OrderedDict()
 
   def _evict_expired(self) -> None:
     now = self._clock()
@@ -63,7 +80,7 @@ class PayloadCache:
       if now - entry["touched_at"] >= self._retention_seconds
     ]
     for key in expired:
-      del self._entries[key]
+      self._entries.pop(key, None)
 
   def remember(self, payloads) -> int:
     """Store payloads by aweme id.  Returns how many were kept."""
@@ -75,10 +92,14 @@ class PayloadCache:
         aweme_id = get_dict_attr(payload, "$.aweme_id")
         if not isinstance(aweme_id, str) or not aweme_id.strip():
           continue
-        self._entries[aweme_id.strip()] = {
+        key = aweme_id.strip()
+        if key not in self._entries and len(self._entries) >= self._max_entries:
+          self._entries.popitem(last=False)
+        self._entries[key] = {
           "payload": payload,
           "touched_at": now,
         }
+        self._entries.move_to_end(key)
         kept += 1
     return kept
 
@@ -95,6 +116,7 @@ class PayloadCache:
           missing.append(key)
           continue
         entry["touched_at"] = self._clock()
+        self._entries.move_to_end(key)
         payloads.append(entry["payload"])
     return payloads, missing
 
@@ -150,6 +172,7 @@ class PostDownloadJobService:
     task_service=None,
     post_pool=None,
     post_concurrency: int = 1,
+    max_owner_items: int = MAX_OWNER_JOB_ITEMS,
   ) -> None:
     self.downloader = downloader
     self.api = api
@@ -177,6 +200,9 @@ class PostDownloadJobService:
     ##
     self._post_pool = post_pool
     self._post_concurrency = post_concurrency
+    if type(max_owner_items) is not int or max_owner_items < 1:
+      raise ValueError("max_owner_items must be a positive integer")
+    self._max_owner_items = max_owner_items
 
   def task_id_for(self, job_id: str):
     """The unified task mirroring ``job_id``, or ``None`` when there is not one.
@@ -283,7 +309,18 @@ class PostDownloadJobService:
 ##
   def start_selected(self, aweme_ids, share_url: str = ""):
     """Download the posts the user ticked.  Returns a job id."""
-    ids = [str(value).strip() for value in aweme_ids if str(value).strip()]
+    ids = []
+    for value in aweme_ids:
+      text = str(value).strip()
+      if not text:
+        continue
+      if len(ids) >= self._max_owner_items:
+        raise JobItemCapacityExceeded(
+          "owner selection accepts at most {} items".format(
+            self._max_owner_items
+          )
+        )
+      ids.append(text)
     if not ids:
       raise ValueError("no posts were selected")
     payloads, missing = self.cache.take(ids)
@@ -389,7 +426,11 @@ class PostDownloadJobService:
       raise ValueError("an owner api is required to walk the pages")
     sec_user_id = sec_user_id.strip()
 
-    job_id = self.store.create([])
+    try:
+      job_id = self.store.create([])
+    except JobCapacityExceeded:
+      get_logger().warning("owner tracked creation rejected: job_capacity")
+      raise TaskCreationCapacityExceeded(CAPACITY_MESSAGE)
     try:
       task_id = self._tasks.open_strict(
         job_id,
@@ -464,7 +505,11 @@ class PostDownloadJobService:
     ## Held in a list so the walk, which runs inside the generator below, and the
     ## error report, which runs out here, see the same count.
     ##
-    progress = {"walked": 0, "wrote_card": False}
+    progress = {
+      "walked": 0,
+      "wrote_card": False,
+      "safety_stopped": False,
+    }
     self._tasks.start(job_id, message="正在读取主播作品")
 
     def walk():
@@ -479,6 +524,15 @@ class PostDownloadJobService:
         sec_user_id,
         max_pages=self.downloader.config.owner_max_pages,
       ):
+        if progress["walked"] >= self._max_owner_items:
+          ##
+          ## The platform iterator may have exposed the next payload from a page
+          ## it already fetched, but the over-limit payload crosses no mutable
+          ## boundary: it is not cached, task-added, job-added or submitted.
+          ## A feed containing exactly the limit still completes normally.
+          ##
+          progress["safety_stopped"] = True
+          return
         if not progress["wrote_card"]:
           ##
           ## Written from the first post rather than up front, because that is
@@ -518,6 +572,11 @@ class PostDownloadJobService:
           e,
         )
       )
+      self.store.finish(job_id, state=JOB_ERROR, message=stop_message)
+      self._tasks.finish(job_id, message=stop_message, stopped_early=True)
+      return
+    if progress["safety_stopped"]:
+      stop_message = "达到单次任务安全上限，已停止继续读取"
       self.store.finish(job_id, state=JOB_ERROR, message=stop_message)
       self._tasks.finish(job_id, message=stop_message, stopped_early=True)
       return

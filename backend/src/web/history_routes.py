@@ -23,7 +23,13 @@ from backend.src.database.table.share_url import DouyinShareUrlTable
 from backend.src.library.configlib import load_config
 from backend.src.library.baselib import get_dict_attr
 from backend.src.library.loglib import get_logger
-from backend.src.service.live_probe import LiveProbeService, ProbeBatchStore, ProbeBatchError
+from backend.src.service.live_probe import (
+  LiveProbeService,
+  ProbeBatchError,
+  ProbeBatchStore,
+  ProbeCapacityExceeded,
+)
+from backend.src.service.task_creation import CAPACITY_MESSAGE
 from backend.src.service.owner_preference import (
   OwnerNotFound,
   OwnerPreferenceService,
@@ -321,6 +327,9 @@ def build_history_blueprint(
     try:
       service = runtime.probe_service()
       batch_id = service.submit(owner_user_ids)
+    except ProbeCapacityExceeded:
+      get_logger().warning("live probe submission rejected: probe_capacity")
+      return _error(CAPACITY_MESSAGE, 503)
     except ProbeBatchError as e:
       return _error(str(e), 400)
     except HistoryUnavailable as e:

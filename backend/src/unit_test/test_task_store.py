@@ -51,12 +51,13 @@ class FakeClock:
     self.mono += seconds
 
 
-def build_store(clock=None, retention_seconds=600.0):
+def build_store(clock=None, retention_seconds=600.0, **overrides):
   clock = clock if clock is not None else FakeClock()
   return TaskStore(
     retention_seconds=retention_seconds,
     clock=clock.now,
     monotonic_clock=clock.monotonic,
+    **overrides,
   )
 
 
@@ -108,7 +109,10 @@ class TaskCreationTest(unittest.TestCase):
     self.assertEqual(store.get(task_id)["progress"], {"current": 0, "total": None})
 
   def test_ids_are_unique(self):
-    store = build_store()
+    store = build_store(
+      max_active_global=256,
+      max_active_by_type={TASK_TYPE_LIVE_PROBE: 256},
+    )
 
     ids = {store.create(TASK_TYPE_LIVE_PROBE) for _ in range(200)}
 
@@ -1038,7 +1042,10 @@ class TaskConcurrencyTest(unittest.TestCase):
     self.assertEqual({item["state"] for item in items}, {ITEM_STATE_SUCCESS})
 
   def test_parallel_creation_never_reuses_an_id(self):
-    store = build_store()
+    store = build_store(
+      max_active_global=256,
+      max_active_by_type={TASK_TYPE_LIVE_PROBE: 256},
+    )
     created = []
 
     def worker(index):

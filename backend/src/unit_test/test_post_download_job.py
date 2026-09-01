@@ -13,7 +13,10 @@ from backend.src.service.job_store import (
   STATE_ERROR,
   STATE_SKIPPED,
   JobStore,
+  JobItemCapacityExceeded,
 )
+from backend.src.task.service import TaskService
+from backend.src.task.store import TaskStore
 from backend.src.service.post_download_job import (
   MissingPayloads,
   PayloadCache,
@@ -191,7 +194,12 @@ def build_service(
   store=None,
   post_pool=None,
   post_concurrency=1,
+  task_service=None,
+  max_owner_items=None,
 ):
+  options = {}
+  if max_owner_items is not None:
+    options["max_owner_items"] = max_owner_items
   return PostDownloadJobService(
     downloader=downloader if downloader is not None else StubDownloader(),
     api=api,
@@ -200,6 +208,8 @@ def build_service(
     media_switches=SWITCHES,
     post_pool=post_pool,
     post_concurrency=post_concurrency,
+    task_service=task_service,
+    **options,
   )
 
 
@@ -262,6 +272,16 @@ class PayloadCacheTest(OfflineTestCase):
 
 
 class SelectedDownloadTest(OfflineTestCase):
+  def test_selected_request_item_ceiling_is_checked_before_cache_lookup(self):
+    cache = PayloadCache()
+    cache.remember([post_item("1"), post_item("2"), post_item("3")])
+    service = build_service(cache=cache, max_owner_items=2)
+
+    with self.assertRaises(JobItemCapacityExceeded):
+      service.start_selected(["1", "2", "3"])
+
+    self.assertEqual(0, service.store.tracked())
+
   def test_every_selected_post_is_downloaded(self):
     downloader = StubDownloader()
     cache = PayloadCache()
@@ -382,6 +402,49 @@ class SelectedDownloadTest(OfflineTestCase):
 
 
 class DownloadEverythingTest(OfflineTestCase):
+  def test_absolute_item_ceiling_stops_before_cache_task_and_download(self):
+    downloader = StubDownloader()
+    cache = PayloadCache()
+    tasks = TaskService(
+      TaskStore(
+        max_entries=4,
+        max_active_global=4,
+        max_active_per_user=4,
+        max_items_per_task=2,
+      )
+    )
+    api = StubApi(pages=[page(["1", "2", "3"], 100, 0)])
+    service = build_service(
+      downloader=downloader,
+      api=api,
+      cache=cache,
+      task_service=tasks,
+      max_owner_items=2,
+    )
+
+    job_id = service.start_all(SEC_UID)
+
+    self.assertEqual(["1", "2"], [call[0] for call in downloader.calls])
+    unused, missing = cache.take(["1", "2", "3"])
+    self.assertEqual(["3"], missing)
+    task = tasks.get_task(service.task_id_for(job_id))
+    self.assertEqual(["1", "2"], [item["key"] for item in task["items"]])
+    self.assertEqual("partial", task["state"])
+    self.assertEqual(JOB_ERROR, service.store.snapshot(job_id)["state"])
+
+  def test_feed_exactly_at_the_absolute_ceiling_completes_normally(self):
+    downloader = StubDownloader()
+    service = build_service(
+      downloader=downloader,
+      api=StubApi(pages=[page(["1", "2"], 100, 0)]),
+      max_owner_items=2,
+    )
+
+    job_id = service.start_all(SEC_UID)
+
+    self.assertEqual(["1", "2"], [call[0] for call in downloader.calls])
+    self.assertEqual(JOB_DONE, service.store.snapshot(job_id)["state"])
+
   def test_every_page_is_walked_and_downloaded(self):
     downloader = StubDownloader()
     api = StubApi(pages=[

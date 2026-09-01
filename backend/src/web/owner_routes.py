@@ -33,12 +33,13 @@ from backend.src.platform.douyin.douyin_session import (
   SessionExpired,
   UpstreamRejected,
 )
-from backend.src.service.job_store import JobStore
+from backend.src.service.job_store import JobCapacityExceeded, JobStore
 from backend.src.service.post_download_job import (
   MissingPayloads,
   PayloadCache,
   PostDownloadJobService,
 )
+from backend.src.service.task_creation import CAPACITY_MESSAGE
 from backend.src.web.auth_routes import require_admin, require_admin_csrf
 
 
@@ -398,6 +399,9 @@ def build_owner_blueprint(runtime: OwnerRuntime = None, task_service=None) -> Bl
         return _error("缺少必需字段: sec_user_id", 400)
       try:
         job_id = service.start_all(sec_user_id, share_url=share_url)
+      except JobCapacityExceeded:
+        get_logger().warning("owner download rejected: job_capacity")
+        return _error(CAPACITY_MESSAGE, 503)
       except ValueError as e:
         return _error(str(e), 400)
       return _success(_started(service, job_id))
@@ -407,6 +411,9 @@ def build_owner_blueprint(runtime: OwnerRuntime = None, task_service=None) -> Bl
       return _error("缺少必需字段: aweme_ids（必须是非空数组）", 400)
     try:
       job_id = service.start_selected(aweme_ids, share_url=share_url)
+    except JobCapacityExceeded:
+      get_logger().warning("owner download rejected: job_capacity")
+      return _error(CAPACITY_MESSAGE, 503)
     except MissingPayloads as e:
       ##
       ## The cached payloads aged out.  The browser must re-read the page rather

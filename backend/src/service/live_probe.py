@@ -33,9 +33,17 @@ STATE_ERROR = "error"
 ##
 ROOM_STATUS_LIVING = 2
 
+MAX_PROBE_BATCH_STORE_ENTRIES = 32
+MAX_ACTIVE_PROBE_BATCHES = 16
+MAX_SAFE_PROBE_ITEMS_PER_BATCH = 100
+
 
 class ProbeBatchError(ValueError):
   """Raised when a probe batch cannot be accepted as requested."""
+
+
+class ProbeCapacityExceeded(Exception):
+  """Raised when this process cannot admit another live-probe batch."""
 
 
 class ProbeBatchStore:
@@ -46,11 +54,34 @@ class ProbeBatchStore:
   backend can replace it without touching callers.
   """
 
-  def __init__(self, retention_seconds: float = 600.0, clock=monotonic) -> None:
+  def __init__(
+    self,
+    retention_seconds: float = 600.0,
+    clock=monotonic,
+    max_entries: int = MAX_PROBE_BATCH_STORE_ENTRIES,
+    max_active_batches: int = MAX_ACTIVE_PROBE_BATCHES,
+  ) -> None:
     self._retention_seconds = retention_seconds
     self._clock = clock
+    self._max_entries = self._positive_limit(max_entries, "max_entries")
+    self._max_active_batches = self._positive_limit(
+      max_active_batches, "max_active_batches"
+    )
     self._lock = threading.Lock()
     self._batches = dict()
+
+  @staticmethod
+  def _positive_limit(value, label: str) -> int:
+    if type(value) is not int or value < 1:
+      raise ValueError("{} must be a positive integer".format(label))
+    return value
+
+  @staticmethod
+  def _is_active(batch: dict) -> bool:
+    return any(
+      item["state"] in (STATE_PENDING, STATE_RUNNING)
+      for item in batch["items"].values()
+    )
 
   def _evict_expired(self) -> None:
     ##
@@ -60,19 +91,44 @@ class ProbeBatchStore:
     expired = [
       batch_id
       for batch_id, batch in self._batches.items()
-      if batch["created_at"] < deadline
+      if batch["completed_at"] is not None
+      and batch["completed_at"] <= deadline
     ]
     for batch_id in expired:
       del self._batches[batch_id]
 
+  def _pressure_evict_completed(self) -> None:
+    completed = [
+      batch_id
+      for batch_id, batch in self._batches.items()
+      if not self._is_active(batch)
+    ]
+    while len(self._batches) >= self._max_entries and completed:
+      del self._batches[completed.pop(0)]
+
   def create(self, items: list) -> str:
     batch_id = uuid4().hex
+    item_map = {item["owner_user_id"]: item for item in items}
+    created_at = self._clock()
+    new_batch = {
+      "created_at": created_at,
+      "completed_at": None,
+      "items": item_map,
+    }
+    if not self._is_active(new_batch):
+      new_batch["completed_at"] = created_at
     with self._lock:
       self._evict_expired()
-      self._batches[batch_id] = {
-        "created_at": self._clock(),
-        "items": {item["owner_user_id"]: item for item in items},
-      }
+      self._pressure_evict_completed()
+      if self._is_active(new_batch):
+        active = sum(
+          1 for batch in self._batches.values() if self._is_active(batch)
+        )
+        if active >= self._max_active_batches:
+          raise ProbeCapacityExceeded("probe batch active capacity is full")
+      if len(self._batches) >= self._max_entries:
+        raise ProbeCapacityExceeded("probe batch store capacity is full")
+      self._batches[batch_id] = new_batch
     return batch_id
 
   def update(self, batch_id: str, owner_user_id: str, **fields) -> None:
@@ -83,7 +139,12 @@ class ProbeBatchStore:
       item = batch["items"].get(owner_user_id)
       if item is None:
         return
+      was_active = self._is_active(batch)
       item.update(fields)
+      if self._is_active(batch):
+        batch["completed_at"] = None
+      elif was_active:
+        batch["completed_at"] = self._clock()
 
   def snapshot(self, batch_id: str):
     """Return a detached copy of one batch, or None when it is unknown."""
@@ -141,6 +202,9 @@ class LiveProbeService:
     self._owner_lookup = owner_lookup
     self._status_writer = status_writer
     self._max_batch_size = max_batch_size
+    self._effective_max_batch_size = min(
+      max_batch_size, MAX_SAFE_PROBE_ITEMS_PER_BATCH
+    )
     self._cache_ttl = timedelta(seconds=cache_ttl_seconds)
     self._clock = clock
     self._store = store if store is not None else ProbeBatchStore()
@@ -273,18 +337,21 @@ class LiveProbeService:
     never reach the network.
     """
     identifiers = list()
+    seen = set()
     for candidate in owner_user_ids or ():
       text = str(candidate).strip()
-      if text and text not in identifiers:
+      if text and text not in seen:
+        seen.add(text)
         identifiers.append(text)
+        if len(identifiers) > self._effective_max_batch_size:
+          raise ProbeBatchError(
+            "a probe batch accepts at most {} owners".format(
+              self._effective_max_batch_size
+            )
+          )
 
     if not identifiers:
       raise ProbeBatchError("owner_user_ids must not be empty")
-    if len(identifiers) > self._max_batch_size:
-      raise ProbeBatchError(
-        "a probe batch accepts at most {} owners".format(self._max_batch_size)
-      )
-
     owners = self._owner_lookup(identifiers)
 
     items = list()

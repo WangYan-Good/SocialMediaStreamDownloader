@@ -8,7 +8,7 @@ from backend.src.platform.douyin.douyin_session import (
   SessionExpired,
   UpstreamRejected,
 )
-from backend.src.service.job_store import JobStore
+from backend.src.service.job_store import JobItemCapacityExceeded, JobStore
 from backend.src.service.post_download_job import MissingPayloads, PayloadCache
 from backend.src.web.owner_routes import (
   SESSION_MESSAGE,
@@ -372,6 +372,43 @@ class ReadOwnerPostsTest(unittest.TestCase):
 
 
 class StartDownloadTest(unittest.TestCase):
+  def test_owner_job_capacity_is_service_unavailable(self):
+    store = JobStore(max_entries=1, max_active_jobs=1)
+    store.create([])
+    runtime = StubRuntime(service=StubService(store=store))
+    client = build_client(runtime)
+
+    response = client.post(
+      "/api/owner/download",
+      json={"all": True, "sec_user_id": SEC_UID},
+    )
+
+    self.assertEqual(503, response.status_code)
+    self.assertEqual("服务当前繁忙，请稍后重试", response.get_json()["message"])
+
+  def test_selected_owner_job_capacity_is_service_unavailable(self):
+    store = JobStore(max_entries=1, max_active_jobs=1)
+    store.create([])
+    runtime = StubRuntime(service=StubService(store=store))
+
+    response = build_client(runtime).post(
+      "/api/owner/download", json={"aweme_ids": ["1"]}
+    )
+
+    self.assertEqual(503, response.status_code)
+    self.assertEqual("服务当前繁忙，请稍后重试", response.get_json()["message"])
+
+  def test_selected_item_safety_excess_remains_a_bad_request(self):
+    service = StubService()
+    service.selected_error = JobItemCapacityExceeded("too many")
+
+    response = build_client(StubRuntime(service=service)).post(
+      "/api/owner/download", json={"aweme_ids": ["1", "2"]}
+    )
+
+    self.assertEqual(400, response.status_code)
+    self.assertEqual("too many", response.get_json()["message"])
+
   def test_selected_posts_are_submitted(self):
     service = StubService()
     runtime = StubRuntime(service=service)
