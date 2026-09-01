@@ -130,6 +130,124 @@ def set_role_command(
   return 0
 
 
+def set_password_command(
+  username: str,
+  *,
+  service_factory,
+  prompt=_prompt,
+  out=sys.stdout,
+) -> int:
+  """Rotate a password without accepting or printing it outside getpass."""
+  try:
+    service = service_factory()
+  except AuthUnavailable:
+    print(UNAVAILABLE_MESSAGE, file=out)
+    return 2
+  try:
+    password = prompt("New password: ")
+    confirmation = prompt("Confirm new password: ")
+  except (EOFError, KeyboardInterrupt):
+    print("已取消，密码未修改", file=out)
+    return 1
+  if password != confirmation:
+    print("两次输入的密码不一致", file=out)
+    return 1
+  try:
+    user = service.set_password(username, password)
+  except CredentialPolicyError as error:
+    print(str(error), file=out)
+    return 1
+  except UnknownUsername:
+    print("用户名不存在：{}".format(username.strip()), file=out)
+    return 1
+  except AuthUnavailable:
+    print(UNAVAILABLE_MESSAGE, file=out)
+    return 2
+  print("已更新用户 {} 的密码并撤销全部会话".format(user.username), file=out)
+  return 0
+
+
+def _lifecycle_command(
+  username: str,
+  method: str,
+  success_message: str,
+  *,
+  service_factory,
+  out=sys.stdout,
+) -> int:
+  try:
+    service = service_factory()
+    user = getattr(service, method)(username)
+  except UnknownUsername:
+    print("用户名不存在：{}".format(username.strip()), file=out)
+    return 1
+  except (ValueError, TypeError) as error:
+    print(str(error), file=out)
+    return 1
+  except AuthUnavailable:
+    print(UNAVAILABLE_MESSAGE, file=out)
+    return 2
+  print(success_message.format(username=user.username), file=out)
+  return 0
+
+
+def disable_user_command(username: str, *, service_factory, out=sys.stdout) -> int:
+  return _lifecycle_command(
+    username,
+    "disable_user",
+    "已禁用用户 {username} 并撤销全部会话",
+    service_factory=service_factory,
+    out=out,
+  )
+
+
+def enable_user_command(username: str, *, service_factory, out=sys.stdout) -> int:
+  return _lifecycle_command(
+    username,
+    "enable_user",
+    "已启用用户 {username}；需要重新登录",
+    service_factory=service_factory,
+    out=out,
+  )
+
+
+def revoke_sessions_command(
+  username: str, *, service_factory, out=sys.stdout
+) -> int:
+  return _lifecycle_command(
+    username,
+    "revoke_all_sessions",
+    "已撤销用户 {username} 的全部会话",
+    service_factory=service_factory,
+    out=out,
+  )
+
+
+def build_cli_service_factory(
+  *,
+  config_loader=None,
+  guard_initializer=None,
+  runtime_builder=None,
+):
+  """Build the CLI runtime only after installing a real schema guard."""
+  if config_loader is None:
+    from backend.src.library.configlib import load_config
+
+    config_loader = load_config
+  if guard_initializer is None:
+    from backend.src.database.schema_guard import initialize_schema_guard
+
+    guard_initializer = initialize_schema_guard
+  if runtime_builder is None:
+    from backend.src.web.auth_routes import build_auth_runtime
+
+    runtime_builder = build_auth_runtime
+  settings = config_loader()
+  guard_initializer(settings)
+  runtime = runtime_builder(lambda: settings)
+  return runtime.service
+
+
 def build_parser() -> argparse.ArgumentParser:
   parser = argparse.ArgumentParser(
     prog="python -m backend.src.auth_cli",
@@ -155,37 +273,64 @@ def build_parser() -> argparse.ArgumentParser:
   set_role.add_argument("username", help="登录用户名")
   set_role.add_argument("role", choices=APP_USER_ROLES, help="目标角色")
 
+  set_password = subcommands.add_parser(
+    "set-password", help="重置密码并撤销该用户全部会话"
+  )
+  set_password.add_argument("username", help="登录用户名")
+
+  disable = subcommands.add_parser(
+    "disable-user", help="禁用用户并撤销该用户全部会话"
+  )
+  disable.add_argument("username", help="登录用户名")
+
+  enable = subcommands.add_parser("enable-user", help="启用用户")
+  enable.add_argument("username", help="登录用户名")
+
+  revoke = subcommands.add_parser(
+    "revoke-sessions", help="撤销该用户全部会话"
+  )
+  revoke.add_argument("username", help="登录用户名")
+
   return parser
 
 
 def main(argv=None) -> int:
   parser = build_parser()
   arguments = parser.parse_args(argv)
+  service_factory = build_cli_service_factory()
 
   if arguments.command == "create-user":
-    ##
-    ## Imported here rather than at module scope so that `--help` works, and
-    ## the parser can be tested, without configuration or a database.
-    ##
-    from backend.src.library.configlib import load_config
-    from backend.src.web.auth_routes import build_auth_runtime
-
-    runtime = build_auth_runtime(load_config)
     return create_user_command(
       arguments.username,
-      service_factory=runtime.service,
+      service_factory=service_factory,
       role=arguments.role,
     )
 
   if arguments.command == "set-role":
-    from backend.src.library.configlib import load_config
-    from backend.src.web.auth_routes import build_auth_runtime
-
-    runtime = build_auth_runtime(load_config)
     return set_role_command(
       arguments.username,
       arguments.role,
-      service_factory=runtime.service,
+      service_factory=service_factory,
+    )
+
+  if arguments.command == "set-password":
+    return set_password_command(
+      arguments.username, service_factory=service_factory
+    )
+
+  if arguments.command == "disable-user":
+    return disable_user_command(
+      arguments.username, service_factory=service_factory
+    )
+
+  if arguments.command == "enable-user":
+    return enable_user_command(
+      arguments.username, service_factory=service_factory
+    )
+
+  if arguments.command == "revoke-sessions":
+    return revoke_sessions_command(
+      arguments.username, service_factory=service_factory
     )
 
   parser.error("unknown command")

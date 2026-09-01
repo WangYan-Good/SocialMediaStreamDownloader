@@ -194,130 +194,18 @@ Download 与 History 两个页面共用同一个历史主播列表（Download �
 数据库关闭或不可用时，历史列表返回 503 并在界面上说明，直播下载本身不受影响。
 
 ## 数据库结构迁移
-
-数据库启用时，先显式确认 schema 状态；服务启动不会自动建表或执行迁移：
-
-```shell
-python -m backend.src.database.migration_cli status
-python -m backend.src.database.migration_cli check
-```
-
-新数据库使用：
-
-```shell
-python -m backend.src.database.migration_cli upgrade
-```
-
-已有数据库必须先通过 `check`，备份并人工复核后，才可纳入当前基线：
-
-```shell
-python -m backend.src.database.migration_cli stamp
-```
-
-其余显式命令为：
-
-```shell
-python -m backend.src.database.migration_cli downgrade REVISION --confirm-database DATABASE_NAME
-python -m backend.src.database.migration_cli revision "change description"
-```
-
-`stamp` 只写 Alembic 版本，不执行建表或 `ALTER`。不带参数时它记录当前 head，且只有
-全部受管表的严格结构校验通过时才会执行——因此记录下来的版本不可能说谎。
-
-如果已有数据库停留在更早的版本（例如它匹配基线，但仓库里已经有了后续迁移），
-`check` 会列出缺失的列而拒绝 `stamp`。这时用显式版本把它纳入对应的那一版，
-再正常 `upgrade` 补齐后续迁移：
-
-```shell
-python -m backend.src.database.migration_cli stamp \
-  --revision 0001_initial_schema --confirm-database DATABASE_NAME
-python -m backend.src.database.migration_cli upgrade
-```
-
-指定非 head 版本时无法用当前 ORM 元数据校验，因此它是一次显式的人工判断，
-必须像 `downgrade` 一样回填真实库名确认。执行前请务必备份。
-
-`upgrade` 会拒绝含受管表但尚未版本化的数据库，已有库必须先走 `check + stamp`。非临时库执行 `downgrade` 必须用实际库名进行显式确认；基线
-revision 的任何降级路径（包括 `base`、`-1` 等等价写法）只允许通过显式数据库名 override
-创建且严格命名的临时迁移测试库。所有降级操作前必须备份并人工审查 revision。
-运行时状态为 `ready` 时才允许持久化写入；`unavailable` 或 `blocked` 不阻断 live 网络请求
-和流下载，但会跳过数据库写入。
-
-### 升级到作品下载版本（`0003_aweme_record`）
-
-本次新增受管表 `aweme_record`，受管表从 12 张变为 13 张，head 为 `0003_aweme_record`。
-**升级顺序必须是先补配置、再发代码、最后跑迁移**，理由见下。
-
-**第 1 步：补配置**（不做这一步服务起不来）
-
-`config/config.yml` 需要新增 `platform.douyin.aweme` 配置块，内容照 `docs/design/config.yml.example`
-抄。配置契约要求 example 里的每个键都在实际配置中存在，缺键会让服务在启动时直接失败，
-而不是降级运行。**每个实例各有一份配置，都要补**。
-
-**第 2 步：确认数据库当前状态**（只读，不改任何东西）
+数据库启用时，服务启动只检查 schema，不会自动建表或执行迁移。支持的操作入口为：
 
 ```shell
 python -m backend.src.database.migration_cli status
 python -m backend.src.database.migration_cli check
-```
-
-按 `status` 的输出选择第 3 步：
-
-| `status` 输出 | 含义 | 做法 |
-|---|---|---|
-| `state=ready current=0002_...` | 已版本化且在上一版 | 直接 `upgrade`（情形 A） |
-| `state=ready current=0003_aweme_record` | 已经是最新 | 无需操作 |
-| `state=unversioned` | 有受管表但没有 Alembic 版本记录 | 先纳入基线再升（情形 B） |
-| 空库 | 全新数据库 | 直接 `upgrade`（情形 A） |
-
-**情形 A：直接升级**
-
-```shell
 python -m backend.src.database.migration_cli upgrade
 ```
 
-**情形 B：未版本化的已有数据库**
-
-`upgrade` 会拒绝这种库。先备份，再用显式版本纳入它实际所处的那一版，然后正常 `upgrade`
-补齐后续迁移：
-
-```shell
-# 0. 先备份
-mysqldump -u USER -p DATABASE_NAME > DATABASE_NAME-backup-$(date +%F).sql
-
-# 1. 纳入基线。check 若报缺少 0002 的列（last_live_status /
-#    last_checked_at / last_room_id），说明这个库停在 0001，用显式版本纳入
-python -m backend.src.database.migration_cli stamp \
-  --revision 0001_initial_schema --confirm-database DATABASE_NAME
-
-# 2. 补齐 0002 与 0003
-python -m backend.src.database.migration_cli upgrade
-```
-
-`0002` 含一次 backfill；其 docstring 记录了原始 JOIN 写法在 7,538 行 `share_url` ×
-29,679 行 `room_base` 上耗时 17.9 分钟，改为 Python 侧聚合后降到数秒。`0003` 是纯建表，
-无 backfill。
-
-**第 3 步：确认结果**
-
-```shell
-python -m backend.src.database.migration_cli status   # 期望 state=ready current=0003_aweme_record
-python -m backend.src.database.migration_cli check    # 期望 managed schema is compatible
-```
-
-**回滚**
-
-```shell
-python -m backend.src.database.migration_cli downgrade \
-  0002_share_url_live_status_cache --confirm-database DATABASE_NAME
-```
-
-`0003` 的 downgrade 会删除 `aweme_record` 整张表及其两个索引，作品下载记录随之丢失
-（磁盘上的文件不受影响）。执行前必须备份。
-
-**不升级会怎样**：作品下载的文件照样下载，但 schema guard 判定为 `blocked`，
-所有数据库写入被跳过 —— `aweme_record` 不会有记录，History 页也会返回 503。
-去重不依赖数据库（以磁盘上的文件为准），因此重复提交同一链接仍然不会重复下载。
+`status` 输出数据库的 `current` 与代码的 `heads`，不要从 README 猜测当前 head。正式升级、
+已有库的 `stamp`、显式 downgrade、preflight、backup 与 post-upgrade gate 见
+[数据库迁移操作指南](./docs/operations/migrations.md)。完整 backup/restore、rollback、凭据与
+账户生命周期见 [Release Operations Runbook](./docs/operations/release.md)。
 
 ## 方式二：Docker Compose
 
