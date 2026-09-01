@@ -6,7 +6,13 @@ sys.path.append(os.getcwd())
 ##<<Test
 
 ##<<Third-part>>
-from backend.src.base.log import Logger, LoggerManager
+from backend.src.base.log import (
+  BoundedUtf8Formatter,
+  DEFAULT_LOGGER_FORMATTER_STR,
+  Logger,
+  LoggerManager,
+  build_bounded_file_handler,
+)
 
 ##
 ## register a logger for module-level logging
@@ -59,7 +65,7 @@ def init_bootstrap_logger():
   ##
   console_handler = logging.StreamHandler()
   console_handler.setLevel(logging.DEBUG)
-  formatter = logging.Formatter('[%(asctime)s]-[%(name)s]-[%(levelname)s]: %(message)s')
+  formatter = BoundedUtf8Formatter(DEFAULT_LOGGER_FORMATTER_STR)
   console_handler.setFormatter(formatter)
   logger.addHandler(console_handler)
   
@@ -67,7 +73,9 @@ def init_bootstrap_logger():
   ## set file handler with formatter
   ##
   log_file_path = os.path.join(os.getcwd(), "bootstrap.log")
-  file_handler = logging.FileHandler(log_file_path)
-  file_handler.setLevel(logging.DEBUG)
-  file_handler.setFormatter(formatter)
+  file_handler = build_bounded_file_handler(
+    log_file_path,
+    level="DEBUG",
+    formatter_format=DEFAULT_LOGGER_FORMATTER_STR,
+  )
   logger.addHandler(file_handler)

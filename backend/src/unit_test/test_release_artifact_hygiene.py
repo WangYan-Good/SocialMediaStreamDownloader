@@ -3,6 +3,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
+import yaml
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 HYGIENE_SCRIPT = PROJECT_ROOT / "scripts" / "check_release_artifact_hygiene.py"
@@ -93,6 +95,7 @@ class ReleaseArtifactHygieneTest(unittest.TestCase):
 
   def test_ci_runs_repository_and_production_image_negative_guards(self):
     workflow = CI_WORKFLOW.read_text(encoding="utf-8")
+    parsed_workflow = yaml.safe_load(workflow)
 
     self.assertIn(
       "python scripts/check_release_artifact_hygiene.py", workflow
@@ -100,14 +103,15 @@ class ReleaseArtifactHygieneTest(unittest.TestCase):
     self.assertIn(
       "--image-root /app", workflow
     )
-    for required_name in (
-      "Python tests",
-      "MySQL schema and migrations",
-      "Frontend build and tests",
-      "Docker build and runtime smoke",
-    ):
-      with self.subTest(required_name=required_name):
-        self.assertEqual(1, workflow.count(f"name: {required_name}"))
+    self.assertEqual(
+      {job["name"] for job in parsed_workflow["jobs"].values()},
+      {
+        "Python tests",
+        "MySQL schema and migrations",
+        "Frontend build and tests",
+        "Docker build and runtime smoke",
+      },
+    )
 
   def test_security_contract_treats_real_captures_as_non_release_assets(self):
     security = SECURITY_DOC.read_text(encoding="utf-8")
