@@ -6,8 +6,10 @@ from backend.src.service.live_probe import (
   STATE_LIVING,
   STATE_OFFLINE,
   STATE_PENDING,
+  STATE_RUNNING,
   LiveProbeService,
   ProbeBatchError,
+  ProbeCapacityExceeded,
   ProbeBatchStore,
 )
 
@@ -67,6 +69,78 @@ def build_service(prober, owners, **overrides):
 
 
 class ProbeBatchStoreTest(unittest.TestCase):
+  def test_active_batches_are_preserved_and_a_new_batch_is_rejected(self):
+    store = ProbeBatchStore(max_entries=3, max_active_batches=2)
+    first = store.create([{"owner_user_id": "1", "state": STATE_PENDING}])
+    second = store.create([{"owner_user_id": "2", "state": STATE_RUNNING}])
+
+    with self.assertRaises(ProbeCapacityExceeded):
+      store.create([{"owner_user_id": "3", "state": STATE_PENDING}])
+
+    self.assertIsNotNone(store.snapshot(first))
+    self.assertIsNotNone(store.snapshot(second))
+
+  def test_total_capacity_rejects_without_evicting_an_active_batch(self):
+    store = ProbeBatchStore(max_entries=1, max_active_batches=2)
+    active = store.create([{"owner_user_id": "1", "state": STATE_PENDING}])
+
+    with self.assertRaises(ProbeCapacityExceeded):
+      store.create([{"owner_user_id": "2", "state": STATE_PENDING}])
+
+    self.assertIsNotNone(store.snapshot(active))
+
+  def test_completed_batch_is_pressure_evicted_before_rejection(self):
+    store = ProbeBatchStore(max_entries=2, max_active_batches=2)
+    completed = store.create([{"owner_user_id": "1", "state": STATE_LIVING}])
+    active = store.create([{"owner_user_id": "2", "state": STATE_PENDING}])
+
+    admitted = store.create([{"owner_user_id": "3", "state": STATE_PENDING}])
+
+    self.assertIsNone(store.snapshot(completed))
+    self.assertIsNotNone(store.snapshot(active))
+    self.assertIsNotNone(store.snapshot(admitted))
+
+  def test_active_batch_is_not_ttl_evicted(self):
+    current = [1000.0]
+    store = ProbeBatchStore(
+      retention_seconds=10.0,
+      clock=lambda: current[0],
+      max_entries=2,
+      max_active_batches=1,
+    )
+    active = store.create([{"owner_user_id": "1", "state": STATE_PENDING}])
+    current[0] += 100.0
+
+    with self.assertRaises(ProbeCapacityExceeded):
+      store.create([{"owner_user_id": "2", "state": STATE_PENDING}])
+
+    self.assertIsNotNone(store.snapshot(active))
+
+  def test_completed_batch_retention_starts_when_the_last_item_settles(self):
+    current = [1000.0]
+    store = ProbeBatchStore(
+      retention_seconds=10.0,
+      clock=lambda: current[0],
+      max_entries=2,
+      max_active_batches=1,
+    )
+    completed = store.create(
+      [{"owner_user_id": "1", "state": STATE_PENDING}]
+    )
+
+    current[0] += 100.0
+    store.update(completed, "1", state=STATE_LIVING)
+    current[0] += 9.0
+    self.assertIsNotNone(store.snapshot(completed))
+
+    current[0] += 2.0
+    self.assertIsNone(store.snapshot(completed))
+    self.assertIsNotNone(
+      store.snapshot(
+        store.create([{"owner_user_id": "2", "state": STATE_PENDING}])
+      )
+    )
+
   def test_snapshot_reports_done_only_when_nothing_is_outstanding(self):
     store = ProbeBatchStore()
     batch_id = store.create(
@@ -117,6 +191,36 @@ class LiveProbeSubmitTest(unittest.TestCase):
       service.submit([])
     with self.assertRaises(ProbeBatchError):
       service.submit([str(index) for index in range(11)])
+
+  def test_absolute_safety_ceiling_cannot_be_disabled_by_configuration(self):
+    looked_up = []
+    service = LiveProbeService(
+      prober=FakeProber(),
+      owner_lookup=lambda ids: looked_up.append(ids) or {},
+      max_batch_size=1000,
+      executor=ImmediateExecutor(),
+    )
+
+    with self.assertRaises(ProbeBatchError):
+      service.submit([str(index) for index in range(101)])
+
+    self.assertEqual([], looked_up)
+
+  def test_store_capacity_refusal_submits_no_probe_workers(self):
+    executor = ImmediateExecutor()
+    store = ProbeBatchStore(max_entries=1, max_active_batches=1)
+    store.create([{"owner_user_id": "held", "state": STATE_PENDING}])
+    service = build_service(
+      FakeProber(),
+      {"1": {"live_share_url": "https://u/1", "nickname": "A"}},
+      store=store,
+      executor=executor,
+    )
+
+    with self.assertRaises(ProbeCapacityExceeded):
+      service.submit(["1"])
+
+    self.assertEqual(0, executor.submitted)
 
   def test_duplicate_owner_ids_are_probed_once(self):
     prober = FakeProber()

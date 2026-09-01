@@ -13,6 +13,7 @@ from backend.src.service.task_creation import (
   UnknownTaskType,
   UnsupportedTaskForResource,
 )
+from backend.src.service import task_creation as task_creation_module
 from backend.src.task.model import (
   TASK_TYPE_LIVE_RECORD,
   TASK_TYPE_OWNER_BATCH_DOWNLOAD,
@@ -30,6 +31,11 @@ from backend.src.web.task_routes import (
 
 RESOLVE_ID = "receipt-1"
 AWEME_ID = "7657271784144009946"
+TaskCreationCapacityExceeded = getattr(
+  task_creation_module,
+  "TaskCreationCapacityExceeded",
+  type("MissingTaskCreationCapacityExceeded", (Exception,), {}),
+)
 
 
 class FakeCreationService:
@@ -348,6 +354,16 @@ class ErrorMappingTest(unittest.TestCase):
 
     self.assertEqual(response.status_code, 503)
     self.assertEqual(response.get_json()["code"], 503)
+
+  def test_temporary_task_capacity_is_a_safe_service_unavailable(self):
+    app, _ = self.build(
+      TaskCreationCapacityExceeded("服务当前繁忙，请稍后重试")
+    )
+
+    response = create(app, valid_body())
+
+    self.assertEqual(503, response.status_code)
+    self.assertEqual("服务当前繁忙，请稍后重试", response.get_json()["message"])
 
   def test_an_unexpected_failure_is_a_generic_five_hundred(self):
     app, _ = self.build(RuntimeError("boom: /srv/app/config/config.yml line 12"))

@@ -142,6 +142,21 @@ class ResolveSuccessTest(unittest.TestCase):
     self.assertEqual(data["expires_in_seconds"], 600)
     self.assertTrue(data["resolve_id"])
 
+  def test_capacity_refusal_is_a_safe_service_unavailable_response(self):
+    store = ResolveStore(max_entries=1, max_entries_per_user=1)
+    store.put(resolution(), 9001)
+    service = ResourceResolveService(
+      resolvers=(StubResolver({SHORT_LINK: resolution()}),),
+      store=store,
+    )
+    app, _ = build_app(service=service)
+
+    response = post_resolve(app, {"input": SHORT_LINK})
+
+    self.assertEqual(503, response.status_code)
+    self.assertEqual("服务当前繁忙，请稍后重试", response.get_json()["message"])
+    self.assertEqual(1, store.tracked())
+
 
 class ResolveAuthorizationTest(unittest.TestCase):
   def app_for(self, context):

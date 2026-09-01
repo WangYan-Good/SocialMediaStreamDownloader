@@ -9,6 +9,7 @@ from backend.src.service.job_store import (
   STATE_PENDING,
   STATE_RUNNING,
   STATE_SKIPPED,
+  JobCapacityExceeded,
   JobStore,
 )
 
@@ -130,10 +131,47 @@ class JobLifecycleTest(unittest.TestCase):
 class JobRetentionTest(unittest.TestCase):
   """Jobs expire so a long-running server does not accumulate them."""
 
+  def test_running_job_keeps_its_active_slot_past_retention(self):
+    clock = FakeClock()
+    store = JobStore(
+      retention_seconds=10.0,
+      clock=clock,
+      max_entries=2,
+      max_active_jobs=1,
+    )
+    running = store.create(["a"])
+
+    clock.advance(100)
+
+    self.assertEqual(1, store.tracked())
+    with self.assertRaises(JobCapacityExceeded):
+      store.create(["b"])
+    self.assertIsNotNone(store.snapshot(running))
+
+  def test_terminal_job_retention_starts_when_the_job_finishes(self):
+    clock = FakeClock()
+    store = JobStore(
+      retention_seconds=10.0,
+      clock=clock,
+      max_entries=2,
+      max_active_jobs=1,
+    )
+    finished = store.create(["a"])
+
+    clock.advance(100)
+    store.finish(finished, state=JOB_DONE)
+    clock.advance(9)
+    self.assertIsNotNone(store.snapshot(finished))
+
+    clock.advance(2)
+    self.assertIsNone(store.snapshot(finished))
+    self.assertIsNotNone(store.snapshot(store.create(["b"])))
+
   def test_a_job_is_dropped_once_it_is_stale(self):
     clock = FakeClock()
     store = JobStore(retention_seconds=100.0, clock=clock)
     job_id = store.create(["a"])
+    store.finish(job_id, state=JOB_DONE)
 
     clock.advance(99)
     self.assertIsNotNone(store.snapshot(job_id))
@@ -155,7 +193,8 @@ class JobRetentionTest(unittest.TestCase):
   def test_creating_a_job_evicts_stale_ones(self):
     clock = FakeClock()
     store = JobStore(retention_seconds=10.0, clock=clock)
-    store.create(["a"])
+    finished = store.create(["a"])
+    store.finish(finished, state=JOB_DONE)
 
     clock.advance(11)
     store.create(["b"])
@@ -169,7 +208,8 @@ class JobRetentionTest(unittest.TestCase):
 
     for index in range(50):
       clock.advance(6)
-      store.create(["item-{}".format(index)])
+      job_id = store.create(["item-{}".format(index)])
+      store.finish(job_id, state=JOB_DONE)
 
     self.assertEqual(store.tracked(), 1)
 

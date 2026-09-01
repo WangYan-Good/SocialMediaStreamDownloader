@@ -64,6 +64,13 @@ class BatchTooLarge(ResourceResolveError):
   kind = "batch_too_large"
 
 
+class ResolveCapacityExceeded(ResourceResolveError):
+  """This process cannot retain another resolution receipt right now."""
+
+  kind = "resolve_capacity"
+  status_code = 503
+
+
 class UnsupportedScheme(ResourceResolveError):
   kind = "unsupported_scheme"
 

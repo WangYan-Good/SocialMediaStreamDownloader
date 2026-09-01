@@ -8,7 +8,12 @@ from backend.src.platform.douyin.douyin_aweme_downloader import (
   get_aweme_downloader,
   get_aweme_executor,
 )
-from backend.src.service.task_creation import TaskCreationUnavailable
+from backend.src.service.task_creation import (
+  CAPACITY_MESSAGE,
+  TaskCreationCapacityExceeded,
+  TaskCreationUnavailable,
+)
+from backend.src.task.errors import TaskCapacityExceeded
 from backend.src.task.model import TASK_TYPE_POST_DOWNLOAD
 
 
@@ -337,6 +342,9 @@ class DirectPostDownloadTaskService:
         total=1,
         app_user_id=app_user_id,
       )
+    except TaskCapacityExceeded:
+      get_logger().info("direct post task refused: task_capacity")
+      raise TaskCreationCapacityExceeded(CAPACITY_MESSAGE)
     except Exception as e:
       get_logger().error("direct post task: strict create failed: {}".format(e))
       raise TaskCreationUnavailable(NOT_CREATED_MESSAGE)

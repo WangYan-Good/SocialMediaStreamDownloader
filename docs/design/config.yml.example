@@ -352,7 +352,8 @@ platform:
       #
       # Read once when the pool is built, so a change needs a restart.
       download_concurrency: 1
-      # Cap on how many pages "download everything" will walk.  0 means no cap.
+      # Operator page cap for "download everything".  0 disables this page
+      # cap, but the fixed process item safety ceiling still applies.
       max_pages: 0
       # How long fetched post payloads stay available for a later download
       # request to reference by aweme_id.

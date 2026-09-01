@@ -15,6 +15,7 @@ from backend.src.service.live_recording_task import (
 from backend.src.service.live_recording_task import (
   SOURCE_TASK_API as LIVE_SOURCE_TASK_API,
 )
+from backend.src.service import task_creation as task_creation_module
 from backend.src.service.task_creation import TaskCreationUnavailable
 from backend.src.task.model import (
   TASK_STATE_FAILED,
@@ -23,6 +24,14 @@ from backend.src.task.model import (
   is_terminal,
 )
 from backend.src.task.service import TaskService
+from backend.src.task.store import TaskStore
+
+
+TaskCreationCapacityExceeded = getattr(
+  task_creation_module,
+  "TaskCreationCapacityExceeded",
+  type("MissingTaskCreationCapacityExceeded", (Exception,), {}),
+)
 
 
 SOURCE_URL = "https://v.douyin.com/M-kmspLye0o/"
@@ -302,6 +311,22 @@ class PostTrackedCreationTest(unittest.TestCase):
 
 
 class PostStrictCreationTest(unittest.TestCase):
+  def test_task_capacity_refusal_never_touches_the_executor(self):
+    tasks = TaskService(
+      TaskStore(max_entries=1, max_active_global=1, max_active_per_user=1)
+    )
+    tasks.create_task(TASK_TYPE_POST_DOWNLOAD, app_user_id=41)
+    executor = ImmediateExecutor()
+    service, downloader, _ = build_service(
+      task_service=tasks, executor=executor
+    )
+
+    with self.assertRaises(TaskCreationCapacityExceeded):
+      tracked(service, app_user_id=41)
+
+    self.assertEqual(0, executor.submitted)
+    self.assertEqual([], downloader.calls)
+
   """The invariant this endpoint exists to keep: no task, no work."""
 
   def test_a_task_layer_that_refuses_starts_nothing(self):
@@ -611,6 +636,22 @@ class LiveTrackedCreationTest(unittest.TestCase):
 
 
 class LiveStrictCreationTest(unittest.TestCase):
+  def test_task_capacity_refusal_never_constructs_or_starts_a_listener(self):
+    tasks = TaskService(
+      TaskStore(max_entries=1, max_active_global=1, max_active_per_user=1)
+    )
+    tasks.create_task(TASK_TYPE_POST_DOWNLOAD, app_user_id=41)
+    DeferredListenerItem.created = []
+    service, downloader = build_live_service(
+      task_service=tasks, listener=DeferredListenerItem
+    )
+
+    with self.assertRaises(TaskCreationCapacityExceeded):
+      tracked_live(service, app_user_id=41)
+
+    self.assertEqual([], DeferredListenerItem.created)
+    self.assertEqual([], downloader.calls)
+
   """No task, no recording thread."""
 
   def test_a_task_layer_that_refuses_starts_nothing(self):
@@ -939,6 +980,18 @@ class OwnerTrackedCreationTest(OfflineTestCase):
 
 
 class OwnerStrictCreationTest(OfflineTestCase):
+  def test_task_capacity_refusal_starts_no_owner_walk(self):
+    tasks = TaskService(
+      TaskStore(max_entries=1, max_active_global=1, max_active_per_user=1)
+    )
+    tasks.create_task(TASK_TYPE_POST_DOWNLOAD, app_user_id=41)
+    api = StubApi([page(["1"], 0, False)])
+    service = build_owner_service(api=api, task_service=tasks)
+
+    with self.assertRaises(TaskCreationCapacityExceeded):
+      tracked_owner(service, app_user_id=41)
+
+    self.assertEqual(0, api.calls)
   """No task, no walk - and no legacy job left running either."""
 
   def test_a_task_layer_that_refuses_starts_no_walk(self):

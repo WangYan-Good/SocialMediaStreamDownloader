@@ -909,3 +909,26 @@ reconciliation summary 仅用于测试与内部日志。
 用户标识以及带签名的资源 URL，因此不能作为文档或测试数据复用。需要 response fixture
 的测试只能使用按实际断言字段构造的最小 synthetic fixture，并使用虚假身份、URL 与时间戳，
 不得从真实 capture 删改生成。
+
+## 进程内工作准入与容量
+
+用户触发的 task、resolve receipt、owner job 与 live-probe batch 都由各自的
+process-local store 在同一把锁内执行固定 hard admission check；检查与插入之间不释放锁。
+pending/running task、active owner job 和 active probe batch 绝不因新请求而被 pressure-evict。
+容量不足统一 fail closed；task、resolve、job 与 probe 的 capacity refusal 对 HTTP 表示为
+`503 Service Unavailable` 和固定公开消息，不把内部计数、上限或用户输入写入响应或日志。
+
+运行中的 owner job 以及仍含 pending/running item 的 probe batch 同样不受 TTL 淘汰，
+必须持续占用 active admission slot，直到真实工作结束。两者的 retention window 都从终态
+完成时开始，而不是从创建时开始；运行时间本身不会消耗完成后的可见窗口。
+
+TaskStore 的 terminal telemetry 在总容量压力下可以早于普通 retention window 被淘汰，
+因此 retention 是通常可见窗口，不是强制最短保存期；active work 不受这种淘汰影响。
+ResolveStore 的未过期 receipt 不允许 pressure eviction，因为 API 已向调用方承诺
+`expires_in_seconds`。PayloadCache 只是重新选择作品的便利缓存，满时按 LRU 淘汰；读取或
+覆盖已有项会刷新 recency。
+
+单 task/owner walk/live-probe batch 另有不可通过配置关闭的固定 item safety ceiling。
+`owner.max_pages: 0` 只表示没有 operator-configured page cap，并不关闭 owner item ceiling；
+live probe 的有效批量上限是配置值与固定 safety ceiling 的较小值。超过固定 request item
+上限是不会因重试而改变的输入错误（400），与服务器当前 capacity full（503）严格区分。

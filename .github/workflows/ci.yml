@@ -1290,6 +1290,20 @@ jobs:
             exit 1
           }
 
+          # Phase 15B: execute the tracked proof inside the production image.
+          # It uses real Python locks and concurrent creators; no network,
+          # database or platform credentials are involved.
+          docker cp scripts/runtime_work_admission_probe.py \
+            smsd-ci-smoke:/tmp/runtime_work_admission_probe.py
+          docker exec smsd-ci-smoke \
+            python /tmp/runtime_work_admission_probe.py \
+            | tee /tmp/work-admission-smoke.txt
+          grep -Fxq 'ok   runtime bounded work admission' \
+            /tmp/work-admission-smoke.txt || {
+              echo "FAIL: bounded work admission runtime marker was absent"
+              exit 1
+            }
+
       # Keep this separate from the direct docker-run smoke above. It proves
       # the checked-in deployment topology, including its real MySQL image,
       # secret boundary, internal network and named log volume.

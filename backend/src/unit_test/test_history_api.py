@@ -6,7 +6,7 @@ from backend.src.unit_test.auth_context import install_test_auth
 
 from backend.src.database.query.owner_history import OwnerHistoryPage
 from backend.src.database.schema_guard import DatabaseWriteBlocked
-from backend.src.service.live_probe import ProbeBatchError
+from backend.src.service.live_probe import ProbeBatchError, ProbeCapacityExceeded
 from backend.src.service.owner_preference import (
   OwnerNotFound,
   OwnerPreferenceResult,
@@ -402,6 +402,18 @@ class LiveProbeApiTest(unittest.TestCase):
 
     self.assertEqual(400, response.status_code)
     self.assertEqual("too many", response.get_json()["message"])
+
+  def test_probe_capacity_is_service_unavailable_with_safe_message(self):
+    client = build_client(
+      FakeRuntime(
+        probe_service=FakeProbeService(error=ProbeCapacityExceeded("internal"))
+      )
+    )
+
+    response = client.post("/api/live/probe", json={"owner_user_ids": ["1"]})
+
+    self.assertEqual(503, response.status_code)
+    self.assertEqual("服务当前繁忙，请稍后重试", response.get_json()["message"])
 
   def test_reading_a_known_batch_returns_its_snapshot(self):
     client = build_client(FakeRuntime(probe_service=FakeProbeService(batch=self.batch)))

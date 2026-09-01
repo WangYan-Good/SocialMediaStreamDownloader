@@ -8,6 +8,8 @@ from uuid import uuid4
 ##<<Third-part>>
 from backend.src.task.errors import (
   TaskAlreadyFinished,
+  TaskCapacityExceeded,
+  TaskItemCapacityExceeded,
   TaskNotFound,
   TaskValidationError,
 )
@@ -24,6 +26,18 @@ from backend.src.task.model import (
   validate_task_type,
   validate_transition,
 )
+
+
+MAX_TASK_STORE_ENTRIES = 256
+MAX_ACTIVE_TASKS_GLOBAL = 32
+MAX_ACTIVE_TASKS_PER_USER = 8
+MAX_ACTIVE_TASKS_BY_TYPE = {
+  "post_download": 24,
+  "live_record": 8,
+  "owner_batch_download": 8,
+  "live_probe": 8,
+}
+MAX_TASK_ITEMS_PER_TASK = 5000
 
 
 class TaskStore:
@@ -49,6 +63,11 @@ class TaskStore:
     retention_seconds: float = 600.0,
     clock=datetime.now,
     monotonic_clock=monotonic,
+    max_entries: int = MAX_TASK_STORE_ENTRIES,
+    max_active_global: int = MAX_ACTIVE_TASKS_GLOBAL,
+    max_active_per_user: int = MAX_ACTIVE_TASKS_PER_USER,
+    max_active_by_type: dict = None,
+    max_items_per_task: int = MAX_TASK_ITEMS_PER_TASK,
   ) -> None:
     ##
     ## Two clocks on purpose: the wall clock is what the user reads, and it may
@@ -57,9 +76,34 @@ class TaskStore:
     self._retention_seconds = retention_seconds
     self._clock = clock
     self._monotonic = monotonic_clock
+    self._max_entries = self._positive_limit(max_entries, "max_entries")
+    self._max_active_global = self._positive_limit(
+      max_active_global, "max_active_global"
+    )
+    self._max_active_per_user = self._positive_limit(
+      max_active_per_user, "max_active_per_user"
+    )
+    active_by_type = (
+      MAX_ACTIVE_TASKS_BY_TYPE
+      if max_active_by_type is None
+      else max_active_by_type
+    )
+    self._max_active_by_type = {
+      validate_task_type(task_type): self._positive_limit(limit, task_type)
+      for task_type, limit in dict(active_by_type).items()
+    }
+    self._max_items_per_task = self._positive_limit(
+      max_items_per_task, "max_items_per_task"
+    )
     self._guard = Lock()
     self._tasks = dict()
     self._sequence = 0
+
+  @staticmethod
+  def _positive_limit(value, label: str) -> int:
+    if type(value) is not int or value < 1:
+      raise ValueError("{} must be a positive integer".format(label))
+    return value
 
   def _evict_expired(self) -> None:
     ##
@@ -86,6 +130,55 @@ class TaskStore:
     ]
     for task_id in expired:
       del self._tasks[task_id]
+
+  def _pressure_evict_terminal(self) -> None:
+    """Make one total-store slot using only the oldest finished records."""
+    if len(self._tasks) < self._max_entries:
+      return
+    terminal = sorted(
+      (
+        task
+        for task in self._tasks.values()
+        if is_terminal(task["state"])
+      ),
+      key=lambda task: task["sequence"],
+    )
+    while len(self._tasks) >= self._max_entries and terminal:
+      del self._tasks[terminal.pop(0)["task_id"]]
+
+  def _check_active_capacity(self, task_type: str, app_user_id) -> None:
+    active = [
+      task
+      for task in self._tasks.values()
+      if task["state"] in (TASK_STATE_PENDING, TASK_STATE_RUNNING)
+    ]
+    if len(active) >= self._max_active_global:
+      raise TaskCapacityExceeded("task active capacity is full")
+    if app_user_id is not None and sum(
+      1 for task in active if task["app_user_id"] == app_user_id
+    ) >= self._max_active_per_user:
+      raise TaskCapacityExceeded("task user capacity is full")
+    type_limit = self._max_active_by_type.get(task_type)
+    if type_limit is not None and sum(
+      1 for task in active if task["task_type"] == task_type
+    ) >= type_limit:
+      raise TaskCapacityExceeded("task type capacity is full")
+
+  def _bounded_item_keys(self, items) -> list:
+    keys = []
+    known = set()
+    for observed, key in enumerate(items or (), start=1):
+      if observed > self._max_items_per_task:
+        raise TaskItemCapacityExceeded(
+          "task accepts at most {} item inputs".format(
+            self._max_items_per_task
+          )
+        )
+      text = str(key)
+      if text not in known:
+        known.add(text)
+        keys.append(text)
+    return keys
 
   def _locked_task(self, task_id: str) -> dict:
     ##
@@ -218,11 +311,7 @@ class TaskStore:
     ## from a list with repeats would exceed the number of items that can ever
     ## finish, stranding the progress bar one short forever.
     ##
-    keys = []
-    for key in items or ():
-      text = str(key)
-      if text not in keys:
-        keys.append(text)
+    keys = self._bounded_item_keys(items)
     resolved_total = len(keys) if total is UNSET else total
     if not keys and total is UNSET:
       resolved_total = None
@@ -231,6 +320,10 @@ class TaskStore:
     now = self._clock()
     with self._guard:
       self._evict_expired()
+      self._pressure_evict_terminal()
+      self._check_active_capacity(task_type, app_user_id)
+      if len(self._tasks) >= self._max_entries:
+        raise TaskCapacityExceeded("task store capacity is full")
       self._sequence += 1
       self._tasks[task_id] = {
         "task_id": task_id,
@@ -414,6 +507,8 @@ class TaskStore:
     with self._guard:
       task = self._locked_task(task_id)
       if key not in task["items"]:
+        if len(task["items"]) >= self._max_items_per_task:
+          raise TaskItemCapacityExceeded("task item capacity is full")
         task["items"][key] = {
           "key": key,
           "state": ITEM_STATE_PENDING,
@@ -450,6 +545,8 @@ class TaskStore:
       task = self._locked_task(task_id)
       item = task["items"].get(key)
       if item is None:
+        if len(task["items"]) >= self._max_items_per_task:
+          raise TaskItemCapacityExceeded("task item capacity is full")
         item = {
           "key": key,
           "state": ITEM_STATE_PENDING,
