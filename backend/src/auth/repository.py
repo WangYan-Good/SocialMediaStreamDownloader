@@ -78,6 +78,71 @@ class AuthRepository:
       (role, user_id),
     ) > 0
 
+  def _account_transaction(
+    self,
+    user_id: int,
+    *,
+    update_statement: str | None = None,
+    update_params: tuple = (),
+    revoke_sessions: bool = False,
+  ) -> bool:
+    try:
+      with self._database.get_connection() as connector:
+        try:
+          with connector.cursor() as cursor:
+            cursor.execute(
+              "SELECT user_id FROM app_user WHERE user_id = %s FOR UPDATE",
+              (user_id,),
+            )
+            if cursor.fetchone() is None:
+              connector.rollback()
+              return False
+            if update_statement is not None:
+              cursor.execute(update_statement, update_params)
+            if revoke_sessions:
+              cursor.execute(
+                "DELETE FROM auth_session WHERE user_id = %s", (user_id,)
+              )
+          connector.commit()
+          return True
+        except Exception:
+          connector.rollback()
+          raise
+    except AuthUnavailable:
+      raise
+    except Exception as e:
+      raise AuthUnavailable("authentication storage is unavailable") from e
+
+  def set_password_and_revoke_sessions(
+    self, user_id: int, password_hash: str
+  ) -> bool:
+    return self._account_transaction(
+      user_id,
+      update_statement=(
+        "UPDATE app_user SET password_hash = %s WHERE user_id = %s"
+      ),
+      update_params=(password_hash, user_id),
+      revoke_sessions=True,
+    )
+
+  def disable_user_and_revoke_sessions(self, user_id: int) -> bool:
+    return self._account_transaction(
+      user_id,
+      update_statement="UPDATE app_user SET is_active = 0 WHERE user_id = %s",
+      update_params=(user_id,),
+      revoke_sessions=True,
+    )
+
+  def set_user_active(self, user_id: int, active: bool) -> bool:
+    return self._account_transaction(
+      user_id,
+      update_statement="UPDATE app_user SET is_active = %s WHERE user_id = %s",
+      update_params=(1 if active else 0, user_id),
+    )
+
+  def delete_sessions_for_user(self, user_id: int) -> int:
+    return self._write("DELETE FROM auth_session WHERE user_id = %s", (user_id,))
+
   ##
   ## >>============================= sessions =============================>>
   ##

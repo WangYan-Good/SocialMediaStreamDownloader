@@ -121,6 +121,52 @@ class AuthenticationService:
       role=selected_role,
     )
 
+  def _account(self, username: str):
+    canonical = canonical_username(username)
+    row = self._repository.find_user_by_username(canonical)
+    if row is None:
+      raise UnknownUsername(canonical)
+    return row
+
+  @staticmethod
+  def _authenticated_user(row) -> AuthenticatedUser:
+    return AuthenticatedUser(
+      user_id=row["user_id"],
+      username=row["username"],
+      role=validate_role(row["role"]),
+    )
+
+  def set_password(self, username: str, password: str) -> AuthenticatedUser:
+    """Rotate one password and revoke every existing session atomically."""
+    validate_password(password)
+    row = self._account(username)
+    password_hash = hash_password(password)
+    if not self._repository.set_password_and_revoke_sessions(
+      row["user_id"], password_hash
+    ):
+      raise UnknownUsername(row["username"])
+    return self._authenticated_user(row)
+
+  def disable_user(self, username: str) -> AuthenticatedUser:
+    """Disable one account and revoke every existing session atomically."""
+    row = self._account(username)
+    if not self._repository.disable_user_and_revoke_sessions(row["user_id"]):
+      raise UnknownUsername(row["username"])
+    return self._authenticated_user(row)
+
+  def enable_user(self, username: str) -> AuthenticatedUser:
+    """Enable one account without reviving any old session."""
+    row = self._account(username)
+    if not self._repository.set_user_active(row["user_id"], True):
+      raise UnknownUsername(row["username"])
+    return self._authenticated_user(row)
+
+  def revoke_all_sessions(self, username: str) -> AuthenticatedUser:
+    """Revoke only this account's sessions; leave account attributes intact."""
+    row = self._account(username)
+    self._repository.delete_sessions_for_user(row["user_id"])
+    return self._authenticated_user(row)
+
   ##
   ## >>============================= signing in =============================>>
   ##
