@@ -1,4 +1,5 @@
 ##<<Base>>
+from collections.abc import Mapping
 from datetime import datetime
 
 ##<<Extension>>
@@ -162,9 +163,9 @@ class AuthRepository:
     if row is None:
       return None
     return {
-      "token_hash": row[0],
-      "user_id": int(row[1]),
-      "expires_at": row[2],
+      "token_hash": self._row_value(row, 0, "token_hash"),
+      "user_id": int(self._row_value(row, 1, "user_id")),
+      "expires_at": self._row_value(row, 2, "expires_at"),
     }
 
   def delete_session(self, token_hash: str) -> bool:
@@ -194,12 +195,19 @@ class AuthRepository:
     if row is None:
       return None
     return {
-      "user_id": int(row[0]),
-      "username": row[1],
-      "password_hash": row[2],
-      "is_active": bool(row[3]),
-      "role": row[4],
+      "user_id": int(AuthRepository._row_value(row, 0, "user_id")),
+      "username": AuthRepository._row_value(row, 1, "username"),
+      "password_hash": AuthRepository._row_value(row, 2, "password_hash"),
+      "is_active": bool(AuthRepository._row_value(row, 3, "is_active")),
+      "role": AuthRepository._row_value(row, 4, "role"),
     }
+
+  @staticmethod
+  def _row_value(row, index: int, column: str):
+    """Read both the production DictCursor and narrow tuple test adapters."""
+    if isinstance(row, Mapping):
+      return row[column]
+    return row[index]
 
   def _one(self, statement: str, params: tuple):
     try:

@@ -190,6 +190,51 @@ describe('the four-state authentication bootstrap', () => {
     expect(auth.user).toBeNull()
   })
 
+  it.each([
+    backendFailure(503),
+    new ApiError({
+      kind: 'network',
+      status: null,
+      code: null,
+      message: 'socket reset',
+    }),
+    new ApiError({
+      kind: 'malformed',
+      status: 503,
+      code: null,
+      message: 'bad envelope',
+    }),
+  ])('preserves the known identity when logout rejects', async (failure) => {
+    mockedLogout.mockRejectedValueOnce(failure)
+    const auth = useAuthStore()
+    await auth.ensureInitialized()
+
+    await expect(auth.logout()).rejects.toBe(failure)
+
+    expect(auth.status).toBe('authenticated')
+    expect(auth.user).toEqual(ALICE)
+  })
+
+  it('does not invalidate an in-flight identity refresh when logout fails', async () => {
+    const pending = deferred<{ user: typeof OPERATOR }>()
+    const failure = backendFailure(503)
+    mockedMe.mockResolvedValueOnce({ user: ALICE }).mockReturnValueOnce(pending.promise)
+    mockedLogout.mockRejectedValueOnce(failure)
+    const auth = useAuthStore()
+    await auth.ensureInitialized()
+    const refresh = auth.refreshCurrentUser()
+
+    await expect(auth.logout()).rejects.toBe(failure)
+    expect(auth.status).toBe('authenticated')
+    expect(auth.user).toEqual(ALICE)
+
+    pending.resolve({ user: OPERATOR })
+    await refresh
+
+    expect(auth.status).toBe('authenticated')
+    expect(auth.user).toEqual(OPERATOR)
+  })
+
   it('does not let an older refresh overwrite a successful login', async () => {
     const pending = deferred<{ user: typeof OPERATOR }>()
     mockedMe.mockReturnValue(pending.promise)

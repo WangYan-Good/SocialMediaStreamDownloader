@@ -48,6 +48,12 @@
   所有客户端保守共享代理 peer bucket；trusted-proxy 身份重写需要独立架构阶段，本阶段
   不配置 `ProxyFix`。429 只返回固定 `rate_limited` envelope 与正整数 `Retry-After`，不泄露
   limiter 原因、不创建 session/CSRF cookie，也不写入原始 credential 日志。
+- 退出登录只有在服务端 session revoke 已确认完成（或 session 已不存在）时才返回幂等
+  200 并清理浏览器 session/CSRF cookie pair。数据库暂时不可用时返回固定
+  `503/logout_unavailable`，不发送这两个 cookie 的任何 `Set-Cookie`，浏览器与前端继续保留
+  当前身份以便重试；网络错误同样按结果不确定处理，不在客户端假装退出成功。数据库恢复后，
+  旧 session 仍可验证，重试成功才会同时清理 cookie 并使服务端 token 失效。未知或已经撤销
+  的 session 仍保持 200 与本地 cookie cleanup，避免泄露 token 是否曾有效。
 
 ## 初始化
 
