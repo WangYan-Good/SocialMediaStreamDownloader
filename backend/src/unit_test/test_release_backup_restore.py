@@ -2,6 +2,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import tempfile
 import unittest
 
@@ -218,9 +219,18 @@ class ReleaseScriptContractTest(unittest.TestCase):
     )
 
   def test_ci_runs_a_real_disposable_restore_drill_with_an_exact_marker(self):
+    helper = load_bundle_helper()
     drill = DRILL_SCRIPT.read_text(encoding="utf-8")
     workflow = CI_WORKFLOW.read_text(encoding="utf-8")
     marker = "ok   runtime release backup restore drill"
+
+    restore_project = re.search(
+      r"^\s*RESTORE_PROJECT=(\S+)\s*$", workflow, re.MULTILINE
+    )
+    self.assertIsNotNone(restore_project)
+    helper.validate_restore_project(
+      restore_project.group(1), source_project="smsd-ci-release-source"
+    )
 
     self.assertIn('"$DOCKER_BIN" cp', drill)
     self.assertIn("/tmp/release-drill-seed.py", drill)

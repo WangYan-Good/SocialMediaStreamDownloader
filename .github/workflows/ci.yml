@@ -1465,7 +1465,7 @@ jobs:
           set -euo pipefail
           export SMSD_IMAGE=smsd:ci
           SOURCE_PROJECT=smsd-ci-release-source
-          RESTORE_PROJECT=smsd-restore-test-ci
+          RESTORE_PROJECT=smsd-restore-test-ci-run
           BACKUP_DIR="$(mktemp -d /tmp/smsd-release-backup.XXXXXX)"
           cleanup_release_drill() {
             rm -rf -- "${BACKUP_DIR}"
