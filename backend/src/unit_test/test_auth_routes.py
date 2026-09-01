@@ -47,12 +47,36 @@ class FakeRuntime:
     return self._ttl
 
 
-def build(repository=None, *, unavailable=None, cookie_secure=False):
+class SequencedRuntime(FakeRuntime):
+  """Return or raise one service outcome per request-bound lookup."""
+
+  def __init__(self, outcomes, *, cookie_secure=False, ttl=3600):
+    super().__init__(cookie_secure=cookie_secure, ttl=ttl)
+    self._outcomes = iter(outcomes)
+
+  def service(self):
+    outcome = next(self._outcomes)
+    if isinstance(outcome, BaseException):
+      raise outcome
+    return outcome
+
+
+def build(
+  repository=None,
+  *,
+  unavailable=None,
+  cookie_secure=False,
+  runtime=None,
+):
   repository = repository if repository is not None else FakeRepository()
   service = AuthenticationService(
     repository, session_ttl_seconds=3600, clock=lambda: NOW
   )
-  runtime = FakeRuntime(service=service, unavailable=unavailable, cookie_secure=cookie_secure)
+  runtime = runtime or FakeRuntime(
+    service=service,
+    unavailable=unavailable,
+    cookie_secure=cookie_secure,
+  )
   app = Flask(__name__)
   app.register_blueprint(
     build_auth_blueprint(runtime=runtime, abuse_guard=LoginAbuseGuard())
@@ -70,6 +94,13 @@ def cookie_header(response):
 
 def cookie_headers(response):
   return response.headers.getlist("Set-Cookie")
+
+
+def auth_cookie_headers(response):
+  prefixes = (f"{SESSION_COOKIE_NAME}=", "smsd_csrf=")
+  return [
+    header for header in cookie_headers(response) if header.startswith(prefixes)
+  ]
 
 
 def named_cookie_header(response, name):
@@ -605,25 +636,61 @@ class TestSigningOut(unittest.TestCase):
     self.assertEqual(200, client.post("/api/auth/logout").status_code)
 
   def test_signing_out_without_ever_signing_in_is_fine(self):
-    app, _, _ = with_account()
+    app, _, _ = build(
+      runtime=SequencedRuntime(
+        [AssertionError("no-token logout must not request an auth service")]
+      )
+    )
 
     response = app.test_client().post("/api/auth/logout")
 
     self.assertEqual(200, response.status_code)
     self.assertEqual([], cookie_headers(response))
 
-  def test_missing_csrf_does_not_revoke_or_clear_an_authenticated_session(self):
-    app, repository, _ = with_account()
+  def test_an_unknown_session_is_idempotent_without_a_second_revoke(self):
+    app, _, service = with_account()
+    client = app.test_client()
+    client.set_cookie(SESSION_COOKIE_NAME, "unknown-session-token")
+
+    with patch.object(service, "revoke_session", wraps=service.revoke_session) as revoke:
+      response = client.post("/api/auth/logout")
+
+    self.assertEqual(200, response.status_code)
+    revoke.assert_not_called()
+    for name in (SESSION_COOKIE_NAME, "smsd_csrf"):
+      header = named_cookie_header(response, name)
+      self.assertTrue("Expires=" in header or "Max-Age=0" in header)
+
+  def test_revoke_false_is_still_an_idempotent_success(self):
+    app, _, service = with_account()
     client = app.test_client()
     client.post(
       "/api/auth/login",
       json={"username": "alice", "password": "correct horse battery"},
     )
 
-    response = client.post("/api/auth/logout")
+    with patch.object(service, "revoke_session", return_value=False):
+      response = client.post("/api/auth/logout", headers=csrf_header(client))
+
+    self.assertEqual(200, response.status_code)
+    for name in (SESSION_COOKIE_NAME, "smsd_csrf"):
+      header = named_cookie_header(response, name)
+      self.assertTrue("Expires=" in header or "Max-Age=0" in header)
+
+  def test_missing_csrf_does_not_revoke_or_clear_an_authenticated_session(self):
+    app, repository, service = with_account()
+    client = app.test_client()
+    client.post(
+      "/api/auth/login",
+      json={"username": "alice", "password": "correct horse battery"},
+    )
+
+    with patch.object(service, "revoke_session", wraps=service.revoke_session) as revoke:
+      response = client.post("/api/auth/logout")
 
     self.assertEqual(403, response.status_code)
     self.assertEqual("csrf_invalid", body_of(response)["kind"])
+    revoke.assert_not_called()
     self.assertEqual(1, len(repository.sessions))
     self.assertFalse(named_cookie_header(response, SESSION_COOKIE_NAME))
     self.assertEqual(200, client.get("/api/auth/me").status_code)
@@ -666,12 +733,15 @@ class TestSigningOut(unittest.TestCase):
     self.assertEqual(200, response.status_code)
     self.assertTrue(compared.called)
 
-  def test_an_unavailable_backend_does_not_trap_the_browser_in_its_session(self):
-    app, _, _ = build(unavailable=AuthUnavailable("database offline"))
+  def test_revoke_unavailable_returns_503_without_mutating_auth_cookies(self):
+    app, repository, service = with_account()
     client = app.test_client()
-    token = "browser-held-session-token"
-    client.set_cookie(SESSION_COOKIE_NAME, token)
-    client.set_cookie("smsd_csrf", csrf_for(token))
+    client.post(
+      "/api/auth/login",
+      json={"username": "alice", "password": "correct horse battery"},
+    )
+    session_before = client.get_cookie(SESSION_COOKIE_NAME).value
+    csrf_before = client.get_cookie("smsd_csrf").value
 
     warnings = []
 
@@ -679,19 +749,114 @@ class TestSigningOut(unittest.TestCase):
       def warning(self, message):
         warnings.append(message)
 
-    with patch.object(auth_routes, "get_logger", return_value=RecordingLogger()):
+    with (
+      patch.object(
+        service,
+        "revoke_session",
+        side_effect=AuthUnavailable("database-host secret detail"),
+      ),
+      patch.object(auth_routes, "get_logger", return_value=RecordingLogger()),
+    ):
+      response = client.post("/api/auth/logout", headers=csrf_header(client))
+
+    self.assertEqual(503, response.status_code)
+    self.assertEqual("logout_unavailable", body_of(response)["kind"])
+    self.assertEqual(
+      "退出登录暂时无法完成，请稍后重试",
+      body_of(response)["message"],
+    )
+    self.assertEqual([], auth_cookie_headers(response))
+    self.assertEqual(
+      session_before, client.get_cookie(SESSION_COOKIE_NAME).value
+    )
+    self.assertEqual(csrf_before, client.get_cookie("smsd_csrf").value)
+    self.assertEqual(1, len(repository.sessions))
+    self.assertEqual(["logout revocation unavailable"], warnings)
+    for forbidden in (
+      session_before,
+      csrf_before,
+      "database-host",
+      "secret detail",
+    ):
+      self.assertNotIn(forbidden, "\n".join(warnings))
+
+  def test_revoke_unavailable_suppresses_after_request_csrf_repair(self):
+    app, _, service = with_account()
+    client = app.test_client()
+    login = client.post(
+      "/api/auth/login",
+      json={"username": "alice", "password": "correct horse battery"},
+    )
+    expected_csrf = cookie_value(login, "smsd_csrf")
+    session_before = client.get_cookie(SESSION_COOKIE_NAME).value
+    client.delete_cookie("smsd_csrf")
+
+    with patch.object(
+      service,
+      "revoke_session",
+      side_effect=AuthUnavailable("database offline"),
+    ):
       response = client.post(
         "/api/auth/logout",
-        headers={"X-CSRF-Token": csrf_for(token)},
+        headers={"X-CSRF-Token": expected_csrf},
       )
 
+    self.assertEqual(503, response.status_code)
+    self.assertEqual([], auth_cookie_headers(response))
+    self.assertEqual(
+      session_before, client.get_cookie(SESSION_COOKIE_NAME).value
+    )
+    self.assertIsNone(client.get_cookie("smsd_csrf"))
+
+  def test_unavailable_context_retries_revoke_when_storage_recovers(self):
+    repository = FakeRepository()
+    service = AuthenticationService(
+      repository, session_ttl_seconds=3600, clock=lambda: NOW
+    )
+    service.create_user("alice", "correct horse battery")
+    user = service.authenticate("alice", "correct horse battery")
+    issued = service.create_session(user.user_id)
+    runtime = SequencedRuntime(
+      [AuthUnavailable("resolve unavailable"), service]
+    )
+    app, _, _ = build(repository, runtime=runtime)
+    client = app.test_client()
+    client.set_cookie(SESSION_COOKIE_NAME, issued.token)
+    client.set_cookie("smsd_csrf", csrf_for(issued.token))
+
+    response = client.post(
+      "/api/auth/logout",
+      headers={"X-CSRF-Token": csrf_for(issued.token)},
+    )
+
     self.assertEqual(200, response.status_code)
-    for name in (SESSION_COOKIE_NAME, "smsd_csrf"):
-      header = named_cookie_header(response, name)
-      self.assertTrue(header)
-      self.assertTrue("Expires=" in header or "Max-Age=0" in header)
-    self.assertTrue(any("revoke" in line for line in warnings))
-    self.assertTrue(all(token not in line for line in warnings))
+    self.assertEqual({}, repository.sessions)
+    self.assertIsNone(client.get_cookie(SESSION_COOKIE_NAME))
+    self.assertIsNone(client.get_cookie("smsd_csrf"))
+
+  def test_unavailable_context_preserves_cookies_when_revoke_is_still_down(self):
+    token = "browser-held-session-token"
+    runtime = SequencedRuntime(
+      [
+        AuthUnavailable("resolve unavailable"),
+        AuthUnavailable("revoke unavailable"),
+      ]
+    )
+    app, _, _ = build(runtime=runtime)
+    client = app.test_client()
+    client.set_cookie(SESSION_COOKIE_NAME, token)
+    client.set_cookie("smsd_csrf", csrf_for(token))
+
+    response = client.post(
+      "/api/auth/logout",
+      headers={"X-CSRF-Token": csrf_for(token)},
+    )
+
+    self.assertEqual(503, response.status_code)
+    self.assertEqual("logout_unavailable", body_of(response)["kind"])
+    self.assertEqual([], auth_cookie_headers(response))
+    self.assertEqual(token, client.get_cookie(SESSION_COOKIE_NAME).value)
+    self.assertEqual(csrf_for(token), client.get_cookie("smsd_csrf").value)
 
   def test_an_unavailable_backend_still_refuses_an_invalid_csrf_proof(self):
     app, _, _ = build(unavailable=AuthUnavailable("database offline"))

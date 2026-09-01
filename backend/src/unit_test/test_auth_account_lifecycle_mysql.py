@@ -58,6 +58,7 @@ class PortAwareTestDatabase:
       password=self.config["password"],
       database=self.config["name"],
       charset="utf8mb4",
+      cursorclass=pymysql.cursors.DictCursor,
     )
 
 
@@ -178,6 +179,17 @@ class AuthenticationAccountLifecycleMySQLTest(
       ),
     )
     self.assertIsNone(self.factory().resolve_session(current.token))
+
+  def test_one_session_can_be_resolved_revoked_and_confirmed_absent(self):
+    issued = self.service.create_session(self.user.user_id)
+
+    self.assertEqual(
+      self.user.user_id,
+      self.factory().resolve_session(issued.token).user_id,
+    )
+    self.assertTrue(self.factory().revoke_session(issued.token))
+    self.assertIsNone(self.factory().resolve_session(issued.token))
+    self.assertFalse(self.factory().revoke_session(issued.token))
 
 
 if __name__ == "__main__":

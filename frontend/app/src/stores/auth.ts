@@ -134,16 +134,14 @@ export const useAuthStore = defineStore('auth', () => {
     /**
      * End the session.
      *
-     * The local state is cleared whatever the server said. A logout that left
-     * the interface looking signed in because the request failed would be the
-     * more dangerous of the two possible mistakes.
+     * Local identity changes only after the server confirms revocation. A
+     * transport failure cannot tell whether the request arrived, and a 503
+     * explicitly says revocation was not confirmed; either way the known
+     * principal and any in-flight identity resolution remain authoritative.
      */
     async logout(): Promise<void> {
-      try {
-        await logoutRequest()
-      } finally {
-        forget()
-      }
+      await logoutRequest()
+      forget()
     },
   }
 })

@@ -54,6 +54,7 @@ UNAVAILABLE_MESSAGE = "认证服务暂时不可用，请稍后重试"
 CSRF_INVALID_MESSAGE = "请求验证失败，请刷新页面后重试"
 FORBIDDEN_MESSAGE = "没有权限执行此操作"
 RATE_LIMITED_MESSAGE = "登录尝试过于频繁，请稍后重试"
+LOGOUT_UNAVAILABLE_MESSAGE = "退出登录暂时无法完成，请稍后重试"
 
 
 def _ok(data, status=200):
@@ -404,12 +405,18 @@ def build_auth_blueprint(
       try:
         runtime.service().revoke_session(token)
       except AuthUnavailable:
+        get_logger().warning("logout revocation unavailable")
         ##
-        ## The cookie is cleared regardless. The browser end of signing out
-        ## must not depend on the database being reachable.
+        ## This response must leave the browser credential pair untouched.
+        ## In particular, suppress the after-request CSRF repair hook: an
+        ## authenticated request with a missing or stale readable cookie must
+        ## not turn a failed revoke into any Set-Cookie mutation.
         ##
-        get_logger().warning(
-          "logout cleared browser cookies but server-side session revoke did not complete"
+        g.auth_cookies_managed = True
+        return _error(
+          LOGOUT_UNAVAILABLE_MESSAGE,
+          503,
+          kind="logout_unavailable",
         )
 
     response = jsonify({"status": "success", "data": None})

@@ -13,6 +13,7 @@ import { routes } from '../../src/router'
 import { useAppStore } from '../../src/stores/app'
 import { useAuthStore } from '../../src/stores/auth'
 import { logout } from '../../src/api/auth'
+import { ApiError } from '../../src/api/client'
 import type { AuthUser } from '../../src/types/auth'
 
 vi.mock('../../src/api/auth', () => ({
@@ -73,14 +74,67 @@ describe('shared application shell', () => {
     expect(auth.status).toBe('anonymous')
   })
 
-  it('still leaves for login when the logout request fails', async () => {
-    mockedLogout.mockRejectedValue(new TypeError('offline'))
+  it.each([
+    new ApiError({
+      kind: 'backend',
+      status: 503,
+      code: 503,
+      backendKind: 'logout_unavailable',
+      message: 'internal backend wording',
+    }),
+    new ApiError({
+      kind: 'network',
+      status: null,
+      code: null,
+      message: 'socket reset',
+    }),
+  ])('keeps identity and route when the logout request fails', async (failure) => {
+    mockedLogout.mockRejectedValueOnce(failure)
     const { wrapper, router, auth } = await mountShell()
 
     await wrapper.get('[data-test="logout"]').trigger('click')
 
+    await vi.waitFor(() => {
+      expect(wrapper.get('[data-test="logout"]').attributes('disabled')).toBeUndefined()
+    })
+    expect(router.currentRoute.value.path).toBe('/new')
+    expect(auth.status).toBe('authenticated')
+    expect(auth.user).toEqual(USER)
+    expect(wrapper.get('.app-shell__username').text()).toBe('alice')
+    const error = wrapper.get('[data-test="logout-error"]')
+    expect(error.attributes('role')).toBe('status')
+    expect(error.text()).toBe('退出登录失败，请稍后重试')
+    expect(error.text()).not.toContain(failure.message)
+  })
+
+  it('clears the old error and navigates only after a manual retry succeeds', async () => {
+    let finishRetry: () => void = () => {}
+    const retry = new Promise<void>((resolve) => {
+      finishRetry = resolve
+    })
+    mockedLogout
+      .mockRejectedValueOnce(new TypeError('offline'))
+      .mockReturnValueOnce(retry)
+    const { wrapper, router, auth } = await mountShell()
+    const button = wrapper.get('[data-test="logout"]')
+
+    await button.trigger('click')
+    await vi.waitFor(() => {
+      expect(wrapper.find('[data-test="logout-error"]').exists()).toBe(true)
+    })
+
+    await button.trigger('click')
+
+    expect(wrapper.find('[data-test="logout-error"]').exists()).toBe(false)
+    expect(router.currentRoute.value.path).toBe('/new')
+    expect(auth.status).toBe('authenticated')
+    finishRetry()
+
     await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('login'))
     expect(auth.status).toBe('anonymous')
+    expect(auth.user).toBeNull()
+    expect(wrapper.find('[data-test="logout-error"]').exists()).toBe(false)
+    expect(mockedLogout).toHaveBeenCalledTimes(2)
   })
 
   it('renders the routed layout through the shared shell', async () => {

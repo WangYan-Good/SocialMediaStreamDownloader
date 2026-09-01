@@ -20,18 +20,21 @@ const { sidebarOpen } = storeToRefs(store)
 const auth = useAuthStore()
 const router = useRouter()
 const signingOut = ref(false)
+const logoutError = ref('')
 
 async function signOut(): Promise<void> {
   if (signingOut.value) return
+  logoutError.value = ''
   signingOut.value = true
   try {
     await auth.logout()
   } catch {
-    // `logout()` has already forgotten the local identity in its finally path.
+    logoutError.value = '退出登录失败，请稍后重试'
+    return
   } finally {
-    await router.replace({ name: 'login' })
     signingOut.value = false
   }
+  await router.replace({ name: 'login' })
 }
 </script>
 
@@ -62,6 +65,15 @@ async function signOut(): Promise<void> {
         >
           {{ signingOut ? '正在退出…' : '退出登录' }}
         </button>
+        <span
+          v-if="logoutError"
+          data-test="logout-error"
+          class="app-shell__logout-error"
+          role="status"
+          aria-live="polite"
+        >
+          {{ logoutError }}
+        </span>
       </div>
     </header>
 
@@ -123,6 +135,7 @@ async function signOut(): Promise<void> {
 .app-shell__role { padding: 2px var(--space-2); color: var(--color-accent); background: var(--color-accent-soft); border-radius: var(--radius-1); font-weight: 700; }
 .app-shell__logout { padding: var(--space-1) var(--space-2); font: inherit; color: inherit; background: transparent; border: 1px solid var(--color-border); border-radius: var(--radius-1); cursor: pointer; }
 .app-shell__logout:disabled { opacity: 0.6; cursor: wait; }
+.app-shell__logout-error { color: #a12a2a; }
 
 .app-shell__toggle {
   display: none;
