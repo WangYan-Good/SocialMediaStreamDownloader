@@ -12,6 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Release artifact hygiene
+        run: python scripts/check_release_artifact_hygiene.py
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -247,6 +250,11 @@ jobs:
 
       - name: Build image
         run: docker build -t smsd:ci .
+
+      - name: Release image artifact hygiene
+        run: |
+          docker run --rm --entrypoint python smsd:ci \
+            /app/scripts/check_release_artifact_hygiene.py --image-root /app
 
       # A build that passes proves the image assembles, and nothing about
       # whether it starts. It did not, for a while: the entrypoint validates the
