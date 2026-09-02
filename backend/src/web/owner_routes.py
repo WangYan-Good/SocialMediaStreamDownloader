@@ -29,6 +29,7 @@ from backend.src.platform.douyin.douyin_owner_url import (
   extract_url,
   needs_resolution,
 )
+from backend.src.platform.douyin.douyin_redirect_trust import DouyinRedirectTrust
 from backend.src.platform.douyin.douyin_session import (
   SessionExpired,
   UpstreamRejected,
@@ -135,7 +136,8 @@ class OwnerRuntime:
   """
 
   def __init__(self, config_loader=load_config, api_factory=None,
-               downloader_factory=None, task_service=None) -> None:
+               downloader_factory=None, task_service=None,
+               request_function=None) -> None:
     self._config_loader = config_loader
     self._api_factory = api_factory
     self._downloader_factory = downloader_factory
@@ -150,6 +152,11 @@ class OwnerRuntime:
     self._config = None
     self._api = None
     self._service = None
+    self._redirects = DouyinRedirectTrust(
+      request_function=(
+        http_request if request_function is None else request_function
+      )
+    )
 
   def settings(self) -> dict:
     if self._config is None:
@@ -221,12 +228,12 @@ class OwnerRuntime:
     return classify_owner_url(self.follow_share_link(url) or "")
 
   def follow_share_link(self, url: str):
-    """Return the url a share link leads to, following it at most once.
+    """Return the trusted identifiable URL reached by a share link.
 
     Split out from ``resolve_owner`` because a share link identifies an owner
     whichever kind it is - profile, post or live room - and each kind is read
-    from the resolved url differently.  Following it is the step they share, and
-    it costs a request, so it happens once here rather than once per attempt.
+    from the resolved url differently. Following its bounded chain is the step
+    they share, and it happens here rather than once per identity reader.
     """
     url = extract_url(url) or url
     if not url:
@@ -242,19 +249,12 @@ class OwnerRuntime:
       for key, value in header.to_dict().items()
       if isinstance(value, str)
     }
-    response = http_request(
-      "GET",
+    return self._redirects.resolve_identity(
       url,
       headers=headers,
       timeout=get_dict_attr(self.settings(), "$.platform.douyin.owner.max_timeout"),
       proxies=self.api().proxies(),
     )
-    ##
-    ## The status is not a gate: only response.url is read, redirects have
-    ## already been followed, and douyin answers a share link opened outside the
-    ## app with 444 after resolving it perfectly well.
-    ##
-    return response.url
 
   def records_for(self, aweme_ids) -> dict:
     """Look up which of these posts are already downloaded.
@@ -320,7 +320,9 @@ def build_owner_blueprint(runtime: OwnerRuntime = None, task_service=None) -> Bl
     try:
       sec_user_id = runtime.resolve_owner(url)
     except Exception as e:
-      get_logger().error("owner link resolution failed: {}".format(e))
+      get_logger().error(
+        "owner link resolution failed: error={}".format(type(e).__name__)
+      )
       return _error("无法解析该链接，请稍后重试", 502)
     if sec_user_id is None:
       return _error("请粘贴主播主页分享链接", 400)

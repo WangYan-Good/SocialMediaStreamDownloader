@@ -1,7 +1,12 @@
+import contextlib
+import io
 import json
+import logging
 import unittest
+from unittest.mock import patch
 
 from backend.src.platform.douyin import douyin_aweme_resolver as resolver_module
+from backend.src.platform.douyin import douyin_redirect_trust as redirect_module
 from backend.src.platform.douyin.douyin_aweme_external_info import (
   MEDIA_VIDEO,
   SOURCE_API,
@@ -48,11 +53,21 @@ def aweme_config(**overrides):
 
 
 class FakeResponse:
-  def __init__(self, status_code=200, payload=None, text="", url=None):
+  def __init__(
+    self,
+    status_code=200,
+    payload=None,
+    text="",
+    url=None,
+    location=None,
+  ):
     self.status_code = status_code
     self._payload = payload
     self.text = text
     self.encoding = None
+    self.headers = {}
+    if location is not None:
+      self.headers["Location"] = location
     ##
     ## where a followed share link landed
     ##
@@ -296,11 +311,10 @@ class UnavailablePostTest(ResolverTestCase):
     """
     resolver, transport = self.build(
       responses=[
-        FakeResponse(text=""),
+        FakeResponse(status_code=302, location=POST_URL),
         FakeResponse(payload={"status_code": 0, "aweme_detail": aweme_payload()}),
       ]
     )
-    transport._responses[0].url = POST_URL
 
     result = resolver.resolve("https://v.douyin.com/MqjfOkWSeG8/")
 
@@ -327,13 +341,90 @@ class UnavailablePostTest(ResolverTestCase):
     self.assertEqual(len(transport.calls), 0)
 
   def test_a_short_link_that_leads_nowhere_useful_is_reported(self):
-    resolver, transport = self.build(responses=[FakeResponse(text="")])
-    transport._responses[0].url = "https://www.douyin.com/user/MS4w"
+    owner_url = (
+      "https://www.douyin.com/user/"
+      "MS4wLjABAAAAGZkW5n1EHZD_TFyQ-QiaISBPemtKFxVVdhLSeoXhh-U"
+    )
+    resolver, transport = self.build(
+      responses=[FakeResponse(status_code=302, location=owner_url)]
+    )
 
     result = resolver.resolve("https://v.douyin.com/MqjfOkWSeG8/")
 
     self.assertFalse(result.ok)
     self.assertIn("does not point at a single post", result.reason)
+
+  def test_an_unsafe_short_link_target_is_blocked_before_the_second_request(self):
+    resolver, transport = self.build(
+      responses=[
+        FakeResponse(
+          status_code=302,
+          location="http://127.0.0.1/SECRET_LOCATION_17A",
+        )
+      ]
+    )
+
+    result = resolver.resolve("https://v.douyin.com/MqjfOkWSeG8/")
+
+    self.assertFalse(result.ok)
+    self.assertEqual(len(transport.calls), 1)
+    self.assertNotIn("SECRET_LOCATION_17A", result.api_error)
+
+  def test_html_fallback_blocks_an_unsafe_redirect_before_fetching_it(self):
+    resolver, transport = self.build(
+      responses=[
+        TimeoutError("detail unavailable"),
+        FakeResponse(
+          status_code=302,
+          location=(
+            "https://outside.example/path?token=SECRET_REDIRECT_QUERY_17A"
+          ),
+        ),
+      ]
+    )
+
+    result = resolver.resolve(POST_URL)
+
+    self.assertFalse(result.ok)
+    self.assertEqual(len(transport.calls), 2)
+    self.assertIs(transport.calls[1]["allow_redirects"], False)
+    visible = "{}\n{}\n{}".format(
+      result.reason,
+      result.api_error,
+      result.html_error,
+    )
+    self.assertNotIn("SECRET_REDIRECT_QUERY_17A", visible)
+
+  def test_share_transport_exception_text_is_absent_from_all_diagnostics(self):
+    sentinel = "SECRET_EXCEPTION_17A"
+    resolver, transport = self.build(
+      responses=[
+        FakeResponse(status_code=503),
+        OSError(sentinel),
+      ]
+    )
+    output = io.StringIO()
+    logger = logging.Logger("phase17a-aweme")
+    logger.propagate = False
+    logger.addHandler(logging.StreamHandler(output))
+
+    with patch.object(resolver_module, "get_logger", return_value=logger), \
+         patch.object(redirect_module, "get_logger", return_value=logger), \
+         contextlib.redirect_stdout(io.StringIO()) as stdout, \
+         contextlib.redirect_stderr(io.StringIO()) as stderr:
+      result = resolver.resolve(POST_URL)
+
+    visible = "\n".join((
+      output.getvalue(),
+      stdout.getvalue(),
+      stderr.getvalue(),
+      str(result.reason),
+      str(result.api_error),
+      str(result.html_error),
+    ))
+    self.assertFalse(result.ok)
+    self.assertEqual(len(transport.calls), 2)
+    self.assertNotIn(sentinel, visible)
 
   def test_a_failing_share_link_is_reported(self):
     resolver, _ = self.build(

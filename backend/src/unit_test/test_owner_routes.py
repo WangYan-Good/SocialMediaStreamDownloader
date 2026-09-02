@@ -1,7 +1,13 @@
+import contextlib
+import io
+import logging
 import unittest
+from unittest.mock import patch
 
 from flask import Flask
 from backend.src.unit_test.auth_context import install_test_auth
+from backend.src.unit_test.config_fixture import unified_config
+from backend.src.platform.douyin import douyin_redirect_trust as redirect_module
 
 from backend.src.platform.douyin.douyin_owner_detail import OwnerDetail
 from backend.src.platform.douyin.douyin_session import (
@@ -15,6 +21,9 @@ from backend.src.web.owner_routes import (
   OwnerRuntime,
   build_owner_blueprint,
 )
+from backend.src.web import owner_routes as owner_module
+from backend.src.web import person_routes as person_module
+from backend.src.web.person_routes import PersonRuntime, build_person_blueprint
 
 
 SEC_UID = "MS4wLjABAAAAGZkW5n1EHZD_TFyQ-QiaISBPemtKFxVVdhLSeoXhh-U"
@@ -497,6 +506,103 @@ class RetiredDownloadProgressTest(unittest.TestCase):
         for rule in rules
       )
     )
+
+
+class RedirectTrustBoundaryTest(unittest.TestCase):
+  class Response:
+    status_code = 302
+
+    def __init__(self, location):
+      self.headers = {"Location": location}
+
+  class Transport:
+    def __init__(self, location):
+      self.location = location
+      self.calls = []
+
+    def __call__(self, **options):
+      self.calls.append(options)
+      if len(self.calls) > 1:
+        raise AssertionError("unsafe redirect target was requested")
+      return RedirectTrustBoundaryTest.Response(self.location)
+
+  class Api:
+    @staticmethod
+    def proxies():
+      return {"http": None, "https": None}
+
+  def runtime(self, transport):
+    return OwnerRuntime(
+      config_loader=unified_config,
+      api_factory=lambda config: self.Api(),
+      request_function=transport,
+    )
+
+  def test_owner_route_blocks_an_unsafe_redirect_without_leaking_it(self):
+    sentinel = "SECRET_LOCATION_17A"
+    transport = self.Transport(
+      "http://127.0.0.1/path?token=" + sentinel
+    )
+    runtime = self.runtime(transport)
+    output = io.StringIO()
+    logger = logging.Logger("phase17a-owner")
+    logger.propagate = False
+    logger.addHandler(logging.StreamHandler(output))
+
+    with patch.object(owner_module, "get_logger", return_value=logger), \
+         patch.object(redirect_module, "get_logger", return_value=logger), \
+         contextlib.redirect_stdout(io.StringIO()) as stdout, \
+         contextlib.redirect_stderr(io.StringIO()) as stderr:
+      response = build_client(runtime).get(
+        "/api/owner?url=https://v.douyin.com/phase17a/"
+      )
+
+    self.assertEqual(response.status_code, 502)
+    self.assertEqual(len(transport.calls), 1)
+    self.assertIs(transport.calls[0]["allow_redirects"], False)
+    visible = (
+      response.data.decode("utf-8")
+      + output.getvalue()
+      + stdout.getvalue()
+      + stderr.getvalue()
+    )
+    self.assertNotIn(sentinel, visible)
+
+  def test_person_by_link_does_not_assign_after_an_unsafe_redirect(self):
+    sentinel = "SECRET_REDIRECT_QUERY_17A"
+    transport = self.Transport(
+      "https://outside.example/path?token=" + sentinel
+    )
+    owner_runtime = self.runtime(transport)
+    table_builds = []
+    runtime = PersonRuntime(
+      config=unified_config(),
+      table_factory=lambda: table_builds.append(True),
+    )
+    runtime.owner_runtime = lambda: owner_runtime
+    app = Flask(__name__)
+    install_test_auth(app)
+    app.register_blueprint(build_person_blueprint(runtime))
+    output = io.StringIO()
+    logger = logging.Logger("phase17a-person")
+    logger.propagate = False
+    logger.addHandler(logging.StreamHandler(output))
+
+    with patch.object(person_module, "get_logger", return_value=logger), \
+         patch.object(redirect_module, "get_logger", return_value=logger):
+      response = app.test_client().post(
+        "/api/person/account/by-link",
+        json={
+          "url": "https://v.douyin.com/phase17a/",
+          "person_id": 3,
+          "role": "main",
+        },
+      )
+
+    self.assertEqual(response.status_code, 502)
+    self.assertEqual(len(transport.calls), 1)
+    self.assertEqual(table_builds, [])
+    self.assertNotIn(sentinel, response.data.decode("utf-8") + output.getvalue())
 
 
 if __name__ == "__main__":
