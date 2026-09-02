@@ -84,10 +84,13 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
         raise RuntimeError("database disconnected")
 
     class Response:
-      def __init__(self, url, payload=None):
+      def __init__(self, url, payload=None, location=None):
         self.url = url
-        self.status_code = 200
+        self.status_code = 302 if location is not None else 200
         self._payload = payload
+        self.headers = {}
+        if location is not None:
+          self.headers["Location"] = location
 
       def raise_for_status(self):
         return None
@@ -96,9 +99,16 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
         return self._payload
 
     downloader.database = FailingDatabase()
+    resolved_share_url = (
+      "https://live.douyin.com/douyin/webcast/reflow/123?sec_user_id=user"
+    )
     responses = [
       Response(
-        "https://live.douyin.com/douyin/webcast/reflow/123?sec_user_id=user"
+        "https://v.douyin.com/example/",
+        location=resolved_share_url,
+      ),
+      Response(
+        resolved_share_url
       ),
       Response(
         "https://webcast.example.test/live-info",
@@ -272,10 +282,13 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
     downloader.database = FailingDatabase()
 
     class Response:
-      def __init__(self, url, payload=None):
+      def __init__(self, url, payload=None, location=None):
         self.url = url
-        self.status_code = 200
+        self.status_code = 302 if location is not None else 200
         self._payload = payload
+        self.headers = {}
+        if location is not None:
+          self.headers["Location"] = location
 
       def raise_for_status(self):
         return None
@@ -283,9 +296,14 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
       def json(self):
         return self._payload
 
-    share_response = Response(
+    resolved_share_url = (
       "https://live.douyin.com/douyin/webcast/reflow/123?sec_user_id=user"
     )
+    redirect_response = Response(
+      "https://v.douyin.com/example/",
+      location=resolved_share_url,
+    )
+    share_response = Response(resolved_share_url)
     live_response = Response(
       "https://webcast.example.test/live-info",
       {
@@ -317,7 +335,7 @@ class LiveDownloaderPipelineTest(unittest.TestCase):
         },
       },
     )
-    responses = [share_response, live_response]
+    responses = [redirect_response, share_response, live_response]
     original_request = live_module.request
     original_sleep = live_module.sleep
     original_token_generator = DouyinShareHeader.create_douyin_msToken

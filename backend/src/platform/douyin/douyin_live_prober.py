@@ -19,6 +19,8 @@ from backend.src.library.baselib                            import set_dict_attr
 from backend.src.library.safe_diagnostics                  import live_diagnostic
 from backend.src.platform.douyin.douyin_header              import DouyinShareHeader, DouyinLiveInfoHeader
 from backend.src.platform.douyin.douyin_live_external_info  import observed_at
+from backend.src.platform.douyin.douyin_redirect_trust      import DouyinRedirectTrust
+from backend.src.platform.resource_resolution              import RedirectTimeout
 from backend.src.library.loglib                             import get_logger
 
 
@@ -104,7 +106,8 @@ class DouyinLiveProber:
   whole platform conversation is issued from a single module.
 
   The collaborator must expose ``config``, ``API``, ``live_external_info``,
-  ``query_url(method, url, params, timeout, headers)``, ``pause()`` and
+  ``query_url(method, url, params, timeout, headers, allow_redirects)``,
+  ``pause()`` and
   ``construct_live_params_no_login(share_info, header)``.
   """
 
@@ -115,6 +118,19 @@ class DouyinLiveProber:
     if context is None:
       raise ValueError("probe context is required")
     self._context = context
+    self._redirects = DouyinRedirectTrust(
+      request_function=self._request_share_hop
+    )
+
+  def _request_share_hop(self, method, url, allow_redirects, **options):
+    return self._context.query_url(
+      method=method,
+      url=url,
+      params=options.get("params"),
+      timeout=options.get("timeout"),
+      headers=options.get("headers"),
+      allow_redirects=allow_redirects,
+    )
 
   @property
   def _config(self):
@@ -137,25 +153,23 @@ class DouyinLiveProber:
     for key, value in share_header.to_dict().items():
       set_dict_attr(header, "$." + key, value)
 
-    response = self._context.query_url(
-      method="get",
-      url=url,
+    document = self._redirects.fetch_document(
+      url,
       params=None,
       timeout=self._live_timeout(),
       headers=header,
+      after_request=self._context.pause,
     )
-    ##
-    ## WA: random delay between 1.5s - 4.5s
-    ##
-    self._context.pause()
+    response = document.response
     response.raise_for_status()
-    return response, share_header
+    return response, share_header, document.url
 
   @staticmethod
-  def _parse_share_response(response) -> dict:
-    parse_result = urlparse(response.url)
+  def _parse_share_response(response, resolved_url=None) -> dict:
+    response_url = response.url if resolved_url is None else resolved_url
+    parse_result = urlparse(response_url)
     share_info = dict()
-    set_dict_attr(share_info, "$.url", response.url)
+    set_dict_attr(share_info, "$.url", response_url)
     set_dict_attr(share_info, "$.scheme", parse_result.scheme)
     set_dict_attr(share_info, "$.netloc", parse_result.netloc)
     set_dict_attr(share_info, "$.path", parse_result.path)
@@ -223,8 +237,8 @@ class DouyinLiveProber:
     try:
       if self._debug_enabled():
         get_logger().info(live_diagnostic("share_url_request", url=url))
-      response, share_header = self._resolve_share_url(url, header)
-    except TimeoutError as e:
+      response, share_header, resolved_url = self._resolve_share_url(url, header)
+    except (TimeoutError, RedirectTimeout) as e:
       get_logger().error(live_diagnostic("share_url_failed", url=url, error=e))
       return LiveProbeResult(url=url, error="请求超时")
     except exceptions.ReadTimeout as e:
@@ -249,7 +263,7 @@ class DouyinLiveProber:
     ##<<========================== build live payload =======================>>
     ##
     try:
-      share_info = self._parse_share_response(response)
+      share_info = self._parse_share_response(response, resolved_url)
       if self._config.get_config_dict_attr("$.download.user_login") is True:
         params = dict()
       else:

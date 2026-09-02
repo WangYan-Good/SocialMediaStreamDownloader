@@ -1321,6 +1321,21 @@ jobs:
               exit 1
             }
 
+          # Phase 17A: exercise the tracked client-originated Douyin redirect
+          # boundary with the production modules and an injected no-network
+          # transport. The script prints its marker only after initial/per-hop
+          # validation, document traversal, loop/cap and diagnostics all pass.
+          docker cp scripts/runtime_platform_redirect_trust_probe.py \
+            smsd-ci-smoke:/tmp/runtime_platform_redirect_trust_probe.py
+          docker exec smsd-ci-smoke \
+            python /tmp/runtime_platform_redirect_trust_probe.py \
+            | tee /tmp/platform-redirect-trust-smoke.txt
+          grep -Fxq 'ok   runtime platform redirect trust boundary' \
+            /tmp/platform-redirect-trust-smoke.txt || {
+              echo "FAIL: platform redirect trust runtime marker was absent"
+              exit 1
+            }
+
       # Keep this separate from the direct docker-run smoke above. It proves
       # the checked-in deployment topology, including its real MySQL image,
       # secret boundary, internal network and named log volume.

@@ -44,6 +44,18 @@
   exception class 和安全布尔状态。即使 `debug_mode: true`，也不记录完整 headers、params、
   config、signed URL query 或 exception message；Cookie、Authorization、msToken、X-Bogus、
   verifyFp、session/CSRF token 与 proxy password 不得进入 stdout、stderr 或应用日志。
+- 客户提交的 Douyin share/document URL 只信任经过共享 host authority 判定的初始地址，
+  **不会因初始 host 受信任而自动信任 redirect target**。这条边界关闭 HTTP library 的
+  automatic redirect，并在每一跳发出请求前重新验证 scheme、真实 hostname、userinfo、
+  相对 `Location` 解析结果，同时执行 loop detection 与固定 hop cap。短链接 identity 模式
+  在首次得到可识别的 Douyin URL 后停止且不请求该目标；需要 HTML/直播 share page 的
+  document 模式则在相同逐跳边界内读取最终 response body。Owner、Person、Aweme 与 Live
+  的 client-originated share/document 请求共用同一个 redirect authority 和
+  `douyin_url_hosts.py` host authority；日志不输出完整 URL、`Location`、query 或 exception
+  message，只允许安全 hostname / failure class。首跳使用 caller headers 的副本；发生跳转后
+  不继续携带原始 `Cookie`，且 scheme、hostname 或 effective port 任一变化时不继续携带
+  `Authorization`，同时不修改 caller 提供的 headers mapping。该保证**不覆盖**平台返回的 media CDN、
+  stream URL 或固定平台 API，也不是通用 outbound firewall / egress policy。
 - FLV live capture 的成功边界包含 file flush/fsync、file close 与 parent-directory fsync；
   只有全部完成才允许生成成功结果并继续 journal/DB handoff。存储提交失败保留媒体字节、
   不重试网络且不报告录制成功。post download 与既有 HLS durability contract 不受影响。

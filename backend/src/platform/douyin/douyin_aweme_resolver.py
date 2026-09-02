@@ -26,6 +26,7 @@ from backend.src.platform.douyin.douyin_aweme_url import (
 )
 from backend.src.platform.douyin.douyin_header import DouyinPostInfoHeader
 from backend.src.platform.douyin.douyin_login import DouyinLogin
+from backend.src.platform.douyin.douyin_redirect_trust import DouyinRedirectTrust
 
 
 ##
@@ -150,7 +151,7 @@ class DouyinAwemeResolver:
   recorded ``source``.
   """
 
-  def __init__(self, config=None, sleeper=None) -> None:
+  def __init__(self, config=None, sleeper=None, request_function=None) -> None:
     self.config = (
       config if isinstance(config, DouyinAwemeConfig)
       else DouyinAwemeConfig(config)
@@ -162,6 +163,8 @@ class DouyinAwemeResolver:
       self.config.get_config_dict_attr("$.platform.douyin.login")
     )
     self._sleeper = sleeper if sleeper is not None else self._random_pause
+    self._request = request if request_function is None else request_function
+    self._redirects = DouyinRedirectTrust(request_function=self._request)
 
   def proxies(self):
     """Proxies from ``$.platform.douyin.login.proxies``, passed explicitly.
@@ -214,7 +217,7 @@ class DouyinAwemeResolver:
 ##
   def _request_detail(self, aweme_id: str):
     api = self.API.get_config_dict_attr("$.POST_DETAIL")
-    response = request(
+    response = self._request(
       method="GET",
       url=api,
       params=self._detail_params(aweme_id),
@@ -244,14 +247,14 @@ class DouyinAwemeResolver:
 ## >>============================= HTML route =============================>>
 ##
   def _request_share_page(self, url: str) -> str:
-    response = request(
-      method="GET",
-      url=url,
+    document = self._redirects.fetch_document(
+      url,
       timeout=self.config.max_timeout,
       headers=self._headers(),
       proxies=self.proxies(),
+      after_request=self.pause,
     )
-    self.pause()
+    response = document.response
     if response.status_code != 200:
       raise ValueError(
         "share page returned status {}".format(response.status_code)
@@ -288,19 +291,13 @@ class DouyinAwemeResolver:
     followed before it can be classified.  The handler normally does this and
     passes the result down; this covers the standalone call.
     """
-    response = request(
-      method="GET",
-      url=url,
+    return self._redirects.resolve_identity(
+      url,
       timeout=self.config.max_timeout,
       headers=self._headers(),
       proxies=self.proxies(),
+      after_request=self.pause,
     )
-    self.pause()
-    if response.status_code != 200:
-      raise ValueError(
-        "share link returned status {}".format(response.status_code)
-      )
-    return response.url
 
   def resolve(self, url: str, aweme_id: str = None) -> AwemeResolution:
     """Resolve ``url`` into an ``AwemeResolution``."""

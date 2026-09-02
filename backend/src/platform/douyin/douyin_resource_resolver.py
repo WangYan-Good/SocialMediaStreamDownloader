@@ -1,16 +1,14 @@
 ##<<Base>>
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
 ##<<Extension>>
 from requests import request
 
 ##<<Third-part>>
-from backend.src.library.loglib import get_logger
 from backend.src.platform.douyin.douyin_aweme_url import classify_aweme_url
 from backend.src.platform.douyin.douyin_owner_url import classify_owner_url
+from backend.src.platform.douyin.douyin_redirect_trust import DouyinRedirectTrust
 from backend.src.platform.douyin.douyin_url_hosts import (
-  host_of,
-  is_content_host,
   is_live_host,
   is_short_link_host,
 )
@@ -18,14 +16,10 @@ from backend.src.platform.resource_resolution import (
   RESOURCE_TYPE_LIVE,
   RESOURCE_TYPE_OWNER,
   RESOURCE_TYPE_POST,
-  RedirectLoop,
   ResourceResolution,
-  ShortLinkUnavailable,
-  TooManyRedirects,
   UnsupportedPlatform,
   UnsupportedResource,
   UnsupportedScheme,
-  UntrustedRedirect,
 )
 
 
@@ -72,18 +66,9 @@ class DouyinResourceResolver:
     self._timeout = timeout
     self._max_redirects = max_redirects
     self._proxies = proxies
-
-  @staticmethod
-  def _allowed_host(netloc: str) -> bool:
-    ##
-    ## The one allow list, borrowed from douyin_url_hosts.  A second copy here
-    ## would eventually disagree with that one about a host like
-    ## ``douyin.com.evil.test``, and the disagreement would be a hole.
-    ##
-    return (
-      is_live_host(netloc)
-      or is_content_host(netloc)
-      or is_short_link_host(netloc)
+    self._redirects = DouyinRedirectTrust(
+      request_function=self._request,
+      max_redirects=max_redirects,
     )
 
   @staticmethod
@@ -117,105 +102,14 @@ class DouyinResourceResolver:
 
     return None
 
-  @staticmethod
-  def _location(response):
-    ##
-    ## Header names are case-insensitive, and ``requests`` hands back a mapping
-    ## that knows that.  Reading ``headers["Location"]`` would work there and
-    ## quietly fail against anything else, so the case-folding happens here.
-    ##
-    headers = getattr(response, "headers", None) or {}
-    for key, value in headers.items():
-      if isinstance(key, str) and key.lower() == "location":
-        return value
-    return None
-
-  def _hop(self, url: str):
-    """Make one request and return where it points next, or ``None``.
-
-    The status code is deliberately not consulted.  Douyin answers a share link
-    opened outside the app with 444 *after* redirecting it perfectly well, so
-    what decides the outcome is whether a ``Location`` arrived, never what the
-    hop said about itself.
-    """
-    try:
-      response = self._request(
-        method="GET",
-        url=url,
-        allow_redirects=False,
-        timeout=self._timeout,
-        proxies=self._proxies,
-      )
-    except Exception as e:
-      ##
-      ## The host, not the url: a share url may carry a signature, and an error
-      ## log is the last place it should be written down.
-      ##
-      get_logger().warning(
-        "short link hop failed: host={} error={}".format(
-          host_of(url), type(e).__name__
-        )
-      )
-      ##
-      ## A fixed message.  This text reaches the browser, and the underlying
-      ## exception carries internal addresses and ports.
-      ##
-      raise ShortLinkUnavailable("无法解析该短链接，请稍后重试")
-    return self._location(response)
-
   def _follow_short_link(self, url: str) -> str:
-    """Walk a short link to the first url that can be named.
-
-    Every hop is inspected here rather than handed to the http library, because
-    the library would follow a redirect off the platform before anyone could
-    object.  The checks that make this endpoint safe to expose all live in this
-    loop: scheme, host, loop detection and a hop ceiling.
-    """
-    current = url
-    visited = {current}
-    for _ in range(self._max_redirects):
-      location = self._hop(current)
-      if location is None:
-        ##
-        ## Nothing further to follow.  Whether this url can be named is decided
-        ## by the caller, which is the same decision it makes for a long url.
-        ##
-        return current
-
-      ##
-      ## Relative targets are legal - ``Location: /share/video/1`` means the
-      ## same host - and resolving them against the hop they arrived on is what
-      ## keeps them from being read as a bare path against something else.
-      ##
-      target = urljoin(current, location)
-      parsed = urlparse(target)
-      if parsed.scheme.lower() not in _ALLOWED_SCHEMES:
-        raise UntrustedRedirect("该链接跳转到了不受支持的地址")
-      if not self._allowed_host(parsed.netloc):
-        ##
-        ## Refused *before* the request, not after.  A trusted host handing back
-        ## an internal address is the whole pivot this endpoint has to be immune
-        ## to, so the target is checked while it is still just a string.
-        ##
-        get_logger().warning(
-          "short link redirected off platform: host={}".format(host_of(target))
-        )
-        raise UntrustedRedirect("该链接跳转到了非抖音地址")
-      if target in visited:
-        raise RedirectLoop("该短链接的跳转形成了循环")
-
-      visited.add(target)
-      current = target
-      if self._classify(current) is not None:
-        ##
-        ## Named.  Stop here: another request could only confirm what this url
-        ## already says, and the whole reason this resolver exists is that the
-        ## owner path, the post resolver and the live prober each used to follow
-        ## the same share link in turn.
-        ##
-        return current
-
-    raise TooManyRedirects("该短链接的跳转次数过多")
+    """Walk through the shared trust authority to the first named URL."""
+    return self._redirects.resolve_identity(
+      url,
+      is_terminal=lambda candidate: self._classify(candidate) is not None,
+      timeout=self._timeout,
+      proxies=self._proxies,
+    )
 
 ##
 ## >>============================= sub class method =============================>>
@@ -231,7 +125,7 @@ class DouyinResourceResolver:
     parsed = urlparse(url.strip())
     if parsed.scheme.lower() not in _ALLOWED_SCHEMES:
       return False
-    return self._allowed_host(parsed.netloc)
+    return self._redirects.trusts(url.strip())
 
   def resolve(self, url) -> ResourceResolution:
     """Name the resource ``url`` points at, or say why it cannot be named.
@@ -247,7 +141,7 @@ class DouyinResourceResolver:
     parsed = urlparse(source_url)
     if parsed.scheme.lower() not in _ALLOWED_SCHEMES:
       raise UnsupportedScheme("请粘贴一个 http(s) 链接")
-    if not self._allowed_host(parsed.netloc):
+    if not self._redirects.trusts(source_url):
       ##
       ## Refused without being contacted.  This endpoint takes whatever a
       ## browser sends, so a host that merely reads like ours - a lookalike

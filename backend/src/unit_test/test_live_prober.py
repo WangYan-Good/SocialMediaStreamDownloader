@@ -1,5 +1,6 @@
 import contextlib
 import io
+import logging
 import unittest
 from unittest.mock import patch
 
@@ -7,6 +8,7 @@ from requests import exceptions
 
 from backend.src.library.baselib import get_dict_attr
 from backend.src.platform.douyin import douyin_live_prober as prober_module
+from backend.src.platform.douyin import douyin_redirect_trust as redirect_module
 from backend.src.platform.douyin.douyin_api import DouyinApi
 from backend.src.platform.douyin.douyin_live_external_info import LiveExternal, observed_at
 from backend.src.platform.douyin.douyin_live_prober import DouyinLiveProber
@@ -23,10 +25,13 @@ class FakeConfig:
 
 class FakeResponse:
   def __init__(self, url="https://live.douyin.com/douyin/webcast/reflow/123?sec_user_id=user",
-               status_code=200, payload=None):
+               status_code=200, payload=None, location=None):
     self.url = url
     self.status_code = status_code
     self._payload = payload
+    self.headers = {}
+    if location is not None:
+      self.headers["Location"] = location
 
   def raise_for_status(self):
     return None
@@ -64,14 +69,39 @@ class FakeContext:
     self._raise_on_live = raise_on_live
     self.pauses = 0
     self.requests = 0
+    self.calls = []
 
-  def query_url(self, method, url, params, timeout, headers):
+  def query_url(
+    self,
+    method,
+    url,
+    params,
+    timeout,
+    headers,
+    allow_redirects=True,
+  ):
     self.requests += 1
-    if self._raise_on_live is not None and self.requests == 2:
+    self.calls.append({
+      "method": method,
+      "url": url,
+      "params": params,
+      "timeout": timeout,
+      "headers": headers,
+      "allow_redirects": allow_redirects,
+    })
+    if self._raise_on_live is not None and self.requests == 3:
       raise self._raise_on_live
     outcome = self._responses.pop(0)
     if isinstance(outcome, Exception):
       raise outcome
+    if (
+      self.requests == 1
+      and allow_redirects is False
+      and not outcome.headers
+      and outcome.url != url
+    ):
+      self._responses.insert(0, outcome)
+      return FakeResponse(url=url, status_code=302, location=outcome.url)
     return outcome
 
   def pause(self):
@@ -91,6 +121,34 @@ class ObservedAtTest(unittest.TestCase):
 
 
 class LiveProberSuccessTest(unittest.TestCase):
+  def test_an_unsafe_share_redirect_is_blocked_before_live_info(self):
+    sentinel = "SECRET_LOCATION_17A"
+    context = FakeContext([
+      FakeResponse(
+        url="https://v.douyin.com/example/",
+        status_code=302,
+        location="http://127.0.0.1/path?token=" + sentinel,
+      )
+    ])
+    output = io.StringIO()
+    logger = logging.Logger("phase17a-live-redirect")
+    logger.propagate = False
+    logger.addHandler(logging.StreamHandler(output))
+
+    with patch.object(prober_module, "get_logger", return_value=logger), \
+         patch.object(redirect_module, "get_logger", return_value=logger), \
+         contextlib.redirect_stdout(io.StringIO()) as stdout, \
+         contextlib.redirect_stderr(io.StringIO()) as stderr:
+      result = DouyinLiveProber(context).probe(
+        "https://v.douyin.com/example/"
+      )
+
+    self.assertFalse(result.ok)
+    self.assertEqual(context.requests, 1)
+    self.assertNotIn(sentinel, result.error)
+    visible = output.getvalue() + stdout.getvalue() + stderr.getvalue()
+    self.assertNotIn(sentinel, visible)
+
   def test_debug_diagnostics_are_positive_but_never_emit_transport_secrets(self):
     sentinels = (
       "SECRET_COOKIE_13A",
@@ -206,8 +264,11 @@ class LiveProberSuccessTest(unittest.TestCase):
 
     DouyinLiveProber(context).probe("https://v.douyin.com/example/")
 
-    self.assertEqual(2, context.requests)
-    self.assertEqual(2, context.pauses)
+    self.assertEqual(3, context.requests)
+    self.assertEqual(3, context.pauses)
+    self.assertTrue(
+      all(call["allow_redirects"] is False for call in context.calls[:2])
+    )
 
 
 class LiveProberFailureTest(unittest.TestCase):

@@ -720,6 +720,29 @@ Path(os.environ["FAKE_DOCKER_RECORD"]).write_text(
     )
     self.assertNotIn("docker exec smsd-ci-smoke python -", workflow)
 
+  def test_ci_runs_redirect_trust_probe_with_an_independent_exact_marker(self):
+    workflow = CI_FILE.read_text(encoding="utf-8")
+    script = (
+      PROJECT_ROOT / "scripts" / "runtime_platform_redirect_trust_probe.py"
+    ).read_text(encoding="utf-8")
+    marker = "ok   runtime platform redirect trust boundary"
+
+    self.assertEqual(1, workflow.count(marker))
+    self.assertEqual(1, script.count(marker))
+    self.assertIn(
+      "docker cp scripts/runtime_platform_redirect_trust_probe.py",
+      workflow,
+    )
+    self.assertIn(
+      "python /tmp/runtime_platform_redirect_trust_probe.py",
+      workflow,
+    )
+    self.assertIn(f"grep -Fxq '{marker}'", workflow)
+    self.assertNotIn(
+      "docker exec smsd-ci-smoke python -",
+      workflow,
+    )
+
   def test_docker_build_context_excludes_runtime_config_and_root_secret(self):
     with tempfile.TemporaryDirectory() as temp_directory:
       test_repository = Path(temp_directory) / "repository"

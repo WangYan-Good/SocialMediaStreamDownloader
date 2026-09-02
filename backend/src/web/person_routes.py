@@ -436,7 +436,9 @@ def build_person_blueprint(runtime: PersonRuntime = None) -> Blueprint:
     try:
       identity = runtime.resolve_owner_identity(url)
     except Exception as e:
-      get_logger().error("resolve owner link failed: {}".format(e))
+      get_logger().error(
+        "resolve owner link failed: error={}".format(type(e).__name__)
+      )
       return _error("无法解析该链接，请稍后重试", 502)
     if identity is None:
       return _error("这条链接指向不了任何主播，请检查后重试", 400)

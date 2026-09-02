@@ -109,6 +109,10 @@ class ShortLinkUnavailable(ResourceResolveError):
   status_code = 502
 
 
+class RedirectTimeout(ShortLinkUnavailable):
+  """A redirect hop timed out without retaining the transport exception."""
+
+
 class RedirectLoop(ShortLinkUnavailable):
   """The chain came back to a url it had already visited."""
 

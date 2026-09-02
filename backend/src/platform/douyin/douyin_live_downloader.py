@@ -905,8 +905,23 @@ class DouyinLiveDownloader(Downloader):
     
     return params
 
-  def query_url (self, method, url, params, timeout, headers):
-    return request(method=method, url=url, params=params, timeout=timeout, headers=headers)
+  def query_url (
+    self,
+    method,
+    url,
+    params,
+    timeout,
+    headers,
+    allow_redirects=True,
+  ):
+    return request(
+      method=method,
+      url=url,
+      params=params,
+      timeout=timeout,
+      headers=headers,
+      allow_redirects=allow_redirects,
+    )
 
   def pause(self):
     """Random 1.5s-4.5s gap between two platform requests.
