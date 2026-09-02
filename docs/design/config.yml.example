@@ -22,6 +22,9 @@ history:
   # single "check live status" action can issue.
   page_size_limit: 10
 log:
+  # File rotation and final formatted-record size are governed by fixed
+  # process safety limits. They are deliberately not deployment keys, so an
+  # existing valid config does not become invalid after an upgrade.
   log_enable: true
   log_level: INFO
   log_save: true

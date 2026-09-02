@@ -1306,6 +1306,21 @@ jobs:
               exit 1
             }
 
+          # Phase 15D: the production logger must actually roll files rather
+          # than merely expose non-zero handler attributes. The tracked probe
+          # uses a temporary directory, tiny injected limits and real Linux
+          # descriptors inside the production image.
+          docker cp scripts/runtime_log_retention_probe.py \
+            smsd-ci-smoke:/tmp/runtime_log_retention_probe.py
+          docker exec smsd-ci-smoke \
+            python /tmp/runtime_log_retention_probe.py \
+            | tee /tmp/log-retention-smoke.txt
+          grep -Fxq 'ok   runtime bounded persistent logging' \
+            /tmp/log-retention-smoke.txt || {
+              echo "FAIL: bounded persistent logging runtime marker was absent"
+              exit 1
+            }
+
       # Keep this separate from the direct docker-run smoke above. It proves
       # the checked-in deployment topology, including its real MySQL image,
       # secret boundary, internal network and named log volume.
@@ -1372,6 +1387,26 @@ jobs:
           MYSQL_ID="$(./run-docker.sh -p "${PROJECT}" ps -q mysql)"
           APP_ID="$(./run-docker.sh -p "${PROJECT}" ps -q app)"
           test -n "${MYSQL_ID}" && test -n "${APP_ID}"
+          for CONTAINER_ID in "${APP_ID}" "${MYSQL_ID}"; do
+            test "$(docker inspect --format \
+              '{{.HostConfig.LogConfig.Type}}' "${CONTAINER_ID}")" = \
+              "json-file" || {
+                echo "FAIL: Compose container does not use json-file logging"
+                exit 1
+              }
+            test "$(docker inspect --format \
+              '{{index .HostConfig.LogConfig.Config "max-size"}}' \
+              "${CONTAINER_ID}")" = "10m" || {
+                echo "FAIL: Compose container log max-size is not 10m"
+                exit 1
+              }
+            test "$(docker inspect --format \
+              '{{index .HostConfig.LogConfig.Config "max-file"}}' \
+              "${CONTAINER_ID}")" = "5" || {
+                echo "FAIL: Compose container log max-file is not 5"
+                exit 1
+              }
+          done
           test "${ROOT_SECRET_FINGERPRINT}" = \
             "$(sha256sum config/mysql-root-password)" || {
               echo "FAIL: MySQL root secret was regenerated"

@@ -16,6 +16,16 @@
   app 只通过内部 service name `mysql` 连接。
 - `/app/logs` 使用 named volume `log_data`。镜像在构建期以窄范围 `install -d` 准备
   appuser 所有权，不在入口执行递归 chown；文件日志可写且跨容器重启保留。
+- 应用文件日志使用固定的 size-based rotation：active `server.log` 上限 10 MiB，最多保留
+  9 个 backup，即 logger 自己新建的 active + backups 约 100 MiB、最多 10 个文件。
+  logger 创建或重新打开的这些文件固定为 `0600`。最终格式化后的每条日志（包括 traceback）
+  按 UTF-8 字节计最多 64 KiB；超限时在完整字符边界截断并把 `[truncated]` 计入该上限。
+  同一 formatter policy 同时作用于文件与 console，`log_save: false` 仍只关闭文件日志。
+- Compose 为 app 与 MySQL 容器都显式使用 `json-file`，设置 `max-size: 10m`、
+  `max-file: 5`，不依赖 container engine 默认值，也不关闭 stdout/stderr 诊断。
+  这些限制只约束 15D runtime 新建/轮转的 logger 文件与两个容器的 engine logs；升级前遗留的
+  `server.log.YYYY-MM-DD`、operator 手工放入 `log_data` 的文件及其他无关文件不会被自动删除。
+  系统不会 glob、跟随 symlink 或充当整个日志卷的垃圾回收器，operator 应审查后自行处理旧文件。
 - 缺失或非法配置会阻止本地与容器启动，错误只说明配置无效，不回显配置值。
 - `download.test_mode` 不是安全隔离开关：它只跳过直播流数据传输，仍会访问平台网络接口
   和已启用的数据库。

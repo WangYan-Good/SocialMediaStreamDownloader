@@ -62,6 +62,19 @@ pre/post schema、backup path/checksums、开始/结束时间和 postcheck 结�
 `--project-name COMPOSE_PROJECT`。schema status、schema check、HTTP health、app running 或 MySQL
 health 任一失败都必须返回 non-zero。
 
+Compose deployment 还必须确认 app 与 MySQL 的 container-engine 日志限制实际进入运行容器，
+而不只是存在于 YAML。对两个 container ID 分别检查：
+
+```shell
+docker inspect --format '{{.HostConfig.LogConfig.Type}}' CONTAINER_ID
+docker inspect --format '{{index .HostConfig.LogConfig.Config "max-size"}}' CONTAINER_ID
+docker inspect --format '{{index .HostConfig.LogConfig.Config "max-file"}}' CONTAINER_ID
+```
+
+期望依次为 `json-file`、`10m`、`5`。应用自己的 `server.log` 固定使用 10 MiB active file
+与 9 个 backups，并把 file/console 的单条最终 UTF-8 record 限制在 64 KiB。升级前遗留的
+dated rotated logs 不会自动删除；如需清理，operator 必须先审查，不应建立每日手工清理新日志的流程。
+
 ## Deployment credential lifecycle
 
 `config.yml` 的 application DB password 与 `mysql-root-password` 是不同 credential。修改

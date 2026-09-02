@@ -4,9 +4,10 @@ import sys
 sys.path.append(os.getcwd())
 
 ##<<Base>>
-from logging import Logger, FileHandler, StreamHandler, Formatter
-from logging.handlers import TimedRotatingFileHandler
+from logging import Logger, StreamHandler, Formatter
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
+import copy
 import re
 import threading
 
@@ -15,6 +16,127 @@ import threading
 ##
 DEFAULT_LOGGER_FORMATTER_STR = '[%(asctime)s]-[%(name)s]-[%(levelname)s]: %(message)s'
 VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+LOG_MAX_BYTES = 10 * 1024 * 1024
+LOG_BACKUP_COUNT = 9
+LOG_MAX_RECORD_BYTES = 64 * 1024
+LOG_TRUNCATION_MARKER = "[truncated]"
+
+
+class BoundedUtf8Formatter(Formatter):
+  """Bound one independently formatted record by its final UTF-8 byte size."""
+
+  def __init__(
+    self,
+    fmt=None,
+    datefmt=None,
+    style="%",
+    validate=True,
+    defaults=None,
+    max_record_bytes=LOG_MAX_RECORD_BYTES,
+  ):
+    if type(max_record_bytes) is not int or max_record_bytes <= 0:
+      raise ValueError("max_record_bytes must be a positive integer")
+    marker_size = len(LOG_TRUNCATION_MARKER.encode("utf-8"))
+    if max_record_bytes < marker_size:
+      raise ValueError("max_record_bytes must fit the truncation marker")
+    super().__init__(fmt, datefmt, style, validate, defaults=defaults)
+    self.max_record_bytes = max_record_bytes
+
+  def format(self, record):
+    ## ``Formatter.format`` caches traceback text on the LogRecord. Copy first
+    ## so one handler cannot change what the next handler observes.
+    formatted = super().format(copy.copy(record))
+    encoded = formatted.encode("utf-8", errors="replace")
+    if len(encoded) <= self.max_record_bytes:
+      return encoded.decode("utf-8")
+
+    marker = LOG_TRUNCATION_MARKER.encode("utf-8")
+    prefix = encoded[:self.max_record_bytes - len(marker)]
+    ## Dropping only an incomplete final code point keeps the retained prefix
+    ## valid UTF-8 without walking or rewriting the rest of the record.
+    safe_prefix = prefix.decode("utf-8", errors="ignore")
+    return safe_prefix + LOG_TRUNCATION_MARKER
+
+
+class BoundedRotatingFileHandler(RotatingFileHandler):
+  """Size-rotating UTF-8 file handler with descriptor-level mode control."""
+
+  def __init__(
+    self,
+    filename,
+    mode="a",
+    maxBytes=LOG_MAX_BYTES,
+    backupCount=LOG_BACKUP_COUNT,
+    encoding="utf-8",
+    delay=False,
+    errors=None,
+  ):
+    if type(maxBytes) is not int or maxBytes <= 0:
+      raise ValueError("maxBytes must be a positive integer")
+    if type(backupCount) is not int or backupCount <= 0:
+      raise ValueError("backupCount must be a positive integer")
+    super().__init__(
+      filename,
+      mode=mode,
+      maxBytes=maxBytes,
+      backupCount=backupCount,
+      encoding=encoding,
+      delay=delay,
+      errors=errors,
+    )
+
+  def _open(self):
+    flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT
+    flags |= getattr(os, "O_CLOEXEC", 0)
+    descriptor = os.open(self.baseFilename, flags, 0o600)
+    try:
+      os.fchmod(descriptor, 0o600)
+      stream = os.fdopen(
+        descriptor,
+        self.mode,
+        encoding=self.encoding,
+        errors=self.errors,
+      )
+      descriptor = -1
+      return stream
+    finally:
+      if descriptor >= 0:
+        os.close(descriptor)
+
+  def shouldRollover(self, record):
+    if self.stream is None:
+      self.stream = self._open()
+    if self.maxBytes <= 0:
+      return False
+    current_size = os.fstat(self.stream.fileno()).st_size
+    formatted = self.format(record) + self.terminator
+    record_size = len(formatted.encode(self.encoding or "utf-8"))
+    return current_size > 0 and current_size + record_size >= self.maxBytes
+
+
+def build_bounded_file_handler(
+  filename,
+  *,
+  level="DEBUG",
+  formatter_format=DEFAULT_LOGGER_FORMATTER_STR,
+  max_bytes=LOG_MAX_BYTES,
+  backup_count=LOG_BACKUP_COUNT,
+  max_record_bytes=LOG_MAX_RECORD_BYTES,
+):
+  handler = BoundedRotatingFileHandler(
+    filename=str(filename),
+    maxBytes=max_bytes,
+    backupCount=backup_count,
+    encoding="utf-8",
+  )
+  handler.setLevel(level)
+  handler.setFormatter(BoundedUtf8Formatter(
+    formatter_format,
+    max_record_bytes=max_record_bytes,
+  ))
+  return handler
+
+
 class LoggerManager():
 ##
 ## >>============================= attribute =============================>>
@@ -144,21 +266,20 @@ class LoggerManager():
     ##
     self.__default_console_handler = StreamHandler()
     self.__default_console_handler.setLevel(self.__DEFAULT_LOGGER_LEVEL)
-    self.__default_console_handler.setFormatter(Formatter(self.__DEFAULT_LOGGER_FORMATTER_STR))
+    self.__default_console_handler.setFormatter(BoundedUtf8Formatter(
+      self.__DEFAULT_LOGGER_FORMATTER_STR
+    ))
     self.__default_logger.addHandler(self.__default_console_handler)
     
     ##
     ## initialize the default logger with file handler
     ##
     if self.__log_save:
-      file_handler = TimedRotatingFileHandler(
-        filename=str(self.__DEFAULT_LOG_FILE_PATH),
-        when="midnight",
-        interval=1,
-        encoding="utf-8",
+      file_handler = build_bounded_file_handler(
+        self.__DEFAULT_LOG_FILE_PATH,
+        level=self.__DEFAULT_LOGGER_LEVEL,
+        formatter_format=self.__DEFAULT_LOGGER_FORMATTER_STR,
       )
-      file_handler.setLevel(self.__DEFAULT_LOGGER_LEVEL)
-      file_handler.setFormatter(Formatter(self.__DEFAULT_LOGGER_FORMATTER_STR))
       self.__default_logger.addHandler(file_handler)
     
     ##
@@ -234,10 +355,13 @@ class LoggerManager():
     try:
       logger = self.get_logger(name)
       file_name = re.search(r"[^\\/]+$", file)
-      file_handler = FileHandler(f"{self.__DEFAULT_LOG_FILE_DIR}/{file_name[0]}")
-      file_handler.setLevel(level)
-      if format is not None:
-        file_handler.setFormatter(Formatter(format))
+      file_handler = build_bounded_file_handler(
+        self.__DEFAULT_LOG_FILE_DIR / file_name[0],
+        level=level,
+        formatter_format=(
+          format if format is not None else self.__DEFAULT_LOGGER_FORMATTER_STR
+        ),
+      )
       logger.addHandler(file_handler)
     except Exception as e:
       raise Exception(f"Failed to set file handler for logger {name}: {e}")
@@ -250,8 +374,7 @@ class LoggerManager():
       logger = self.get_logger(name)
       console_handler = StreamHandler()
       console_handler.setLevel(level)
-      if format is not None:
-        console_handler.setFormatter(Formatter(format))        
+      console_handler.setFormatter(BoundedUtf8Formatter(format))
       logger.addHandler(console_handler)
     except Exception as e:
       raise Exception(f"Failed to set console handler for logger {name}: {e}")

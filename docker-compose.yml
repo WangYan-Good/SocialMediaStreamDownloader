@@ -5,6 +5,11 @@ services:
   mysql:
     image: mysql:8.0
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     environment:
       MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
       MYSQL_DATABASE: "${SMSD_DB_NAME:?run ./run-docker.sh}"
@@ -57,6 +62,11 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     depends_on:
       mysql:
         condition: service_healthy

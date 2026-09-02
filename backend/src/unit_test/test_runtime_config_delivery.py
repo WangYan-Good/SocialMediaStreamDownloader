@@ -194,6 +194,25 @@ class RuntimeConfigDeliveryTest(unittest.TestCase):
 
     self.assertIs(config, runtime_config.validate_runtime_config(config))
 
+  def test_existing_deployment_config_needs_no_new_log_retention_fields(self):
+    runtime_config = self.load_runtime_config_module()
+    config = self.compose_config()
+    config["log"] = {
+      "log_enable": True,
+      "log_level": "INFO",
+      "log_save": True,
+      "log_file_path": "/app/logs/server.log",
+    }
+    reference = yaml.safe_load(
+      CONFIG_EXAMPLE_PATH.read_text(encoding="utf-8")
+    )
+
+    self.assertEqual(
+      set(reference["log"]),
+      {"log_enable", "log_level", "log_save", "log_file_path"},
+    )
+    self.assertIs(config, runtime_config.validate_runtime_config(config))
+
   def test_cli_validate_reports_every_missing_path_without_secret_values(self):
     runtime_config = self.load_runtime_config_module()
     secret_marker = "CLI_CONTRACT_SECRET_MUST_NOT_PRINT"
@@ -568,6 +587,16 @@ Path(os.environ["FAKE_DOCKER_RECORD"]).write_text(
     self.assertNotIn("container_name", app)
     self.assertEqual(app["image"], "${SMSD_IMAGE:-smsd:local}")
 
+  def test_compose_bounds_app_and_mysql_container_engine_logs(self):
+    compose = yaml.safe_load(COMPOSE_FILE.read_text(encoding="utf-8"))
+    expected = {
+      "driver": "json-file",
+      "options": {"max-size": "10m", "max-file": "5"},
+    }
+
+    self.assertEqual(compose["services"]["app"].get("logging"), expected)
+    self.assertEqual(compose["services"]["mysql"].get("logging"), expected)
+
   def test_container_staging_adapts_loopback_source_to_internal_bind_only(self):
     runtime_config = self.load_runtime_config_module()
     config = self.compose_config()
@@ -655,6 +684,24 @@ Path(os.environ["FAKE_DOCKER_RECORD"]).write_text(
     self.assertIn(marker, workflow)
     self.assertIn(f"grep -Fxq '{marker}'", workflow)
     self.assertNotIn("docker exec smsd-ci-compose-app python -", workflow)
+
+  def test_ci_runs_bounded_logging_probe_and_inspects_real_compose_log_configs(self):
+    workflow = CI_FILE.read_text(encoding="utf-8")
+    marker = "ok   runtime bounded persistent logging"
+
+    self.assertIn(
+      "docker cp scripts/runtime_log_retention_probe.py",
+      workflow,
+    )
+    self.assertIn(
+      "python /tmp/runtime_log_retention_probe.py",
+      workflow,
+    )
+    self.assertIn(f"grep -Fxq '{marker}'", workflow)
+    self.assertIn("HostConfig.LogConfig.Type", workflow)
+    self.assertIn("HostConfig.LogConfig.Config", workflow)
+    self.assertIn('"max-size"', workflow)
+    self.assertIn('"max-file"', workflow)
 
   def test_ci_runs_bounded_login_runtime_with_an_independent_exact_marker(self):
     workflow = CI_FILE.read_text(encoding="utf-8")
