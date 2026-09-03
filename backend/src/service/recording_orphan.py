@@ -134,6 +134,28 @@ MAX_REFERENCED_RECORDINGS = 50000
 _RECORD_SUFFIX = ".json"
 _RECORD_SCHEMA_VERSION = 1
 
+##
+## A record is a couple of hundred bytes. Anything larger is not one, and
+## reading it unbounded is how a single damaged file becomes an outage - the
+## same bound, for the same reason, that the recovery journal puts on a note.
+##
+_RECORD_MAX_BYTES = 4096
+
+##
+## What makes a stored record the record *for this move*.
+##
+## Checked field by field rather than by comparing whole documents, because a
+## future version may add a field and an operator may have reformatted one by
+## hand. What may never differ is which file it describes and where that file
+## went.
+##
+_RECORD_IDENTITY_FIELDS = (
+  "source_relative_path",
+  "quarantined_name",
+  "size",
+  "mtime_ns",
+)
+
 
 class OrphanInventoryUnavailable(RuntimeError):
   """The question cannot be answered, so nothing may be called an orphan."""
@@ -931,12 +953,20 @@ class RecordingOrphanInventory:
   ##   3. Hard-link it into quarantine. ``os.link`` refuses to overwrite, which
   ##      is why it is used instead of ``os.rename``; a cross-device link fails
   ##      with EXDEV rather than degrading into copy-and-delete.
-  ##   4. Commit the quarantine directory, then unlink the original, then
-  ##      commit its directory.
+  ##   4. Commit the quarantine directory.
+  ##   5. Publish the record atomically - staged, committed, then linked into
+  ##      place - and, if one is already there, read it back and prove it
+  ##      describes this file.
+  ##   6. Only then unlink the original, and commit its directory.
   ##
-  ## A crash anywhere in 3-4 leaves the file reachable under at least one name -
+  ## Steps 1-3 may refuse: nothing has been created, so "nothing happened" is
+  ## true. From the moment step 3 succeeds it is not, and everything after it
+  ## reports partial completion instead.
+  ##
+  ## A crash anywhere in 3-6 leaves the file reachable under at least one name -
   ## never none. Because the destination name is derived from the source path, a
-  ## retry recomputes it, finds the same inode already there, and finishes.
+  ## retry recomputes it, finds the same inode already there, re-proves the
+  ## record, and finishes.
   ##
   def quarantine(self, candidate, dry_run=False) -> QuarantineOutcome:
     _require_host_support()
@@ -977,6 +1007,10 @@ class RecordingOrphanInventory:
       if quarantine_descriptor is None:
         raise OrphanQuarantineRefused("the quarantine directory could not be opened")
       try:
+        ##
+        ## Everything above this line may still refuse: no name has been
+        ## created, so "nothing happened" is true.
+        ##
         self._link_into_quarantine(
           parts_name=Path(candidate.relative_path).name,
           source_parent=parent,
@@ -984,25 +1018,46 @@ class RecordingOrphanInventory:
           destination_parent=quarantine_descriptor,
           candidate=candidate,
         )
-        self._write_record(
-          quarantine_descriptor, destination_name, candidate
-        )
+
         ##
-        ## Past the point of no loss: the bytes are reachable through the
-        ## quarantine name whatever happens here. A failure is reported as its
-        ## own state rather than as a refusal, because "nothing changed" would
-        ## be untrue and an operator retrying is exactly the right response.
+        ## >>=================== the line, and what it means ===================>>
+        ##
+        ## A second name for this file now exists. Whatever happens below, the
+        ## bytes are reachable and the storage is not as the operator left it,
+        ## so nothing below may be reported as a refusal - the word has to keep
+        ## meaning "nothing was created" or it is worthless.
+        ##
+        ## Every failure from here is a partial completion: safe, lossless, and
+        ## fixed by retrying. The bare ``OSError`` catch is the backstop, so a
+        ## storage error nobody anticipated cannot escape as a traceback either.
         ##
         try:
-          os.unlink(Path(candidate.relative_path).name, dir_fd=parent)
+          _sync_directory(
+            quarantine_descriptor, failure=OrphanQuarantineIncomplete
+          )
+          self._publish_record(
+            quarantine_descriptor, destination_name, candidate
+          )
+          ##
+          ## Only now, with a record on disk that has been read back and proved
+          ## to describe this exact file, may the original name go.
+          ##
+          try:
+            os.unlink(Path(candidate.relative_path).name, dir_fd=parent)
+          except FileNotFoundError:
+            ##
+            ## An earlier attempt removed it and failed afterwards. The move is
+            ## further along than this attempt thought, not broken.
+            ##
+            pass
+          _sync_directory(parent, failure=OrphanQuarantineIncomplete)
+        except OrphanQuarantineIncomplete:
+          raise
         except OSError as e:
           raise OrphanQuarantineIncomplete(
-            "the media is quarantined but its original name could not be "
-            "removed ({}); retrying completes the move".format(
-              type(e).__name__
-            )
+            "the media is quarantined but the move did not finish ({}); "
+            "retrying completes it".format(type(e).__name__)
           ) from e
-        _sync_directory(parent)
       finally:
         os.close(quarantine_descriptor)
     finally:
@@ -1094,7 +1149,6 @@ class RecordingOrphanInventory:
           type(e).__name__
         )
       ) from e
-    _sync_directory(destination_parent)
 
   ##
   ## What was set aside, and nothing about who it belonged to.
@@ -1106,8 +1160,9 @@ class RecordingOrphanInventory:
   ## Never an absolute path, never an owner, never a nickname, never a room. If
   ## a field is not needed to put the file back by hand, it is not written.
   ##
-  def _write_record(self, destination_parent, destination_name, candidate):
-    payload = json.dumps(
+  @staticmethod
+  def _record_payload(destination_name, candidate) -> bytes:
+    text = json.dumps(
       {
         "schema_version": _RECORD_SCHEMA_VERSION,
         "source_relative_path": candidate.relative_path,
@@ -1122,34 +1177,200 @@ class RecordingOrphanInventory:
       sort_keys=True,
       separators=(",", ":"),
       allow_nan=False,
-    ) + "\n"
+    )
+    return (text + "\n").encode("utf-8")
 
-    name = destination_name + _RECORD_SUFFIX
-    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW | _O_CLOEXEC
+  ##
+  ## Read a record that is already there, or answer that there is none.
+  ##
+  ## Every refusal below raises rather than returning ``None``, and the
+  ## distinction is the point: "absent" means this move may publish one,
+  ## "unreadable" means something is there that this build cannot vouch for.
+  ## Collapsing the two would let a truncated file read as a clean slate, and
+  ## the next step after "clean slate" is unlinking somebody's recording.
+  ##
+  @staticmethod
+  def _read_record(destination_parent, name):
+    flags = os.O_RDONLY | os.O_NOFOLLOW | _O_CLOEXEC | _O_NONBLOCK
     try:
-      descriptor = os.open(name, flags, 0o600, dir_fd=destination_parent)
-    except FileExistsError:
-      ##
-      ## A previous attempt already wrote it. The media is what matters and it
-      ## is already linked; rewriting the record would only risk truncating a
-      ## good one.
-      ##
-      return
+      descriptor = os.open(name, flags, dir_fd=destination_parent)
+    except FileNotFoundError:
+      return None
     except OSError as e:
-      raise OrphanQuarantineRefused(
-        "the quarantine record could not be written ({})".format(
+      ##
+      ## ELOOP means the name is a symlink - something chose where this read
+      ## would land, which is exactly when following it would be worst.
+      ##
+      raise OrphanQuarantineIncomplete(
+        "an existing quarantine record could not be opened ({})".format(
           type(e).__name__
         )
       ) from e
+
     try:
-      encoded = payload.encode("utf-8")
-      written = 0
-      while written < len(encoded):
-        written += os.write(descriptor, encoded[written:])
-      os.fsync(descriptor)
+      info = os.fstat(descriptor)
+      if not stat.S_ISREG(info.st_mode):
+        raise OrphanQuarantineIncomplete(
+          "an existing quarantine record is not a regular file"
+        )
+      if info.st_size > _RECORD_MAX_BYTES:
+        raise OrphanQuarantineIncomplete(
+          "an existing quarantine record is larger than one can be"
+        )
+      raw = os.read(descriptor, _RECORD_MAX_BYTES + 1)
+    except OrphanQuarantineIncomplete:
+      raise
+    except OSError as e:
+      raise OrphanQuarantineIncomplete(
+        "an existing quarantine record could not be read ({})".format(
+          type(e).__name__
+        )
+      ) from e
     finally:
       os.close(descriptor)
-    _sync_directory(destination_parent)
+
+    ##
+    ## Zero length is the signature of the crash this whole publication order
+    ## exists to survive: a final name created and not yet written. It is not
+    ## an empty record, it is no record.
+    ##
+    if not raw:
+      raise OrphanQuarantineIncomplete(
+        "an existing quarantine record is empty; it was never completed"
+      )
+    if len(raw) > _RECORD_MAX_BYTES:
+      raise OrphanQuarantineIncomplete(
+        "an existing quarantine record is oversized"
+      )
+    try:
+      payload = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as e:
+      raise OrphanQuarantineIncomplete(
+        "an existing quarantine record is truncated or unreadable"
+      ) from e
+    if not isinstance(payload, dict):
+      raise OrphanQuarantineIncomplete(
+        "an existing quarantine record is not an object"
+      )
+    return payload
+
+  ##
+  ## Whether a record that is already there describes *this* move.
+  ##
+  ## Never "the name exists, so it must be mine". The name is derived from the
+  ## source path, so a record under it could have been written for a file that
+  ## has since been replaced - and acting on that would unlink a recording
+  ## whose only description belongs to a different one.
+  ##
+  @staticmethod
+  def _require_record_describes(payload, destination_name, candidate):
+    if payload.get("schema_version") != _RECORD_SCHEMA_VERSION:
+      raise OrphanQuarantineIncomplete(
+        "an existing quarantine record was written by another version"
+      )
+    expected = {
+      "source_relative_path": candidate.relative_path,
+      "quarantined_name": destination_name,
+      "size": candidate.size,
+      "mtime_ns": candidate.mtime_ns,
+    }
+    for field in _RECORD_IDENTITY_FIELDS:
+      if payload.get(field) != expected[field]:
+        raise OrphanQuarantineIncomplete(
+          "an existing quarantine record describes a different file"
+        )
+
+  ##
+  ## Publish the record the same way the media was published.
+  ##
+  ## A hidden exclusive temporary, written in full, committed, and only then
+  ## linked into place under a name that cannot be clobbered. Writing straight
+  ## to the final name is shorter and is how a crash leaves a zero-length record
+  ## that a later attempt reads as proof - and then unlinks the original
+  ## against it.
+  ##
+  ## Idempotent by reading rather than by assuming. If the final name is taken,
+  ## what is there is parsed and checked against this candidate; matching means
+  ## a previous attempt got this far and the move may continue, and anything
+  ## else stops it with the source still in place.
+  ##
+  def _publish_record(self, destination_parent, destination_name, candidate):
+    final = destination_name + _RECORD_SUFFIX
+
+    existing = self._read_record(destination_parent, final)
+    if existing is not None:
+      self._require_record_describes(existing, destination_name, candidate)
+      return
+
+    payload = self._record_payload(destination_name, candidate)
+    temporary = ".{}-{}.part".format(destination_name, os.urandom(8).hex())
+    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW | _O_CLOEXEC
+    try:
+      descriptor = os.open(temporary, flags, 0o600, dir_fd=destination_parent)
+    except OSError as e:
+      raise OrphanQuarantineIncomplete(
+        "the quarantine record could not be staged ({})".format(
+          type(e).__name__
+        )
+      ) from e
+
+    published = False
+    try:
+      try:
+        written = 0
+        while written < len(payload):
+          written += os.write(descriptor, payload[written:])
+        os.fsync(descriptor)
+      finally:
+        os.close(descriptor)
+
+      ##
+      ## A link rather than a rename, for the reason the media move uses one:
+      ## rename would silently destroy a record another attempt had published,
+      ## and link refuses instead.
+      ##
+      try:
+        os.link(
+          temporary,
+          final,
+          src_dir_fd=destination_parent,
+          dst_dir_fd=destination_parent,
+          follow_symlinks=False,
+        )
+      except FileExistsError:
+        ##
+        ## Somebody published between the read above and here. Whatever they
+        ## wrote is authoritative, so it is read and checked rather than
+        ## replaced.
+        ##
+        concurrent = self._read_record(destination_parent, final)
+        if concurrent is None:
+          raise OrphanQuarantineIncomplete(
+            "the quarantine record vanished while it was being published"
+          )
+        self._require_record_describes(concurrent, destination_name, candidate)
+      published = True
+    except OrphanQuarantineIncomplete:
+      raise
+    except OSError as e:
+      raise OrphanQuarantineIncomplete(
+        "the quarantine record could not be published ({})".format(
+          type(e).__name__
+        )
+      ) from e
+    finally:
+      ##
+      ## The temporary is either a second name for bytes the final name now
+      ## holds, or the only name for bytes nothing will use. Both are removed;
+      ## failing to remove one is hygiene, not a reason to stop.
+      ##
+      try:
+        os.unlink(temporary, dir_fd=destination_parent)
+      except OSError:
+        pass
+
+    if published:
+      _sync_directory(destination_parent, failure=OrphanQuarantineIncomplete)
 
 
 ##
@@ -1165,7 +1386,14 @@ class RecordingOrphanInventory:
 ## directory to commit is the one the move actually used, and a second open by
 ## name is a second chance for the name to mean something else.
 ##
-def _sync_directory(target):
+##
+## ``failure`` is the class this commit's failure means *to its caller*, and it
+## is a parameter because the same fsync means two different things either side
+## of the media link. Before the link, a failed commit is a refusal: nothing was
+## created. After it, the same failure is a partial completion, because a link
+## exists whatever the commit did.
+##
+def _sync_directory(target, failure=OrphanQuarantineRefused):
   try:
     if isinstance(target, int):
       os.fsync(target)
@@ -1177,7 +1405,7 @@ def _sync_directory(target):
     finally:
       os.close(descriptor)
   except OSError as e:
-    raise OrphanQuarantineRefused(
+    raise failure(
       "a quarantine directory could not be committed ({})".format(
         type(e).__name__
       )

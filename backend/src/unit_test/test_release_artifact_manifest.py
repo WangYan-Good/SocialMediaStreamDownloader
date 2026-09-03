@@ -43,7 +43,7 @@ class ReleaseArtifactManifestTest(unittest.TestCase):
       "python_base_ref": PYTHON_BASE,
       "node_base_ref": NODE_BASE,
       "mysql_image_ref": MYSQL_IMAGE,
-      "runtime_marker_count": 20,
+      "runtime_marker_count": 21,
       "created_by_workflow": "CI",
     }
     self.helper.create_manifest(
@@ -82,7 +82,7 @@ class ReleaseArtifactManifestTest(unittest.TestCase):
   def test_a1_valid_manifest_passes_with_every_identity(self):
     manifest = self.verify()
     self.assertEqual(1, manifest["schema_version"])
-    self.assertEqual(20, manifest["runtime_marker_count"])
+    self.assertEqual(21, manifest["runtime_marker_count"])
 
   def test_a2_archive_sha_mismatch_fails(self):
     self.archive.write_bytes(b"different archive")

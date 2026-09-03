@@ -19,6 +19,7 @@
 ## question is what the shipping code emits, not what a helper is capable of.
 ##
 from contextlib import contextmanager
+from backend.src.library.loglib import get_logger
 import io
 import logging
 import sys
@@ -70,7 +71,14 @@ class Captured:
 def capture(level):
   """Capture the logger, stdout and stderr at one configured level."""
   captured = Captured()
-  logger = logging.getLogger("bootstrap")
+  ##
+  ## The logger the production code will actually write through, asked for the
+  ## same way it asks. Hard-coding "bootstrap" is right only until something
+  ## earlier in a suite initialises the logger manager, after which the handler
+  ## would be attached to a logger nothing uses and every absence assertion
+  ## would pass by capturing nothing at all.
+  ##
+  logger = get_logger()
   handler = logging.StreamHandler(captured.log)
   handler.setLevel(level)
   handler.setFormatter(logging.Formatter("%(levelname)s %(message)s"))

@@ -259,3 +259,65 @@ class OrphanCliReachabilityTest(OrphanCliTestCase):
     ## media tree once per page.
     ##
     self.assertEqual(1, inventory.calls)
+
+
+class OrphanCliFailureContainmentTest(OrphanCliTestCase):
+  ##
+  ## An operator command is a boundary as much as an HTTP handler is. A
+  ## traceback reaching a terminal is both a bad answer - it reads as a crash
+  ## rather than a state - and a leak, because an OSError's text carries the
+  ## absolute path it failed on and this deployment's filesystem layout is not
+  ## the operator's business to paste into a ticket.
+  ##
+  def test_a_storage_error_never_escapes_as_a_traceback(self):
+    source = self.orphan()
+
+    class ExplodingInventory:
+      def scan(self, **unused):
+        raise OSError(28, "no space left on device", "/srv/media/SECRET_HOST_PATH")
+
+    code = self.run_cli(
+      "quarantine", self.relative(source), "--confirm",
+      factory=ExplodingInventory,
+    )
+
+    self.assertNotEqual(EXIT_OK, code)
+    printed = self.out.getvalue()
+    self.assertNotIn("SECRET_HOST_PATH", printed)
+    self.assertNotIn("Traceback", printed)
+    self.assertIn("OSError", printed)
+
+  def test_a_storage_error_during_a_scan_never_escapes(self):
+    class ExplodingInventory:
+      def scan(self, **unused):
+        raise PermissionError(13, "denied", "/srv/media/SECRET_HOST_PATH")
+
+    code = self.run_cli("scan", factory=ExplodingInventory)
+
+    self.assertNotEqual(EXIT_OK, code)
+    self.assertNotIn("SECRET_HOST_PATH", self.out.getvalue())
+
+  def test_a_partial_quarantine_is_reported_as_its_own_state(self):
+    from backend.src.service.recording_orphan import OrphanQuarantineIncomplete
+
+    source = self.orphan()
+
+    class PartialInventory:
+      def scan(self, **unused):
+        raise OrphanQuarantineIncomplete(
+          "linked but unfinished at /srv/media/SECRET_HOST_PATH"
+        )
+
+    code = self.run_cli(
+      "quarantine", self.relative(source), "--confirm",
+      factory=PartialInventory,
+    )
+
+    printed = self.out.getvalue()
+    self.assertNotEqual(EXIT_OK, code)
+    self.assertNotIn("SECRET_HOST_PATH", printed)
+    ##
+    ## Named distinctly, because an operator's next action differs: a refusal
+    ## means go and look at why, a partial completion means run it again.
+    ##
+    self.assertIn("OrphanQuarantineIncomplete", printed)

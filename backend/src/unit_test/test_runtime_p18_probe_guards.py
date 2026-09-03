@@ -33,6 +33,10 @@ PROBES = (
     "scripts/runtime_persistence_diagnostic_probe.py",
     "ok   runtime persistence diagnostic redaction",
   ),
+  (
+    "scripts/runtime_post_download_diagnostic_probe.py",
+    "ok   runtime post download diagnostic redaction",
+  ),
 )
 
 

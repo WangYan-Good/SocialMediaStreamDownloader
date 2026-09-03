@@ -21,6 +21,7 @@ from backend.src.platform.douyin.douyin_login import DouyinLogin
 from backend.src.platform.douyin.douyin_api import DouyinApi
 from backend.src.library.configlib import load_config
 from backend.src.library.loglib import get_logger
+from backend.src.library.safe_diagnostics import post_diagnostic
 
 '''
 主页批量作品下载器。
@@ -135,7 +136,13 @@ class DouyinPostDownloader(Downloader):
     ## debug
     ##
     if self.config.debug is True:
-      get_logger().info("response url {}".format(response.url))
+      get_logger().info(
+        post_diagnostic(
+          "post_response_saved",
+          url=response.url,
+          status=response.status_code,
+        )
+      )
 
     ##
     ## construct return result
@@ -172,10 +179,13 @@ class DouyinPostDownloader(Downloader):
       with open(save_path, 'w', encoding="utf-8") as f:
           yml.safe_dump(response.text, f)
           f.close()
-          get_logger().info("save share url html response:")
-          get_logger().info("\turl: {}".format(url))
-          get_logger().info("\tsec_user_id: {}".format(response_url["query"]["sec_uid"]))
-          get_logger().info("Save file {} success!".format(save_path))
+          ##
+          ## Never the url, the account or the path it was written to. That the
+          ## capture happened is the diagnostic; what it contains is the file.
+          ##
+          get_logger().info(
+            post_diagnostic("post_response_saved", url=response.url)
+          )
     return response_url["query"]
 
 
@@ -236,7 +246,9 @@ class DouyinPostDownloader(Downloader):
         # params["X-Bogus"] = self.config.x_bogus
         self.__build["post_params"]           = params.copy()
     except Exception as e:
-        get_logger().error("construct parameter for download post without login failed!\n{}".format(e))
+        get_logger().error(
+          post_diagnostic("post_parameters_failed", error=e, state=False)
+        )
         raise e
 
     try:
@@ -263,19 +275,25 @@ class DouyinPostDownloader(Downloader):
         with open(save_path, 'w', encoding="utf-8") as f:
             yml.safe_dump(response.text, f)
             f.close()
-            get_logger().info("save user post html response:")
-            get_logger().info("\turl: {}".format(self.config.share_url))
-            get_logger().info("\tsec_uid: {}".format(self.config.sec_uid))
-            get_logger().info("\tnickname: {}".format(self.config.nickname))
-            get_logger().info("Save file {} success!".format(save_path))
+            get_logger().info(
+              post_diagnostic("post_response_saved", url=response.url)
+            )
       ##
-      ## TODO
+      ## The status and the host, and nothing else. The url carries the
+      ## signature this program computed and the body is the platform's entire
+      ## answer; both used to be written here verbatim.
       ##
-      get_logger().info(response.status_code)
-      get_logger().info(response.url)
-      get_logger().info(response.json())
+      get_logger().info(
+        post_diagnostic(
+          "post_request_failed" if response.status_code >= 400 else "post_complete",
+          url=response.url,
+          status=response.status_code,
+        )
+      )
     except Exception as e:
-      get_logger().error("query user post without login failed!\n{}".format(e))
+      get_logger().error(
+        post_diagnostic("post_request_failed", error=e, state=False)
+      )
       raise e
 
   def query_user_post(self):
@@ -310,7 +328,9 @@ class DouyinPostDownloader(Downloader):
       ##
       self.update_user_post_verify_params()
     except Exception as e:
-      get_logger().error("update download post parameters failed!\n{}".format(e))
+      get_logger().error(
+        post_diagnostic("post_parameters_failed", error=e)
+      )
       raise e
 
     try:
@@ -362,7 +382,9 @@ class DouyinPostDownloader(Downloader):
       # params["X-Bogus"] = self.config.x_bogus
       self.__build["post_params"]           = params.copy()
     except Exception as e:
-       get_logger().error("construct parameter for download post failed!\n{}".format(e))
+       get_logger().error(
+         post_diagnostic("post_parameters_failed", error=e)
+       )
        raise e
 
     try:
@@ -389,19 +411,21 @@ class DouyinPostDownloader(Downloader):
         with open(save_path, 'w', encoding="utf-8") as f:
             yml.safe_dump(response.text, f)
             f.close()
-            get_logger().info("save user post html response:")
-            get_logger().info("\turl: {}".format(self.config.share_url))
-            get_logger().info("\tsec_user_id: {}".format(self.config.sec_user_id))
-            get_logger().info("\tnickname: {}".format(self.config.nickname))
-            get_logger().info("Save file {} success!".format(save_path))
+            get_logger().info(
+              post_diagnostic("post_response_saved", url=response.url)
+            )
 
-      ##
-      ## TODO
-      ##
-      get_logger().info(response.status_code)
-      get_logger().info(response.json())
+      get_logger().info(
+        post_diagnostic(
+          "post_request_failed" if response.status_code >= 400 else "post_complete",
+          url=response.url,
+          status=response.status_code,
+        )
+      )
     except Exception as e:
-      get_logger().error("query user post failed!\n{}".format(e))
+      get_logger().error(
+        post_diagnostic("post_request_failed", error=e, state=False)
+      )
       raise e
     
 
@@ -429,21 +453,23 @@ class DouyinPostDownloader(Downloader):
     ##
     self.login.update_douyin_msToken()
 
+  ##
+  ## Deliberately dumps nothing.
+  ##
+  ## It used to print the downloader, header, login and API configuration and
+  ## then every entry of the build dictionary. Between them those carry the
+  ## request cookie, ``msToken``, ``verifyFp``, ``a_bogus`` and the signed
+  ## parameter set - which is to say the whole of what makes a request to the
+  ## platform work as this account.
+  ##
+  ## There is no safe rendering of that, so there is no rendering of it. What a
+  ## diagnostic can honestly say is that a dump was asked for and how many
+  ## sections were built, and that is what it says.
+  ##
   def dump_config(self):
-    ##
-    ## dump member config
-    ##
-    self.config.dump_config()
-    self.header.dump_header()
-    self.login.dump_config()
-    self.API.dump_config()
-
-    ##
-    ## dump post download config
-    ##
-    get_logger().info("Douyin post downloader configuration:")
-    for k,v in self.__build.items():
-      get_logger().info("\t{}: {}".format(k,v))
+    get_logger().info(
+      post_diagnostic("post_config_dumped", total=len(self.__build))
+    )
 
   def run(self, token: dict) -> None:
     if not isinstance(token, dict) or not isinstance(token.get("url"), str):
@@ -500,7 +526,9 @@ def download_test():
     #    sec_user_id = re.search(pattern=DOUYIN_POST_URL_PATTERN, string=share_url).group(1)
     #    post_downloader.set_sec_user_id(sec_user_id)
     post_downloader.set_share_url(share_url)
-    get_logger().info('sec_uid: {}'.format(post_downloader.config.sec_user_id))
+    get_logger().info(
+      post_diagnostic("post_skipped", owner_user_id=post_downloader.config.sec_user_id)
+    )
 
     ##
     ## Query user home page
@@ -515,7 +543,9 @@ def download_test():
         post_downloader.query_user_post_without_login()    
     except Exception as e:
        post_downloader.dump_config()
-       get_logger().error("request post failed!\n{}".format(e))
+       get_logger().error(
+         post_diagnostic("post_request_failed", error=e)
+       )
        raise e
     '''
     params = dict(post_downloader.max_cursor, post_downloader.page_counts, post_downloader.sec_user_id)

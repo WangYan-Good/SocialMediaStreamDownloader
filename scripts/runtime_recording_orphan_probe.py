@@ -24,6 +24,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from backend.src.service import recording_orphan as orphan_module
 from backend.src.service.recording_orphan import (
   QUARANTINE_DIRECTORY_NAME,
+  OrphanQuarantineIncomplete,
   OrphanQuarantineRefused,
   OrphanScanOverflow,
   RecordingOrphanInventory,
@@ -490,6 +491,158 @@ def prove_races(root):
   print("ok   runtime orphan quarantine race refusals")
 
 
+##
+## >>============ the half-finished move, and what it may claim ============>>
+##
+## Quarantine publishes twice - the media link, then the record beside it - and
+## everything here is about the window between them. A refusal has to keep
+## meaning "nothing was created", a partial completion has to be reachable and
+## survivable, and a record that is present but not trustworthy must never be
+## the thing that authorises removing somebody's recording.
+##
+def prove_partial_completion(root):
+  base = root / "partial"
+
+  def prepare(name):
+    place = base / name
+    media = place / "douyin" / "live" / "broadcaster"
+    source = write_media(media, "orphan.flv")
+    unused, inventory = build(place)
+    return inventory, source, inventory.scan().candidates[0]
+
+  def quarantine_root_of(place):
+    return place / QUARANTINE_DIRECTORY_NAME
+
+  ##
+  ## The record never comes into existence before its bytes do.
+  ##
+  inventory, source, candidate = prepare("atomic")
+  destination = inventory.quarantine_destination_for(candidate)
+  opened = []
+  real_open = os.open
+
+  def watching_open(path, flags, *arguments, **options):
+    opened.append((str(path), flags))
+    return real_open(path, flags, *arguments, **options)
+
+  os.open = watching_open
+  try:
+    inventory.quarantine(candidate)
+  finally:
+    os.open = real_open
+
+  final = destination.name + ".json"
+  writable = os.O_WRONLY | os.O_RDWR | os.O_CREAT
+  require(
+    any(path == final for path, unused_flags in opened),
+    "an existing quarantine record was never looked for",
+  )
+  require(
+    all(
+      not (flags & writable)
+      for path, flags in opened
+      if path == final
+    ),
+    "the final quarantine record name was opened for writing",
+  )
+  require(
+    any(path.endswith(".part") and flags & os.O_CREAT for path, flags in opened),
+    "the quarantine record was not staged through an exclusive temporary",
+  )
+  leftovers = [
+    item.name for item in quarantine_root_of(base / "atomic").iterdir()
+    if ".part" in item.name
+  ]
+  require(not leftovers, "a record temporary survived publication: %s" % leftovers)
+
+  ##
+  ## A record that is present but empty - what a crash between creating a final
+  ## name and writing it leaves - must stop the move with the source intact.
+  ##
+  for description, content in (
+    ("empty", b""),
+    ("truncated", b'{"schema_version":1,"sou'),
+    (
+      "conflicting",
+      json.dumps(
+        {
+          "schema_version": 1,
+          "source_relative_path": "douyin/live/somebody-else/other.flv",
+          "quarantined_name": "whatever",
+          "size": 1,
+          "mtime_ns": 1,
+          "quarantined_at": "2026-09-04T00:00:00.000+00:00",
+        }
+      ).encode("utf-8"),
+    ),
+  ):
+    inventory, source, candidate = prepare("record-" + description)
+    destination = inventory.quarantine_destination_for(candidate)
+    destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    (destination.parent / (destination.name + ".json")).write_bytes(content)
+    require_refusal(
+      OrphanQuarantineIncomplete,
+      lambda: inventory.quarantine(candidate),
+      "a %s record did not stop the move" % description,
+    )
+    require(
+      source.is_file(),
+      "a %s record allowed the source to be unlinked" % description,
+    )
+
+  ##
+  ## Interrupted after the media link, then retried. The retry must finish the
+  ## same move rather than write a second copy under a new name.
+  ##
+  inventory, source, candidate = prepare("retry")
+  real_unlink = os.unlink
+  refusals = {"remaining": 1}
+
+  def flaky_unlink(path, *arguments, **options):
+    if str(path) == source.name and refusals["remaining"]:
+      refusals["remaining"] -= 1
+      raise PermissionError("read-only")
+    return real_unlink(path, *arguments, **options)
+
+  os.unlink = flaky_unlink
+  try:
+    require_refusal(
+      OrphanQuarantineIncomplete,
+      lambda: inventory.quarantine(candidate),
+      "an interrupted move was not reported as incomplete",
+    )
+    require(source.is_file(), "an incomplete move lost the source")
+    outcome = inventory.quarantine(candidate)
+  finally:
+    os.unlink = real_unlink
+
+  require(outcome.quarantined is True, "the retry did not complete the move")
+  require(not source.exists(), "the retry left the original in place")
+  quarantine_root = quarantine_root_of(base / "retry")
+  media = [item for item in quarantine_root.iterdir() if item.suffix != ".json"]
+  records = list(quarantine_root.glob("*.json"))
+  require(len(media) == 1, "the retry produced %d media copies" % len(media))
+  require(len(records) == 1, "the retry produced %d records" % len(records))
+
+  ##
+  ## And a refusal still means nothing was created.
+  ##
+  inventory, source, candidate = prepare("refusal")
+  references = References(paths=[str(source)])
+  unused, refusing = build(base / "refusal", references=references)
+  require_refusal(
+    OrphanQuarantineRefused,
+    lambda: refusing.quarantine(candidate),
+    "a newly referenced recording was not refused",
+  )
+  require(
+    not quarantine_root_of(base / "refusal").exists(),
+    "a refusal created quarantine state",
+  )
+
+  print("ok   runtime orphan quarantine partial completion")
+
+
 def main():
   captured = io.StringIO()
   stdout, stderr = sys.stdout, sys.stderr
@@ -503,6 +656,7 @@ def main():
       prove_bounded_scan(root)
       prove_quarantine(root, inventory, orphan, referenced)
       prove_races(root)
+      prove_partial_completion(root)
     finally:
       sys.stdout, sys.stderr = stdout, stderr
 
@@ -518,6 +672,7 @@ def main():
       "ok   runtime orphan bounded resumable scan",
       "ok   runtime orphan quarantine atomic transition",
       "ok   runtime orphan quarantine race refusals",
+      "ok   runtime orphan quarantine partial completion",
     ):
       require(expected in visible, "a required stage did not run: " + expected)
   finally:

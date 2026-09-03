@@ -255,3 +255,113 @@ def persistence_diagnostic(
   if error is not None:
     fields.append("error={}".format(_error_class(error)))
   return "persistence diagnostic " + " ".join(fields)
+
+
+##
+## >>===================== post download diagnostics =====================>>
+##
+##
+## The third surface of the same rule, after live and after persistence.
+##
+## A post download touches three things that must never be written down: the
+## link somebody pasted, the request this program signs to fetch it, and the
+## platform's whole answer. A signed douyin request carries ``a_bogus``,
+## ``X-Bogus``, ``msToken`` and ``verifyFp`` in its query - the values that make
+## the request accepted - so a log line holding one holds a credential.
+##
+## None of that arrives because anybody decided to log it. It arrives inside a
+## ``requests`` exception, whose message quotes the url it failed on, and inside
+## a response object that reads nicely when printed. Both are one ``format(e)``
+## away from the log at all times, which is why this builder accepts neither.
+##
+## Same shape as ``live_diagnostic`` deliberately: a closed event vocabulary,
+## keyword-only named fields, no mapping, no ``**kwargs`` and no free-text
+## parameter. A url may be passed, and only its hostname is ever rendered.
+##
+_POST_EVENTS = frozenset({
+  "post_already_present",
+  "post_complete",
+  "post_config_dumped",
+  "post_cursor_repeated",
+  "post_detail_api_failed",
+  "post_html_fallback_failed",
+  "post_job_failed",
+  "post_media_failed",
+  "post_owner_avatar_skipped",
+  "post_owner_card_skipped",
+  "post_owner_directory_failed",
+  "post_owner_directory_resolved",
+  "post_owner_row_skipped",
+  "post_page_capped",
+  "post_parameters_failed",
+  "post_partially_saved",
+  "post_persistence_failed",
+  "post_persistence_unavailable",
+  "post_request_failed",
+  "post_resolution_failed",
+  "post_response_saved",
+  "post_share_link_failed",
+  "post_skipped",
+  "post_test_mode",
+})
+
+##
+## The media kinds a post can carry. Closed, so this cannot become a place to
+## render a filename.
+##
+_POST_MEDIA_KINDS = frozenset({"cover", "image", "music", "video"})
+
+
+def post_diagnostic(
+  event: str,
+  *,
+  url=None,
+  status=None,
+  aweme_id=None,
+  owner_user_id=None,
+  kind=None,
+  saved=None,
+  total=None,
+  page=None,
+  error=None,
+  state=None,
+) -> str:
+  """Build one closed-field diagnostic message for a post download.
+
+  No mapping, ``**kwargs`` or free-text parameter, so a response body, a header
+  dict, a parameter dict, a configuration dump or an exception message has no
+  argument to arrive through.
+
+  ``url`` renders as a hostname and nothing else - never the path, never the
+  query, so a signed request cannot be reconstructed from a log. Identifiers go
+  through the same strict check the live diagnostics use, so a nickname, a
+  directory name or a file name renders ``unknown`` rather than itself.
+  """
+  if event not in _POST_EVENTS:
+    raise ValueError("unsupported post diagnostic event")
+
+  fields = ["event={}".format(event)]
+  if url is not None:
+    fields.append("host={}".format(safe_url_host(url)))
+  if status is not None:
+    safe_status = (
+      status if type(status) is int and 100 <= status <= 599 else UNKNOWN
+    )
+    fields.append("status={}".format(safe_status))
+  if aweme_id is not None:
+    fields.append("aweme_id={}".format(_safe_identifier(aweme_id)))
+  if owner_user_id is not None:
+    fields.append("owner_user_id={}".format(_safe_identifier(owner_user_id)))
+  if kind is not None:
+    fields.append("kind={}".format(kind if kind in _POST_MEDIA_KINDS else UNKNOWN))
+  if saved is not None:
+    fields.append("saved={}".format(_safe_count(saved)))
+  if total is not None:
+    fields.append("total={}".format(_safe_count(total)))
+  if page is not None:
+    fields.append("page={}".format(_safe_count(page)))
+  if error is not None:
+    fields.append("error={}".format(_error_class(error)))
+  if state is not None:
+    fields.append("state={}".format(_safe_flag(state)))
+  return "post diagnostic " + " ".join(fields)

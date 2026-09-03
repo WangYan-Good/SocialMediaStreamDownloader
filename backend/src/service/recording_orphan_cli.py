@@ -30,6 +30,7 @@ from backend.src.service.recording_orphan import (
   MAX_ORPHAN_SCAN_ENTRIES,
   MAX_REFERENCED_RECORDINGS,
   OrphanInventoryUnavailable,
+  OrphanQuarantineIncomplete,
   OrphanQuarantineRefused,
   RecordingOrphanInventory,
 )
@@ -41,6 +42,12 @@ EXIT_USAGE = 1
 EXIT_CONFIG = 2
 EXIT_UNAVAILABLE = 3
 EXIT_REFUSED = 4
+##
+## Its own code, because it is its own outcome. A script that retried on
+## every non-zero exit would retry refusals that will never succeed; one that
+## treated them all as fatal would leave a half-finished move alone.
+##
+EXIT_INCOMPLETE = 5
 
 
 ##
@@ -201,6 +208,19 @@ def main(argv: Sequence[str] | None = None, *, inventory_factory=build_inventory
     if arguments.command == "scan":
       return _scan(inventory, arguments, out)
     return _quarantine(inventory, arguments, out)
+  except OrphanQuarantineIncomplete as e:
+    ##
+    ## Listed before the refusal it subclasses, so a partial completion is not
+    ## reported as "nothing happened". The two mean different things to whoever
+    ## is reading: a refusal says go and find out why, a partial completion says
+    ## the media is safe and running this again finishes it.
+    ##
+    print(
+      "quarantine incomplete: {}; the media is in quarantine and retrying "
+      "completes the move".format(type(e).__name__),
+      file=out,
+    )
+    return EXIT_INCOMPLETE
   except OrphanQuarantineRefused as e:
     ##
     ## The class and this module's own sentence, never the underlying message.
@@ -214,10 +234,21 @@ def main(argv: Sequence[str] | None = None, *, inventory_factory=build_inventory
   except (KeyError, TypeError, ValueError):
     print("invalid recording orphan configuration", file=out)
     return EXIT_CONFIG
+  except OSError as e:
+    ##
+    ## The backstop. The service is written so that no storage error reaches
+    ## here, but "written so that" is not a guarantee an operator's terminal
+    ## should depend on: an OSError's text carries the absolute path it failed
+    ## on, and a traceback reads as a crash rather than as a state. Only the
+    ## class is printed.
+    ##
+    print("recording orphan storage failure: {}".format(type(e).__name__), file=out)
+    return EXIT_UNAVAILABLE
 
 
 __all__ = [
   "EXIT_CONFIG",
+  "EXIT_INCOMPLETE",
   "EXIT_OK",
   "EXIT_REFUSED",
   "EXIT_UNAVAILABLE",

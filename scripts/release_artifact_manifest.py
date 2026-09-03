@@ -27,9 +27,10 @@ REGISTRY_DIGEST_PATTERN = re.compile(
 ## Raised with every phase that adds a proof, so a manifest produced by an
 ## older workflow - or by a hand-edited one that quietly dropped a probe - is
 ## refused rather than promoted. P17 shipped 18; P18 adds the recording orphan
-## inventory/quarantine proof and the persistence diagnostic redaction proof.
+## inventory/quarantine proof, the persistence diagnostic redaction proof and
+## the post-download diagnostic redaction proof.
 ##
-MINIMUM_RUNTIME_MARKERS = 20
+MINIMUM_RUNTIME_MARKERS = 21
 
 REQUIRED_FIELDS = {
   "schema_version",
