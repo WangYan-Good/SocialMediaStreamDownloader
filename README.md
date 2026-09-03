@@ -77,6 +77,11 @@ YAML 中配置。
 [SocialMediaStreamDownloader]$ sh ./run-server.sh
 ```
 
+Python 依赖由 `requirements.in` 描述直接 policy，生产、Docker 与 CI 只安装完整且带 SHA-256
+hash 的 `requirements.txt`，并强制 `--require-hashes`。maintainer 需要更新依赖时运行
+`./scripts/compile_requirements.sh`；该脚本在固定 Python image 中使用
+`pip-tools==7.6.1`，不把 generator 安装到宿主机或 production image。
+
 4. 使用 `config/config.yml` 中的 `server.port` 打开网页，在输入框添加分享链接即可下载
 ![web-UI](./docs/media/web-ui.PNG)
 

@@ -5,25 +5,29 @@ on:
     branches: [develop, main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   backend:
     name: Python tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Release artifact hygiene
         run: python scripts/check_release_artifact_hygiene.py
 
-      - uses: actions/setup-python@v5
+      - name: Release reproducibility inputs
+        run: python scripts/check_release_reproducibility.py
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.12'
+          python-version: '3.12.14'
           cache: pip
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        run: python -m pip install --require-hashes -r requirements.txt
 
       # config/config.yml holds real credentials and is deliberately untracked.
       # A few service-level tests still exercise configuration-backed modern
@@ -118,7 +122,7 @@ jobs:
         # The version docker-compose already pins. Not `latest`, and not
         # MariaDB: the collation this schema uses is 8.0-only, and the
         # generated-column behaviour being proved is MySQL's.
-        image: mysql:8.0
+        image: mysql:8.0.46@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
         env:
           # Test-only, and only ever reachable from this job's own service
           # container. Nothing here is a repository secret and nothing here
@@ -137,17 +141,15 @@ jobs:
           --health-retries=20
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.12'
+          python-version: '3.12.14'
           cache: pip
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        run: python -m pip install --require-hashes -r requirements.txt
 
       # No config/config.yml is materialised here, and none is needed: these
       # tests build their connection from the DSN below rather than from the
@@ -215,14 +217,14 @@ jobs:
       run:
         working-directory: frontend/app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Node 24, matching frontend/app/package.json engines and the Dockerfile
       # builder stage. One major across all three, so a lockfile resolved in one
       # place installs the same way in the others.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '24'
+          node-version: '24.20.0'
           cache: npm
           cache-dependency-path: frontend/app/package-lock.json
 
@@ -246,12 +248,25 @@ jobs:
     runs-on: ubuntu-latest
     # Only once both halves pass: the image contains both, so building it before
     # either is verified would only ever fail slower.
-    needs: [backend, frontend]
+    needs: [backend, mysql, frontend]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Build image
-        run: docker build -t smsd:ci .
+      - name: Build exact source image
+        run: |
+          set -euo pipefail
+          SOURCE_TREE="$(git rev-parse HEAD^{tree})"
+          REQUIREMENTS_SHA256="$(sha256sum requirements.txt | awk '{print $1}')"
+          {
+            echo "SOURCE_TREE=${SOURCE_TREE}"
+            echo "REQUIREMENTS_SHA256=${REQUIREMENTS_SHA256}"
+          } >> "$GITHUB_ENV"
+          docker build -t smsd:ci \
+            --build-arg "SOURCE_COMMIT=$GITHUB_SHA" \
+            --build-arg "SOURCE_TREE=${SOURCE_TREE}" \
+            --build-arg "SOURCE_URL=https://github.com/${GITHUB_REPOSITORY}" \
+            --build-arg "REQUIREMENTS_SHA256=${REQUIREMENTS_SHA256}" \
+            .
 
       - name: Release image artifact hygiene
         run: |
@@ -1336,6 +1351,27 @@ jobs:
               exit 1
             }
 
+          # Phase 17B: compare the lock copied into the production image with
+          # its build label and every installed distribution before accepting
+          # the eighteenth runtime marker.
+          LOCK_LABEL="$(docker image inspect --format \
+            '{{index .Config.Labels "io.smsd.requirements.sha256"}}' smsd:ci)"
+          test "$LOCK_LABEL" = "$REQUIREMENTS_SHA256" || {
+            echo "FAIL: production image lock label differs from build input"
+            exit 1
+          }
+          docker cp scripts/runtime_dependency_identity_probe.py \
+            smsd-ci-smoke:/tmp/runtime_dependency_identity_probe.py
+          docker exec smsd-ci-smoke python \
+            /tmp/runtime_dependency_identity_probe.py \
+            --expected-lock-sha "$LOCK_LABEL" \
+            | tee /tmp/runtime-dependency-identity.txt
+          grep -Fxq 'ok   runtime locked dependency identity' \
+            /tmp/runtime-dependency-identity.txt || {
+              echo "FAIL: locked dependency identity runtime marker was absent"
+              exit 1
+            }
+
       # Keep this separate from the direct docker-run smoke above. It proves
       # the checked-in deployment topology, including its real MySQL image,
       # secret boundary, internal network and named log volume.
@@ -1649,3 +1685,131 @@ jobs:
               echo "FAIL: release backup/restore runtime marker was absent"
               exit 1
             }
+
+      - name: Export the exact tested image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+        run: |
+          set -euo pipefail
+          ARTIFACT_DIR="$RUNNER_TEMP/smsd-tested-image"
+          mkdir -p "$ARTIFACT_DIR"
+          docker save smsd:ci | gzip -n > "$ARTIFACT_DIR/smsd-tested-image.tar.gz"
+          IMAGE_ID="$(docker image inspect --format '{{.Id}}' smsd:ci)"
+          python scripts/release_artifact_manifest.py create \
+            "$ARTIFACT_DIR/manifest.json" \
+            --archive "$ARTIFACT_DIR/smsd-tested-image.tar.gz" \
+            --requirements requirements.txt \
+            --source-commit "$GITHUB_SHA" \
+            --source-tree "$SOURCE_TREE" \
+            --image-id "$IMAGE_ID" \
+            --python-base-ref 'python:3.12.14-slim-trixie@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea' \
+            --node-base-ref 'node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e' \
+            --mysql-image-ref 'mysql:8.0.46@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b' \
+            --runtime-marker-count 18 \
+            --created-by-workflow CI
+
+      - name: Upload the exact tested image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: smsd-tested-image-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/smsd-tested-image/smsd-tested-image.tar.gz
+            ${{ runner.temp }}/smsd-tested-image/manifest.json
+          retention-days: 7
+          if-no-files-found: error
+
+  publish_tested_image:
+    name: Publish exact tested image
+    runs-on: ubuntu-latest
+    needs: [backend, mysql, frontend, image]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download the exact tested image
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: smsd-tested-image-${{ github.sha }}
+          path: ${{ runner.temp }}/smsd-tested-image
+
+      - name: Verify load promote and pull back the tested image
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          ARTIFACT_DIR="$RUNNER_TEMP/smsd-tested-image"
+          ARCHIVE="$ARTIFACT_DIR/smsd-tested-image.tar.gz"
+          MANIFEST="$ARTIFACT_DIR/manifest.json"
+          SOURCE_TREE="$(git rev-parse HEAD^{tree})"
+          python scripts/release_artifact_manifest.py verify "$MANIFEST" \
+            --archive "$ARCHIVE" \
+            --requirements requirements.txt \
+            --expected-source-commit "$GITHUB_SHA" \
+            --expected-source-tree "$SOURCE_TREE"
+
+          docker load --input "$ARCHIVE"
+          LOADED_IMAGE_ID="$(docker image inspect --format '{{.Id}}' smsd:ci)"
+          REVISION_LABEL="$(docker image inspect --format \
+            '{{index .Config.Labels "org.opencontainers.image.revision"}}' smsd:ci)"
+          REQUIREMENTS_LABEL="$(docker image inspect --format \
+            '{{index .Config.Labels "io.smsd.requirements.sha256"}}' smsd:ci)"
+          python scripts/release_artifact_manifest.py verify "$MANIFEST" \
+            --archive "$ARCHIVE" \
+            --requirements requirements.txt \
+            --expected-source-commit "$GITHUB_SHA" \
+            --expected-source-tree "$SOURCE_TREE" \
+            --loaded-image-id "$LOADED_IMAGE_ID" \
+            --revision-label "$REVISION_LABEL" \
+            --requirements-label "$REQUIREMENTS_LABEL"
+
+          printf '%s' "$GHCR_TOKEN" | \
+            docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          REGISTRY_IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          SOURCE_TAG="$REGISTRY_IMAGE:sha-$GITHUB_SHA"
+          docker tag smsd:ci "$SOURCE_TAG"
+          docker push "$SOURCE_TAG"
+
+          CANONICAL_DIGEST=""
+          while IFS= read -r repo_digest; do
+            case "$repo_digest" in
+              "$REGISTRY_IMAGE"@sha256:*) CANONICAL_DIGEST="$repo_digest" ;;
+            esac
+          done < <(docker image inspect --format \
+            '{{range .RepoDigests}}{{println .}}{{end}}' "$SOURCE_TAG")
+          [[ "$CANONICAL_DIGEST" =~ ^ghcr\.io/[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$ ]] || {
+            echo "FAIL: registry did not return a canonical digest"
+            exit 1
+          }
+
+          TESTED_IMAGE_ID="$LOADED_IMAGE_ID"
+          docker image rm --force "$TESTED_IMAGE_ID"
+          docker pull "$CANONICAL_DIGEST"
+          PULLED_IMAGE_ID="$(docker image inspect --format '{{.Id}}' "$CANONICAL_DIGEST")"
+          test "$PULLED_IMAGE_ID" = "$TESTED_IMAGE_ID" || {
+            echo "FAIL: pulled registry image differs from tested image"
+            exit 1
+          }
+
+          python scripts/release_artifact_manifest.py create-promotion \
+            "$ARTIFACT_DIR/promotion.json" \
+            --artifact-manifest "$MANIFEST" \
+            --registry-digest "$CANONICAL_DIGEST" \
+            --ci-run-id "$GITHUB_RUN_ID" \
+            --ci-run-attempt "$GITHUB_RUN_ATTEMPT"
+          {
+            echo "Canonical production image: \`$CANONICAL_DIGEST\`"
+            echo
+            echo 'ok   ci exact tested image promotion'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo 'ok   ci exact tested image promotion'
+
+      - name: Upload the promotion record
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: smsd-promotion-${{ github.sha }}
+          path: ${{ runner.temp }}/smsd-tested-image/promotion.json
+          retention-days: 30
+          if-no-files-found: error
