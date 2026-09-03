@@ -14,6 +14,7 @@ import                                                                         j
 ## <<Third-Part>>
 from backend.src.library.baselib                                      import   load_yml, get_dict_attr, set_dict_attr, output_dict
 from backend.src.library.loglib                                       import   get_logger
+from backend.src.library.safe_diagnostics                             import   persistence_diagnostic
 from backend.src.database.social_media_stream_database                import   SocialMediaStreamDataBase
 from backend.src.database.table.live                                  import   LiveRecordTable
 from backend.src.database.table.room                                  import   RoomAdminUserIdTable,                                \
@@ -68,7 +69,14 @@ def import_douyin_live_record_to_database(db:SocialMediaStreamDataBase, data:dic
     set_dict_attr(live_record_table_tuple,   "$.status_code",   status_code)
     live_record_table.insert_record(live_record_table_tuple, on_duplicate='ignore')
   except Exception as e:
-    get_logger().error("insert LiveRecordTable failed: {}".format(e))
+    get_logger().error(
+      persistence_diagnostic(
+        "persistence_import_failed",
+        table="live_record",
+        operation="insert",
+        error=e,
+      )
+    )
     raise e
 
 def import_douyin_room_stats_to_database(db:SocialMediaStreamDataBase, data:dict) -> None:
@@ -118,7 +126,14 @@ def import_douyin_room_stats_to_database(db:SocialMediaStreamDataBase, data:dict
 
     room_stats_table.insert_record(room_stats_table_tuple, on_duplicate='ignore')
   except Exception as e:
-    get_logger().error("insert RoomStatsTable failed: {}".format(e))
+    get_logger().error(
+      persistence_diagnostic(
+        "persistence_import_failed",
+        table="room_stats",
+        operation="insert",
+        error=e,
+      )
+    )
     raise e
 
 def import_douyin_room_admin_user_id_to_database(db:SocialMediaStreamDataBase, data:dict) -> None:
@@ -153,7 +168,14 @@ def import_douyin_room_admin_user_id_to_database(db:SocialMediaStreamDataBase, d
         set_dict_attr(room_admin_user_id_table_tuple, "$.admin_user_id", str(admin_user_id))
         room_admin_user_id_table.insert_record(room_admin_user_id_table_tuple, on_duplicate='ignore')
   except Exception as e:
-    get_logger().error("insert {} failed: {}".format(room_admin_user_id_table.get_name(), e))
+    get_logger().error(
+      persistence_diagnostic(
+        "persistence_import_failed",
+        table=room_admin_user_id_table.get_name(),
+        operation="insert",
+        error=e,
+      )
+    )
     raise e
 
 def import_douyin_room_admin_user_open_id_to_database(db:SocialMediaStreamDataBase, data:dict) -> None:
@@ -188,7 +210,14 @@ def import_douyin_room_admin_user_open_id_to_database(db:SocialMediaStreamDataBa
         set_dict_attr(room_admin_user_open_id_table_tuple, "$.admin_user_open_id", str(admin_user_open_id))
         room_admin_user_open_id_table.insert_record(room_admin_user_open_id_table_tuple, on_duplicate='ignore')
   except Exception as e:
-    get_logger().error("insert {} failed: {}".format(room_admin_user_open_id_table.get_name(), e))
+    get_logger().error(
+      persistence_diagnostic(
+        "persistence_import_failed",
+        table=room_admin_user_open_id_table.get_name(),
+        operation="insert",
+        error=e,
+      )
+    )
     raise e
 
 def import_douyin_room_deco_to_database(db:SocialMediaStreamDataBase, data:dict) -> None:
@@ -246,7 +275,14 @@ def import_douyin_room_deco_to_database(db:SocialMediaStreamDataBase, data:dict)
 
           room_deco_table.insert_record(room_deco_table_tuple, on_duplicate='ignore')
         except Exception as e:
-          get_logger().error("insert {} failed: {}".format(room_deco_table.get_name(), e))
+          get_logger().error(
+            persistence_diagnostic(
+              "persistence_import_failed",
+              table=room_deco_table.get_name(),
+              operation="insert",
+              error=e,
+            )
+          )
           raise e
 
         ##
@@ -289,7 +325,14 @@ def import_douyin_fans_group_admin_user_id_to_database(db:SocialMediaStreamDataB
 
         fans_group_admin_user_id_table.insert_record(fans_group_admin_user_id_table_tuple, on_duplicate='ignore')
   except Exception as e:
-    get_logger().error("insert {} failed: {}".format(fans_group_admin_user_id_table.get_name(), e))
+    get_logger().error(
+      persistence_diagnostic(
+        "persistence_import_failed",
+        table=fans_group_admin_user_id_table.get_name(),
+        operation="insert",
+        error=e,
+      )
+    )
     raise e
 
 def import_douyin_fans_group_admin_user_open_id_to_database(db:SocialMediaStreamDataBase, data:dict) -> None:
@@ -325,7 +368,14 @@ def import_douyin_fans_group_admin_user_open_id_to_database(db:SocialMediaStream
 
         fans_group_admin_user_open_id_table.insert_record(fans_group_admin_user_open_id_table_tuple, on_duplicate='ignore')
   except Exception as e:
-    get_logger().error("insert {} failed: {}".format(fans_group_admin_user_open_id_table.get_name(), e))
+    get_logger().error(
+      persistence_diagnostic(
+        "persistence_import_failed",
+        table=fans_group_admin_user_open_id_table.get_name(),
+        operation="insert",
+        error=e,
+      )
+    )
     raise e
 
 def import_douyin_room_base_to_database(db:SocialMediaStreamDataBase, data:dict) -> None:
@@ -728,7 +778,14 @@ def import_douyin_room_base_to_database(db:SocialMediaStreamDataBase, data:dict)
     if id is not None and start_time_rb not in (None, 0):
       room_base_table.insert_record(room_base_table_tuple, on_duplicate='ignore')
   except Exception as e:
-    get_logger().error("insert {} failed: {}".format(room_base_table.get_name(), e))
+    get_logger().error(
+      persistence_diagnostic(
+        "persistence_import_failed",
+        table=room_base_table.get_name(),
+        operation="insert",
+        error=e,
+      )
+    )
     raise e
 
 def import_douyin_room_owner_v2_to_database(db:SocialMediaStreamDataBase, data:dict) -> None:
@@ -987,7 +1044,14 @@ def import_douyin_room_owner_v2_to_database(db:SocialMediaStreamDataBase, data:d
     if room_id_ro is not None:
       room_owner_v2_table.insert_record(room_owner_v2_table_tuple, on_duplicate='ignore')
   except Exception as e:
-    get_logger().error("insert {} failed: {}".format(room_owner_v2_table.get_name(), e))
+    get_logger().error(
+      persistence_diagnostic(
+        "persistence_import_failed",
+        table=room_owner_v2_table.get_name(),
+        operation="insert",
+        error=e,
+      )
+    )
     raise e
 
 def import_douyin_user_to_database(db:SocialMediaStreamDataBase, data:dict) -> None:
@@ -1218,7 +1282,14 @@ def import_douyin_user_to_database(db:SocialMediaStreamDataBase, data:dict) -> N
     if user_id_ut is not None:
       user_table.insert_record(user_table_tuple, on_duplicate='ignore')
   except Exception as e:
-    get_logger().error("insert {} failed: {}".format(user_table.get_name(), e))
+    get_logger().error(
+      persistence_diagnostic(
+        "persistence_import_failed",
+        table=user_table.get_name(),
+        operation="insert",
+        error=e,
+      )
+    )
     raise e
 
 ##

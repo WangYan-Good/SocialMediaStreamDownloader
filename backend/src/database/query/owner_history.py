@@ -12,6 +12,7 @@ from typing import Any, Mapping, Optional
 ## <<Third-Part>>
 from backend.src.database.query.sql_text import escape_like
 from backend.src.library.loglib import get_logger
+from backend.src.library.safe_diagnostics import persistence_diagnostic
 
 
 ##
@@ -384,6 +385,16 @@ class OwnerHistoryQuery:
     missing = [item for item in identifiers if item not in resolved]
     if missing:
       get_logger().warning(
-        "history probe requested {} unknown owner ids".format(len(missing))
+        persistence_diagnostic(
+          "persistence_unknown_identity",
+          table="share_url",
+          operation="query",
+          ##
+          ## How many were unresolved, never which. The identifiers are the
+          ## accounts somebody asked about.
+          ##
+          rows=len(missing),
+          found=False,
+        )
       )
     return resolved

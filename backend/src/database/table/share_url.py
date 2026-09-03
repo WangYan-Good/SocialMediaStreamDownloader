@@ -11,6 +11,17 @@ sys.path.append(os.getcwd())
 ## <<Third-Part>>
 from backend.src.database.social_media_stream_database       import SocialMediaStreamDataBase
 from backend.src.library.loglib                              import get_logger
+from backend.src.library.safe_diagnostics                    import persistence_diagnostic
+
+
+##
+## The table these diagnostics are about.
+##
+## A module constant rather than the private class attribute below, because
+## every diagnostic in this file names the same table and the closed-field
+## builder needs a plain identifier, not a name-mangled lookup.
+##
+_TABLE = "share_url"
 
 
 class DouyinShareUrlTable(SocialMediaStreamDataBase):
@@ -142,7 +153,16 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
                   ),
                 )
                 connector.commit()
-                get_logger().info("update {} success".format([item for item in df_result_record.values()]))
+                get_logger().info(
+                  persistence_diagnostic(
+                    "persistence_updated",
+                    table=_TABLE,
+                    operation="update",
+                    identity=df_result_record.get("owner_user_id"),
+                    rows=1,
+                    changed=True,
+                  )
+                )
           else:
             ##
             ## the record is not exist in database
@@ -165,9 +185,26 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
               ),
             )
             connector.commit()
-            get_logger().info("insert record {} success".format([item for item in record.values()]))
+            get_logger().info(
+              persistence_diagnostic(
+                "persistence_inserted",
+                table=_TABLE,
+                operation="insert",
+                identity=record.get("owner_user_id"),
+                columns=len(record),
+                rows=1,
+              )
+            )
     except Exception as e:
-      get_logger().error("insert live share url {} failed {}".format(record["live_share_url"], e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_insert_failed",
+          table=_TABLE,
+          operation="upsert",
+          identity=record.get("owner_user_id"),
+          error=e,
+        )
+      )
       raise e
   
   ##
@@ -213,7 +250,16 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
                   (record.get("live_share_url"), db_record.get("owner_user_id")),
                 )
                 connector.commit()
-                get_logger().info("update owner_user_id:{} live_share_url:{} success".format(db_record.get("owner_user_id"), record["live_share_url"]))
+                get_logger().info(
+                  persistence_diagnostic(
+                    "persistence_updated",
+                    table=_TABLE,
+                    operation="update",
+                    identity=db_record.get("owner_user_id"),
+                    rows=1,
+                    changed=True,
+                  )
+                )
           else:
             ##
             ## the record is not exist in database
@@ -237,9 +283,26 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
               ),
             )
             connector.commit()
-            get_logger().info("insert record {} success".format([item for item in record.values()]))
+            get_logger().info(
+              persistence_diagnostic(
+                "persistence_inserted",
+                table=_TABLE,
+                operation="insert",
+                identity=record.get("owner_user_id"),
+                columns=len(record),
+                rows=1,
+              )
+            )
     except Exception as e:
-      get_logger().error("insert live share url {} failed {}".format(record["live_share_url"], e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_insert_failed",
+          table=_TABLE,
+          operation="upsert",
+          identity=record.get("owner_user_id"),
+          error=e,
+        )
+      )
       raise e
 
   ##
@@ -264,7 +327,14 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       else:
         return False
     except Exception as e:
-      get_logger().error("search live share url {} failed {}".format(live_share_url, e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_lookup_failed",
+          table=_TABLE,
+          operation="query",
+          error=e,
+        )
+      )
       raise e
 
   ##
@@ -289,7 +359,14 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       else:
         return None
     except Exception as e:
-      get_logger().error("search owner directory name {} failed {}".format(live_share_url, e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_lookup_failed",
+          table=_TABLE,
+          operation="query",
+          error=e,
+        )
+      )
       raise e
 
   ##
@@ -314,7 +391,15 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       else:
         return None
     except Exception as e:
-      get_logger().error("search owner directory name {} failed {}".format(owner_user_id, e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_lookup_failed",
+          table=_TABLE,
+          operation="query",
+          identity=owner_user_id,
+          error=e,
+        )
+      )
       raise e
 
   ##
@@ -354,7 +439,14 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
         return 0
       return int(result[0].get("owners") or 0)
     except Exception as e:
-      get_logger().error("count owners for directory {} failed {}".format(directory_name, e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_query_failed",
+          table=_TABLE,
+          operation="query",
+          error=e,
+        )
+      )
       raise e
 
   ##
@@ -379,7 +471,14 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       else:
         return None
     except Exception as e:
-      get_logger().error("search owner nickname {} failed {}".format(live_share_url, e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_lookup_failed",
+          table=_TABLE,
+          operation="query",
+          error=e,
+        )
+      )
       raise e
 
   ##
@@ -404,7 +503,15 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
       else:
         return False
     except Exception as e:
-      get_logger().error("search owner user id {} failed {}".format(owner_user_id, e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_lookup_failed",
+          table=_TABLE,
+          operation="query",
+          identity=owner_user_id,
+          error=e,
+        )
+      )
       raise e
 
   def owner_exists(self, owner_user_id: str) -> bool:
@@ -482,7 +589,15 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
           db_record = cursor.fetchone()
 
       if db_record is None:
-        get_logger().warning("owner_user_id {} not found, skip increment".format(owner_user_id))
+        get_logger().warning(
+          persistence_diagnostic(
+            "persistence_record_absent",
+            table=_TABLE,
+            operation="query",
+            identity=owner_user_id,
+            found=False,
+          )
+        )
         return
 
       current_count = int(db_record.get("actived_count", 0))
@@ -496,9 +611,25 @@ class DouyinShareUrlTable(SocialMediaStreamDataBase):
         with connector.cursor() as cursor:
           cursor.execute(increment_sql, (current_count + 1, owner_user_id))
           connector.commit()
-      get_logger().info("increment actived count succeed!")
+      get_logger().info(
+        persistence_diagnostic(
+          "persistence_updated",
+          table=_TABLE,
+          operation="update",
+          identity=owner_user_id,
+          rows=1,
+        )
+      )
     except Exception as e:
-      get_logger().error("increment actived count failed {}".format(e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_update_failed",
+          table=_TABLE,
+          operation="update",
+          identity=owner_user_id,
+          error=e,
+        )
+      )
 
   ##
   ## record the most recently observed live status for an owner

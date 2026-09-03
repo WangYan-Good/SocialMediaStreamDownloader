@@ -711,6 +711,55 @@ class RecordingRecoveryJournal:
       os.close(descriptor)
 
   ##
+  ## Which notes are present, without touching scheduling state.
+  ##
+  ## ``scan_pending_keys`` exists for the reconciler and *advances the fair
+  ## scheduling cursor* as a side effect, which is exactly right for a replay
+  ## and exactly wrong for anybody merely asking what is there. An operator
+  ## reading an orphan inventory must not silently reorder which notes the next
+  ## restart replays first.
+  ##
+  ## So this reads and reports, and does nothing else: no cursor is loaded, no
+  ## cursor is written, nothing is removed, renamed or moved aside.
+  ##
+  ## Unbounded by ``limit`` on purpose, because its caller needs the *complete*
+  ## set rather than a fair slice of it - "no pending note names this file" is
+  ## not a statement a partial listing can support. The directory-entry bound
+  ## still applies, and overflowing it raises rather than returning a prefix
+  ## that would read as completeness.
+  ##
+  def pending_keys_snapshot(self) -> List[str]:
+    """Every pending note's key, sorted, with no scheduling side effects."""
+    descriptor = self._open_journal_directory()
+    if descriptor is None:
+      return []
+
+    found = []
+    observed = 0
+    try:
+      with os.scandir(descriptor) as entries:
+        for entry in entries:
+          observed += 1
+          if observed > MAX_RECOVERY_SCAN_ENTRIES:
+            raise RecordingJournalScanOverflow(
+              "recording recovery journal directory exceeds the scan bound"
+            )
+          key = _note_key(entry.name)
+          if key is None:
+            continue
+          found.append(key)
+      found.sort()
+      return found
+    except OSError as e:
+      raise RecordingJournalUnavailable(
+        "recording recovery journal directory could not be read ({}: {})".format(
+          type(e).__name__, e
+        )
+      ) from e
+    finally:
+      os.close(descriptor)
+
+  ##
   ## Create the directory the first time something is actually written.
   ##
   ## Lazily, so a server that never records - or one started against read-only

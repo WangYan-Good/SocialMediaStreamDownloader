@@ -21,6 +21,16 @@ IMMUTABLE_REF_PATTERN = re.compile(r"[^\s@]+:[^\s@]+@sha256:[0-9a-f]{64}")
 REGISTRY_DIGEST_PATTERN = re.compile(
   r"ghcr\.io/[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}"
 )
+##
+## The floor a promoted artifact's runtime evidence may not fall below.
+##
+## Raised with every phase that adds a proof, so a manifest produced by an
+## older workflow - or by a hand-edited one that quietly dropped a probe - is
+## refused rather than promoted. P17 shipped 18; P18 adds the recording orphan
+## inventory/quarantine proof and the persistence diagnostic redaction proof.
+##
+MINIMUM_RUNTIME_MARKERS = 20
+
 REQUIRED_FIELDS = {
   "schema_version",
   "source_commit_sha",
@@ -79,8 +89,10 @@ def _validate_manifest_shape(manifest: dict[str, Any]) -> None:
     if not IMMUTABLE_REF_PATTERN.fullmatch(str(manifest[field])):
       raise ValueError(f"malformed {field}")
   marker_count = manifest["runtime_marker_count"]
-  if not isinstance(marker_count, int) or isinstance(marker_count, bool) or marker_count < 18:
-    raise ValueError("runtime_marker_count must be at least 18")
+  if not isinstance(marker_count, int) or isinstance(marker_count, bool) or marker_count < MINIMUM_RUNTIME_MARKERS:
+    raise ValueError(
+      f"runtime_marker_count must be at least {MINIMUM_RUNTIME_MARKERS}"
+    )
   workflow = manifest["created_by_workflow"]
   if not isinstance(workflow, str) or not workflow or len(workflow) > 100:
     raise ValueError("created_by_workflow is invalid")

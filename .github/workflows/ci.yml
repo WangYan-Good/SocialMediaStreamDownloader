@@ -1372,6 +1372,40 @@ jobs:
               exit 1
             }
 
+          # Phase 18 P2-03: prove the recording orphan inventory and quarantine
+          # inside the production image, against a temporary storage root and
+          # real Linux descriptors. The claim authorities are injected, so no
+          # database, network or platform credential is involved. The script
+          # prints its marker only after inventory authority, filesystem
+          # refusals, bounded resumable scanning, the atomic quarantine
+          # transition and every race refusal have all held.
+          docker cp scripts/runtime_recording_orphan_probe.py \
+            smsd-ci-smoke:/tmp/runtime_recording_orphan_probe.py
+          docker exec smsd-ci-smoke \
+            python /tmp/runtime_recording_orphan_probe.py \
+            | tee /tmp/recording-orphan-smoke.txt
+          grep -Fxq 'ok   runtime recording orphan inventory quarantine' \
+            /tmp/recording-orphan-smoke.txt || {
+              echo "FAIL: recording orphan runtime marker was absent"
+              exit 1
+            }
+
+          # Phase 18 P2-11: drive the shipped persistence modules with an
+          # injected driver transport and prove that no share url, record,
+          # parameter, WHERE mapping or driver message reaches the logger,
+          # stdout or stderr at DEBUG, INFO, WARNING or ERROR - while the
+          # closed diagnostic fields survive.
+          docker cp scripts/runtime_persistence_diagnostic_probe.py \
+            smsd-ci-smoke:/tmp/runtime_persistence_diagnostic_probe.py
+          docker exec smsd-ci-smoke \
+            python /tmp/runtime_persistence_diagnostic_probe.py \
+            | tee /tmp/persistence-diagnostic-smoke.txt
+          grep -Fxq 'ok   runtime persistence diagnostic redaction' \
+            /tmp/persistence-diagnostic-smoke.txt || {
+              echo "FAIL: persistence diagnostic runtime marker was absent"
+              exit 1
+            }
+
       # Keep this separate from the direct docker-run smoke above. It proves
       # the checked-in deployment topology, including its real MySQL image,
       # secret boundary, internal network and named log volume.
@@ -1704,7 +1738,7 @@ jobs:
             --python-base-ref 'python:3.12.14-slim-trixie@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea' \
             --node-base-ref 'node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e' \
             --mysql-image-ref 'mysql:8.0.46@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b' \
-            --runtime-marker-count 18 \
+            --runtime-marker-count 20 \
             --created-by-workflow CI
 
       - name: Upload the exact tested image

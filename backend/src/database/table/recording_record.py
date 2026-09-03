@@ -2,6 +2,7 @@ from backend.src.database.social_media_stream_database import (
   SocialMediaStreamDataBase,
 )
 from backend.src.library.loglib import get_logger
+from backend.src.library.safe_diagnostics import persistence_diagnostic
 
 
 def _required_text(value, name: str) -> str:
@@ -185,6 +186,44 @@ class RecordingRecordTable(SocialMediaStreamDataBase):
       )
     return int(existing["recording_id"])
 
+  ##
+  ## Every path this table currently claims.
+  ##
+  ## Read as one bounded pass over the column rather than as one lookup per
+  ## file, because ``output_path`` carries no index and a per-candidate query
+  ## would be a full table scan each time. This runs only from an explicit
+  ## operator command, never on a request or startup path.
+  ##
+  ## ``limit`` is passed one higher than the caller's bound so the caller can
+  ## tell "exactly at the bound" from "more than the bound" and refuse the
+  ## second. A reference set that silently stopped short would report a
+  ## catalogued recording as unreferenced, which is the one answer that must
+  ## never be wrong here.
+  ##
+  ## Deliberately returns paths and nothing else. Who a recording belongs to is
+  ## not a question the caller is allowed to ask, so it is not a column this
+  ## selects.
+  ##
+  def referenced_output_paths(self, limit: int) -> list:
+    """Every stored ``output_path``, up to ``limit`` rows."""
+    if type(limit) is not int or limit < 1:
+      raise ValueError("limit must be a positive integer")
+    sql = '''SELECT output_path
+               FROM recording_record
+              ORDER BY recording_id
+              LIMIT %s;
+          '''
+    with self.get_connection() as connector:
+      with connector.cursor() as cursor:
+        cursor.execute(sql, (limit,))
+        rows = cursor.fetchall() or []
+    paths = []
+    for row in rows:
+      value = row.get("output_path") if isinstance(row, dict) else row[0]
+      if isinstance(value, str) and value:
+        paths.append(value)
+    return paths
+
   def create_recording(self, record: dict, recovery_key=None) -> int:
     """Insert one execution as one new resource and return its database id.
 
@@ -249,10 +288,20 @@ class RecordingRecordTable(SocialMediaStreamDataBase):
       ##
       if recovery_key is not None and _is_duplicate_recovery_key(e):
         return self._resolve_replay(record, recovery_key)
+      ##
+      ## Never the driver message. A failed INSERT raises with the statement
+      ## and the bound parameters in its text, and those parameters are the
+      ## recording: its title, its owner and the absolute path it was written
+      ## to. The room id is an opaque platform identifier and is enough to
+      ## find the broadcast this was about.
+      ##
       get_logger().error(
-        "record live resource for room {} failed: {}".format(
-          record.get("room_id"),
-          e,
+        persistence_diagnostic(
+          "persistence_insert_failed",
+          table="recording_record",
+          operation="insert",
+          identity=record.get("room_id"),
+          error=e,
         )
       )
       raise
