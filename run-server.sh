@@ -164,7 +164,7 @@ if [[ -f "$REQUIREMENTS_FILE" ]]; then
         # 获取镜像源的主机名作为 trusted-host
         TRUSTED_HOST=$(echo "$MIRROR_URL" | sed -e 's|https\?://||' -e 's|/.*||')
 
-        if python -m pip install -q -r "$REQUIREMENTS_FILE" \
+        if python -m pip install -q --require-hashes -r "$REQUIREMENTS_FILE" \
             -i "$MIRROR_URL" \
             --trusted-host "$TRUSTED_HOST" \
             --disable-pip-version-check; then
@@ -175,7 +175,7 @@ if [[ -f "$REQUIREMENTS_FILE" ]]; then
         fi
     else
         log_warn "所有镜像源均不可用，尝试使用默认源"
-        if python -m pip install -q -r "$REQUIREMENTS_FILE" --disable-pip-version-check; then
+        if python -m pip install -q --require-hashes -r "$REQUIREMENTS_FILE" --disable-pip-version-check; then
             log_info "依赖检查完成"
         else
             log_error "依赖安装失败，请检查网络连接"

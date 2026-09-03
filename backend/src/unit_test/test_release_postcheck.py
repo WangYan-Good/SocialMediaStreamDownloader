@@ -17,7 +17,19 @@ class ReleasePostcheckTest(unittest.TestCase):
     command.chmod(0o700)
     return command
 
-  def run_postcheck(self, *, status=None, check=None, curl_code=0, compose=False):
+  def run_postcheck(
+    self,
+    *,
+    status=None,
+    check=None,
+    curl_code=0,
+    compose=False,
+    identity=False,
+    running_image_id="sha256:" + "a" * 64,
+    revision_label="b" * 40,
+    requirements_label="c" * 64,
+    mysql_config_image="mysql:8.0.46@sha256:" + "d" * 64,
+  ):
     with tempfile.TemporaryDirectory() as temporary:
       root = Path(temporary)
       log = root / "calls.log"
@@ -65,6 +77,11 @@ class ReleasePostcheckTest(unittest.TestCase):
           """\
           echo "docker $*" >> "$CALL_LOG"
           case "$*" in
+            *"org.opencontainers.image.revision"*) printf '%s\n' "$REVISION_LABEL" ;;
+            *"io.smsd.requirements.sha256"*) printf '%s\n' "$REQUIREMENTS_LABEL" ;;
+            "image inspect "*) printf '%s\n' "$EXPECTED_IMAGE_ID" ;;
+            *".Image"*"app-id") printf '%s\n' "$RUNNING_IMAGE_ID" ;;
+            *".Config.Image"*"mysql-id") printf '%s\n' "$MYSQL_CONFIG_IMAGE" ;;
             *"app-id") printf '%s\n' "${APP_RUNNING:-true}" ;;
             *"mysql-id") printf '%s\n' "${MYSQL_HEALTH:-healthy}" ;;
             *) exit 93 ;;
@@ -84,11 +101,29 @@ class ReleasePostcheckTest(unittest.TestCase):
           "CURL_BIN": str(curl),
           "DOCKER_BIN": str(docker),
           "RUN_DOCKER_SCRIPT": str(run_docker),
+          "EXPECTED_IMAGE_ID": "sha256:" + "a" * 64,
+          "RUNNING_IMAGE_ID": running_image_id,
+          "REVISION_LABEL": revision_label,
+          "REQUIREMENTS_LABEL": requirements_label,
+          "MYSQL_CONFIG_IMAGE": mysql_config_image,
         }
       )
       arguments = ["bash", str(SCRIPT), "--health-url", "http://127.0.0.1/health"]
       if compose:
         arguments.extend(["--project-name", "smsd-release-test"])
+      if identity:
+        arguments.extend(
+          [
+            "--expected-image",
+            "ghcr.io/example/smsd@sha256:" + "e" * 64,
+            "--expected-revision",
+            "b" * 40,
+            "--expected-requirements-sha",
+            "c" * 64,
+            "--expected-mysql-image",
+            "mysql:8.0.46@sha256:" + "d" * 64,
+          ]
+        )
       result = subprocess.run(
         arguments,
         cwd=PROJECT_ROOT,
@@ -136,6 +171,29 @@ class ReleasePostcheckTest(unittest.TestCase):
     self.assertTrue(any("ps -q mysql" in call for call in calls))
     self.assertTrue(any("app-id" in call for call in calls))
     self.assertTrue(any("mysql-id" in call for call in calls))
+
+  def test_release_identity_checks_exact_app_labels_and_mysql_reference(self):
+    result, calls = self.run_postcheck(compose=True, identity=True)
+
+    self.assertEqual(0, result.returncode, result.stderr)
+    self.assertTrue(any(call.startswith("docker image inspect ") for call in calls))
+    self.assertTrue(any(".Image" in call and "app-id" in call for call in calls))
+    self.assertTrue(any("org.opencontainers.image.revision" in call for call in calls))
+    self.assertTrue(any("io.smsd.requirements.sha256" in call for call in calls))
+    self.assertTrue(any(".Config.Image" in call and "mysql-id" in call for call in calls))
+
+  def test_release_identity_mismatch_is_a_hard_failure(self):
+    cases = (
+      {"running_image_id": "sha256:" + "f" * 64},
+      {"revision_label": "0" * 40},
+      {"requirements_label": "1" * 64},
+      {"mysql_config_image": "mysql:8.0.45@sha256:" + "2" * 64},
+    )
+    for mismatch in cases:
+      with self.subTest(mismatch=mismatch):
+        result, _ = self.run_postcheck(compose=True, identity=True, **mismatch)
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("release identity", result.stderr)
 
 
 if __name__ == "__main__":

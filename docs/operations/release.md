@@ -3,6 +3,39 @@
 本 runbook 适用于当前单进程 Compose deployment。它不替代环境自己的变更审批、加密 secret
 escrow 或 off-host backup policy。
 
+## Immutable tested artifact deployment
+
+正式发布的 artifact authority 是成功的 **develop push CI**，不是生产机上的 Git checkout。
+`Docker build and runtime smoke` 对 `smsd:ci` 完成全部 runtime、原始 Compose 与 restore drill
+后，才把同一个 image 导出；独立 promotion job 校验 archive、source commit/tree、
+`requirements.txt` SHA-256、loaded image ID 和 OCI labels，再推送 GHCR、按 registry digest
+拉回并验证 image ID。operator 必须从该 run 的 promotion manifest 取得
+`ghcr.io/OWNER/REPOSITORY@sha256:<64-hex>`，tag 仅用于 CI push transport，不是生产 authority。
+
+固定 release procedure：
+
+1. freeze `develop` source commit SHA，并确认四个 required jobs 与 promotion job 全部成功；
+2. 保存 promotion manifest，核对 source tree、tested image ID、requirements SHA 与 CI run ID；
+3. 执行 pre-release backup，并运行 `migration_cli status` / `migration_cli check`；
+4. 用 canonical digest 部署：
+
+   ```shell
+   scripts/release_deploy.sh \
+     --image ghcr.io/OWNER/REPOSITORY@sha256:<64-hex> \
+     --expected-revision <40-char-develop-commit> \
+     --project-name COMPOSE_PROJECT \
+     --health-url HEALTH_URL
+   ```
+
+5. wrapper 先 pull exact digest，校验 revision/requirements labels，再以 `up -d --no-build`
+   启动；postcheck 必须证明 running image ID 等于 promoted tested image ID，并核对固定 MySQL
+   image reference；
+6. 完成 authentication、task、media smoke；任一 identity、schema、health 或功能检查失败即
+   触发 rollback/restore 决策。
+
+生产服务器不得从 Git checkout 重新 docker build，也不得使用 `latest`、`sha-*` 或其他
+tag-only reference。`run-docker.sh` 的 local build 能力只服务开发和 disposable restore drill。
+
 ## Recoverable state
 
 
@@ -59,8 +92,10 @@ pre/post schema、backup path/checksums、开始/结束时间和 postcheck 结�
 ## Post-upgrade verification
 
 运行 `scripts/release_postcheck.sh --health-url HEALTH_URL`。Compose deployment 额外传
-`--project-name COMPOSE_PROJECT`。schema status、schema check、HTTP health、app running 或 MySQL
-health 任一失败都必须返回 non-zero。
+`--project-name COMPOSE_PROJECT`。正式发布由 `release_deploy.sh` 进一步传入 expected image、
+revision、requirements SHA 与 MySQL digest；这些 identity、schema status、schema check、HTTP
+health、app running 或 MySQL health 任一失败都必须返回 non-zero。restore drill 不使用 GHCR
+artifact，因此 identity 参数保持 optional，原有 isolated restore contract 不变。
 
 Compose deployment 还必须确认 app 与 MySQL 的 container-engine 日志限制实际进入运行容器，
 而不只是存在于 YAML。对两个 container ID 分别检查：

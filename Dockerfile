@@ -3,25 +3,17 @@
 # ============================================
 
 # ---------- 阶段1: 构建依赖 ----------
-FROM python:3.12-slim AS builder
+FROM python:3.12.14-slim-trixie@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea AS builder
 
 # 设置工作目录
 WORKDIR /build
 
-# 安装编译依赖（编译后删除）
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libffi-dev \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
-
 # 复制依赖文件
 COPY requirements.txt .
 
-# 创建虚拟环境并安装依赖（使用 --no-cache-dir 减小体积）
+# 所有依赖都有 wheel；无需漂移的编译工具链。基础镜像自带的 pip 是固定输入。
 RUN python -m venv /opt/venv && \
-    /opt/venv/bin/pip install --no-cache-dir --upgrade pip && \
-    /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+    /opt/venv/bin/pip install --no-cache-dir --require-hashes -r requirements.txt
 
 # ---------- 阶段1b: 构建前端 ----------
 #
@@ -29,7 +21,7 @@ RUN python -m venv /opt/venv && \
 # major across all three on purpose: a lockfile resolved under one runtime and
 # installed under another is how a build passes locally and fails in the image.
 #
-FROM node:24-slim AS frontend-builder
+FROM node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e AS frontend-builder
 
 WORKDIR /frontend
 
@@ -44,12 +36,21 @@ COPY frontend/app/ ./
 RUN npm run build
 
 # ---------- 阶段2: 运行环境 ----------
-FROM python:3.12-slim AS runtime
+FROM python:3.12.14-slim-trixie@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea AS runtime
+
+ARG SOURCE_COMMIT=unknown
+ARG SOURCE_TREE=unknown
+ARG SOURCE_URL=unknown
+ARG REQUIREMENTS_SHA256=unknown
 
 # 镜像元数据
 LABEL maintainer="wangyan" \
       description="SocialMediaStreamDownloader" \
-      version="1.0"
+      version="1.0" \
+      org.opencontainers.image.revision="$SOURCE_COMMIT" \
+      org.opencontainers.image.source="$SOURCE_URL" \
+      io.smsd.source.tree="$SOURCE_TREE" \
+      io.smsd.requirements.sha256="$REQUIREMENTS_SHA256"
 
 # 设置环境变量
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -57,10 +58,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:$PATH" \
     VIRTUAL_ENV="/opt/venv"
 
-# 安装运行时依赖（仅 ffmpeg，其他依赖已在虚拟环境中）
+# 固定 Debian snapshot 与直接 apt 版本；禁止 live mirror fallback。
+COPY docker/debian-snapshot.sources /etc/apt/sources.list.d/debian.sources
+COPY docker/apt-snapshot.conf /etc/apt/apt.conf.d/99snapshot
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    curl \
+    ffmpeg=7:7.1.5-0+deb13u1 \
+    curl=8.14.1-2+deb13u4 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 

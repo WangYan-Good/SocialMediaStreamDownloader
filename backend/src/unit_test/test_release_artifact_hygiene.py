@@ -103,14 +103,13 @@ class ReleaseArtifactHygieneTest(unittest.TestCase):
     self.assertIn(
       "--image-root /app", workflow
     )
-    self.assertEqual(
-      {job["name"] for job in parsed_workflow["jobs"].values()},
+    self.assertTrue(
       {
         "Python tests",
         "MySQL schema and migrations",
         "Frontend build and tests",
         "Docker build and runtime smoke",
-      },
+      }.issubset({job["name"] for job in parsed_workflow["jobs"].values()}),
     )
 
   def test_security_contract_treats_real_captures_as_non_release_assets(self):

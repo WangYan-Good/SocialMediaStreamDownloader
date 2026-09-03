@@ -7,6 +7,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 README = PROJECT_ROOT / "README.md"
 MIGRATION_GUIDE = PROJECT_ROOT / "docs" / "operations" / "migrations.md"
 RELEASE_GUIDE = PROJECT_ROOT / "docs" / "operations" / "release.md"
+RELEASE_RECORD = PROJECT_ROOT / "docs" / "operations" / "release-record-template.md"
 
 
 class ReleaseOperationsDocumentationTest(unittest.TestCase):
@@ -124,6 +125,40 @@ class ReleaseOperationsDocumentationTest(unittest.TestCase):
     ):
       with self.subTest(forbidden=forbidden):
         self.assertNotIn(forbidden, lowered)
+
+  def test_release_guide_deploys_only_the_promoted_tested_digest(self):
+    text = RELEASE_GUIDE.read_text(encoding="utf-8")
+
+    for required in (
+      "develop push CI",
+      "promotion manifest",
+      "ghcr.io/OWNER/REPOSITORY@sha256:",
+      "release_deploy.sh",
+      "--expected-revision",
+      "--no-build",
+      "不得从 Git checkout 重新 docker build",
+      "running image ID",
+    ):
+      with self.subTest(required=required):
+        self.assertIn(required, text)
+
+  def test_release_record_captures_artifact_identity_without_registry_credentials(self):
+    text = RELEASE_RECORD.read_text(encoding="utf-8")
+    for required in (
+      "source_commit_sha",
+      "source_tree_sha",
+      "ci_run_id",
+      "tested_image_id",
+      "promotion_digest",
+      "requirements_sha256",
+      "python_base_digest",
+      "node_base_digest",
+      "mysql_digest",
+      "postcheck_image_identity",
+    ):
+      with self.subTest(required=required):
+        self.assertIn(required, text)
+    self.assertIn("registry credential", text)
 
 
 if __name__ == "__main__":

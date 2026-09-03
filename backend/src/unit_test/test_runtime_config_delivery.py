@@ -46,9 +46,9 @@ class RuntimeConfigDeliveryTest(unittest.TestCase):
     self.assertFalse(config["auth"]["cookie_secure"])
 
   def test_waitress_is_exactly_pinned(self):
-    requirements = REQUIREMENTS_FILE.read_text(encoding="utf-8").splitlines()
+    requirements = REQUIREMENTS_FILE.read_text(encoding="utf-8")
 
-    self.assertIn("waitress==3.0.2", requirements)
+    self.assertRegex(requirements, r"(?m)^waitress==3\.0\.2(?:\s|$)")
 
   def test_documented_production_entry_uses_the_server_launcher_and_waitress(self):
     readme = README_FILE.read_text(encoding="utf-8")
