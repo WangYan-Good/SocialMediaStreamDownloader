@@ -3,6 +3,7 @@ from backend.src.database.social_media_stream_database import (
   SocialMediaStreamDataBase,
 )
 from backend.src.library.loglib import get_logger
+from backend.src.library.safe_diagnostics import persistence_diagnostic
 
 
 class DouyinAwemeRecordTable(SocialMediaStreamDataBase):
@@ -87,7 +88,13 @@ class DouyinAwemeRecordTable(SocialMediaStreamDataBase):
           return result[0]
     except Exception as e:
       get_logger().error(
-        "query aweme record {} failed {}".format(aweme_id, e)
+        persistence_diagnostic(
+          "persistence_lookup_failed",
+          table="aweme_record",
+          operation="query",
+          identity=aweme_id,
+          error=e,
+        )
       )
       raise e
 
@@ -121,7 +128,14 @@ class DouyinAwemeRecordTable(SocialMediaStreamDataBase):
             if row.get("aweme_id") is not None
           }
     except Exception as e:
-      get_logger().error("bulk aweme record lookup failed {}".format(e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_query_failed",
+          table="aweme_record",
+          operation="query",
+          error=e,
+        )
+      )
       raise e
 
   def find_owner_directory_name(self, owner_user_id: str):
@@ -240,15 +254,23 @@ class DouyinAwemeRecordTable(SocialMediaStreamDataBase):
           )
           connector.commit()
           get_logger().info(
-            "record aweme {} saved {}/{}".format(
-              record.get("aweme_id"),
-              record.get("saved_count"),
-              record.get("media_count"),
+            persistence_diagnostic(
+              "persistence_inserted",
+              table="aweme_record",
+              operation="upsert",
+              identity=record.get("aweme_id"),
+              rows=1,
             )
           )
     except Exception as e:
       get_logger().error(
-        "record aweme {} failed {}".format(record.get("aweme_id"), e)
+        persistence_diagnostic(
+          "persistence_insert_failed",
+          table="aweme_record",
+          operation="upsert",
+          identity=record.get("aweme_id"),
+          error=e,
+        )
       )
       raise e
 
@@ -284,10 +306,13 @@ class DouyinAwemeRecordTable(SocialMediaStreamDataBase):
           connector.commit()
     except Exception as e:
       get_logger().error(
-        "link app user {} to aweme {} failed: {}".format(
-          app_user_id,
-          aweme_id,
-          e,
+        persistence_diagnostic(
+          "persistence_insert_failed",
+          table="app_user_aweme",
+          operation="upsert",
+          identity=app_user_id,
+          related_identity=aweme_id,
+          error=e,
         )
       )
       raise
@@ -345,9 +370,12 @@ class DouyinAwemeRecordTable(SocialMediaStreamDataBase):
           connector.commit()
     except Exception as e:
       get_logger().error(
-        "record post owner {} failed {}".format(
-          record.get("owner_user_id"),
-          e,
+        persistence_diagnostic(
+          "persistence_insert_failed",
+          table="share_url",
+          operation="upsert",
+          identity=record.get("owner_user_id"),
+          error=e,
         )
       )
       raise e

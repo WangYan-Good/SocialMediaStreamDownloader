@@ -43,7 +43,7 @@ class ReleaseArtifactManifestTest(unittest.TestCase):
       "python_base_ref": PYTHON_BASE,
       "node_base_ref": NODE_BASE,
       "mysql_image_ref": MYSQL_IMAGE,
-      "runtime_marker_count": 18,
+      "runtime_marker_count": 21,
       "created_by_workflow": "CI",
     }
     self.helper.create_manifest(
@@ -82,7 +82,7 @@ class ReleaseArtifactManifestTest(unittest.TestCase):
   def test_a1_valid_manifest_passes_with_every_identity(self):
     manifest = self.verify()
     self.assertEqual(1, manifest["schema_version"])
-    self.assertEqual(18, manifest["runtime_marker_count"])
+    self.assertEqual(21, manifest["runtime_marker_count"])
 
   def test_a2_archive_sha_mismatch_fails(self):
     self.archive.write_bytes(b"different archive")
@@ -126,6 +126,42 @@ class ReleaseArtifactManifestTest(unittest.TestCase):
     self.mutate_manifest(lambda manifest: manifest.__setitem__("schema_version", 2))
     with self.assertRaisesRegex(ValueError, "schema version"):
       self.verify()
+
+  def test_a11_a_manifest_below_the_runtime_marker_floor_fails(self):
+    ##
+    ## The floor is what stops an artifact built by an older workflow - or by
+    ## one somebody edited to drop a probe - from being promoted as though it
+    ## carried the current evidence. One below the floor must be refused, and
+    ## exactly the floor must pass.
+    ##
+    self.mutate_manifest(
+      lambda manifest: manifest.__setitem__(
+        "runtime_marker_count", self.helper.MINIMUM_RUNTIME_MARKERS - 1
+      )
+    )
+    with self.assertRaisesRegex(ValueError, "runtime_marker_count"):
+      self.verify()
+
+    self.mutate_manifest(
+      lambda manifest: manifest.__setitem__(
+        "runtime_marker_count", self.helper.MINIMUM_RUNTIME_MARKERS
+      )
+    )
+    self.assertEqual(
+      self.helper.MINIMUM_RUNTIME_MARKERS,
+      self.verify()["runtime_marker_count"],
+    )
+
+  def test_the_runtime_marker_floor_matches_what_the_workflow_records(self):
+    workflow = (
+      Path(__file__).resolve().parents[3] / ".github/workflows/ci.yml"
+    ).read_text(encoding="utf-8")
+
+    self.assertIn(
+      "--runtime-marker-count {}".format(self.helper.MINIMUM_RUNTIME_MARKERS),
+      workflow,
+      "the workflow must declare at least the floor it will be verified against",
+    )
 
   def test_manifest_is_canonical_private_and_contains_no_credentials(self):
     serialized = self.manifest_path.read_text(encoding="utf-8")

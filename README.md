@@ -212,6 +212,28 @@ python -m backend.src.database.migration_cli upgrade
 [数据库迁移操作指南](./docs/operations/migrations.md)。完整 backup/restore、rollback、凭据与
 账户生命周期见 [Release Operations Runbook](./docs/operations/release.md)。
 
+## 录制孤儿文件盘点与隔离
+一次直播录制先把媒体落盘，再写入可恢复日志，最后才写数据库。进程恰好死在中间时，
+磁盘上会留下一份**没有任何记录指向它**的录制文件：数据库看不到，重启也不会恢复。
+
+盘点与隔离是**只在操作员显式执行时**才发生的命令，不提供任何 HTTP 接口：
+
+```shell
+python -m backend.src.recording_orphan_cli scan
+python -m backend.src.recording_orphan_cli quarantine <相对路径> --dry-run
+python -m backend.src.recording_orphan_cli quarantine <相对路径> --confirm
+```
+
+`scan` 只读，输出相对 `download.save_path` 的路径，不会打印绝对路径。一个文件必须同时
+满足全部条件才会被列为候选：位于录制目录内、是本项目会产生的媒体类型、是普通文件、
+不是符号链接或临时文件、且数据库与待恢复日志都没有引用它。数据库不可达、schema 未就绪、
+日志不可读或不完整时，命令**拒绝作答**而不是给出空结果。
+
+`quarantine` 需要 `--confirm`，一次只处理一个文件。它把文件硬链接进 `download.save_path`
+下的隐藏目录再删除原名，**从不复制、从不删除媒体、从不写数据库行、从不推断归属账号**。
+磁盘上没有任何东西能证明一份录制属于哪个应用账号（同一主播可能被多个账号录制），
+所以恢复归属只能由人工判断。
+
 ## 方式二：Docker Compose
 
 完成同一份 `config/config.yml` 后，通过包装脚本启动：

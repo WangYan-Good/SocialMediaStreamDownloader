@@ -8,6 +8,7 @@ from backend.src.database.social_media_stream_database import (
   SocialMediaStreamDataBase,
 )
 from backend.src.library.loglib import get_logger
+from backend.src.library.safe_diagnostics import persistence_diagnostic
 
 
 PLATFORM = "douyin"
@@ -344,7 +345,14 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           new_id = cursor.lastrowid
           connector.commit()
     except Exception as e:
-      get_logger().error("create person {} failed: {}".format(display_name, e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_insert_failed",
+          table="person",
+          operation="insert",
+          error=e,
+        )
+      )
       raise e
     return new_id
 
@@ -385,7 +393,15 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           )
           connector.commit()
     except Exception as e:
-      get_logger().error("update person {} failed: {}".format(person_id, e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_update_failed",
+          table="person",
+          operation="update",
+          identity=person_id,
+          error=e,
+        )
+      )
       raise e
 
   def delete_person(self, person_id: int) -> None:
@@ -403,7 +419,15 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           cursor.execute(sql, (person_id,))
           connector.commit()
     except Exception as e:
-      get_logger().error("delete person {} failed: {}".format(person_id, e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_delete_failed",
+          table="person",
+          operation="delete",
+          identity=person_id,
+          error=e,
+        )
+      )
       raise e
 
   def list_persons(self) -> list:
@@ -435,7 +459,14 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           cursor.execute(sql)
           rows = cursor.fetchall() or []
     except Exception as e:
-      get_logger().error("list persons failed: {}".format(e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_query_failed",
+          table="person",
+          operation="query",
+          error=e,
+        )
+      )
       raise e
 
     return [
@@ -475,7 +506,14 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           cursor.execute(sql, (PLATFORM, pattern, pattern, int(limit)))
           rows = cursor.fetchall() or []
     except Exception as e:
-      get_logger().error("search accounts for {} failed: {}".format(keyword, e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_query_failed",
+          table="person_account",
+          operation="query",
+          error=e,
+        )
+      )
       raise e
 
     return [
@@ -530,7 +568,13 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           connector.commit()
     except Exception as e:
       get_logger().error(
-        "record identity for {} failed: {}".format(owner_user_id, e)
+        persistence_diagnostic(
+          "persistence_insert_failed",
+          table="person_account",
+          operation="upsert",
+          identity=owner_user_id,
+          error=e,
+        )
       )
       raise e
 
@@ -567,10 +611,13 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           connector.commit()
     except Exception as e:
       get_logger().error(
-        "attach account {} to person {} failed: {}".format(
-          owner_user_id,
-          person_id,
-          e,
+        persistence_diagnostic(
+          "persistence_insert_failed",
+          table="person_account",
+          operation="upsert",
+          identity=owner_user_id,
+          related_identity=person_id,
+          error=e,
         )
       )
       raise e
@@ -600,7 +647,13 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           row = cursor.fetchone()
     except Exception as e:
       get_logger().error(
-        "look up account {} failed: {}".format(owner_user_id, e)
+        persistence_diagnostic(
+          "persistence_lookup_failed",
+          table="person_account",
+          operation="query",
+          identity=owner_user_id,
+          error=e,
+        )
       )
       raise e
     return bool(row)
@@ -654,7 +707,13 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           row = cursor.fetchone()
     except Exception as e:
       get_logger().error(
-        "look up assignment of {} failed: {}".format(owner_user_id, e)
+        persistence_diagnostic(
+          "persistence_lookup_failed",
+          table="person_account",
+          operation="query",
+          identity=owner_user_id,
+          error=e,
+        )
       )
       raise e
 
@@ -689,7 +748,13 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           row = cursor.fetchone()
     except Exception as e:
       get_logger().error(
-        "look up folder for {} failed: {}".format(owner_user_id, e)
+        persistence_diagnostic(
+          "persistence_lookup_failed",
+          table="share_url",
+          operation="query",
+          identity=owner_user_id,
+          error=e,
+        )
       )
       raise e
     return None if not row else row.get("directory_name")
@@ -805,13 +870,24 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           ## there is nothing here to replace against.
           ##
           get_logger().warning(
-            "database refused a second main for person {}".format(person_id)
+            persistence_diagnostic(
+              "persistence_duplicate_ignored",
+              table="person_account",
+              operation="update",
+              identity=person_id,
+              error=e,
+            )
           )
           raise MainAlreadyAssigned(None, None) from e
         if not isinstance(e, AssignmentConflict):
           get_logger().error(
-            "assign {} to person {} failed: {}".format(
-              owner_user_id, person_id, e
+            persistence_diagnostic(
+              "persistence_update_failed",
+              table="person_account",
+              operation="update",
+              identity=owner_user_id,
+              related_identity=person_id,
+              error=e,
             )
           )
         raise
@@ -851,7 +927,13 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
         connector.rollback()
         if not isinstance(e, AssignmentConflict):
           get_logger().error(
-            "detach account {} failed: {}".format(owner_user_id, e)
+            persistence_diagnostic(
+              "persistence_update_failed",
+              table="person_account",
+              operation="update",
+              identity=owner_user_id,
+              error=e,
+            )
           )
         raise
     return result
@@ -1192,7 +1274,13 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           row = cursor.fetchone()
     except Exception as e:
       get_logger().error(
-        "look up person folder for {} failed: {}".format(owner_user_id, e)
+        persistence_diagnostic(
+          "persistence_lookup_failed",
+          table="person_account",
+          operation="query",
+          identity=owner_user_id,
+          error=e,
+        )
       )
       raise e
 
@@ -1237,7 +1325,12 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           row = cursor.fetchone()
     except Exception as e:
       get_logger().error(
-        "count identities using {} failed: {}".format(directory_name, e)
+        persistence_diagnostic(
+          "persistence_query_failed",
+          table="person_account",
+          operation="query",
+          error=e,
+        )
       )
       raise e
     if not row:
@@ -1265,7 +1358,13 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           connector.commit()
     except Exception as e:
       get_logger().error(
-        "align accounts of person {} failed: {}".format(person_id, e)
+        persistence_diagnostic(
+          "persistence_update_failed",
+          table="person_account",
+          operation="update",
+          identity=person_id,
+          error=e,
+        )
       )
       raise e
 
@@ -1286,7 +1385,13 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           connector.commit()
     except Exception as e:
       get_logger().error(
-        "detach account {} failed: {}".format(owner_user_id, e)
+        persistence_diagnostic(
+          "persistence_update_failed",
+          table="person_account",
+          operation="update",
+          identity=owner_user_id,
+          error=e,
+        )
       )
       raise e
 
@@ -1328,7 +1433,13 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           row = cursor.fetchone()
     except Exception as e:
       get_logger().error(
-        "look up person directory for {} failed: {}".format(owner_user_id, e)
+        persistence_diagnostic(
+          "persistence_lookup_failed",
+          table="person",
+          operation="query",
+          identity=owner_user_id,
+          error=e,
+        )
       )
       raise e
 
@@ -1357,7 +1468,15 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           cursor.execute(sql, (person_id,))
           rows = cursor.fetchall() or []
     except Exception as e:
-      get_logger().error("list accounts of {} failed: {}".format(person_id, e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_query_failed",
+          table="person_account",
+          operation="query",
+          identity=person_id,
+          error=e,
+        )
+      )
       raise e
 
     return [
@@ -1394,7 +1513,15 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           cursor.execute(sql, (person_id, person_id))
           row = cursor.fetchone()
     except Exception as e:
-      get_logger().error("summarise person {} failed: {}".format(person_id, e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_query_failed",
+          table="person_account",
+          operation="query",
+          identity=person_id,
+          error=e,
+        )
+      )
       raise e
 
     if not row:
@@ -1436,7 +1563,13 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           rows = cursor.fetchall() or []
     except Exception as e:
       get_logger().error(
-        "list {} of {} failed: {}".format(side, person_id, e)
+        persistence_diagnostic(
+          "persistence_query_failed",
+          table="person_collaboration",
+          operation="query",
+          identity=person_id,
+          error=e,
+        )
       )
       raise e
 
@@ -1475,7 +1608,13 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           rows = cursor.fetchall() or []
     except Exception as e:
       get_logger().error(
-        "list works by photographer {} failed: {}".format(photographer_id, e)
+        persistence_diagnostic(
+          "persistence_query_failed",
+          table="person_collaboration",
+          operation="query",
+          identity=photographer_id,
+          error=e,
+        )
       )
       raise e
 
@@ -1522,10 +1661,13 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           connector.commit()
     except Exception as e:
       get_logger().error(
-        "record collaboration {} -> {} failed: {}".format(
-          photographer_id,
-          subject_id,
-          e,
+        persistence_diagnostic(
+          "persistence_insert_failed",
+          table="person_collaboration",
+          operation="upsert",
+          identity=photographer_id,
+          related_identity=subject_id,
+          error=e,
         )
       )
       raise e
@@ -1542,10 +1684,13 @@ class DouyinPersonIdentityTable(SocialMediaStreamDataBase):
           connector.commit()
     except Exception as e:
       get_logger().error(
-        "remove collaboration {} -> {} failed: {}".format(
-          photographer_id,
-          subject_id,
-          e,
+        persistence_diagnostic(
+          "persistence_delete_failed",
+          table="person_collaboration",
+          operation="delete",
+          identity=photographer_id,
+          related_identity=subject_id,
+          error=e,
         )
       )
       raise e

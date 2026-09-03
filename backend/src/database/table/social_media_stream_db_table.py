@@ -12,6 +12,7 @@ from typing    import ClassVar, Dict, Type
 ## <<Third-Part>>
 from backend.src.database.social_media_stream_database       import SocialMediaStreamDataBase
 from backend.src.library.loglib                              import get_logger
+from backend.src.library.safe_diagnostics                    import persistence_diagnostic
 from backend.src.database.schema_guard                       import require_database_write_ready, require_runtime_schema_mutation_allowed
 
 class SocialMediaStreamDataTable(ABC):
@@ -96,10 +97,19 @@ class SocialMediaStreamDataTable(ABC):
       try:
         self.__database.register_table(self.get_name(), self)
       except Exception as e:
-        get_logger().error("failed to register {} table: {}".format(self.get_name(), e))
+        get_logger().error(
+          persistence_diagnostic(
+            "persistence_registration_failed",
+            table=self.get_name(),
+            operation="register",
+            error=e,
+          )
+        )
         raise e
     else:
-      get_logger().info("{} table is already registered or does not exist".format(self.get_name()))
+      get_logger().info(
+        persistence_diagnostic("persistence_registered", table=self.get_name())
+      )
 
     ##
     ## mark as initialized
@@ -214,7 +224,9 @@ class SocialMediaStreamDataTable(ABC):
     if table in cls.__REGISTRY:
       return cls.__REGISTRY[table]
     else:
-      get_logger().error("No subclass found for table name: {}".format(table))
+      get_logger().error(
+        persistence_diagnostic("persistence_unknown_table", table=table)
+      )
       raise ValueError("No subclass found for table name: {}".format(table))
 
   ##
@@ -237,7 +249,9 @@ class SocialMediaStreamDataTable(ABC):
     ## check if the table already exists
     ##
     if self.__database.is_table_exist(table_name):
-      get_logger().warning("{} table already exists".format(table_name))
+      get_logger().warning(
+        persistence_diagnostic("persistence_table_present", table=table_name)
+      )
       ##
       ## 如果表已存在，可选进行结构验证
       ##
@@ -259,7 +273,9 @@ class SocialMediaStreamDataTable(ABC):
             connector.commit()
             pass
           
-          get_logger().info("{} table created successfully".format(table_name))
+          get_logger().info(
+            persistence_diagnostic("persistence_table_created", table=table_name)
+          )
           
           ##
           ## 验证表结构（如果启用）
@@ -267,13 +283,21 @@ class SocialMediaStreamDataTable(ABC):
           if verify_schema:
             schema_valid = self.verify_table_schema()
             if not schema_valid:
-              get_logger().warning("table {} created but schema verification failed".format(table_name))
+              get_logger().warning(
+                persistence_diagnostic(
+                  "persistence_schema_verification_failed", table=table_name
+                )
+              )
               return False
           
           return True
           
     except Exception as e:
-      get_logger().error("failed to create {} table: {}".format(table_name, e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_table_create_failed", table=table_name, error=e
+        )
+      )
       return False
     
     ##
@@ -283,7 +307,14 @@ class SocialMediaStreamDataTable(ABC):
       try:
         self.__database.register_table(table_name, self)
       except Exception as e:
-        get_logger().error("failed to register {} table: {}".format(table_name, e))
+        get_logger().error(
+          persistence_diagnostic(
+            "persistence_registration_failed",
+            table=table_name,
+            operation="register",
+            error=e,
+          )
+        )
   
   ##
   ## drop table
@@ -305,14 +336,20 @@ class SocialMediaStreamDataTable(ABC):
     ## check if the table exist
     ##
     if not self.__database.is_table_exist(table_name):
-      get_logger().warning("{} table does not exist".format(table_name))
+      get_logger().warning(
+        persistence_diagnostic("persistence_table_absent", table=table_name)
+      )
       return False
     
     ##
     ## 需要确认操作
     ##
     if not confirm:
-      get_logger().warning("drop operation requires confirmation for table {}".format(table_name))
+      get_logger().warning(
+        persistence_diagnostic(
+          "persistence_table_drop_refused", table=table_name, operation="drop"
+        )
+      )
       return False
     
     ##
@@ -329,9 +366,23 @@ class SocialMediaStreamDataTable(ABC):
             row_count = 0
           else:
             row_count = result[0]
-          get_logger().info("table {} has {} rows before drop".format(table_name, row_count))
+          get_logger().info(
+            persistence_diagnostic(
+              "persistence_queried",
+              table=table_name,
+              operation="query",
+              rows=row_count,
+            )
+          )
     except Exception as e:
-      get_logger().warning("failed to get row count before drop: {}".format(e))
+      get_logger().warning(
+        persistence_diagnostic(
+          "persistence_query_failed",
+          table=table_name,
+          operation="query",
+          error=e,
+        )
+      )
     
     ##
     ## 执行删除操作
@@ -346,19 +397,34 @@ class SocialMediaStreamDataTable(ABC):
             cursor.execute(self.get_drop_sql_cmd())
             connector.commit()
           
-          get_logger().info("{} table dropped successfully".format(table_name))
+          get_logger().info(
+            persistence_diagnostic(
+              "persistence_table_dropped", table=table_name, operation="drop"
+            )
+          )
           
           ##
           ## 确认表确实已被删除
           ##
           if self.__database.is_table_exist(table_name):
-            get_logger().error("table {} still exists after drop operation".format(table_name))
+            get_logger().error(
+              persistence_diagnostic(
+                "persistence_table_present", table=table_name, operation="drop"
+              )
+            )
             return False
           
           return True
           
     except Exception as e:
-      get_logger().error("failed to drop {} table: {}".format(table_name, e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_table_dropped_failed",
+          table=table_name,
+          operation="drop",
+          error=e,
+        )
+      )
       return False
 
   ##
@@ -410,7 +476,14 @@ class SocialMediaStreamDataTable(ABC):
         ## skip auto-increment primary key field
         ##
         if key in self.get_auto_increment_field():
-          get_logger().debug("skipping auto-increment field: {}".format(key))
+          get_logger().debug(
+            persistence_diagnostic(
+              "persistence_column_skipped",
+              table=self.get_name(),
+              operation="insert",
+              columns=1,
+            )
+          )
           continue
         filtered_keys.append(key)
         filtered_values.append(value)
@@ -444,8 +517,20 @@ class SocialMediaStreamDataTable(ABC):
       ## prepare parameters
       ##
       params = tuple(filtered_values)
-      get_logger().debug("executing SQL: {}".format(sql))
-      get_logger().debug("with parameters: {}".format(params))
+      ##
+      ## Neither the statement nor the parameters. The statement is built from
+      ## this table's own quoted column names and carries no value, but the
+      ## parameters *are* the row - and a DEBUG line is as persistent as any
+      ## other. The shape of the write is what a diagnostic needs.
+      ##
+      get_logger().debug(
+        persistence_diagnostic(
+          "persistence_statement_prepared",
+          table=self.get_name(),
+          operation="upsert" if on_duplicate != "error" else "insert",
+          columns=len(filtered_keys),
+        )
+      )
       with self.__database.get_connection() as connector:
         with connector.cursor() as cursor:       
           ##
@@ -460,20 +545,38 @@ class SocialMediaStreamDataTable(ABC):
             ##
             if on_duplicate == 'ignore' and cursor.rowcount == 0:
               get_logger().warning(
-                "duplicate record ignored on table=%s",
-                self.get_name(),
+                persistence_diagnostic(
+                  "persistence_duplicate_ignored",
+                  table=self.get_name(),
+                  operation="upsert",
+                  rows=0,
+                  duplicate=True,
+                )
               )
               return -1
             
             inserted_id = cursor.lastrowid
-            if inserted_id and inserted_id != 0:
-              get_logger().info("inserted record successfully with ID: {}".format(inserted_id))
-            else:
-              get_logger().info("inserted record successfully")
+            get_logger().info(
+              persistence_diagnostic(
+                "persistence_inserted",
+                table=self.get_name(),
+                operation="insert",
+                identity=inserted_id if inserted_id else None,
+                columns=len(filtered_keys),
+                rows=1,
+              )
+            )
             return inserted_id or 0
     except Exception as e:
-      get_logger().error("failed to insert record into {}: {}".format(self.get_name(), e))
-      get_logger().error("record data: {}".format(record))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_insert_failed",
+          table=self.get_name(),
+          operation="insert",
+          columns=len(record),
+          error=e,
+        )
+      )
       raise e
 
   ##
@@ -531,13 +634,28 @@ class SocialMediaStreamDataTable(ABC):
             affected_rows = cursor.rowcount
             connector.commit()
           
-          action = "Soft deleted" if soft_delete else "Deleted"
-          get_logger().info(f"{action} {affected_rows} record(s) with conditions: {conditions}")
+          get_logger().info(
+            persistence_diagnostic(
+              "persistence_deleted",
+              table=self.get_name(),
+              operation="update" if soft_delete else "delete",
+              rows=affected_rows,
+              columns=len(conditions),
+            )
+          )
           
           return affected_rows
           
     except Exception as e:
-      get_logger().error(f"Failed to delete records with conditions {conditions}: {str(e)}")
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_delete_failed",
+          table=self.get_name(),
+          operation="delete",
+          columns=len(conditions) if isinstance(conditions, dict) else None,
+          error=e,
+        )
+      )
       raise
 
   ##
@@ -577,7 +695,14 @@ class SocialMediaStreamDataTable(ABC):
     ##
     missing_primary_keys = [pk for pk in primary_keys if pk not in record]
     if missing_primary_keys:
-      get_logger().error("Missing primary key fields: {}".format(missing_primary_keys))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_missing_primary_key",
+          table=self.get_name(),
+          operation="update",
+          columns=len(missing_primary_keys),
+        )
+      )
       raise ValueError(f"Missing primary key fields: {missing_primary_keys}")
     
     try:
@@ -589,7 +714,13 @@ class SocialMediaStreamDataTable(ABC):
           update_fields = [key for key in record.keys() if key not in primary_keys]
           
           if not update_fields:
-            get_logger().warning("No fields to update")
+            get_logger().warning(
+              persistence_diagnostic(
+                "persistence_no_update_fields",
+                table=self.get_name(),
+                operation="update",
+              )
+            )
             return 0
           
           ##
@@ -611,8 +742,14 @@ class SocialMediaStreamDataTable(ABC):
           primary_values = [record[pk] for pk in primary_keys]
           params = update_values + primary_values
           
-          get_logger().debug(f"Update SQL: {sql}")
-          get_logger().debug(f"Update params: {params}")
+          get_logger().debug(
+            persistence_diagnostic(
+              "persistence_statement_prepared",
+              table=self.get_name(),
+              operation="update",
+              columns=len(update_fields),
+            )
+          )
           
           ##
           ## 使用锁
@@ -630,14 +767,24 @@ class SocialMediaStreamDataTable(ABC):
             
             if affected_rows == 0:
               get_logger().warning(
-                "No record found to update with primary keys: {}".format(
-                  {pk: record[pk] for pk in primary_keys}
+                persistence_diagnostic(
+                  "persistence_record_absent",
+                  table=self.get_name(),
+                  operation="update",
+                  rows=0,
+                  columns=len(primary_keys),
+                  found=False,
                 )
               )
             else:
               get_logger().info(
-                "Updated {} record(s) in {}".format(
-                  affected_rows, self.get_name()
+                persistence_diagnostic(
+                  "persistence_updated",
+                  table=self.get_name(),
+                  operation="update",
+                  rows=affected_rows,
+                  columns=len(update_fields),
+                  changed=True,
                 )
               )
             
@@ -648,8 +795,15 @@ class SocialMediaStreamDataTable(ABC):
             self.__db_lock.release()
             
     except Exception as e:
-      get_logger().error("Failed to update {} record: {}".format(self.get_name(), str(e)))
-      get_logger().error("Update data: {}".format(record))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_update_failed",
+          table=self.get_name(),
+          operation="update",
+          columns=len(record) if isinstance(record, dict) else None,
+          error=e,
+        )
+      )
       raise e
 
   ##
@@ -685,7 +839,13 @@ class SocialMediaStreamDataTable(ABC):
               params.append(value)
           
           if not where_conditions:
-            get_logger().warning("No valid conditions provided for query")
+            get_logger().warning(
+              persistence_diagnostic(
+                "persistence_no_conditions",
+                table=self.get_name(),
+                operation="query",
+              )
+            )
             return None
           
           header_sql = ', '.join([self._quote_identifier(key) for key in self.get_header()])
@@ -699,15 +859,27 @@ class SocialMediaStreamDataTable(ABC):
             ' AND '.join(where_conditions)
           )
           
-          get_logger().debug(f"Executing SQL: {sql}")
-          get_logger().debug(f"With params: {params}")
+          get_logger().debug(
+            persistence_diagnostic(
+              "persistence_statement_prepared",
+              table=self.get_name(),
+              operation="query",
+              columns=len(params),
+            )
+          )
           
           ##
           ## 获取数据库锁（带超时和重试机制）
           ##
           lock_acquired = self.__db_lock.acquire(timeout=10)  ## 10秒超时
           if not lock_acquired:
-            get_logger().error("Failed to acquire database lock within timeout")
+            get_logger().error(
+              persistence_diagnostic(
+                "persistence_lock_timeout",
+                table=self.get_name(),
+                operation="query",
+              )
+            )
             raise TimeoutError("Database lock acquisition timeout")
           
           try:
@@ -741,15 +913,37 @@ class SocialMediaStreamDataTable(ABC):
               else:
                 record_list.append(dict(zip(self.get_header(), result)))
             if result is None:
-              get_logger().debug("{} record not found with conditions: {}".format(
-                self.get_name(), record))
+              get_logger().debug(
+                persistence_diagnostic(
+                  "persistence_record_absent",
+                  table=self.get_name(),
+                  operation="query",
+                  rows=0,
+                  found=False,
+                )
+              )
               return list()
-            get_logger().debug("Record found: {}".format(record_list))
+            get_logger().debug(
+              persistence_diagnostic(
+                "persistence_queried",
+                table=self.get_name(),
+                operation="query",
+                rows=len(record_list),
+                found=True,
+              )
+            )
             return record_list            
           finally:
             self.__db_lock.release()
             
     except Exception as e:
-      get_logger().error("Failed to get {} record: {}".format(self.get_name(), str(e)))
-      get_logger().error("Query conditions: {}".format(record))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_query_failed",
+          table=self.get_name(),
+          operation="query",
+          columns=len(record) if isinstance(record, dict) else None,
+          error=e,
+        )
+      )
       raise e

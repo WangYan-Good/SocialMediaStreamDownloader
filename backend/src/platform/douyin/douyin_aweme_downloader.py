@@ -21,6 +21,7 @@ from backend.src.database.schema_guard import (
 from backend.src.database.table.aweme_record import DouyinAwemeRecordTable
 from backend.src.library.baselib import get_dict_attr
 from backend.src.library.loglib import get_logger
+from backend.src.library.safe_diagnostics import post_diagnostic
 from backend.src.platform.douyin.douyin_aweme_config import DouyinAwemeConfig
 from backend.src.platform.douyin.douyin_archive_notes import write_post_note
 from backend.src.platform.douyin.douyin_aweme_external_info import naming_tick
@@ -202,10 +203,16 @@ class DouyinAwemeDownloader(Downloader):
       ## post may be deleted, private or follower-only.  Report and move on so a
       ## batch of links is not abandoned over one of them.
       ##
+      ##
+      ## Neither the link nor the reason. The link is what somebody pasted and
+      ## may carry a signature; the reason is free text written by the platform.
+      ## The host says which service refused, which is the diagnosable part.
+      ##
       get_logger().info(
-        "skip post {}: {}".format(
-          resolution.aweme_id or url,
-          resolution.reason,
+        post_diagnostic(
+          "post_skipped",
+          url=url,
+          aweme_id=resolution.aweme_id,
         )
       )
       return AwemeDownloadResult(
@@ -260,7 +267,7 @@ class DouyinAwemeDownloader(Downloader):
 
     if fetched_count == 0 and saved_count == detail.media_count:
       get_logger().info(
-        "post {} was already on disk, nothing to fetch".format(detail.aweme_id)
+        post_diagnostic("post_already_present", aweme_id=detail.aweme_id)
       )
       return AwemeDownloadResult(
         ok=True,
@@ -274,18 +281,24 @@ class DouyinAwemeDownloader(Downloader):
 
     if saved_count < detail.media_count:
       get_logger().warning(
-        "post {} saved {} of {} files".format(
-          detail.aweme_id,
-          saved_count,
-          detail.media_count,
+        post_diagnostic(
+          "post_partially_saved",
+          aweme_id=detail.aweme_id,
+          saved=saved_count,
+          total=detail.media_count,
         )
       )
     else:
+      ##
+      ## Never ``save_dir``: it is an absolute path whose last segment is a
+      ## broadcaster's directory name.
+      ##
       get_logger().info(
-        "post {} complete: {} files in {}".format(
-          detail.aweme_id,
-          saved_count,
-          save_dir,
+        post_diagnostic(
+          "post_complete",
+          aweme_id=detail.aweme_id,
+          saved=saved_count,
+          total=detail.media_count,
         )
       )
 
@@ -341,7 +354,7 @@ class DouyinAwemeDownloader(Downloader):
       )
     except Exception as e:
       get_logger().warning(
-        "database directory lookup failed, use post nickname: {}".format(e)
+        post_diagnostic("post_owner_directory_failed", error=e)
       )
       self._mark_database_unavailable()
       return choose_owner_directory(
@@ -359,13 +372,16 @@ class DouyinAwemeDownloader(Downloader):
       person_owner_user_id=person_owner,
     )
     if resolved != fallback:
+      ##
+      ## Which directory was chosen is a nickname either way, so only the fact
+      ## that a choice was made is written down.
+      ##
       get_logger().info(
-        "owner {} files under {} rather than {} (recorded={}, owners={})".format(
-          detail.owner_user_id,
-          resolved,
-          fallback,
-          recorded,
-          owners,
+        post_diagnostic(
+          "post_owner_directory_resolved",
+          owner_user_id=detail.owner_user_id,
+          total=owners,
+          state=recorded,
         )
       )
     return resolved
@@ -384,7 +400,9 @@ class DouyinAwemeDownloader(Downloader):
     try:
       return max(1, database.count_identities_using_directory_name(directory_name))
     except Exception as e:
-      get_logger().warning("identity count failed, assume unique: {}".format(e))
+      get_logger().warning(
+        post_diagnostic("post_owner_directory_failed", error=e)
+      )
       return 1
 
   def _person_folder(self, owner_user_id: str):
@@ -404,7 +422,7 @@ class DouyinAwemeDownloader(Downloader):
       return database.find_person_folder(owner_user_id)
     except Exception as e:
       get_logger().warning(
-        "person directory lookup failed, use the account's own: {}".format(e)
+        post_diagnostic("post_owner_directory_failed", error=e)
       )
       return None
 
@@ -427,7 +445,9 @@ class DouyinAwemeDownloader(Downloader):
         database=self.config.get_config_dict_attr("$.database.name"),
       )
     except Exception as e:
-      get_logger().warning("person table unavailable: {}".format(e))
+      get_logger().warning(
+        post_diagnostic("post_persistence_unavailable", error=e)
+      )
       return None
     return self._person_database
 
@@ -507,9 +527,7 @@ class DouyinAwemeDownloader(Downloader):
     """
     if self.config.test_mode:
       get_logger().info(
-        "test mode enabled, skip post file download for {}".format(
-          detail.aweme_id
-        )
+        post_diagnostic("post_test_mode", aweme_id=detail.aweme_id)
       )
       return 0, 0
 
@@ -531,10 +549,10 @@ class DouyinAwemeDownloader(Downloader):
         ## the file this post already produced, possibly under an older caption
         ##
         get_logger().info(
-          "post {} {} already on disk as {}".format(
-            detail.aweme_id,
-            item.kind,
-            already,
+          post_diagnostic(
+            "post_already_present",
+            aweme_id=detail.aweme_id,
+            kind=item.kind,
           )
         )
         saved_count += 1
@@ -567,8 +585,17 @@ class DouyinAwemeDownloader(Downloader):
           fetched_count += 1
           existing_names.append(written.name)
       except Exception as e:
+        ##
+        ## A media fetch failure is a transport exception, and its message
+        ## quotes the signed media url it could not reach.
+        ##
         get_logger().warning(
-          "post {} {} failed: {}".format(detail.aweme_id, item.kind, e)
+          post_diagnostic(
+            "post_media_failed",
+            aweme_id=detail.aweme_id,
+            kind=item.kind,
+            error=e,
+          )
         )
       self.resolver.pause()
     return saved_count, fetched_count
@@ -624,9 +651,7 @@ class DouyinAwemeDownloader(Downloader):
         })
       else:
         get_logger().warning(
-          "post {} carries no owner id, skipping the owner row".format(
-            detail.aweme_id
-          )
+          post_diagnostic("post_owner_row_skipped", aweme_id=detail.aweme_id)
         )
       record = database.get_aweme_record_table_tuple().copy()
       record.update({
@@ -646,7 +671,7 @@ class DouyinAwemeDownloader(Downloader):
       database.upsert_aweme_record(record)
     except Exception as e:
       get_logger().warning(
-        "database persistence failed, files are kept: {}".format(e)
+        post_diagnostic("post_persistence_failed", error=e)
       )
       self._mark_database_unavailable()
 
@@ -681,7 +706,7 @@ class DouyinAwemeDownloader(Downloader):
       self._mark_database_unavailable()
       if self._database_warning_state != "unavailable":
         get_logger().warning(
-          "database unavailable, continue post download without database"
+          post_diagnostic("post_persistence_unavailable")
         )
         self._database_warning_state = "unavailable"
     return self.database
@@ -698,7 +723,7 @@ class DouyinAwemeDownloader(Downloader):
         state = "blocked" if snapshot is None else snapshot.state.value
         if self._database_warning_state != state:
           get_logger().warning(
-            "database persistence is {}, continue post download".format(state)
+            post_diagnostic("post_persistence_unavailable")
           )
           self._database_warning_state = state
         return None

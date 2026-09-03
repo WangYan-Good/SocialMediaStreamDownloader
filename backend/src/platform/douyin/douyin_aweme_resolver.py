@@ -12,6 +12,7 @@ from requests import request
 ##<<Third-part>>
 from backend.src.library.baselib import get_dict_attr
 from backend.src.library.loglib import get_logger
+from backend.src.library.safe_diagnostics import post_diagnostic
 from backend.src.platform.douyin.douyin_api import DouyinApi
 from backend.src.platform.douyin.douyin_aweme_config import DouyinAwemeConfig
 from backend.src.platform.douyin.douyin_aweme_external_info import (
@@ -346,8 +347,17 @@ class DouyinAwemeResolver:
       )
     except Exception as e:
       api_error = "{}: {}".format(type(e).__name__, e)
+      ##
+      ## ``api_error`` is kept on the resolution because a caller may show it to
+      ## the person who asked, and deliberately not written here: a transport
+      ## exception quotes the signed url it failed on.
+      ##
       get_logger().warning(
-        "detail api failed for aweme {}: {}".format(resolved_id, api_error)
+        post_diagnostic(
+          "post_detail_api_failed",
+          aweme_id=resolved_id,
+          error=e,
+        )
       )
 
     if not self.config.html_fallback:
@@ -384,10 +394,10 @@ class DouyinAwemeResolver:
     except Exception as e:
       html_error = "{}: {}".format(type(e).__name__, e)
       get_logger().error(
-        "both routes failed for aweme {}\n\tapi: {}\n\thtml: {}".format(
-          resolved_id,
-          api_error,
-          html_error,
+        post_diagnostic(
+          "post_html_fallback_failed",
+          aweme_id=resolved_id,
+          error=e,
         )
       )
       return AwemeResolution(

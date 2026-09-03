@@ -18,6 +18,7 @@ from dbutils.pooled_db   import PooledDB
 ## <<Third-Part>>
 from backend.src.library.baselib import output_dict
 from backend.src.library.loglib  import get_logger
+from backend.src.library.safe_diagnostics import persistence_diagnostic
 from backend.src.library.baselib import set_dict_attr
 from backend.src.database.schema_guard import (
   require_database_write_ready,
@@ -151,7 +152,9 @@ class SocialMediaStreamDataBase():
       ##
       self._initialized = True
     except Exception as e:
-      get_logger().error("数据库初始化失败: {}".format(e))
+      get_logger().error(
+        persistence_diagnostic("persistence_initialisation_failed", error=e)
+      )
       raise e
 
   ##
@@ -172,10 +175,21 @@ class SocialMediaStreamDataBase():
               cursorclass=pymysql.cursors.DictCursor,
               **self.__pool_config
             )
-            get_logger().info("数据库连接池初始化成功 - 主机: {}, 数据库: {}".format(
-              self.__host, self.__database))
+            ##
+            ## The host and the schema name are configuration, not a
+            ## diagnostic: an operator who needs them already has the file.
+            ## Repeating them into every log stream only widens where the
+            ## deployment topology is written down.
+            ##
+            get_logger().info(
+              persistence_diagnostic("persistence_pool_ready")
+            )
           except Exception as e:
-            get_logger().error("数据库连接池初始化失败: {}".format(e))
+            get_logger().error(
+              persistence_diagnostic(
+                "persistence_initialisation_failed", error=e
+              )
+            )
             raise e
 
 ##
@@ -211,7 +225,9 @@ class SocialMediaStreamDataBase():
     ##
     if self.__db_tables_instance is None or len(self.__db_tables_instance) == 0:
       set_dict_attr(self.__db_tables_instance, "$." + table_name, table_instance)
-      get_logger().info("database table {} instance is added!".format(table_name))
+      get_logger().info(
+        persistence_diagnostic("persistence_registered", table=table_name)
+      )
     return
 
   ##
@@ -237,7 +253,9 @@ class SocialMediaStreamDataBase():
 
     if table_name in self.__db_tables_instance:
       del self.__db_tables_instance[table_name]
-      get_logger().info("database table {} instance is removed".format(table_name))
+      get_logger().info(
+        persistence_diagnostic("persistence_unregistered", table=table_name)
+      )
     return
 
   ##
@@ -266,14 +284,26 @@ class SocialMediaStreamDataBase():
     try:
       yield conn
     except Exception as e:
-      get_logger().error("Database operation exception: {}".format(e))
+      ##
+      ## Every database operation in this process funnels through here, and
+      ## a driver exception carries the failing statement together with the
+      ## parameters bound into it. That is the row - a share url, a nickname,
+      ## a recording path - so only the class of the failure is written down.
+      ##
+      get_logger().error(
+        persistence_diagnostic("persistence_connection_failed", error=e)
+      )
       conn.rollback()
       raise
     finally:
       try:
         conn.close()  # 归还到连接池，不是真正关闭
       except Exception as e:
-        get_logger().warning("Fail to return the connection pool: {}".format(e))
+        get_logger().warning(
+          persistence_diagnostic(
+            "persistence_connection_returned_failed", error=e
+          )
+        )
 
   ##
   ## drop database table
@@ -293,7 +323,14 @@ class SocialMediaStreamDataBase():
           cursor.execute(sql)
           conn.commit()
     except Exception as e:
-      get_logger().error("ERROR: drop database table {} is failed! reason: {}".format(table_name, e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_table_dropped_failed",
+          table=table_name,
+          operation="drop",
+          error=e,
+        )
+      )
       raise e
 
   def require_write_ready(self) -> None:
@@ -315,7 +352,13 @@ class SocialMediaStreamDataBase():
             '''
       with self.get_connection() as conn:
         with conn.cursor() as cursor:
-          get_logger().debug(sql)
+          get_logger().debug(
+            persistence_diagnostic(
+              "persistence_queried",
+              table=table_name,
+              operation="query",
+            )
+          )
           cursor.execute(sql, (self.__database, table_name))
           result = cursor.fetchone()
       if result and result.get('COUNT(*)') == 1:
@@ -323,7 +366,14 @@ class SocialMediaStreamDataBase():
       else:
         return False
     except Exception as e:
-      get_logger().error("ERROR: check if table {} exists is failed! reason: {}".format(table_name, e))
+      get_logger().error(
+        persistence_diagnostic(
+          "persistence_schema_probe_failed",
+          table=table_name,
+          operation="query",
+          error=e,
+        )
+      )
       raise e
 
   ##
@@ -370,4 +420,8 @@ class SocialMediaStreamDataBase():
         self.__connection_pool = None
         get_logger().info("DB connect pool has been closed")
       except Exception as e:
-        get_logger().error("Fail to close DB connect pool: {}".format(e))
+        get_logger().error(
+          persistence_diagnostic(
+            "persistence_connection_returned_failed", error=e
+          )
+        )
