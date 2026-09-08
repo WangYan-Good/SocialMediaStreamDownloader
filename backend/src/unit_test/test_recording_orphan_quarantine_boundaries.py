@@ -244,6 +244,369 @@ class EveryFailureAfterTheLinkIsPartialCompletionTest(QuarantineTestCase):
     self.assertFalse(self.quarantine_root().exists())
 
 
+##
+## Fail ``os.close`` only once the move is *finished*.
+##
+## Armed by watching the two events that finish it, in order: the source name
+## being unlinked, and the first directory commit after that - which is the
+## source parent's. Everything the operator asked for has happened by then;
+## what is left is releasing descriptors.
+##
+## The distinction this exists to hold is not cosmetic. ``Incomplete`` tells an
+## operator "retry and it will finish", and after the commit there is nothing to
+## finish: the source name is durably gone, so a retry cannot even find the
+## candidate again and would answer with a refusal instead. Reporting a
+## completed destructive move as retry-required is worse than reporting nothing.
+##
+class fails_close_after_the_move_is_committed:
+  def __init__(self, error, source_name):
+    self.error = error
+    self.source_name = source_name
+    self.unlinked = False
+    self.armed = False
+    self._originals = {}
+
+  def __enter__(self):
+    owner = self
+    for name in ("unlink", "fsync", "close"):
+      self._originals[name] = getattr(os, name)
+
+    def watching_unlink(path, *arguments, **options):
+      result = owner._originals["unlink"](path, *arguments, **options)
+      if str(path) == owner.source_name:
+        owner.unlinked = True
+      return result
+
+    def watching_fsync(descriptor):
+      result = owner._originals["fsync"](descriptor)
+      ##
+      ## The first commit after the unlink is the source parent's, and it is the
+      ## last durable step of the move.
+      ##
+      if owner.unlinked:
+        owner.armed = True
+      return result
+
+    def failing_close(descriptor):
+      ##
+      ## Released first and reported afterwards, which is what a writeback error
+      ## surfacing at ``close`` really does - and the only way not to leak the
+      ## descriptor the test is about.
+      ##
+      owner._originals["close"](descriptor)
+      if owner.armed:
+        raise owner.error
+
+    os.unlink, os.fsync, os.close = watching_unlink, watching_fsync, failing_close
+    return self
+
+  def __exit__(self, *unused):
+    os.unlink = self._originals["unlink"]
+    os.fsync = self._originals["fsync"]
+    os.close = self._originals["close"]
+    return False
+
+
+class ACommittedMoveIsNotRetryRequiredTest(QuarantineTestCase):
+  ##
+  ## The third state, and the one the ``linked`` boundary alone cannot express.
+  ##
+  ## ``linked`` divides "nothing happened" from "half happened". It does not
+  ## divide "half happened" from "finished", and a failure released after the
+  ## source parent is committed falls on the wrong side of the only line there
+  ## was.
+  ##
+  def arrange(self):
+    inventory = self.inventory()
+    source = self.orphan()
+    candidate = self.only_candidate(inventory)
+    return inventory, source, candidate
+
+  def assert_fully_quarantined(self, source, candidate):
+    self.assertFalse(source.exists(), "the source name must be durably gone")
+
+    moved = [
+      path for path in self.quarantined_media()
+      if not path.name.startswith(".")
+    ]
+    self.assertEqual(1, len(moved), "the quarantined media must be there")
+
+    records = sorted(self.quarantine_root().glob("*.json"))
+    self.assertEqual(1, len(records), "the quarantine record must be there")
+    written = json.loads(records[0].read_text(encoding="utf-8"))
+
+    ##
+    ## The record has to describe *this* media, not merely exist beside it.
+    ##
+    self.assertEqual(candidate.relative_path, written["source_relative_path"])
+    self.assertEqual(moved[0].name, written["quarantined_name"])
+    self.assertEqual(candidate.size, written["size"])
+    self.assertEqual(candidate.mtime_ns, written["mtime_ns"])
+    self.assertEqual(os.stat(moved[0]).st_size, written["size"])
+
+  def test_a_close_failure_after_the_commit_still_reports_success(self):
+    inventory, source, candidate = self.arrange()
+
+    with fails_close_after_the_move_is_committed(
+      OSError(5, "input/output error"), source.name
+    ) as injector:
+      outcome = inventory.quarantine(candidate)
+
+    self.assertTrue(
+      injector.armed, "the injection never reached the committed state"
+    )
+    ##
+    ## Committed success: the same answer an uninterrupted move gives.
+    ##
+    self.assertTrue(outcome.quarantined)
+    self.assertEqual(candidate.relative_path, outcome.relative_path)
+    self.assert_fully_quarantined(source, candidate)
+
+  def test_a_close_failure_after_the_commit_is_never_incomplete(self):
+    inventory, source, candidate = self.arrange()
+
+    ##
+    ## Stated separately from the success assertion because this is the whole
+    ## defect: the move was reported as retry-required after it had finished.
+    ##
+    try:
+      with fails_close_after_the_move_is_committed(
+        OSError(5, "input/output error"), source.name
+      ):
+        inventory.quarantine(candidate)
+    except OrphanQuarantineIncomplete as e:
+      self.fail("a committed move was reported as retry-required: {}".format(e))
+    except OrphanQuarantineRefused as e:
+      self.fail("a committed move was reported as a refusal: {}".format(e))
+    except OSError as e:
+      self.fail("a raw storage error reached the caller: {!r}".format(e))
+
+  ##
+  ## And the operator's terminal says the same thing.
+  ##
+  def test_the_cli_reports_a_committed_move_as_success(self):
+    from backend.src.service.recording_orphan_cli import EXIT_OK
+
+    import io
+
+    from backend.src.service.recording_orphan_cli import main
+
+    inventory, source, candidate = self.arrange()
+    relative = str(source.relative_to(self.root))
+    out = io.StringIO()
+
+    with fails_close_after_the_move_is_committed(
+      OSError(5, "input/output error"), source.name
+    ):
+      code = main(
+        ["quarantine", relative, "--confirm"],
+        inventory_factory=lambda: inventory,
+        out=out,
+      )
+
+    printed = out.getvalue()
+    self.assertEqual(EXIT_OK, code, printed)
+    self.assertNotIn("incomplete", printed)
+    self.assertNotIn("OrphanQuarantineIncomplete", printed)
+    self.assertNotIn("Traceback", printed)
+    self.assertNotIn(str(self.root), printed)
+    self.assert_fully_quarantined(source, candidate)
+
+  ##
+  ## The commit boundary is the *successful* source-parent fsync, not the
+  ## unlink before it. A source name removed but not committed can come back
+  ## after a crash, which is a half-finished move and nothing else - so the
+  ## flag may not be set until the commit returns.
+  ##
+  def test_a_failing_source_parent_commit_is_still_a_partial_completion(self):
+    inventory, source, candidate = self.arrange()
+
+    unlinked = {"yes": False}
+    original_unlink, original_fsync = os.unlink, os.fsync
+
+    def watching_unlink(path, *arguments, **options):
+      result = original_unlink(path, *arguments, **options)
+      if str(path) == source.name:
+        unlinked["yes"] = True
+      return result
+
+    def failing_fsync(descriptor):
+      ##
+      ## Only the commit that follows the unlink - the source parent's, and the
+      ## last durable step there is.
+      ##
+      if unlinked["yes"]:
+        raise OSError(5, "input/output error")
+      return original_fsync(descriptor)
+
+    os.unlink, os.fsync = watching_unlink, failing_fsync
+    try:
+      with self.assertRaises(OrphanQuarantineIncomplete):
+        inventory.quarantine(candidate)
+    finally:
+      os.unlink, os.fsync = original_unlink, original_fsync
+
+    ##
+    ## And the media is safe either way: the quarantined name holds the bytes.
+    ##
+    moved = [
+      path for path in self.quarantined_media()
+      if not path.name.startswith(".")
+    ]
+    self.assertEqual(1, len(moved))
+
+  ##
+  ## The committed state is honoured in two independent places - the release
+  ## helper swallows what it can, and the guard around the whole attempt
+  ## catches whatever the helper did not. Each is tested on its own, because a
+  ## pair that only works together is a pair where either half can rot
+  ## unnoticed behind the other.
+  ##
+  ## This one is the guard: a failure after the commit that is *not* a
+  ## descriptor release, so the helper never sees it.
+  ##
+  def test_any_failure_after_the_commit_still_reports_the_completed_move(self):
+    from backend.src.service import recording_orphan as module
+
+    inventory, source, candidate = self.arrange()
+
+    ##
+    ## The audit line, which is the last thing between the commit and the
+    ## return. A logger that raises stands in for anything a later edit might
+    ## put there.
+    ##
+    original_get_logger = module.get_logger
+    committed = {"yes": False}
+    original_fsync = os.fsync
+
+    def watching_fsync(descriptor):
+      result = original_fsync(descriptor)
+      if not source.exists():
+        committed["yes"] = True
+      return result
+
+    class ExplodingLogger:
+      def warning(self, *unused, **also_unused):
+        if committed["yes"]:
+          raise RuntimeError("the log sink is gone")
+        return None
+
+    os.fsync = watching_fsync
+    module.get_logger = lambda: ExplodingLogger()
+    try:
+      outcome = inventory.quarantine(candidate)
+    finally:
+      module.get_logger = original_get_logger
+      os.fsync = original_fsync
+
+    self.assertTrue(committed["yes"], "the move never reached the commit")
+    self.assertTrue(outcome.quarantined)
+    self.assertEqual(candidate.relative_path, outcome.relative_path)
+    self.assert_fully_quarantined(source, candidate)
+
+  ##
+  ## And this one is the release helper, on its own terms: it decides what a
+  ## failed release *means*, and that decision is the other half.
+  ##
+  def test_the_release_helper_reports_before_the_commit_and_not_after(self):
+    from backend.src.service.recording_orphan import (
+      _QuarantineProgress,
+      _release_descriptors,
+    )
+
+    ##
+    ## Real descriptors, opened before ``os.close`` is replaced so the setup
+    ## does not run into the injection it is arranging.
+    ##
+    first_readable, first_writable = os.pipe()
+    second_readable, second_writable = os.pipe()
+
+    progress = _QuarantineProgress()
+    original_close = os.close
+
+    def failing_close(descriptor):
+      original_close(descriptor)
+      raise OSError(5, "input/output error")
+
+    os.close = failing_close
+    try:
+      ##
+      ## Before the commit a failed release is a real fault in the middle of a
+      ## half-finished move, and the caller has to hear about it.
+      ##
+      with self.assertRaises(OSError):
+        _release_descriptors(progress, first_readable, first_writable)
+
+      ##
+      ## After it, the same failure changes nothing on disk.
+      ##
+      progress.committed = True
+      _release_descriptors(progress, second_readable, second_writable)
+    finally:
+      os.close = original_close
+
+  ##
+  ## One cleanup failure must not strand the descriptors after it. A leak here
+  ## is unbounded: this command is run repeatedly against a library, and every
+  ## run would keep three.
+  ##
+  def test_every_descriptor_is_released_even_when_one_release_fails(self):
+    inventory, source, candidate = self.arrange()
+
+    opened, closed = [], []
+    original_open, original_close = os.open, os.close
+
+    def watching_open(path, flags, *arguments, **options):
+      descriptor = original_open(path, flags, *arguments, **options)
+      if flags & os.O_DIRECTORY:
+        opened.append(descriptor)
+      return descriptor
+
+    def failing_close(descriptor):
+      original_close(descriptor)
+      closed.append(descriptor)
+      raise OSError(5, "input/output error")
+
+    os.open = watching_open
+    try:
+      with fails_close_after_the_move_is_committed(
+        OSError(5, "input/output error"), source.name
+      ):
+        ##
+        ## Replace the injector's own close with one that fails for *every*
+        ## descriptor once armed, so the first failure is the one that could
+        ## strand the rest.
+        ##
+        armed_close = os.close
+
+        def failing_every_close(descriptor):
+          if getattr(failing_every_close, "armed", False):
+            return failing_close(descriptor)
+          return armed_close(descriptor)
+
+        os.close = failing_every_close
+        original_fsync = os.fsync
+
+        def arming_fsync(descriptor):
+          result = original_fsync(descriptor)
+          if not source.exists():
+            failing_every_close.armed = True
+          return result
+
+        os.fsync = arming_fsync
+        try:
+          inventory.quarantine(candidate)
+        finally:
+          os.fsync = original_fsync
+    finally:
+      os.open = original_open
+
+    stranded = [descriptor for descriptor in opened if descriptor not in closed]
+    self.assertEqual(
+      [], stranded, "a failing release stranded the descriptors after it"
+    )
+
+
 class RecordPublicationOrderTest(QuarantineTestCase):
   ##
   ## The required order is
