@@ -579,6 +579,8 @@ def prove_partial_completion(root):
           "inode": 1,
           "size": 1,
           "mtime_ns": 1,
+          "source_parent_device": 1,
+          "source_parent_inode": 1,
           "quarantined_at": "2026-09-04T00:00:00.000+00:00",
         }
       ).encode("utf-8"),

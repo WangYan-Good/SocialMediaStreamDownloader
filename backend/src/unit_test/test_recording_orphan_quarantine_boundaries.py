@@ -22,6 +22,7 @@
 ##
 import json
 import os
+from pathlib import Path
 import stat
 import unittest
 
@@ -717,6 +718,7 @@ class ExistingRecordIsAlwaysValidatedTest(QuarantineTestCase):
   def valid_payload(self, inventory, candidate, **overrides):
     from backend.src.service.recording_orphan import _RECORD_SCHEMA_VERSION
 
+    parent = os.stat(self.root / Path(candidate.relative_path).parent)
     payload = {
       "schema_version": _RECORD_SCHEMA_VERSION,
       "source_relative_path": candidate.relative_path,
@@ -725,6 +727,12 @@ class ExistingRecordIsAlwaysValidatedTest(QuarantineTestCase):
       "inode": candidate.inode,
       "size": candidate.size,
       "mtime_ns": candidate.mtime_ns,
+      ##
+      ## The real directory holding the source, so each case below still fails
+      ## on the field it overrode rather than on a missing parent identity.
+      ##
+      "source_parent_device": parent.st_dev,
+      "source_parent_inode": parent.st_ino,
       "quarantined_at": "2026-09-06T00:00:00.000+00:00",
     }
     payload.update(overrides)
@@ -893,6 +901,141 @@ class QuarantineCliReportsPartialCompletionTest(QuarantineTestCase):
     self.assertEqual(EXIT_REFUSED, code, printed)
     self.assertNotIn("Traceback", printed)
     self.assertTrue(source.exists(), "a refusal must leave the media alone")
+
+
+##
+## >>=========== the descriptors this module opens for itself ===========>>
+##
+##
+## ``_open_quarantine_root`` opens two descriptors and hands one back. The
+## anchor is its own and the child belongs to the caller, and the moment those
+## two facts live in the same ``try``/``finally`` the ownership transfer can be
+## interrupted half way: a ``finally`` that raises while releasing the anchor
+## aborts the ``return``, so the caller never receives the child it asked for
+## and nothing is left holding it.
+##
+## A read-only directory descriptor reporting ``EIO`` on close is unusual, not
+## impossible - and "unusual" is the whole population of failures this module
+## has spent two rounds proving it survives.
+##
+class QuarantineRootDescriptorOwnershipTest(QuarantineTestCase):
+  def test_an_anchor_close_failure_neither_strands_nor_refuses(self):
+    inventory = self.inventory()
+    source = self.orphan()
+    candidate = self.only_candidate(inventory)
+
+    from backend.src.service.recording_orphan import QUARANTINE_DIRECTORY_NAME
+
+    opened_directories = []
+    quarantine_children = []
+    anchors = []
+    closed = []
+    original_open, original_close = os.open, os.close
+
+    def watching_open(path, flags, *arguments, **options):
+      descriptor = original_open(path, flags, *arguments, **options)
+      if flags & os.O_DIRECTORY:
+        opened_directories.append(descriptor)
+      ##
+      ## The anchor is whatever directory the quarantine name was opened
+      ## *from*, identified as it happens rather than guessed at by name.
+      ##
+      if str(path) == QUARANTINE_DIRECTORY_NAME and "dir_fd" in options:
+        anchors.append(options["dir_fd"])
+        quarantine_children.append(descriptor)
+      return descriptor
+
+    ##
+    ## One shot per anchor. A closed descriptor number is immediately available
+    ## again, so a check that stayed armed would also fail the close of
+    ## whatever inherited the number next - which here is the record's own
+    ## temporary, and that failure would be a different test entirely.
+    ##
+    def failing_close(descriptor):
+      closed.append(descriptor)
+      original_close(descriptor)
+      if descriptor in anchors:
+        anchors.remove(descriptor)
+        raise OSError(5, "input/output error")
+
+    os.open, os.close = watching_open, failing_close
+    try:
+      outcome = inventory.quarantine(candidate)
+    finally:
+      os.open, os.close = original_open, original_close
+
+    ##
+    ## The anchor is this module's own bookkeeping. Failing to release it says
+    ## nothing about the move, so it may not turn a move into a refusal.
+    ##
+    self.assertTrue(outcome.quarantined)
+    self.assertFalse(source.exists())
+
+    self.assertTrue(
+      quarantine_children, "the quarantine root was not opened from an anchor"
+    )
+    ##
+    ## The descriptor the caller was handed must have been released, and so
+    ## must every other directory this run opened: one failure may not stop the
+    ## releases that come after it.
+    ##
+    ## Counted rather than merely looked up, because descriptor numbers are
+    ## recycled: a number opened twice and closed once is a leak that a
+    ## membership test would call clean.
+    ##
+    for descriptor in set(quarantine_children):
+      self.assertGreaterEqual(
+        closed.count(descriptor),
+        quarantine_children.count(descriptor),
+        "the quarantine descriptor was stranded",
+      )
+    for descriptor in set(opened_directories):
+      self.assertGreaterEqual(
+        closed.count(descriptor),
+        opened_directories.count(descriptor),
+        "a directory descriptor was stranded",
+      )
+
+  ##
+  ## And the same failure through the recovery, which opens the quarantine root
+  ## the same way and must likewise still finish.
+  ##
+  def test_an_anchor_close_failure_does_not_stop_the_recovery(self):
+    from backend.src.service.recording_orphan_cli import EXIT_OK
+
+    case = QuarantineRecoveryAfterSourceUnlinkTest("test_the_exact_inode_still_recovers")
+    case.setUp()
+    self.addCleanup(case.doCleanups)
+    inventory, source, relative = case.arrange_interrupted()
+
+    from backend.src.service.recording_orphan import QUARANTINE_DIRECTORY_NAME
+
+    anchors = []
+    closed = []
+    original_open, original_close = os.open, os.close
+
+    def watching_open(path, flags, *arguments, **options):
+      descriptor = original_open(path, flags, *arguments, **options)
+      if str(path) == QUARANTINE_DIRECTORY_NAME and "dir_fd" in options:
+        anchors.append(options["dir_fd"])
+      return descriptor
+
+    def failing_close(descriptor):
+      closed.append(descriptor)
+      original_close(descriptor)
+      if descriptor in anchors:
+        anchors.remove(descriptor)
+        raise OSError(5, "input/output error")
+
+    os.open, os.close = watching_open, failing_close
+    try:
+      code, printed = case.cli(inventory, "quarantine", relative, "--confirm")
+    finally:
+      os.open, os.close = original_open, original_close
+
+    self.assertEqual(EXIT_OK, code, printed)
+    self.assertNotIn("Traceback", printed)
+    self.assertNotIn(str(case.root), printed)
 
 
 if __name__ == "__main__":
@@ -1218,10 +1361,29 @@ class QuarantineRecoveryAfterSourceUnlinkTest(QuarantineTestCase):
   def test_a_source_parent_replaced_by_a_symlink_refuses(self):
     inventory, source, relative = self.arrange_interrupted()
     parent = source.parent
-    elsewhere = self.root / "douyin" / "live" / "elsewhere"
-    elsewhere.mkdir(parents=True, exist_ok=True)
-    parent.rmdir()
-    os.symlink(elsewhere, parent)
+
+    ##
+    ## A symlink pointing at the *very directory it replaced*, so following it
+    ## lands on the same inode the record names and the parent identity check
+    ## is satisfied by construction. The only thing left that can refuse this
+    ## is the rule that the walk descends component by component and never
+    ## follows a link - which is exactly what this pins, and nothing else here
+    ## can stand in for it.
+    ##
+    ##
+    ## Kept inside the recording root, so the containment rule is satisfied and
+    ## the traversal rule is the only thing left to refuse it. Pointing the
+    ## link outside would be caught a step earlier and would prove nothing
+    ## about the walk.
+    ##
+    moved = self.media_root / "the-real-parent"
+    parent.rename(moved)
+    os.symlink(moved, parent)
+    self.assertEqual(
+      os.stat(parent).st_ino,
+      os.stat(moved).st_ino,
+      "the link must resolve to the original directory",
+    )
 
     self.assert_refuses(inventory, relative, "a symlinked parent was accepted")
 
@@ -1543,6 +1705,141 @@ class QuarantineRecoveryAfterSourceUnlinkTest(QuarantineTestCase):
 
     self.assert_refuses_without_committing(
       inventory, source, relative, "a record claiming an older schema"
+    )
+
+  ##
+  ## >>======== the directory the unlink actually happened in ========>>
+  ##
+  ## The media identity proves *which file* was set aside. It says nothing
+  ## about *where the source name was removed from*, and that is the other half
+  ## of what this recovery is for: the only durable act left is committing the
+  ## directory that lost the name.
+  ##
+  ## A pathname is not a directory. Between the interrupted attempt and the
+  ## retry, the directory that held the source can be renamed away and a real
+  ## one - not a symlink, so no traversal rule refuses it - created in its
+  ## place. Committing *that* proves nothing about the unlink, which happened
+  ## in an inode this process can no longer reach by name.
+  ##
+
+  ##
+  ## Rename the source parent away and put a real, empty directory at its
+  ## pathname. Returns the two inodes, which the caller asserts differ.
+  ##
+  def substitute_the_source_parent(self, source):
+    parent = source.parent
+    original = os.stat(parent).st_ino
+    saved = self.root / "saved-original-parent"
+    parent.rename(saved)
+    parent.mkdir()
+    replacement = os.stat(parent).st_ino
+    self.assertNotEqual(
+      original, replacement, "the replacement must be a different directory"
+    )
+    self.assertFalse(
+      parent.is_symlink(), "the replacement must be a real directory"
+    )
+    self.assertFalse(
+      (parent / source.name).exists(), "the source name must stay absent"
+    )
+    return original, replacement
+
+  def test_a_replacement_directory_at_the_source_parent_is_never_committed(self):
+    from backend.src.service.recording_orphan_cli import EXIT_OK, EXIT_REFUSED
+
+    inventory, source, relative = self.arrange_interrupted()
+    original_inode, replacement_inode = self.substitute_the_source_parent(source)
+
+    media_before = os.stat(self.only_media())
+    record_before = self.only_record().read_bytes()
+    before = self.snapshot()
+
+    committed = []
+    original_fsync = os.fsync
+
+    def watching_fsync(descriptor):
+      try:
+        committed.append(os.fstat(descriptor).st_ino)
+      except OSError:
+        pass
+      return original_fsync(descriptor)
+
+    os.fsync = watching_fsync
+    try:
+      code, printed = self.cli(inventory, "quarantine", relative, "--confirm")
+    finally:
+      os.fsync = original_fsync
+
+    self.assertNotEqual(EXIT_OK, code, printed)
+    self.assertEqual(EXIT_REFUSED, code, printed)
+    ##
+    ## And above all: the replacement was never committed and called done.
+    ##
+    self.assertNotIn(
+      replacement_inode,
+      committed,
+      "a replacement directory was committed as the source parent",
+    )
+
+    ##
+    ## Nothing was copied, linked, renamed, overwritten or added anywhere.
+    ##
+    self.assertEqual(before, self.snapshot())
+    media_after = os.stat(self.only_media())
+    self.assertEqual(media_before.st_ino, media_after.st_ino)
+    self.assertEqual(record_before, self.only_record().read_bytes())
+    ##
+    ## And an operator is told a state, not a path or a storage error.
+    ##
+    self.assertNotIn("Traceback", printed)
+    self.assertNotIn(str(self.root), printed)
+
+  def test_a_record_disagreeing_about_the_source_parent_device_refuses(self):
+    inventory, source, relative = self.arrange_interrupted()
+    record = self.only_record()
+    payload = json.loads(record.read_text(encoding="utf-8"))
+    self.assertIn(
+      "source_parent_device", payload, "the record must persist the parent device"
+    )
+    payload["source_parent_device"] = payload["source_parent_device"] + 1
+    record.write_text(json.dumps(payload), encoding="utf-8")
+
+    self.assert_refuses_without_committing(
+      inventory, source, relative, "a source-parent device mismatch"
+    )
+
+  def test_a_record_disagreeing_about_the_source_parent_inode_refuses(self):
+    inventory, source, relative = self.arrange_interrupted()
+    record = self.only_record()
+    payload = json.loads(record.read_text(encoding="utf-8"))
+    self.assertIn(
+      "source_parent_inode", payload, "the record must persist the parent inode"
+    )
+    payload["source_parent_inode"] = payload["source_parent_inode"] + 1
+    record.write_text(json.dumps(payload), encoding="utf-8")
+
+    self.assert_refuses_without_committing(
+      inventory, source, relative, "a source-parent inode mismatch"
+    )
+
+  ##
+  ## A record of the current schema that simply lacks the parent identity.
+  ##
+  ## Isolated from the version gate on purpose: this must fail closed because
+  ## the proof is missing, not because the version is unfamiliar. The tempting
+  ## repair - read the parent this retry happens to have opened and fill the
+  ## gap with it - is exactly the substitution above, validating itself.
+  ##
+  def test_a_record_without_parent_identity_is_not_eligible_for_recovery(self):
+    inventory, source, relative = self.arrange_interrupted()
+    record = self.only_record()
+    payload = json.loads(record.read_text(encoding="utf-8"))
+    payload.pop("source_parent_device", None)
+    payload.pop("source_parent_inode", None)
+    record.write_text(json.dumps(payload), encoding="utf-8")
+
+    self.assert_refuses_without_committing(
+      inventory, source, relative, "a record without parent identity"
     )
 
   ##

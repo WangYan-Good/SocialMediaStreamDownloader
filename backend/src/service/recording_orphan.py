@@ -145,7 +145,24 @@ _RECORD_SUFFIX = ".json"
 ## missing device and inode from whatever media is present, which is precisely
 ## the substitution the check exists to catch, validating itself.
 ##
-_RECORD_SCHEMA_VERSION = 2
+##
+## Bumped to 3 when the record began carrying the identity of the directory the
+## source name was removed from.
+##
+## Version 2 could prove *which file* was set aside and nothing about *where
+## the unlink happened*. The only durable act left to an interrupted quarantine
+## is committing the directory that lost the name, and a pathname is not a
+## directory: rename the parent away, create a real one - not a symlink, so no
+## traversal rule refuses it - at the same pathname, and a retry would commit
+## that and call the move finished. The unlink happened in an inode the retry
+## can no longer reach by name.
+##
+## Version 2 never reached ``develop``; it exists only on this unmerged branch.
+## Bumping rather than extending it in place is still the right move, because
+## the rule that pays for itself here is that a record's version is its author's
+## statement about what its fields mean.
+##
+_RECORD_SCHEMA_VERSION = 3
 
 ##
 ## A record is a couple of hundred bytes. Anything larger is not one, and
@@ -169,6 +186,13 @@ _RECORD_IDENTITY_FIELDS = (
   "inode",
   "size",
   "mtime_ns",
+  ##
+  ## Which directory the source name was actually removed from. Not the file's
+  ## identity - the *unlink's* - and the only thing that makes committing a
+  ## directory during recovery mean anything.
+  ##
+  "source_parent_device",
+  "source_parent_inode",
 )
 
 
@@ -398,6 +422,18 @@ def _open_directory(name, parent=None):
 
 
 ##
+## A directory's identity, taken from an open descriptor.
+##
+## ``fstat`` rather than ``stat``: the answer has to be about the directory that
+## was actually opened and is about to be used, not about whatever the pathname
+## refers to when the question is asked again.
+##
+def _directory_identity(descriptor):
+  info = os.fstat(descriptor)
+  return (info.st_dev, info.st_ino)
+
+
+##
 ## Open the quarantine directory as what it is: a child of the storage root.
 ##
 ## Never ``_open_directory(root / QUARANTINE_DIRECTORY_NAME)``. That form treats
@@ -413,14 +449,32 @@ def _open_directory(name, parent=None):
 ## would have one, and ``resolve()``/``realpath()`` would answer about a path
 ## rather than about the object finally opened.
 ##
+##
+## The anchor is this function's own and the child belongs to the caller, and
+## the transfer between those two facts is written out rather than left to a
+## ``finally``. ``try: return child finally: os.close(anchor)`` reads as if it
+## releases one descriptor and hands over the other, and does that only while
+## nothing goes wrong: a ``finally`` that raises abandons the ``return``, so the
+## caller never receives the child and nothing is left holding it.
+##
+## The anchor's release is therefore attempted and its failure dropped. It is a
+## read-only directory descriptor opened for one traversal step; whether it
+## closed cleanly says nothing about the move, and letting it speak would turn
+## a completed quarantine into a refusal.
+##
 def _open_quarantine_root(root):
   anchor = _open_directory(root)
   if anchor is None:
     return None
+  child = None
   try:
-    return _open_directory(QUARANTINE_DIRECTORY_NAME, parent=anchor)
+    child = _open_directory(QUARANTINE_DIRECTORY_NAME, parent=anchor)
   finally:
-    os.close(anchor)
+    try:
+      os.close(anchor)
+    except OSError:
+      pass
+  return child
 
 
 ##
@@ -1211,8 +1265,15 @@ class RecordingOrphanInventory:
       _sync_directory(
         quarantine_descriptor, failure=OrphanQuarantineIncomplete
       )
+      ##
+      ## Which directory this move is about to remove the source name from,
+      ## read from the very descriptor the unlink below uses. A later retry has
+      ## only the pathname, and a pathname can be made to mean a different
+      ## directory - so what the record has to carry is the inode.
+      ##
+      source_parent = _directory_identity(parent)
       self._publish_record(
-        quarantine_descriptor, destination_name, candidate
+        quarantine_descriptor, destination_name, candidate, source_parent
       )
       ##
       ## Only now, with a record on disk that has been read back and proved
@@ -1431,6 +1492,17 @@ class RecordingOrphanInventory:
       ## is gone, so this is the only evidence left that the record describes
       ## the file this request is about.
       ##
+      ##
+      ## The directory this retry has actually opened, by identity rather than
+      ## by the pathname that reached it. The interrupted attempt unlinked the
+      ## source from one specific inode, and committing anything else would be
+      ## a durability proof about a directory that never held the name.
+      ##
+      ## A real directory - not a symlink - created at the same pathname is
+      ## refused here and nowhere else: every traversal rule above it is
+      ## satisfied, because there is nothing wrong with it except that it is
+      ## not the one.
+      ##
       try:
         self._require_record_describes(
           record,
@@ -1442,10 +1514,12 @@ class RecordingOrphanInventory:
             inode=info.st_ino,
             mtime_ns=info.st_mtime_ns,
           ),
+          _directory_identity(parent),
         )
       except OrphanQuarantineIncomplete as e:
         raise OrphanQuarantineRefused(
-          "an interrupted quarantine's record does not describe its media"
+          "an interrupted quarantine's record does not describe this media "
+          "and the directory its source was removed from"
         ) from e
 
       if dry_run:
@@ -1560,7 +1634,8 @@ class RecordingOrphanInventory:
   ## a field is not needed to put the file back by hand, it is not written.
   ##
   @staticmethod
-  def _record_payload(destination_name, candidate) -> bytes:
+  def _record_payload(destination_name, candidate, source_parent) -> bytes:
+    parent_device, parent_inode = source_parent
     text = json.dumps(
       {
         "schema_version": _RECORD_SCHEMA_VERSION,
@@ -1578,6 +1653,14 @@ class RecordingOrphanInventory:
         "inode": candidate.inode,
         "size": candidate.size,
         "mtime_ns": candidate.mtime_ns,
+        ##
+        ## The directory this move will unlink the source name from, taken by
+        ## ``fstat`` from the descriptor the unlink itself uses. Never resolved
+        ## from a path: the pathname is precisely what a later retry cannot
+        ## trust, which is the reason this field exists.
+        ##
+        "source_parent_device": parent_device,
+        "source_parent_inode": parent_inode,
         "quarantined_at": datetime.now(timezone.utc).isoformat(
           timespec="milliseconds"
         ),
@@ -1672,11 +1755,14 @@ class RecordingOrphanInventory:
   ## whose only description belongs to a different one.
   ##
   @staticmethod
-  def _require_record_describes(payload, destination_name, candidate):
+  def _require_record_describes(
+    payload, destination_name, candidate, source_parent
+  ):
     if payload.get("schema_version") != _RECORD_SCHEMA_VERSION:
       raise OrphanQuarantineIncomplete(
         "an existing quarantine record was written by another version"
       )
+    parent_device, parent_inode = source_parent
     expected = {
       "source_relative_path": candidate.relative_path,
       "quarantined_name": destination_name,
@@ -1684,6 +1770,14 @@ class RecordingOrphanInventory:
       "inode": candidate.inode,
       "size": candidate.size,
       "mtime_ns": candidate.mtime_ns,
+      ##
+      ## Observed from the descriptor this caller is holding, never read back
+      ## out of the record it is checking. Filling a missing field from the
+      ## directory a retry happens to have opened is what would let a
+      ## substituted directory validate itself.
+      ##
+      "source_parent_device": parent_device,
+      "source_parent_inode": parent_inode,
     }
     for field in _RECORD_IDENTITY_FIELDS:
       if payload.get(field) != expected[field]:
@@ -1705,15 +1799,19 @@ class RecordingOrphanInventory:
   ## a previous attempt got this far and the move may continue, and anything
   ## else stops it with the source still in place.
   ##
-  def _publish_record(self, destination_parent, destination_name, candidate):
+  def _publish_record(
+    self, destination_parent, destination_name, candidate, source_parent
+  ):
     final = destination_name + _RECORD_SUFFIX
 
     existing = self._read_record(destination_parent, final)
     if existing is not None:
-      self._require_record_describes(existing, destination_name, candidate)
+      self._require_record_describes(
+        existing, destination_name, candidate, source_parent
+      )
       return
 
-    payload = self._record_payload(destination_name, candidate)
+    payload = self._record_payload(destination_name, candidate, source_parent)
     temporary = ".{}-{}.part".format(destination_name, os.urandom(8).hex())
     flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW | _O_CLOEXEC
     try:
@@ -1758,7 +1856,9 @@ class RecordingOrphanInventory:
           raise OrphanQuarantineIncomplete(
             "the quarantine record vanished while it was being published"
           )
-        self._require_record_describes(concurrent, destination_name, candidate)
+        self._require_record_describes(
+          concurrent, destination_name, candidate, source_parent
+        )
 
       ##
       ## Committed before anything else in this directory is touched, and in

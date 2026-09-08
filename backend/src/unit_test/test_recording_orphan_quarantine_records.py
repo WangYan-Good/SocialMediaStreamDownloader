@@ -258,6 +258,7 @@ class QuarantineRecordPublicationTest(QuarantineTestCase):
     inventory = self.inventory()
     source = self.orphan()
     candidate = self.only_candidate(inventory)
+    parent = os.stat(source.parent)
     self.plant_record(
       inventory,
       candidate,
@@ -275,6 +276,8 @@ class QuarantineRecordPublicationTest(QuarantineTestCase):
           "inode": candidate.inode,
           "size": candidate.size,
           "mtime_ns": candidate.mtime_ns,
+          "source_parent_device": parent.st_dev,
+          "source_parent_inode": parent.st_ino,
           "quarantined_at": "2026-09-04T00:00:00.000+00:00",
         }
       ).encode("utf-8"),
