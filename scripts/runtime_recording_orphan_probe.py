@@ -24,6 +24,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from backend.src.service import recording_orphan as orphan_module
 from backend.src.service.recording_orphan import (
   QUARANTINE_DIRECTORY_NAME,
+  _RECORD_SCHEMA_VERSION,
   OrphanQuarantineIncomplete,
   OrphanQuarantineRefused,
   OrphanScanOverflow,
@@ -566,9 +567,16 @@ def prove_partial_completion(root):
       "conflicting",
       json.dumps(
         {
-          "schema_version": 1,
+          ##
+          ## The current schema, so this proves the *identity* check refuses a
+          ## record describing another file rather than the version check
+          ## refusing an old one.
+          ##
+          "schema_version": _RECORD_SCHEMA_VERSION,
           "source_relative_path": "douyin/live/somebody-else/other.flv",
           "quarantined_name": "whatever",
+          "device": 1,
+          "inode": 1,
           "size": 1,
           "mtime_ns": 1,
           "quarantined_at": "2026-09-04T00:00:00.000+00:00",

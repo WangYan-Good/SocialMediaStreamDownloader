@@ -132,7 +132,20 @@ MAX_REFERENCED_RECORDINGS = 50000
 ## Every byte written here is metadata about one moved file.
 ##
 _RECORD_SUFFIX = ".json"
-_RECORD_SCHEMA_VERSION = 1
+##
+## Bumped to 2 when the record began carrying the device and inode.
+##
+## Version 1 stored only the size and the modification time, and those are not
+## an identity: ``os.utime`` sets the nanosecond and the size is chosen by
+## whoever writes the bytes, so any regular file can be made to match. A record
+## that cannot name the inode cannot prove which file it was written for.
+##
+## Old records are still readable - an operator can inspect one - but they are
+## never enough to *finish* a move with. The alternative would be to take the
+## missing device and inode from whatever media is present, which is precisely
+## the substitution the check exists to catch, validating itself.
+##
+_RECORD_SCHEMA_VERSION = 2
 
 ##
 ## A record is a couple of hundred bytes. Anything larger is not one, and
@@ -152,6 +165,8 @@ _RECORD_MAX_BYTES = 4096
 _RECORD_IDENTITY_FIELDS = (
   "source_relative_path",
   "quarantined_name",
+  "device",
+  "inode",
   "size",
   "mtime_ns",
 )
@@ -380,6 +395,32 @@ def _open_directory(name, parent=None):
     raise OrphanInventoryUnavailable(
       "recording media directory is unusable ({})".format(type(e).__name__)
     ) from e
+
+
+##
+## Open the quarantine directory as what it is: a child of the storage root.
+##
+## Never ``_open_directory(root / QUARANTINE_DIRECTORY_NAME)``. That form treats
+## the quarantine name as a trust anchor and so opens it without ``O_NOFOLLOW``,
+## which is right for the configured root - an operator may legitimately point
+## it at a symlinked mount - and wrong for everything underneath it. This
+## directory is created and owned by this service; a link planted at its name is
+## somebody redirecting where a destructive command reads its evidence from.
+##
+## Descriptor-relative for the same reason the rest of this module is: the root
+## is opened once and the child is opened *from that descriptor*, so there is no
+## window between checking a path and using it. An ``lstat``-then-open sequence
+## would have one, and ``resolve()``/``realpath()`` would answer about a path
+## rather than about the object finally opened.
+##
+def _open_quarantine_root(root):
+  anchor = _open_directory(root)
+  if anchor is None:
+    return None
+  try:
+    return _open_directory(QUARANTINE_DIRECTORY_NAME, parent=anchor)
+  finally:
+    os.close(anchor)
 
 
 ##
@@ -1130,8 +1171,8 @@ class RecordingOrphanInventory:
           quarantined=False,
         )
 
-      quarantine_root = self._ensure_quarantine_root(root)
-      quarantine_descriptor = _open_directory(quarantine_root)
+      self._ensure_quarantine_root(root)
+      quarantine_descriptor = _open_quarantine_root(root)
       if quarantine_descriptor is None:
         raise OrphanQuarantineRefused("the quarantine directory could not be opened")
       ##
@@ -1346,7 +1387,7 @@ class RecordingOrphanInventory:
       else:
         return None
 
-      quarantine_descriptor = _open_directory(root / QUARANTINE_DIRECTORY_NAME)
+      quarantine_descriptor = _open_quarantine_root(root)
       if quarantine_descriptor is None:
         return None
 
@@ -1525,6 +1566,16 @@ class RecordingOrphanInventory:
         "schema_version": _RECORD_SCHEMA_VERSION,
         "source_relative_path": candidate.relative_path,
         "quarantined_name": destination_name,
+        ##
+        ## The identity of the *file*, taken from the candidate this move
+        ## already re-proved against an open descriptor - never from whatever
+        ## happens to be at the destination when somebody reads this back.
+        ##
+        ## The media is a hard link, so these are the quarantined file's device
+        ## and inode as much as the source's: one inode, two names.
+        ##
+        "device": candidate.device,
+        "inode": candidate.inode,
         "size": candidate.size,
         "mtime_ns": candidate.mtime_ns,
         "quarantined_at": datetime.now(timezone.utc).isoformat(
@@ -1629,6 +1680,8 @@ class RecordingOrphanInventory:
     expected = {
       "source_relative_path": candidate.relative_path,
       "quarantined_name": destination_name,
+      "device": candidate.device,
+      "inode": candidate.inode,
       "size": candidate.size,
       "mtime_ns": candidate.mtime_ns,
     }

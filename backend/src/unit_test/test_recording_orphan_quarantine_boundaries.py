@@ -565,7 +565,6 @@ class ACommittedMoveIsNotRetryRequiredTest(QuarantineTestCase):
 
     def failing_close(descriptor):
       original_close(descriptor)
-      closed.append(descriptor)
       raise OSError(5, "input/output error")
 
     os.open = watching_open
@@ -580,7 +579,13 @@ class ACommittedMoveIsNotRetryRequiredTest(QuarantineTestCase):
         ##
         armed_close = os.close
 
+        ##
+        ## Recorded on every close, not only the failing ones: a descriptor
+        ## released before the injection arms is released all the same, and
+        ## counting only the armed ones would report it as stranded.
+        ##
         def failing_every_close(descriptor):
+          closed.append(descriptor)
           if getattr(failing_every_close, "armed", False):
             return failing_close(descriptor)
           return armed_close(descriptor)
@@ -703,11 +708,21 @@ class ExistingRecordIsAlwaysValidatedTest(QuarantineTestCase):
     record.write_bytes(content)
     return record
 
+  ##
+  ## The current schema, built from the current candidate, so each test below
+  ## fails on the one field it overrode rather than on the version. Hard-coding
+  ## a version number here would quietly turn every case into a schema test the
+  ## day the schema moves.
+  ##
   def valid_payload(self, inventory, candidate, **overrides):
+    from backend.src.service.recording_orphan import _RECORD_SCHEMA_VERSION
+
     payload = {
-      "schema_version": 1,
+      "schema_version": _RECORD_SCHEMA_VERSION,
       "source_relative_path": candidate.relative_path,
       "quarantined_name": record_name_of(inventory, candidate)[:-5],
+      "device": candidate.device,
+      "inode": candidate.inode,
       "size": candidate.size,
       "mtime_ns": candidate.mtime_ns,
       "quarantined_at": "2026-09-06T00:00:00.000+00:00",
@@ -1174,17 +1189,19 @@ class QuarantineRecoveryAfterSourceUnlinkTest(QuarantineTestCase):
   def test_quarantine_media_replaced_by_a_symlink_refuses(self):
     inventory, unused_source, relative = self.arrange_interrupted()
     media = self.only_media()
-    identity = os.stat(media)
 
     ##
-    ## Deliberately indistinguishable by identity: same bytes, same size, same
-    ## modification time to the nanosecond. Nothing the record stores can tell
-    ## these apart, so the only thing that can refuse it is the type guard -
-    ## which is exactly what this pins.
+    ## A symlink to a second name for the *very same inode*, so device, inode,
+    ## size and modification time all match the record exactly. Nothing the
+    ## record stores can tell these apart - by construction there is nothing to
+    ## tell apart - and the only thing left that can refuse it is the rule that
+    ## the quarantined name must be a regular file reached without following a
+    ## link. That rule is what this pins, and nothing else here can stand in
+    ## for it.
     ##
     elsewhere = self.root / "planted.flv"
-    elsewhere.write_bytes(media.read_bytes())
-    os.utime(elsewhere, ns=(identity.st_mtime_ns, identity.st_mtime_ns))
+    os.link(media, elsewhere)
+    self.assertEqual(os.stat(media).st_ino, os.stat(elsewhere).st_ino)
     media.unlink()
     os.symlink(elsewhere, media)
 
@@ -1308,6 +1325,227 @@ class QuarantineRecoveryAfterSourceUnlinkTest(QuarantineTestCase):
 
     code, printed = self.cli(inventory, "quarantine", relative, "--confirm")
     self.assertEqual(EXIT_OK, code, printed)
+
+  ##
+  ## >>========= substituting what the recovery reads its proof from =========>>
+  ##
+  ## Everything above proves the recovery refuses when the *record* is wrong.
+  ## These two attack the other side: the record is left exactly as published
+  ## and what it points at is swapped underneath it.
+  ##
+
+  ##
+  ## Run a recovery and prove it neither succeeded nor committed anything.
+  ##
+  ## The commit is the assertion that matters. A refusal that had already
+  ## fsynced the source parent would have declared the move finished on disk
+  ## before deciding it could not prove it.
+  ##
+  def assert_refuses_without_committing(self, inventory, source, relative, why):
+    parent_inode = os.stat(source.parent).st_ino
+    committed = []
+    original_fsync = os.fsync
+
+    def watching_fsync(descriptor):
+      try:
+        committed.append(os.fstat(descriptor).st_ino)
+      except OSError:
+        pass
+      return original_fsync(descriptor)
+
+    os.fsync = watching_fsync
+    try:
+      outcome = None
+      raised = None
+      try:
+        outcome = inventory.complete_quarantine(relative)
+      except OrphanQuarantineRefused as e:
+        raised = e
+    finally:
+      os.fsync = original_fsync
+
+    if raised is None:
+      self.assertIsNone(
+        outcome, "{}: the recovery reported success".format(why)
+      )
+    self.assertNotIn(
+      parent_inode,
+      committed,
+      "{}: the source parent was committed before the proof failed".format(why),
+    )
+
+  ##
+  ## I1. The quarantine directory is a child of the storage root, not a trust
+  ## anchor of its own.
+  ##
+  ## The configured root is what an operator nominated, and it may legitimately
+  ## be a symlinked mount. Everything *below* it is this service's own, so a
+  ## directory symlink planted at the quarantine name is somebody redirecting
+  ## where a destructive command reads its evidence from - and following it
+  ## would let a directory nobody nominated vouch for a move.
+  ##
+  def test_a_symlinked_quarantine_root_is_never_followed(self):
+    inventory, source, relative = self.arrange_interrupted()
+
+    ##
+    ## The real quarantine, moved aside intact - so the symlink target holds
+    ## media and a record that would otherwise validate perfectly.
+    ##
+    quarantine = self.quarantine_root()
+    elsewhere = self.root / "somewhere-else"
+    quarantine.rename(elsewhere)
+    os.symlink(elsewhere, quarantine)
+
+    before = sorted(
+      (path.name, os.lstat(path).st_ino) for path in elsewhere.iterdir()
+    )
+
+    self.assert_refuses_without_committing(
+      inventory, source, relative, "a symlinked quarantine root"
+    )
+
+    ##
+    ## And the target is exactly as it was: not read into, not written, not
+    ## touched.
+    ##
+    self.assertEqual(
+      before,
+      sorted((path.name, os.lstat(path).st_ino) for path in elsewhere.iterdir()),
+    )
+    self.assertTrue(quarantine.is_symlink(), "the planted link must survive")
+
+  ##
+  ## I2. Size and time are not an identity.
+  ##
+  ## A record that stores only size and mtime cannot tell the media it was
+  ## written for from any other regular file with the same two numbers - and
+  ## both are trivially forgeable: ``os.utime`` sets the nanosecond, and the
+  ## size is chosen by whoever writes the bytes. The recovery then fsyncs a
+  ## directory and reports a completed move against a file nobody quarantined.
+  ##
+  def test_media_replaced_by_a_different_inode_with_the_same_size_and_time(self):
+    inventory, source, relative = self.arrange_interrupted()
+
+    media = self.only_media()
+    original = os.stat(media)
+    record_before = self.only_record().read_bytes()
+
+    ##
+    ## A different file, forged to match on everything the old record stored.
+    ##
+    media.unlink()
+    media.write_bytes(b"x" * original.st_size)
+    os.utime(media, ns=(original.st_mtime_ns, original.st_mtime_ns))
+    substituted = os.stat(media)
+
+    self.assertEqual(original.st_size, substituted.st_size)
+    self.assertEqual(original.st_mtime_ns, substituted.st_mtime_ns)
+    self.assertNotEqual(
+      original.st_ino, substituted.st_ino, "the substitution must be a new inode"
+    )
+
+    self.assert_refuses_without_committing(
+      inventory, source, relative, "a same-size same-mtime substitution"
+    )
+    ##
+    ## The record is evidence, and the recovery does not rewrite evidence it
+    ## could not verify.
+    ##
+    self.assertEqual(record_before, self.only_record().read_bytes())
+
+  def test_a_record_disagreeing_about_the_device_refuses(self):
+    inventory, source, relative = self.arrange_interrupted()
+    record = self.only_record()
+    payload = json.loads(record.read_text(encoding="utf-8"))
+    self.assertIn("device", payload, "the record must persist the device")
+    payload["device"] = payload["device"] + 1
+    record.write_text(json.dumps(payload), encoding="utf-8")
+
+    self.assert_refuses_without_committing(
+      inventory, source, relative, "a device mismatch"
+    )
+
+  def test_a_record_disagreeing_about_the_inode_refuses(self):
+    inventory, source, relative = self.arrange_interrupted()
+    record = self.only_record()
+    payload = json.loads(record.read_text(encoding="utf-8"))
+    self.assertIn("inode", payload, "the record must persist the inode")
+    payload["inode"] = payload["inode"] + 1
+    record.write_text(json.dumps(payload), encoding="utf-8")
+
+    self.assert_refuses_without_committing(
+      inventory, source, relative, "an inode mismatch"
+    )
+
+  ##
+  ## A record from before strong identity existed. Readable, so an operator can
+  ## still inspect it - and never enough to finish a move with, because the one
+  ## thing it cannot prove is the one thing that matters here.
+  ##
+  ## Identity is never manufactured from whatever media happens to be present:
+  ## that would make a substitution validate itself.
+  ##
+  def test_a_record_without_strong_identity_is_not_eligible_for_recovery(self):
+    inventory, source, relative = self.arrange_interrupted()
+    record = self.only_record()
+    payload = json.loads(record.read_text(encoding="utf-8"))
+
+    ##
+    ## Exactly the shape the previous schema published.
+    ##
+    legacy = {
+      "schema_version": 1,
+      "source_relative_path": payload["source_relative_path"],
+      "quarantined_name": payload["quarantined_name"],
+      "size": payload["size"],
+      "mtime_ns": payload["mtime_ns"],
+      "quarantined_at": payload["quarantined_at"],
+    }
+    record.write_text(json.dumps(legacy), encoding="utf-8")
+
+    self.assert_refuses_without_committing(
+      inventory, source, relative, "a record without strong identity"
+    )
+
+  ##
+  ## The version gate on its own.
+  ##
+  ## The case above refuses because an old record is *missing* the identity.
+  ## This one hands over a record that matches on every field this build checks
+  ## and still claims the older schema - so the only thing left that can refuse
+  ## it is the version itself.
+  ##
+  ## A record's version is its author's statement about what its fields mean. A
+  ## build that reinterprets one it did not write is guessing, and guessing is
+  ## how a field that used to mean something else quietly authorises a move.
+  ##
+  def test_a_record_claiming_an_older_schema_is_refused_even_when_it_matches(self):
+    inventory, source, relative = self.arrange_interrupted()
+    record = self.only_record()
+    payload = json.loads(record.read_text(encoding="utf-8"))
+
+    self.assertNotEqual(1, payload["schema_version"])
+    payload["schema_version"] = 1
+    record.write_text(json.dumps(payload), encoding="utf-8")
+
+    self.assert_refuses_without_committing(
+      inventory, source, relative, "a record claiming an older schema"
+    )
+
+  ##
+  ## And the whole point of persisting it: the real thing still works.
+  ##
+  def test_the_exact_inode_still_recovers(self):
+    from backend.src.service.recording_orphan_cli import EXIT_OK
+
+    inventory, source, relative = self.arrange_interrupted()
+    media_inode = os.stat(self.only_media()).st_ino
+
+    code, printed = self.cli(inventory, "quarantine", relative, "--confirm")
+
+    self.assertEqual(EXIT_OK, code, printed)
+    self.assertEqual(media_inode, os.stat(self.only_media()).st_ino)
+    self.assertFalse(source.exists())
 
   ##
   ## >>=========== the source coming back, which is not recovery ===========>>

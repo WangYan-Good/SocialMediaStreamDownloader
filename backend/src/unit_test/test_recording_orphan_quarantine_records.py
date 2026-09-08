@@ -34,6 +34,7 @@ from pathlib import Path
 import unittest
 
 from backend.src.service.recording_orphan import (
+  _RECORD_SCHEMA_VERSION,
   OrphanQuarantineIncomplete,
   OrphanQuarantineRefused,
 )
@@ -262,9 +263,16 @@ class QuarantineRecordPublicationTest(QuarantineTestCase):
       candidate,
       json.dumps(
         {
-          "schema_version": 1,
+          ##
+          ## The current schema on purpose: this case is about a record that
+          ## describes a *different file*, so it must not be refused merely for
+          ## being from another version.
+          ##
+          "schema_version": _RECORD_SCHEMA_VERSION,
           "source_relative_path": "douyin/live/somebody-else/other.flv",
           "quarantined_name": record_name_of(inventory, candidate)[:-5],
+          "device": candidate.device,
+          "inode": candidate.inode,
           "size": candidate.size,
           "mtime_ns": candidate.mtime_ns,
           "quarantined_at": "2026-09-04T00:00:00.000+00:00",
