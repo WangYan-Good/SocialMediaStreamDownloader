@@ -8,7 +8,9 @@ from copy import deepcopy
 ##<<Extension>>
 
 ##<<Third-part>>
-from backend.src.library.baselib import set_dict_attr, output_dict, get_dict_attr
+from backend.src.library.baselib import set_dict_attr, get_dict_attr
+from backend.src.library.loglib import get_logger
+from backend.src.library.safe_diagnostics import config_diagnostic
 DEFAULT_REFERER = "https://www.douyin.com/"
 DEFAULT_USERR_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36"
 
@@ -46,10 +48,23 @@ class Header(ABC):
   ##
   ## Dump header config
   ##
+  ##
+  ## Deliberately dumps nothing.
+  ##
+  ## A header *is* the credential: on a logged-in deployment it carries the
+  ## request ``Cookie`` and, where one is configured, ``Authorization``.
+  ## ``output_dict`` ``print``s, so this went to stdout with no log level in
+  ## front of it - a deployment could not have turned it down if it wanted to.
+  ##
   @abstractmethod
   def dump_header(self):
-    get_logger().info("Header configuration:")
-    output_dict(self._header)
+    get_logger().info(
+      config_diagnostic(
+        "config_dumped",
+        section="header",
+        total=len(self._header) if isinstance(self._header, dict) else 0,
+      )
+    )
 
   ##
   ## get header dict attr

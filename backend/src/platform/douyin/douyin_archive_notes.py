@@ -5,6 +5,7 @@ from pathlib import Path
 
 ##<<Third-part>>
 from backend.src.library.loglib import get_logger
+from backend.src.library.safe_diagnostics import post_diagnostic
 
 
 ##
@@ -44,7 +45,15 @@ def _write_text(path: Path, text: str) -> bool:
     path.write_text(text, encoding="utf-8")
     return True
   except OSError as e:
-    get_logger().warning("could not write {}: {}".format(path, e))
+    ##
+    ## Never the path.  It is absolute, and its last two segments are the
+    ## broadcaster's directory and the post's own name - which is to say a note
+    ## that could not be written would announce in the log what it was about.
+    ## The class of the failure is what an operator can act on.
+    ##
+    get_logger().warning(
+      post_diagnostic("post_note_write_failed", error=e, state=False)
+    )
     return False
 
 

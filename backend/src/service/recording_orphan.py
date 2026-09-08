@@ -224,6 +224,25 @@ class OrphanScan:
 ## What one quarantine attempt did. ``quarantined`` is false for a dry run,
 ## which is the only way this returns without having moved anything.
 ##
+##
+## How far one quarantine attempt got, in the only terms the contract cares
+## about.
+##
+## Mutable and deliberately not a return value: the fact has to survive an
+## exception unwinding out of a ``finally``, which is precisely the path a
+## return cannot travel.
+##
+class _QuarantineProgress:
+  __slots__ = ("linked",)
+
+  def __init__(self):
+    ##
+    ## True once the media is reachable under its quarantined name - by this
+    ## attempt's own link or by one an interrupted earlier attempt made.
+    ##
+    self.linked = False
+
+
 @dataclass(frozen=True)
 class QuarantineOutcome:
   relative_path: str
@@ -985,6 +1004,71 @@ class RecordingOrphanInventory:
         )
       ) from e
 
+    ##
+    ## One shared record of how far this attempt actually got, because the
+    ## answer decides what every failure below is *called*. It is a mutable
+    ## holder rather than a local so the guard around the whole attempt can
+    ## read it after the stack it was set on has unwound - including from a
+    ## ``finally`` that failed while releasing a descriptor.
+    ##
+    progress = _QuarantineProgress()
+    try:
+      return self._quarantine_attempt(
+        candidate, root, media_root, claimed, dry_run, progress
+      )
+    except OrphanQuarantineIncomplete:
+      raise
+    except OrphanQuarantineRefused as e:
+      ##
+      ## A refusal raised after the media was published would be a false one.
+      ## Nothing in this module raises one there today; restating it is what
+      ## keeps that true when something later does.
+      ##
+      if not progress.linked:
+        raise
+      raise OrphanQuarantineIncomplete(
+        "the media is quarantined but the move did not finish ({}); "
+        "retrying completes it".format(type(e).__name__)
+      ) from e
+    except Exception as e:
+      ##
+      ## The backstop, and the reason it catches ``Exception`` rather than
+      ## ``OSError``: what a failure is called has to follow from what is true
+      ## on disk, not from which exception family the failing helper happened
+      ## to belong to. A descriptor close reporting ``EIO`` from a ``finally``,
+      ## an entropy source that is not there, a helper raising ``ValueError``
+      ## after a later edit - all of them leave the same second name for the
+      ## same bytes, so all of them are the same partial completion.
+      ##
+      ## ``BaseException`` is deliberately not caught: a ``KeyboardInterrupt``
+      ## is the operator, not a storage state, and swallowing it into a report
+      ## would be worse than the traceback.
+      ##
+      if progress.linked:
+        raise OrphanQuarantineIncomplete(
+          "the media is quarantined but the move did not finish ({}); "
+          "retrying completes it".format(type(e).__name__)
+        ) from e
+      ##
+      ## Before the link nothing durable exists, so the honest word is refusal
+      ## - and saying it here is what stops a raw ``OSError`` reaching an
+      ## operator's terminal as a traceback.
+      ##
+      raise OrphanQuarantineRefused(
+        "the quarantine could not be started ({})".format(type(e).__name__)
+      ) from e
+
+  ##
+  ## One attempt, from the last refusal to the committed unlink.
+  ##
+  ## Split out so the guard above can wrap *everything* this does, the
+  ## descriptor releases in its ``finally`` blocks included. Those are the
+  ## easiest place for a storage failure to escape whatever maps failures onto
+  ## the two words this module is allowed to say.
+  ##
+  def _quarantine_attempt(
+    self, candidate, root, media_root, claimed, dry_run, progress
+  ) -> QuarantineOutcome:
     file_descriptor, parent, resolved = self._reopen_candidate(
       candidate, root, media_root
     )
@@ -1027,37 +1111,38 @@ class RecordingOrphanInventory:
         ## so nothing below may be reported as a refusal - the word has to keep
         ## meaning "nothing was created" or it is worthless.
         ##
-        ## Every failure from here is a partial completion: safe, lossless, and
-        ## fixed by retrying. The bare ``OSError`` catch is the backstop, so a
-        ## storage error nobody anticipated cannot escape as a traceback either.
+        ## Recorded before anything else is attempted, and recorded even for
+        ## the link a *previous* attempt made: an ``EEXIST`` that matched this
+        ## inode means the media is already published, which is the same
+        ## durable fact arrived at earlier.
+        ##
+        progress.linked = True
+
+        ##
+        ## Every failure from here is a partial completion: safe, lossless and
+        ## fixed by retrying. There is deliberately no mapping here any more -
+        ## the guard in ``quarantine`` wraps this whole call, so the descriptor
+        ## releases below are inside it too.
+        ##
+        _sync_directory(
+          quarantine_descriptor, failure=OrphanQuarantineIncomplete
+        )
+        self._publish_record(
+          quarantine_descriptor, destination_name, candidate
+        )
+        ##
+        ## Only now, with a record on disk that has been read back and proved
+        ## to describe this exact file, may the original name go.
         ##
         try:
-          _sync_directory(
-            quarantine_descriptor, failure=OrphanQuarantineIncomplete
-          )
-          self._publish_record(
-            quarantine_descriptor, destination_name, candidate
-          )
+          os.unlink(Path(candidate.relative_path).name, dir_fd=parent)
+        except FileNotFoundError:
           ##
-          ## Only now, with a record on disk that has been read back and proved
-          ## to describe this exact file, may the original name go.
+          ## An earlier attempt removed it and failed afterwards. The move is
+          ## further along than this attempt thought, not broken.
           ##
-          try:
-            os.unlink(Path(candidate.relative_path).name, dir_fd=parent)
-          except FileNotFoundError:
-            ##
-            ## An earlier attempt removed it and failed afterwards. The move is
-            ## further along than this attempt thought, not broken.
-            ##
-            pass
-          _sync_directory(parent, failure=OrphanQuarantineIncomplete)
-        except OrphanQuarantineIncomplete:
-          raise
-        except OSError as e:
-          raise OrphanQuarantineIncomplete(
-            "the media is quarantined but the move did not finish ({}); "
-            "retrying completes it".format(type(e).__name__)
-          ) from e
+          pass
+        _sync_directory(parent, failure=OrphanQuarantineIncomplete)
       finally:
         os.close(quarantine_descriptor)
     finally:
@@ -1314,7 +1399,6 @@ class RecordingOrphanInventory:
         )
       ) from e
 
-    published = False
     try:
       try:
         written = 0
@@ -1349,7 +1433,19 @@ class RecordingOrphanInventory:
             "the quarantine record vanished while it was being published"
           )
         self._require_record_describes(concurrent, destination_name, candidate)
-      published = True
+
+      ##
+      ## Committed before anything else in this directory is touched, and in
+      ## particular before the temporary goes.
+      ##
+      ## The order matters and is not interchangeable. Removing the temporary
+      ## first folds the publication and the removal into one uncommitted
+      ## directory change, so a crash between them can lose the final name that
+      ## was the whole point. Committing first makes the record durable and
+      ## demotes a leftover temporary to hygiene - which is what the ``finally``
+      ## below then deals with, on every path including this one failing.
+      ##
+      _sync_directory(destination_parent, failure=OrphanQuarantineIncomplete)
     except OrphanQuarantineIncomplete:
       raise
     except OSError as e:
@@ -1368,9 +1464,6 @@ class RecordingOrphanInventory:
         os.unlink(temporary, dir_fd=destination_parent)
       except OSError:
         pass
-
-    if published:
-      _sync_directory(destination_parent, failure=OrphanQuarantineIncomplete)
 
 
 ##

@@ -292,6 +292,10 @@ _POST_EVENTS = frozenset({
   "post_owner_directory_failed",
   "post_owner_directory_resolved",
   "post_owner_row_skipped",
+  "post_config_lookup_failed",
+  "post_job_scheduled_failed",
+  "post_note_write_failed",
+  "post_ownership_failed",
   "post_page_capped",
   "post_parameters_failed",
   "post_partially_saved",
@@ -302,7 +306,25 @@ _POST_EVENTS = frozenset({
   "post_response_saved",
   "post_share_link_failed",
   "post_skipped",
+  "post_task_not_created",
+  "post_task_report_failed",
   "post_test_mode",
+  "post_token_unavailable",
+})
+
+##
+## What one task-layer call was trying to do. Closed, because ``action`` used to
+## be a sentence the caller composed and a sentence is a place to smuggle a
+## value.
+##
+_POST_OPERATIONS = frozenset({
+  "advance_progress",
+  "create",
+  "finish",
+  "link_ownership",
+  "record_result",
+  "schedule",
+  "start",
 })
 
 ##
@@ -317,6 +339,8 @@ def post_diagnostic(
   *,
   url=None,
   status=None,
+  operation=None,
+  task_id=None,
   aweme_id=None,
   owner_user_id=None,
   kind=None,
@@ -348,6 +372,19 @@ def post_diagnostic(
       status if type(status) is int and 100 <= status <= 599 else UNKNOWN
     )
     fields.append("status={}".format(safe_status))
+  if operation is not None:
+    fields.append(
+      "operation={}".format(
+        operation if operation in _POST_OPERATIONS else UNKNOWN
+      )
+    )
+  if task_id is not None:
+    ##
+    ## This service's own task id, not anything the platform said. Checked
+    ## through the same strict identifier rule anyway, so a future caller that
+    ## reaches for this field with a url or a title gets ``unknown``.
+    ##
+    fields.append("task_id={}".format(_safe_identifier(task_id)))
   if aweme_id is not None:
     fields.append("aweme_id={}".format(_safe_identifier(aweme_id)))
   if owner_user_id is not None:
@@ -365,3 +402,113 @@ def post_diagnostic(
   if state is not None:
     fields.append("state={}".format(_safe_flag(state)))
   return "post diagnostic " + " ".join(fields)
+
+
+##
+## >>==================== configuration diagnostics ====================>>
+##
+##
+## The fourth surface, and the one that is not about a request at all.
+##
+## A downloader is assembled from four objects - a header, a login, an api and a
+## configuration section - and each of them grew a ``dump`` that wrote every key
+## and value it held. Between them they hold the request ``Cookie``, the
+## ``Authorization`` header, ``msToken``, ``verifyFp`` and ``a_bogus``: the whole
+## of what makes a request work as this account.
+##
+## Two of those dumps did not even go through the logger. ``output_dict``
+## ``print``s, so ``$.log.level`` never applied to them - a deployment could not
+## have turned them down if it wanted to.
+##
+## There is no safe rendering of a credential holder, so this builder does not
+## offer one. It says an object was dumped, which section it was, how many
+## entries it had and - where something failed - which exception class. Nothing
+## here can carry a key, a value or a message.
+##
+_CONFIG_EVENTS = frozenset({
+  "config_apply_failed",
+  "config_dumped",
+  "config_lookup_failed",
+  "config_token_unavailable",
+})
+
+##
+## The objects that have one of these. Closed, so this cannot become a place to
+## render a name somebody chose.
+##
+_CONFIG_SECTIONS = frozenset({
+  "api",
+  "aweme",
+  "header",
+  "live_header",
+  "login",
+  "post",
+  "post_header",
+  "proxies",
+  "share_header",
+})
+
+
+def config_diagnostic(
+  event: str,
+  *,
+  section=None,
+  total=None,
+  error=None,
+  state=None,
+) -> str:
+  """Build one closed-field diagnostic about a configuration-holding object.
+
+  No mapping, ``**kwargs`` or free-text parameter, and deliberately no field
+  that renders a key or a value. A header dict, a login section, a proxy
+  mapping or an exception message has no argument to arrive through.
+  """
+  if event not in _CONFIG_EVENTS:
+    raise ValueError("unsupported configuration diagnostic event")
+
+  fields = ["event={}".format(event)]
+  if section is not None:
+    fields.append(
+      "section={}".format(section if section in _CONFIG_SECTIONS else UNKNOWN)
+    )
+  if total is not None:
+    fields.append("total={}".format(_safe_count(total)))
+  if error is not None:
+    fields.append("error={}".format(_error_class(error)))
+  if state is not None:
+    fields.append("state={}".format(_safe_flag(state)))
+  return "configuration diagnostic " + " ".join(fields)
+
+
+##
+## >>====================== redirect diagnostics ======================>>
+##
+##
+## The share-link redirect boundary is reached from both halves of the product -
+## the live prober, the post resolver, the resource resolver and the owner
+## routes - so it gets its own two words rather than borrowing a label that
+## would be wrong for half its callers.
+##
+## Same discipline, one field: a url is rendered as its hostname and never as
+## anything else. A short link's *path* is the share token, and a redirect
+## target's query is where a signed request keeps its signature.
+##
+_REDIRECT_EVENTS = frozenset({
+  "redirect_refused",
+  "redirect_request_failed",
+})
+
+
+def redirect_diagnostic(event: str, *, url=None, error=None, state=None) -> str:
+  """Build one closed-field diagnostic about a platform redirect hop."""
+  if event not in _REDIRECT_EVENTS:
+    raise ValueError("unsupported redirect diagnostic event")
+
+  fields = ["event={}".format(event)]
+  if url is not None:
+    fields.append("host={}".format(safe_url_host(url)))
+  if error is not None:
+    fields.append("error={}".format(_error_class(error)))
+  if state is not None:
+    fields.append("state={}".format(_safe_flag(state)))
+  return "redirect diagnostic " + " ".join(fields)

@@ -6,7 +6,8 @@ sys.path.append(os.getcwd())
 
 ##<<Third-part>>
 from backend.src.base.header     import Header
-from backend.src.library.baselib import output_dict, get_dict_attr, set_dict_attr
+from backend.src.library.baselib import get_dict_attr, set_dict_attr
+from backend.src.library.safe_diagnostics import config_diagnostic
 from backend.src.library.loglib  import get_logger
 
 class DouyinHeader(Header):
@@ -39,8 +40,19 @@ class DouyinHeader(Header):
   ##
   ## Dump header config
   ##
+  ##
+  ## Counted, never listed. A header carries the request ``Cookie`` on a
+  ## logged-in deployment, and ``output_dict`` wrote it to stdout - where no
+  ## ``$.log.level`` reaches it. This one is the base for all of them.
+  ##
   def dump_header(self):
-    output_dict(self._header)
+    get_logger().info(
+      config_diagnostic(
+        "config_dumped",
+        section="header",
+        total=len(self._header) if isinstance(self._header, dict) else 0,
+      )
+    )
 
   ##
   ## get header dict attr
@@ -65,7 +77,15 @@ class DouyinHeader(Header):
       from f2.apps.douyin.utils import TokenManager as TM
       return TM.gen_real_msToken()
     except Exception as e:
-      get_logger().warning("f2 TokenManager unavailable, use empty msToken: {}".format(e))
+      ##
+      ## An import failure here quotes the module path it tried, and a token
+      ## generation failure quotes what it was generating from.
+      ##
+      get_logger().warning(
+        config_diagnostic(
+          "config_token_unavailable", section="login", error=e, state=False
+        )
+      )
       return ""
 
 ##
@@ -101,9 +121,19 @@ class DouyinShareHeader(DouyinHeader):
   ##
   ## Dump header config
   ##
+  ##
+  ## Counted, never listed. A header carries the request ``Cookie`` on a
+  ## logged-in deployment, and ``output_dict`` wrote it to stdout - where no
+  ## ``$.log.level`` reaches it. This one is the share url header.
+  ##
   def dump_header(self):
-    get_logger().info("Douyin share url header configuration:")
-    output_dict(self._header)
+    get_logger().info(
+      config_diagnostic(
+        "config_dumped",
+        section="share_header",
+        total=len(self._header) if isinstance(self._header, dict) else 0,
+      )
+    )
 
   ##
   ## get header dict attr
@@ -175,9 +205,19 @@ class DouyinLiveInfoHeader(DouyinHeader):
   ##
   ## Dump header config
   ##  
+  ##
+  ## Counted, never listed. A header carries the request ``Cookie`` on a
+  ## logged-in deployment, and ``output_dict`` wrote it to stdout - where no
+  ## ``$.log.level`` reaches it. This one is the live info header.
+  ##
   def dump_header(self):
-    get_logger().info("Douyin live info header configuration:")
-    output_dict(self._header)
+    get_logger().info(
+      config_diagnostic(
+        "config_dumped",
+        section="live_header",
+        total=len(self._header) if isinstance(self._header, dict) else 0,
+      )
+    )
 
   ##
   ## get header dict attr
@@ -258,9 +298,19 @@ class DouyinPostInfoHeader(DouyinHeader):
   ##
   ## Dump header config
   ##  
+  ##
+  ## Counted, never listed. A header carries the request ``Cookie`` on a
+  ## logged-in deployment, and ``output_dict`` wrote it to stdout - where no
+  ## ``$.log.level`` reaches it. This one is the post path's own.
+  ##
   def dump_header(self):
-    get_logger().info("Douyin live info header configuration:")
-    output_dict(self._header)
+    get_logger().info(
+      config_diagnostic(
+        "config_dumped",
+        section="post_header",
+        total=len(self._header) if isinstance(self._header, dict) else 0,
+      )
+    )
 
   ##
   ## get header dict attr
