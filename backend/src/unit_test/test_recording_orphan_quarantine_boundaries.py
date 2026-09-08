@@ -1433,9 +1433,22 @@ class QuarantineRecoveryAfterSourceUnlinkTest(QuarantineTestCase):
     ##
     ## A different file, forged to match on everything the old record stored.
     ##
+    ## Built under its own name *while the original still exists*, then linked
+    ## into place. Unlinking first and writing to the same name is how this test
+    ## used to be written, and it is not reliable: the filesystem is free to
+    ## hand the just-freed inode straight back, so the "substitute" arrived with
+    ## the very inode it was meant to differ from. Holding both at once makes a
+    ## distinct inode a property of the arrangement rather than a hope.
+    ##
+    substitute = self.root / "substitute.flv"
+    substitute.write_bytes(b"x" * original.st_size)
+    os.utime(substitute, ns=(original.st_mtime_ns, original.st_mtime_ns))
     media.unlink()
-    media.write_bytes(b"x" * original.st_size)
-    os.utime(media, ns=(original.st_mtime_ns, original.st_mtime_ns))
+    os.link(substitute, media)
+    ##
+    ## Leaving one name only, so the quarantine looks exactly as it did.
+    ##
+    substitute.unlink()
     substituted = os.stat(media)
 
     self.assertEqual(original.st_size, substituted.st_size)
