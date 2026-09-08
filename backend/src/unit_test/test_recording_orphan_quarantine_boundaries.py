@@ -22,6 +22,7 @@
 ##
 import json
 import os
+import stat
 import unittest
 
 from backend.src.service.recording_orphan import (
@@ -881,3 +882,526 @@ class QuarantineCliReportsPartialCompletionTest(QuarantineTestCase):
 
 if __name__ == "__main__":
   unittest.main()
+
+
+##
+## >>========= finishing a move whose source name is already gone =========>>
+##
+##
+## The state the ``committed`` flag named but nothing could leave.
+##
+## After the source unlink succeeds and the source parent's commit does not,
+## the move is one fsync short of finished - and ``Incomplete`` tells the
+## operator to run the command again. That instruction was not true. The name
+## the candidate was found under no longer exists, so the next scan does not
+## find it, and the same command answered REFUSED: the one state that most
+## needed a recovery path was the one that had none.
+##
+## What follows is that path, and the whole of it is about proving the thing
+## being finished is the thing that was started. The source is gone, so there
+## is nothing left to compare against; the only evidence is the quarantined
+## media and the record beside it, and both have to be re-proved from scratch
+## before a single durable action is taken. Anything that cannot be proved
+## fails closed, because the alternative - treating "the source is missing" as
+## "the move must have worked" - would report success for a file somebody else
+## deleted.
+##
+class QuarantineRecoveryAfterSourceUnlinkTest(QuarantineTestCase):
+  def cli(self, inventory, *argv):
+    import io
+
+    from backend.src.service.recording_orphan_cli import main
+
+    out = io.StringIO()
+    code = main(list(argv), inventory_factory=lambda: inventory, out=out)
+    return code, out.getvalue()
+
+  ##
+  ## Drive one real quarantine to the exact point the defect lives at: source
+  ## unlinked, source parent not committed.
+  ##
+  def interrupt_at_the_source_parent_commit(self, inventory, source, relative):
+    unlinked = {"yes": False}
+    original_unlink, original_fsync = os.unlink, os.fsync
+
+    def watching_unlink(path, *arguments, **options):
+      result = original_unlink(path, *arguments, **options)
+      if str(path) == source.name:
+        unlinked["yes"] = True
+      return result
+
+    def failing_fsync(descriptor):
+      if unlinked["yes"]:
+        raise OSError(5, "input/output error")
+      return original_fsync(descriptor)
+
+    os.unlink, os.fsync = watching_unlink, failing_fsync
+    try:
+      code, printed = self.cli(inventory, "quarantine", relative, "--confirm")
+    finally:
+      os.unlink, os.fsync = original_unlink, original_fsync
+    return code, printed
+
+  def arrange_interrupted(self):
+    from backend.src.service.recording_orphan_cli import EXIT_INCOMPLETE
+
+    inventory = self.inventory()
+    source = self.orphan()
+    relative = str(source.relative_to(self.root))
+
+    code, printed = self.interrupt_at_the_source_parent_commit(
+      inventory, source, relative
+    )
+
+    self.assertEqual(EXIT_INCOMPLETE, code, printed)
+    ##
+    ## And the state the second invocation has to work from.
+    ##
+    self.assertFalse(source.exists(), "the source name must already be gone")
+    media = self.only_media()
+    self.assertTrue(media.is_file())
+    record = self.only_record()
+    written = json.loads(record.read_text(encoding="utf-8"))
+    self.assertEqual(relative, written["source_relative_path"])
+    self.assertEqual(media.name, written["quarantined_name"])
+    self.assertEqual(os.stat(media).st_size, written["size"])
+    return inventory, source, relative
+
+  def only_media(self):
+    media = [
+      path for path in self.quarantined_media()
+      if not path.name.startswith(".")
+    ]
+    self.assertEqual(1, len(media))
+    return media[0]
+
+  def only_record(self):
+    records = sorted(self.quarantine_root().glob("*.json"))
+    self.assertEqual(1, len(records))
+    return records[0]
+
+  ##
+  ## Everything under the root, by identity rather than by name, so "nothing
+  ## was recreated, copied, overwritten or added" is one assertion instead of
+  ## eight.
+  ##
+  def snapshot(self):
+    entries = {}
+    for path in sorted(self.root.rglob("*")):
+      info = os.lstat(path)
+      entries[str(path.relative_to(self.root))] = (
+        stat.S_IFMT(info.st_mode),
+        info.st_ino,
+        info.st_size,
+        info.st_mtime_ns,
+      )
+    return entries
+
+  ##
+  ## >>=================== the recovery, end to end ===================>>
+  ##
+
+  def test_the_same_command_run_again_finishes_the_move(self):
+    from backend.src.service.recording_orphan_cli import EXIT_OK
+
+    inventory, source, relative = self.arrange_interrupted()
+    before = self.snapshot()
+    record_bytes = self.only_record().read_bytes()
+    media_identity = os.stat(self.only_media())
+
+    ##
+    ## The missing commit has to actually happen, and on the source's own
+    ## parent - not on some other directory that would satisfy a call counter.
+    ##
+    parent_inode = os.stat(source.parent).st_ino
+    committed_parents = []
+    original_fsync = os.fsync
+
+    def watching_fsync(descriptor):
+      try:
+        committed_parents.append(os.fstat(descriptor).st_ino)
+      except OSError:
+        pass
+      return original_fsync(descriptor)
+
+    ##
+    ## Nothing may be linked, renamed or created this time round.
+    ##
+    original_link, original_rename = os.link, os.rename
+    forbidden = []
+    os.link = lambda *a, **k: forbidden.append("link")
+    os.rename = lambda *a, **k: forbidden.append("rename")
+    os.fsync = watching_fsync
+    try:
+      code, printed = self.cli(inventory, "quarantine", relative, "--confirm")
+    finally:
+      os.fsync, os.link, os.rename = original_fsync, original_link, original_rename
+
+    self.assertEqual(EXIT_OK, code, printed)
+    self.assertEqual([], forbidden, "the retry created or moved something")
+    self.assertIn(
+      parent_inode,
+      committed_parents,
+      "the missing source-parent commit was never performed",
+    )
+
+    ##
+    ## Nothing on disk changed: not the media, not the record, not one extra
+    ## file. A commit is the only thing this was allowed to do.
+    ##
+    self.assertEqual(before, self.snapshot())
+    self.assertEqual(record_bytes, self.only_record().read_bytes())
+    self.assertEqual(media_identity.st_ino, os.stat(self.only_media()).st_ino)
+    self.assertFalse(source.exists())
+
+    ##
+    ## And it says nothing an operator should not paste into a ticket.
+    ##
+    self.assertNotIn(str(self.root), printed)
+    self.assertNotIn("Traceback", printed)
+    self.assertNotIn("OSError", printed)
+
+  ##
+  ## The recovery writes no row and infers no owner, so it has no reason to ask
+  ## the claim authorities anything - and a repository that refuses every
+  ## question must not change its answer.
+  ##
+  ## Driven against the service rather than the command: the CLI still has to
+  ## scan first to find out whether the path is an ordinary candidate, and that
+  ## scan legitimately needs the database. What is being proved here is that
+  ## the recovery itself does not.
+  ##
+  def test_the_recovery_itself_never_consults_the_claim_authorities(self):
+    inventory, source, relative = self.arrange_interrupted()
+
+    self.references.error = RuntimeError("the database is down")
+    outcome = inventory.complete_quarantine(relative)
+
+    self.assertIsNotNone(outcome)
+    self.assertTrue(outcome.quarantined)
+    self.assertEqual(relative, outcome.relative_path)
+    self.assertFalse(source.exists())
+
+  ##
+  ## >>================== and everything that must refuse ==================>>
+  ##
+  ## The recovery's whole risk is that "the source is missing" is the easiest
+  ## condition in the world to satisfy - somebody deleting a recording by hand
+  ## satisfies it. So each case below removes exactly one piece of the proof
+  ## and requires the answer to stop being success.
+  ##
+
+  def assert_refuses(self, inventory, relative, why):
+    from backend.src.service.recording_orphan_cli import EXIT_OK
+
+    code, printed = self.cli(inventory, "quarantine", relative, "--confirm")
+    self.assertNotEqual(EXIT_OK, code, "{}: {}".format(why, printed))
+    self.assertNotIn(str(self.root), printed)
+    self.assertNotIn("Traceback", printed)
+    return code, printed
+
+  def test_a_corrupt_record_refuses_to_finish_the_move(self):
+    inventory, unused_source, relative = self.arrange_interrupted()
+    self.only_record().write_bytes(b'{"schema_version":1,"sou')
+
+    self.assert_refuses(inventory, relative, "a corrupt record was accepted")
+
+  def test_a_record_describing_a_different_size_refuses(self):
+    inventory, unused_source, relative = self.arrange_interrupted()
+    record = self.only_record()
+    payload = json.loads(record.read_text(encoding="utf-8"))
+    payload["size"] = payload["size"] + 1
+    record.write_text(json.dumps(payload), encoding="utf-8")
+
+    self.assert_refuses(inventory, relative, "a size mismatch was accepted")
+
+  def test_a_record_describing_a_different_mtime_refuses(self):
+    inventory, unused_source, relative = self.arrange_interrupted()
+    record = self.only_record()
+    payload = json.loads(record.read_text(encoding="utf-8"))
+    payload["mtime_ns"] = payload["mtime_ns"] + 1
+    record.write_text(json.dumps(payload), encoding="utf-8")
+
+    self.assert_refuses(inventory, relative, "an mtime mismatch was accepted")
+
+  def test_a_record_naming_a_different_source_path_refuses(self):
+    inventory, unused_source, relative = self.arrange_interrupted()
+    record = self.only_record()
+    payload = json.loads(record.read_text(encoding="utf-8"))
+    payload["source_relative_path"] = "douyin/live/somebody-else/other.flv"
+    record.write_text(json.dumps(payload), encoding="utf-8")
+
+    self.assert_refuses(inventory, relative, "a foreign record was accepted")
+
+  ##
+  ## Half a quarantine is not a quarantine, and the refusal has to be a
+  ## *decision* rather than a rescue.
+  ##
+  ## Both halves are checked explicitly before anything tries to read identity
+  ## out of them. Without that check the code still refuses - but it refuses
+  ## because it crashed on a record that is not there, and "the system happened
+  ## to fall over safely" is not the same guarantee as "the system checked".
+  ## The cause chain is what tells them apart: a decided refusal has none.
+  ##
+  def assert_decided_refusal(self, inventory, relative, why):
+    from backend.src.service.recording_orphan import OrphanQuarantineRefused
+
+    with self.assertRaises(OrphanQuarantineRefused) as caught:
+      inventory.complete_quarantine(relative)
+    self.assertIsNone(
+      caught.exception.__cause__,
+      "{}: the refusal was rescued from {!r} rather than decided".format(
+        why, caught.exception.__cause__
+      ),
+    )
+    return caught.exception
+
+  def test_a_missing_record_refuses_even_though_the_media_is_there(self):
+    inventory, source, relative = self.arrange_interrupted()
+    self.only_record().unlink()
+
+    self.assert_refuses(inventory, relative, "media without a record was accepted")
+    self.assert_decided_refusal(inventory, relative, "a missing record")
+    self.assertFalse(source.exists())
+
+  def test_missing_quarantine_media_refuses_even_though_a_record_is_there(self):
+    inventory, unused_source, relative = self.arrange_interrupted()
+    self.only_media().unlink()
+
+    self.assert_refuses(inventory, relative, "a record without media was accepted")
+    self.assert_decided_refusal(inventory, relative, "missing media")
+
+  def test_quarantine_media_replaced_by_a_symlink_refuses(self):
+    inventory, unused_source, relative = self.arrange_interrupted()
+    media = self.only_media()
+    identity = os.stat(media)
+
+    ##
+    ## Deliberately indistinguishable by identity: same bytes, same size, same
+    ## modification time to the nanosecond. Nothing the record stores can tell
+    ## these apart, so the only thing that can refuse it is the type guard -
+    ## which is exactly what this pins.
+    ##
+    elsewhere = self.root / "planted.flv"
+    elsewhere.write_bytes(media.read_bytes())
+    os.utime(elsewhere, ns=(identity.st_mtime_ns, identity.st_mtime_ns))
+    media.unlink()
+    os.symlink(elsewhere, media)
+
+    self.assert_refuses(inventory, relative, "a symlinked media was accepted")
+
+  def test_quarantine_media_replaced_by_a_different_file_refuses(self):
+    inventory, unused_source, relative = self.arrange_interrupted()
+    media = self.only_media()
+    media.unlink()
+    media.write_bytes(b"a different broadcast entirely")
+
+    self.assert_refuses(inventory, relative, "substituted media was accepted")
+
+  def test_a_source_parent_replaced_by_a_symlink_refuses(self):
+    inventory, source, relative = self.arrange_interrupted()
+    parent = source.parent
+    elsewhere = self.root / "douyin" / "live" / "elsewhere"
+    elsewhere.mkdir(parents=True, exist_ok=True)
+    parent.rmdir()
+    os.symlink(elsewhere, parent)
+
+    self.assert_refuses(inventory, relative, "a symlinked parent was accepted")
+
+  ##
+  ## A path nobody ever quarantined. The old message, unchanged: the recovery
+  ## must not turn "there is nothing here" into an answer of its own.
+  ##
+  def test_a_path_that_was_never_quarantined_still_reports_no_candidate(self):
+    from backend.src.service.recording_orphan_cli import EXIT_REFUSED
+
+    inventory = self.inventory()
+    self.orphan()
+
+    code, printed = self.cli(
+      inventory, "quarantine", "douyin/live/nobody/never.flv", "--confirm"
+    )
+
+    self.assertEqual(EXIT_REFUSED, code)
+    self.assertIn("no current orphan candidate names that path", printed)
+
+  ##
+  ## A directory that really exists, and a name in it that never did.
+  ##
+  ## The earlier "never quarantined" case stops at a missing parent directory,
+  ## which is the easy half. This one gets all the way to the quarantine lookup
+  ## with a real parent open, so the only thing left to refuse on is the
+  ## absence of any quarantined media or record - the exact condition that
+  ## would otherwise let "the source is missing" mean "the move must have
+  ## worked".
+  ##
+  def test_a_never_quarantined_name_in_a_real_directory_reports_no_candidate(self):
+    from backend.src.service.recording_orphan_cli import EXIT_REFUSED
+
+    inventory, unused_source, unused_relative = self.arrange_interrupted()
+
+    ##
+    ## Same directory as the interrupted move, so the walk succeeds and the
+    ## source name is genuinely absent.
+    ##
+    never = "douyin/live/broadcaster/never-existed.flv"
+    self.assertFalse((self.root / never).exists())
+
+    code, printed = self.cli(inventory, "quarantine", never, "--confirm")
+
+    self.assertEqual(EXIT_REFUSED, code, printed)
+    self.assertIn("no current orphan candidate names that path", printed)
+
+  ##
+  ## The source is back and something else claims it, so the scan skips it and
+  ## the recovery is reached with the pathname present.
+  ##
+  ## This is the case where "the source is missing" being merely *assumed*
+  ## rather than checked would commit a directory and report a move that never
+  ## finished - with the original still sitting there.
+  ##
+  def test_a_present_but_unscanned_source_is_never_treated_as_finished(self):
+    from backend.src.service.recording_orphan_cli import EXIT_OK
+
+    inventory, source, relative = self.arrange_interrupted()
+
+    ##
+    ## Back under its own name, as the very inode that is in quarantine.
+    ##
+    os.link(self.only_media(), source)
+    ##
+    ## And claimed, so no scan will offer it as a candidate.
+    ##
+    self.references.paths = [str(source)]
+
+    code, printed = self.cli(inventory, "quarantine", relative, "--confirm")
+
+    self.assertNotEqual(EXIT_OK, code, printed)
+    self.assertTrue(
+      source.exists(), "the source is still there and must not be written off"
+    )
+
+  ##
+  ## The commit failing a second time. Still recoverable, still not success.
+  ##
+  def test_a_second_failing_commit_stays_incomplete(self):
+    from backend.src.service.recording_orphan_cli import EXIT_INCOMPLETE
+
+    inventory, unused_source, relative = self.arrange_interrupted()
+
+    original_fsync = os.fsync
+    os.fsync = lambda descriptor: (_ for _ in ()).throw(
+      OSError(5, "input/output error")
+    )
+    try:
+      code, printed = self.cli(inventory, "quarantine", relative, "--confirm")
+    finally:
+      os.fsync = original_fsync
+
+    self.assertEqual(EXIT_INCOMPLETE, code, printed)
+    self.assertNotIn(str(self.root), printed)
+
+    ##
+    ## And it is still recoverable afterwards.
+    ##
+    from backend.src.service.recording_orphan_cli import EXIT_OK
+
+    code, printed = self.cli(inventory, "quarantine", relative, "--confirm")
+    self.assertEqual(EXIT_OK, code, printed)
+
+  ##
+  ## >>=========== the source coming back, which is not recovery ===========>>
+  ##
+
+  def test_a_source_that_reappears_as_the_same_inode_completes_normally(self):
+    from backend.src.service.recording_orphan_cli import EXIT_OK
+
+    inventory, source, relative = self.arrange_interrupted()
+    ##
+    ## Exactly what a crash before the unlink was committed can leave: the name
+    ## back, pointing at the very inode already in quarantine.
+    ##
+    os.link(self.only_media(), source)
+
+    code, printed = self.cli(inventory, "quarantine", relative, "--confirm")
+
+    self.assertEqual(EXIT_OK, code, printed)
+    self.assertFalse(source.exists())
+    self.assertEqual(1, len(list(self.quarantine_root().glob("*.json"))))
+
+  def test_a_source_that_reappears_as_a_different_inode_is_refused(self):
+    from backend.src.service.recording_orphan_cli import EXIT_OK
+
+    inventory, source, relative = self.arrange_interrupted()
+    source.write_bytes(b"a completely different broadcast")
+
+    code, printed = self.cli(inventory, "quarantine", relative, "--confirm")
+
+    self.assertNotEqual(EXIT_OK, code, printed)
+    self.assertTrue(source.exists(), "a different file must not be moved")
+
+
+##
+## The recovery's forbidden powers, read off its source.
+##
+## Requirements that are about what a function must *not* do are badly served by
+## behavioural tests alone: a test proves today's call did not write a row, and
+## says nothing about the branch somebody adds next month. These read the
+## function instead.
+##
+class QuarantineRecoveryHasNoForbiddenPowersTest(unittest.TestCase):
+  def recovery_source(self):
+    import ast
+    from pathlib import Path as _Path
+
+    from backend.src.service import recording_orphan as module
+
+    tree = ast.parse(_Path(module.__file__).read_text(encoding="utf-8"))
+    return next(
+      node for node in ast.walk(tree)
+      if isinstance(node, ast.FunctionDef)
+      and node.name == "_complete_quarantine_attempt"
+    )
+
+  def test_it_never_reaches_a_repository_a_journal_or_an_owner(self):
+    import ast
+
+    forbidden = []
+    for node in ast.walk(self.recovery_source()):
+      if isinstance(node, ast.Attribute) and node.attr in (
+        "_references", "_journal", "referenced_output_paths", "link_post",
+      ):
+        forbidden.append(node.attr)
+    self.assertEqual(
+      [],
+      forbidden,
+      "the recovery must write no row and infer no owner: {}".format(forbidden),
+    )
+
+  def test_it_never_creates_links_renames_or_writes(self):
+    import ast
+
+    ##
+    ## A commit is not a write. ``fsync`` is the only durable thing this may do,
+    ## so every ``os`` call that could create, replace or move a name is banned
+    ## outright rather than merely unused.
+    ##
+    banned = {
+      "link", "rename", "replace", "symlink", "mkdir", "makedirs",
+      "write", "truncate", "remove", "unlink", "rmdir", "chmod", "utime",
+    }
+    offenders = []
+    for node in ast.walk(self.recovery_source()):
+      if not isinstance(node, ast.Call):
+        continue
+      function = node.func
+      if (
+        isinstance(function, ast.Attribute)
+        and isinstance(function.value, ast.Name)
+        and function.value.id == "os"
+        and function.attr in banned
+      ):
+        offenders.append(function.attr)
+    self.assertEqual(
+      [], offenders, "the recovery mutates storage: {}".format(offenders)
+    )

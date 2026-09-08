@@ -185,8 +185,34 @@ def _quarantine(inventory, arguments, out) -> int:
   ##
   wanted = _find_candidate(inventory, arguments.path)
   if wanted is None:
-    print("no current orphan candidate names that path", file=out)
-    return EXIT_REFUSED
+    ##
+    ## Not a candidate any more, which is two situations wearing one face:
+    ## nothing here, or the unfinished tail of an earlier move whose source
+    ## name is already gone. Only the inventory can tell them apart, because
+    ## telling them apart means re-proving the quarantined media against its
+    ## record - and it answers ``None`` for the first.
+    ##
+    ## This is what makes the partial-completion message true. Without it,
+    ## "retrying completes the move" sent an operator back to a command that
+    ## could only ever answer REFUSED, because the pathname the scan looks for
+    ## is the one thing that was definitely removed.
+    ##
+    finished = inventory.complete_quarantine(
+      arguments.path, dry_run=arguments.dry_run
+    )
+    if finished is None:
+      print("no current orphan candidate names that path", file=out)
+      return EXIT_REFUSED
+    print(
+      "{} {} -> {}".format(
+        "would finish quarantine of" if arguments.dry_run
+        else "finished quarantine of",
+        finished.relative_path,
+        finished.destination_name,
+      ),
+      file=out,
+    )
+    return EXIT_OK
 
   outcome = inventory.quarantine(wanted, dry_run=arguments.dry_run)
   print(
