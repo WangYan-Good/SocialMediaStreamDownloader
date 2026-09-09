@@ -4,6 +4,7 @@ from pathlib import Path
 from backend.src.library.baselib import get_dict_attr, has_dict_attr
 from backend.src.library.configlib import load_config
 from backend.src.library.loglib import get_logger
+from backend.src.library.safe_diagnostics import config_diagnostic
 from backend.src.platform.douyin.a_bogus import ABogus as AB
 from backend.src.platform.douyin.verify_fp_manager import VerifyFpManager as VFM
 
@@ -86,7 +87,20 @@ class DouyinPostConfig:
   def to_dict(self) -> dict:
     return deepcopy(self.__config)
 
+  ##
+  ## Deliberately dumps nothing.
+  ##
+  ## This section holds ``verifyFp``, ``fp``, ``msToken`` and ``a_bogus`` - the
+  ## values that make a signed request accepted - beside the account's
+  ## ``sec_user_id`` and the share url it was reached by.  There is no safe
+  ## rendering of that, so there is no rendering of it.
+  ##
   def dump_config(self):
-    get_logger().info("Douyin POST configuration:")
-    for key, value in self.__post_config().items():
-      get_logger().info("\t{k}: {v}".format(k=key, v=value))
+    section = self.__post_config()
+    get_logger().info(
+      config_diagnostic(
+        "config_dumped",
+        section="post",
+        total=len(section) if isinstance(section, dict) else 0,
+      )
+    )

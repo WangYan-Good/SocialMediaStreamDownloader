@@ -5,7 +5,10 @@ from requests import exceptions as request_exceptions
 from requests import request
 
 from backend.src.library.loglib import get_logger
-from backend.src.library.safe_diagnostics import safe_url_host
+from backend.src.library.safe_diagnostics import (
+  redirect_diagnostic,
+  safe_url_host,
+)
 from backend.src.platform.douyin.douyin_aweme_url import classify_aweme_url
 from backend.src.platform.douyin.douyin_owner_url import classify_owner_url
 from backend.src.platform.douyin.douyin_url_hosts import (
@@ -158,10 +161,7 @@ class DouyinRedirectTrust:
       response = self._request(**options)
     except Exception as error:
       get_logger().warning(
-        "douyin redirect request failed: host={} error={}".format(
-          safe_url_host(url),
-          type(error).__name__,
-        )
+        redirect_diagnostic("redirect_request_failed", url=url, error=error)
       )
       failure = (
         RedirectTimeout
@@ -189,9 +189,7 @@ class DouyinRedirectTrust:
       return DouyinRedirectTrust._validate(target, initial=False)
     except UntrustedRedirect:
       get_logger().warning(
-        "douyin redirect refused: host={} class=untrusted_redirect".format(
-          safe_url_host(target)
-        )
+        redirect_diagnostic("redirect_refused", url=target, state=False)
       )
       raise
 

@@ -132,7 +132,37 @@ MAX_REFERENCED_RECORDINGS = 50000
 ## Every byte written here is metadata about one moved file.
 ##
 _RECORD_SUFFIX = ".json"
-_RECORD_SCHEMA_VERSION = 1
+##
+## Bumped to 2 when the record began carrying the device and inode.
+##
+## Version 1 stored only the size and the modification time, and those are not
+## an identity: ``os.utime`` sets the nanosecond and the size is chosen by
+## whoever writes the bytes, so any regular file can be made to match. A record
+## that cannot name the inode cannot prove which file it was written for.
+##
+## Old records are still readable - an operator can inspect one - but they are
+## never enough to *finish* a move with. The alternative would be to take the
+## missing device and inode from whatever media is present, which is precisely
+## the substitution the check exists to catch, validating itself.
+##
+##
+## Bumped to 3 when the record began carrying the identity of the directory the
+## source name was removed from.
+##
+## Version 2 could prove *which file* was set aside and nothing about *where
+## the unlink happened*. The only durable act left to an interrupted quarantine
+## is committing the directory that lost the name, and a pathname is not a
+## directory: rename the parent away, create a real one - not a symlink, so no
+## traversal rule refuses it - at the same pathname, and a retry would commit
+## that and call the move finished. The unlink happened in an inode the retry
+## can no longer reach by name.
+##
+## Version 2 never reached ``develop``; it exists only on this unmerged branch.
+## Bumping rather than extending it in place is still the right move, because
+## the rule that pays for itself here is that a record's version is its author's
+## statement about what its fields mean.
+##
+_RECORD_SCHEMA_VERSION = 3
 
 ##
 ## A record is a couple of hundred bytes. Anything larger is not one, and
@@ -152,8 +182,17 @@ _RECORD_MAX_BYTES = 4096
 _RECORD_IDENTITY_FIELDS = (
   "source_relative_path",
   "quarantined_name",
+  "device",
+  "inode",
   "size",
   "mtime_ns",
+  ##
+  ## Which directory the source name was actually removed from. Not the file's
+  ## identity - the *unlink's* - and the only thing that makes committing a
+  ## directory during recovery mean anything.
+  ##
+  "source_parent_device",
+  "source_parent_inode",
 )
 
 
@@ -224,6 +263,39 @@ class OrphanScan:
 ## What one quarantine attempt did. ``quarantined`` is false for a dry run,
 ## which is the only way this returns without having moved anything.
 ##
+##
+## How far one quarantine attempt got, in the only terms the contract cares
+## about.
+##
+## Mutable and deliberately not a return value: the fact has to survive an
+## exception unwinding out of a ``finally``, which is precisely the path a
+## return cannot travel.
+##
+class _QuarantineProgress:
+  __slots__ = ("linked", "committed", "outcome")
+
+  def __init__(self):
+    ##
+    ## True once the media is reachable under its quarantined name - by this
+    ## attempt's own link or by one an interrupted earlier attempt made.
+    ##
+    self.linked = False
+    ##
+    ## True once the move is *finished*: the record published, the source name
+    ## unlinked, and the source's parent directory committed. There is nothing
+    ## left for a retry to do after this, which is exactly why it needs its own
+    ## flag - ``linked`` divides "nothing happened" from "half happened" and
+    ## says nothing about the difference between "half happened" and "done".
+    ##
+    self.committed = False
+    ##
+    ## The answer a committed move gives, recorded at the moment it becomes
+    ## true. A failure raised afterwards unwinds past the ``return`` that would
+    ## have carried it, so the guard needs its own copy to hand back.
+    ##
+    self.outcome = None
+
+
 @dataclass(frozen=True)
 class QuarantineOutcome:
   relative_path: str
@@ -347,6 +419,62 @@ def _open_directory(name, parent=None):
     raise OrphanInventoryUnavailable(
       "recording media directory is unusable ({})".format(type(e).__name__)
     ) from e
+
+
+##
+## A directory's identity, taken from an open descriptor.
+##
+## ``fstat`` rather than ``stat``: the answer has to be about the directory that
+## was actually opened and is about to be used, not about whatever the pathname
+## refers to when the question is asked again.
+##
+def _directory_identity(descriptor):
+  info = os.fstat(descriptor)
+  return (info.st_dev, info.st_ino)
+
+
+##
+## Open the quarantine directory as what it is: a child of the storage root.
+##
+## Never ``_open_directory(root / QUARANTINE_DIRECTORY_NAME)``. That form treats
+## the quarantine name as a trust anchor and so opens it without ``O_NOFOLLOW``,
+## which is right for the configured root - an operator may legitimately point
+## it at a symlinked mount - and wrong for everything underneath it. This
+## directory is created and owned by this service; a link planted at its name is
+## somebody redirecting where a destructive command reads its evidence from.
+##
+## Descriptor-relative for the same reason the rest of this module is: the root
+## is opened once and the child is opened *from that descriptor*, so there is no
+## window between checking a path and using it. An ``lstat``-then-open sequence
+## would have one, and ``resolve()``/``realpath()`` would answer about a path
+## rather than about the object finally opened.
+##
+##
+## The anchor is this function's own and the child belongs to the caller, and
+## the transfer between those two facts is written out rather than left to a
+## ``finally``. ``try: return child finally: os.close(anchor)`` reads as if it
+## releases one descriptor and hands over the other, and does that only while
+## nothing goes wrong: a ``finally`` that raises abandons the ``return``, so the
+## caller never receives the child and nothing is left holding it.
+##
+## The anchor's release is therefore attempted and its failure dropped. It is a
+## read-only directory descriptor opened for one traversal step; whether it
+## closed cleanly says nothing about the move, and letting it speak would turn
+## a completed quarantine into a refusal.
+##
+def _open_quarantine_root(root):
+  anchor = _open_directory(root)
+  if anchor is None:
+    return None
+  child = None
+  try:
+    child = _open_directory(QUARANTINE_DIRECTORY_NAME, parent=anchor)
+  finally:
+    try:
+      os.close(anchor)
+    except OSError:
+      pass
+  return child
 
 
 ##
@@ -985,9 +1113,104 @@ class RecordingOrphanInventory:
         )
       ) from e
 
+    ##
+    ## One shared record of how far this attempt actually got, because the
+    ## answer decides what every failure below is *called*. It is a mutable
+    ## holder rather than a local so the guard around the whole attempt can
+    ## read it after the stack it was set on has unwound - including from a
+    ## ``finally`` that failed while releasing a descriptor.
+    ##
+    progress = _QuarantineProgress()
+    try:
+      return self._quarantine_attempt(
+        candidate, root, media_root, claimed, dry_run, progress
+      )
+    ##
+    ## One ladder, read top to bottom, and every rung is a question about what
+    ## is true on disk rather than about which exception family was raised.
+    ##
+    ## ``BaseException`` is deliberately not caught anywhere here: a
+    ## ``KeyboardInterrupt`` is the operator, not a storage state, and
+    ## swallowing it into a report would be worse than the traceback.
+    ##
+    except Exception as e:
+      ##
+      ## >>=========== committed: the move is over, whatever this is ==========>>
+      ##
+      ## The record is published, the source name is durably gone and its
+      ## parent is committed. Nothing that fails now can change any of that,
+      ## and nothing a retry could do would help - it would not even find the
+      ## candidate again, because the name it was found under no longer
+      ## exists, and would answer with a refusal.
+      ##
+      ## So a failure here is not the operator's problem to act on. It is
+      ## recorded and the move reports what it actually did.
+      ##
+      if progress.committed:
+        ##
+        ## A literal, for the reason every other line in this module is one -
+        ## and inside its own guard, because this branch exists to stop a
+        ## completed move being misreported and a log sink that is itself
+        ## failing must not be the thing that defeats it.
+        ##
+        try:
+          get_logger().warning(
+            "a resource could not be released after the quarantine completed; "
+            "the move is committed and needs no retry"
+          )
+        except Exception:
+          pass
+        return progress.outcome
+
+      ##
+      ## >>============= linked: half done, and safe to retry =============>>
+      ##
+      ## A second name for the bytes exists. Whatever this failure was called
+      ## by whoever raised it - a partial completion, a refusal, an ``OSError``
+      ## from a ``finally``, a ``ValueError`` a later edit introduced - the
+      ## storage is not as the operator left it and retrying is the fix.
+      ##
+      if progress.linked:
+        if isinstance(e, OrphanQuarantineIncomplete):
+          raise
+        raise OrphanQuarantineIncomplete(
+          "the media is quarantined but the move did not finish ({}); "
+          "retrying completes it".format(type(e).__name__)
+        ) from e
+
+      ##
+      ## >>================ before the link: nothing happened ================>>
+      ##
+      if isinstance(e, OrphanQuarantineRefused):
+        raise
+      ##
+      ## Saying it here is what stops a raw ``OSError`` reaching an operator's
+      ## terminal as a traceback.
+      ##
+      raise OrphanQuarantineRefused(
+        "the quarantine could not be started ({})".format(type(e).__name__)
+      ) from e
+
+  ##
+  ## One attempt, from the last refusal to the committed unlink.
+  ##
+  ## Split out so the guard above can wrap *everything* this does, the
+  ## descriptor releases in its ``finally`` blocks included. Those are the
+  ## easiest place for a storage failure to escape whatever maps failures onto
+  ## the two words this module is allowed to say.
+  ##
+  def _quarantine_attempt(
+    self, candidate, root, media_root, claimed, dry_run, progress
+  ) -> QuarantineOutcome:
     file_descriptor, parent, resolved = self._reopen_candidate(
       candidate, root, media_root
     )
+    ##
+    ## Released together at the end rather than in nested ``finally`` blocks,
+    ## so one failing release cannot strand the descriptors after it. This
+    ## command is run repeatedly against a library; a leak here is unbounded.
+    ##
+    quarantine_descriptor = None
     try:
       if resolved in claimed:
         raise OrphanQuarantineRefused(
@@ -1002,67 +1225,95 @@ class RecordingOrphanInventory:
           quarantined=False,
         )
 
-      quarantine_root = self._ensure_quarantine_root(root)
-      quarantine_descriptor = _open_directory(quarantine_root)
+      self._ensure_quarantine_root(root)
+      quarantine_descriptor = _open_quarantine_root(root)
       if quarantine_descriptor is None:
         raise OrphanQuarantineRefused("the quarantine directory could not be opened")
-      try:
-        ##
-        ## Everything above this line may still refuse: no name has been
-        ## created, so "nothing happened" is true.
-        ##
-        self._link_into_quarantine(
-          parts_name=Path(candidate.relative_path).name,
-          source_parent=parent,
-          destination_name=destination_name,
-          destination_parent=quarantine_descriptor,
-          candidate=candidate,
-        )
+      ##
+      ## Everything above this line may still refuse: no name has been
+      ## created, so "nothing happened" is true.
+      ##
+      self._link_into_quarantine(
+        parts_name=Path(candidate.relative_path).name,
+        source_parent=parent,
+        destination_name=destination_name,
+        destination_parent=quarantine_descriptor,
+        candidate=candidate,
+      )
 
+      ##
+      ## >>=================== the line, and what it means ===================>>
+      ##
+      ## A second name for this file now exists. Whatever happens below, the
+      ## bytes are reachable and the storage is not as the operator left it,
+      ## so nothing below may be reported as a refusal - the word has to keep
+      ## meaning "nothing was created" or it is worthless.
+      ##
+      ## Recorded before anything else is attempted, and recorded even for
+      ## the link a *previous* attempt made: an ``EEXIST`` that matched this
+      ## inode means the media is already published, which is the same
+      ## durable fact arrived at earlier.
+      ##
+      progress.linked = True
+
+      ##
+      ## Every failure from here is a partial completion: safe, lossless and
+      ## fixed by retrying. There is deliberately no mapping here any more -
+      ## the guard in ``quarantine`` wraps this whole call, so the descriptor
+      ## releases below are inside it too.
+      ##
+      _sync_directory(
+        quarantine_descriptor, failure=OrphanQuarantineIncomplete
+      )
+      ##
+      ## Which directory this move is about to remove the source name from,
+      ## read from the very descriptor the unlink below uses. A later retry has
+      ## only the pathname, and a pathname can be made to mean a different
+      ## directory - so what the record has to carry is the inode.
+      ##
+      source_parent = _directory_identity(parent)
+      self._publish_record(
+        quarantine_descriptor, destination_name, candidate, source_parent
+      )
+      ##
+      ## Only now, with a record on disk that has been read back and proved
+      ## to describe this exact file, may the original name go.
+      ##
+      try:
+        os.unlink(Path(candidate.relative_path).name, dir_fd=parent)
+      except FileNotFoundError:
         ##
-        ## >>=================== the line, and what it means ===================>>
+        ## An earlier attempt removed it and failed afterwards. The move is
+        ## further along than this attempt thought, not broken.
         ##
-        ## A second name for this file now exists. Whatever happens below, the
-        ## bytes are reachable and the storage is not as the operator left it,
-        ## so nothing below may be reported as a refusal - the word has to keep
-        ## meaning "nothing was created" or it is worthless.
-        ##
-        ## Every failure from here is a partial completion: safe, lossless, and
-        ## fixed by retrying. The bare ``OSError`` catch is the backstop, so a
-        ## storage error nobody anticipated cannot escape as a traceback either.
-        ##
-        try:
-          _sync_directory(
-            quarantine_descriptor, failure=OrphanQuarantineIncomplete
-          )
-          self._publish_record(
-            quarantine_descriptor, destination_name, candidate
-          )
-          ##
-          ## Only now, with a record on disk that has been read back and proved
-          ## to describe this exact file, may the original name go.
-          ##
-          try:
-            os.unlink(Path(candidate.relative_path).name, dir_fd=parent)
-          except FileNotFoundError:
-            ##
-            ## An earlier attempt removed it and failed afterwards. The move is
-            ## further along than this attempt thought, not broken.
-            ##
-            pass
-          _sync_directory(parent, failure=OrphanQuarantineIncomplete)
-        except OrphanQuarantineIncomplete:
-          raise
-        except OSError as e:
-          raise OrphanQuarantineIncomplete(
-            "the media is quarantined but the move did not finish ({}); "
-            "retrying completes it".format(type(e).__name__)
-          ) from e
-      finally:
-        os.close(quarantine_descriptor)
+        pass
+      _sync_directory(parent, failure=OrphanQuarantineIncomplete)
+
+      ##
+      ## >>================ the second line, and what it means ==============>>
+      ##
+      ## The record is published, the source name is gone and the directory
+      ## that held it is committed. The move an operator asked for has
+      ## happened, in full and durably.
+      ##
+      ## Everything after this is releasing resources. A failure there
+      ## changes nothing on disk, and calling it a partial completion would
+      ## tell an operator to retry a destructive action that already
+      ## finished - after which the retry would not find the candidate and
+      ## would answer with a refusal instead. The answer is recorded here,
+      ## where it is true, so the guard can still give it if the return below
+      ## never happens.
+      ##
+      progress.committed = True
+      progress.outcome = QuarantineOutcome(
+        relative_path=candidate.relative_path,
+        destination_name=destination_name,
+        quarantined=True,
+      )
     finally:
-      os.close(file_descriptor)
-      os.close(parent)
+      _release_descriptors(
+        progress, quarantine_descriptor, file_descriptor, parent
+      )
 
     ##
     ## An audit line for a destructive action, and a deliberately empty one.
@@ -1075,11 +1326,233 @@ class RecordingOrphanInventory:
     get_logger().warning(
       "recording orphan quarantined; the quarantine record names which file"
     )
-    return QuarantineOutcome(
-      relative_path=candidate.relative_path,
-      destination_name=destination_name,
-      quarantined=True,
+    ##
+    ## The answer recorded at the commit, not a second one built here. Two
+    ## constructions of the same outcome are two things to keep in step, and
+    ## the guard hands back the recorded one when a failure after the commit
+    ## unwinds past this return - so they had better be the same object.
+    ##
+    return progress.outcome
+
+  ##
+  ## Finish a move whose source name is already gone.
+  ##
+  ## There is exactly one state ``quarantine`` can leave that ``quarantine``
+  ## cannot itself get out of: the source unlinked, its parent directory not
+  ## yet committed. ``Incomplete`` says "run it again", and running it again
+  ## used to answer REFUSED - the scan looks for the source pathname and the
+  ## source pathname is the one thing that is definitely gone. The instruction
+  ## was not true, so this is the path that makes it true.
+  ##
+  ## What makes it safe is that "the source is missing" is never the evidence.
+  ## It is the cheapest condition in the world to satisfy - somebody deleting a
+  ## recording by hand satisfies it - so it is treated as a *question*, and the
+  ## answer has to come from the quarantine itself: media that is a plain
+  ## regular file reached without following a link, a record that parses, and a
+  ## record whose identity fields describe that exact media. Anything short of
+  ## that refuses, with the storage untouched.
+  ##
+  ## And the only durable thing it ever does is the missing ``fsync``. Nothing
+  ## is created, linked, renamed, copied or overwritten; no row is written and
+  ## no owner is inferred. A commit is not a write.
+  ##
+  ## Three answers, and they are deliberately different:
+  ##
+  ##   - ``None``   - this is not an interrupted move. The caller says what it
+  ##                  always said about a path that names no candidate.
+  ##   - refusal    - it looks like one and could not be proved. Fail closed.
+  ##   - an outcome - proved, committed, done.
+  ##
+  def complete_quarantine(self, relative_path, dry_run=False):
+    _require_host_support()
+    progress = _QuarantineProgress()
+    try:
+      return self._complete_quarantine_attempt(relative_path, dry_run, progress)
+    except Exception as e:
+      ##
+      ## The same ladder ``quarantine`` uses, and for the same reason: what a
+      ## failure is called has to follow from what is true on disk.
+      ##
+      if progress.committed:
+        try:
+          get_logger().warning(
+            "a resource could not be released after the quarantine completed; "
+            "the move is committed and needs no retry"
+          )
+        except Exception:
+          pass
+        return progress.outcome
+      if isinstance(e, OrphanInventoryUnavailable):
+        raise
+      if isinstance(e, OrphanQuarantineRefused):
+        raise
+      raise OrphanQuarantineRefused(
+        "the interrupted quarantine could not be verified ({})".format(
+          type(e).__name__
+        )
+      ) from e
+
+  def _complete_quarantine_attempt(self, relative_path, dry_run, progress):
+    root, media_root = self._roots()
+
+    ##
+    ## The same shape rules the move itself applies. A path that could not have
+    ## been quarantined cannot have an interrupted quarantine to finish.
+    ##
+    relative = Path(str(relative_path))
+    if relative.is_absolute() or any(
+      part in ("..", ".") for part in relative.parts
+    ):
+      return None
+    if len(relative.parts) < 2:
+      return None
+    absolute = root / relative
+    if contained_path(root, absolute) is None:
+      return None
+    if contained_path(media_root, absolute) is None:
+      return None
+
+    destination_name = _destination_name(str(relative))
+    parent = None
+    quarantine_descriptor = None
+    media_descriptor = None
+    outcome = None
+    try:
+      ##
+      ## Walked component by component rather than opened by path, so a symlink
+      ## substituted anywhere along the way is refused instead of followed.
+      ##
+      parent = _open_directory(root)
+      if parent is None:
+        return None
+      for name in relative.parts[:-1]:
+        child = _open_directory(name, parent=parent)
+        if child is None:
+          ##
+          ## The directory is gone. Nothing here to commit, and nothing this
+          ## may invent.
+          ##
+          return None
+        os.close(parent)
+        parent = child
+
+      ##
+      ## The source name has to still be absent. If it is back, this is not the
+      ## interrupted state - it is an ordinary candidate again, and the normal
+      ## path is the one that must judge it.
+      ##
+      try:
+        os.lstat(relative.parts[-1], dir_fd=parent)
+      except FileNotFoundError:
+        pass
+      else:
+        return None
+
+      quarantine_descriptor = _open_quarantine_root(root)
+      if quarantine_descriptor is None:
+        return None
+
+      opened = _open_regular_file(destination_name, quarantine_descriptor)
+      if opened is not None:
+        media_descriptor, info = opened
+
+      try:
+        record = self._read_record(
+          quarantine_descriptor, destination_name + _RECORD_SUFFIX
+        )
+      except OrphanQuarantineIncomplete as e:
+        ##
+        ## Restated as a refusal on purpose. "Retrying completes it" is exactly
+        ## the promise this whole path exists to stop making, and a record this
+        ## build cannot vouch for is not completed by running the command a
+        ## third time.
+        ##
+        raise OrphanQuarantineRefused(
+          "an interrupted quarantine has a record that cannot be vouched for "
+          "({})".format(type(e).__name__)
+        ) from e
+
+      ##
+      ## Neither present: nothing was ever set aside under this name.
+      ##
+      if media_descriptor is None and record is None:
+        return None
+      ##
+      ## One without the other is not a state this build produces, so it is not
+      ## one it will finish.
+      ##
+      if media_descriptor is None or record is None:
+        raise OrphanQuarantineRefused(
+          "an interrupted quarantine is missing either its media or its record"
+        )
+
+      ##
+      ## The identity check, made against the *media that is actually there*
+      ## rather than against a candidate nobody can observe any more. The source
+      ## is gone, so this is the only evidence left that the record describes
+      ## the file this request is about.
+      ##
+      ##
+      ## The directory this retry has actually opened, by identity rather than
+      ## by the pathname that reached it. The interrupted attempt unlinked the
+      ## source from one specific inode, and committing anything else would be
+      ## a durability proof about a directory that never held the name.
+      ##
+      ## A real directory - not a symlink - created at the same pathname is
+      ## refused here and nowhere else: every traversal rule above it is
+      ## satisfied, because there is nothing wrong with it except that it is
+      ## not the one.
+      ##
+      try:
+        self._require_record_describes(
+          record,
+          destination_name,
+          OrphanCandidate(
+            relative_path=str(relative),
+            size=info.st_size,
+            device=info.st_dev,
+            inode=info.st_ino,
+            mtime_ns=info.st_mtime_ns,
+          ),
+          _directory_identity(parent),
+        )
+      except OrphanQuarantineIncomplete as e:
+        raise OrphanQuarantineRefused(
+          "an interrupted quarantine's record does not describe this media "
+          "and the directory its source was removed from"
+        ) from e
+
+      if dry_run:
+        return QuarantineOutcome(
+          relative_path=str(relative),
+          destination_name=destination_name,
+          quarantined=False,
+        )
+
+      ##
+      ## The one durable act: the commit the interrupted attempt did not get to
+      ## confirm. Failing it leaves the state exactly as it was, which is still
+      ## recoverable by running this again.
+      ##
+      _sync_directory(parent, failure=OrphanQuarantineIncomplete)
+
+      progress.committed = True
+      outcome = QuarantineOutcome(
+        relative_path=str(relative),
+        destination_name=destination_name,
+        quarantined=True,
+      )
+      progress.outcome = outcome
+    finally:
+      _release_descriptors(
+        progress, media_descriptor, quarantine_descriptor, parent
+      )
+
+    get_logger().warning(
+      "an interrupted recording orphan quarantine was completed; "
+      "the quarantine record names which file"
     )
+    return outcome
 
   ##
   ## The move itself.
@@ -1161,14 +1634,33 @@ class RecordingOrphanInventory:
   ## a field is not needed to put the file back by hand, it is not written.
   ##
   @staticmethod
-  def _record_payload(destination_name, candidate) -> bytes:
+  def _record_payload(destination_name, candidate, source_parent) -> bytes:
+    parent_device, parent_inode = source_parent
     text = json.dumps(
       {
         "schema_version": _RECORD_SCHEMA_VERSION,
         "source_relative_path": candidate.relative_path,
         "quarantined_name": destination_name,
+        ##
+        ## The identity of the *file*, taken from the candidate this move
+        ## already re-proved against an open descriptor - never from whatever
+        ## happens to be at the destination when somebody reads this back.
+        ##
+        ## The media is a hard link, so these are the quarantined file's device
+        ## and inode as much as the source's: one inode, two names.
+        ##
+        "device": candidate.device,
+        "inode": candidate.inode,
         "size": candidate.size,
         "mtime_ns": candidate.mtime_ns,
+        ##
+        ## The directory this move will unlink the source name from, taken by
+        ## ``fstat`` from the descriptor the unlink itself uses. Never resolved
+        ## from a path: the pathname is precisely what a later retry cannot
+        ## trust, which is the reason this field exists.
+        ##
+        "source_parent_device": parent_device,
+        "source_parent_inode": parent_inode,
         "quarantined_at": datetime.now(timezone.utc).isoformat(
           timespec="milliseconds"
         ),
@@ -1263,16 +1755,29 @@ class RecordingOrphanInventory:
   ## whose only description belongs to a different one.
   ##
   @staticmethod
-  def _require_record_describes(payload, destination_name, candidate):
+  def _require_record_describes(
+    payload, destination_name, candidate, source_parent
+  ):
     if payload.get("schema_version") != _RECORD_SCHEMA_VERSION:
       raise OrphanQuarantineIncomplete(
         "an existing quarantine record was written by another version"
       )
+    parent_device, parent_inode = source_parent
     expected = {
       "source_relative_path": candidate.relative_path,
       "quarantined_name": destination_name,
+      "device": candidate.device,
+      "inode": candidate.inode,
       "size": candidate.size,
       "mtime_ns": candidate.mtime_ns,
+      ##
+      ## Observed from the descriptor this caller is holding, never read back
+      ## out of the record it is checking. Filling a missing field from the
+      ## directory a retry happens to have opened is what would let a
+      ## substituted directory validate itself.
+      ##
+      "source_parent_device": parent_device,
+      "source_parent_inode": parent_inode,
     }
     for field in _RECORD_IDENTITY_FIELDS:
       if payload.get(field) != expected[field]:
@@ -1294,15 +1799,19 @@ class RecordingOrphanInventory:
   ## a previous attempt got this far and the move may continue, and anything
   ## else stops it with the source still in place.
   ##
-  def _publish_record(self, destination_parent, destination_name, candidate):
+  def _publish_record(
+    self, destination_parent, destination_name, candidate, source_parent
+  ):
     final = destination_name + _RECORD_SUFFIX
 
     existing = self._read_record(destination_parent, final)
     if existing is not None:
-      self._require_record_describes(existing, destination_name, candidate)
+      self._require_record_describes(
+        existing, destination_name, candidate, source_parent
+      )
       return
 
-    payload = self._record_payload(destination_name, candidate)
+    payload = self._record_payload(destination_name, candidate, source_parent)
     temporary = ".{}-{}.part".format(destination_name, os.urandom(8).hex())
     flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW | _O_CLOEXEC
     try:
@@ -1314,7 +1823,6 @@ class RecordingOrphanInventory:
         )
       ) from e
 
-    published = False
     try:
       try:
         written = 0
@@ -1348,8 +1856,22 @@ class RecordingOrphanInventory:
           raise OrphanQuarantineIncomplete(
             "the quarantine record vanished while it was being published"
           )
-        self._require_record_describes(concurrent, destination_name, candidate)
-      published = True
+        self._require_record_describes(
+          concurrent, destination_name, candidate, source_parent
+        )
+
+      ##
+      ## Committed before anything else in this directory is touched, and in
+      ## particular before the temporary goes.
+      ##
+      ## The order matters and is not interchangeable. Removing the temporary
+      ## first folds the publication and the removal into one uncommitted
+      ## directory change, so a crash between them can lose the final name that
+      ## was the whole point. Committing first makes the record durable and
+      ## demotes a leftover temporary to hygiene - which is what the ``finally``
+      ## below then deals with, on every path including this one failing.
+      ##
+      _sync_directory(destination_parent, failure=OrphanQuarantineIncomplete)
     except OrphanQuarantineIncomplete:
       raise
     except OSError as e:
@@ -1369,8 +1891,33 @@ class RecordingOrphanInventory:
       except OSError:
         pass
 
-    if published:
-      _sync_directory(destination_parent, failure=OrphanQuarantineIncomplete)
+
+##
+## Release every descriptor, then decide whether any failure still matters.
+##
+## Two rules, and both are about not making a cleanup problem into a data
+## problem:
+##
+##   - every descriptor is closed, even after one of them fails. A ``finally``
+##     that closes two by hand releases only the first when the first raises,
+##     and this command runs repeatedly against a library.
+##   - once the move is committed, a failure to release is not the operator's
+##     problem. Before that it still is: a close reporting ``EIO`` before the
+##     source is unlinked is a storage fault in the middle of a half-finished
+##     move, and the caller has to hear about it.
+##
+def _release_descriptors(progress, *descriptors):
+  first = None
+  for descriptor in descriptors:
+    if descriptor is None:
+      continue
+    try:
+      os.close(descriptor)
+    except OSError as e:
+      if first is None:
+        first = e
+  if first is not None and not progress.committed:
+    raise first
 
 
 ##

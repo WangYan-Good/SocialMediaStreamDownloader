@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 ##<<Third-part>>
 from backend.src.library.baselib import get_dict_attr
 from backend.src.library.loglib import get_logger
+from backend.src.library.safe_diagnostics import post_diagnostic
 
 
 ##
@@ -131,17 +132,20 @@ def iter_all_posts(api, sec_user_id: str, max_pages=0, count=None):
       return
     if max_pages and page_index >= max_pages:
       get_logger().info(
-        "owner {} stopped at the configured page cap of {}".format(
-          sec_user_id,
-          max_pages,
+        post_diagnostic(
+          "post_page_capped",
+          owner_user_id=sec_user_id,
+          page=page_index,
+          total=max_pages,
         )
       )
       return
     if page.next_cursor in seen_cursors:
       get_logger().warning(
-        "owner {} returned a repeating cursor at page {}, stopping".format(
-          sec_user_id,
-          page_index,
+        post_diagnostic(
+          "post_cursor_repeated",
+          owner_user_id=sec_user_id,
+          page=page_index,
         )
       )
       return

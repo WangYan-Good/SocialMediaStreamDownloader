@@ -1,6 +1,8 @@
 from copy import deepcopy
 
-from backend.src.library.baselib import get_dict_attr, output_dict, set_dict_attr
+from backend.src.library.baselib import get_dict_attr, set_dict_attr
+from backend.src.library.loglib import get_logger
+from backend.src.library.safe_diagnostics import config_diagnostic
 from backend.src.library.configlib import load_config
 from backend.src.platform.douyin.a_bogus import ABogus as AB
 from backend.src.platform.douyin.verify_fp_manager import VerifyFpManager as VFM
@@ -72,8 +74,24 @@ class DouyinAwemeConfig:
   def to_dict(self) -> dict:
     return self.__config
 
+  ##
+  ## Deliberately dumps nothing.
+  ##
+  ## ``output_dict`` ``print``s, so this section used to reach stdout with no
+  ## log level in front of it - and ``download_multiple_aweme`` calls it on
+  ## every batch a deployment runs with ``$.server.debug_mode`` on.  A section
+  ## is one config edit away from carrying a token, so what is reported is that
+  ## a dump happened and how large the section was.
+  ##
   def dump_config(self):
-    output_dict(get_dict_attr(self.__config, "$.platform.douyin.aweme"))
+    section = get_dict_attr(self.__config, "$.platform.douyin.aweme")
+    get_logger().info(
+      config_diagnostic(
+        "config_dumped",
+        section="aweme",
+        total=len(section) if isinstance(section, dict) else 0,
+      )
+    )
 
   def get_config_dict_attr(self, attr: str = None):
     return get_dict_attr(self.__config, attr)

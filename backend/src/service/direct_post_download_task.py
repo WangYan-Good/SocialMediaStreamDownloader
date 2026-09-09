@@ -4,6 +4,7 @@ from threading import Lock
 ##<<Third-part>>
 from backend.src.library.baselib import get_dict_attr
 from backend.src.library.loglib import get_logger
+from backend.src.library.safe_diagnostics import post_diagnostic
 from backend.src.platform.douyin.douyin_aweme_downloader import (
   get_aweme_downloader,
   get_aweme_executor,
@@ -110,8 +111,20 @@ class DirectPostDownloadTaskService:
       ## raise is a reporting problem, and the download it describes is real work
       ## that must go on regardless.
       ##
+      ## Loud about *which* call and *which* class, never about what the caller
+      ## was told.  A task-layer exception is routinely a driver exception, and
+      ## a driver message carries the statement and the bound parameters that
+      ## failed - which for this service means the share url and the resolved
+      ## url that were about to be written into the task's metadata.
+      ##
       get_logger().error(
-        "direct post task: {} failed for task {}: {}".format(action, task_id, e)
+        post_diagnostic(
+          "post_task_report_failed",
+          operation=action,
+          task_id=task_id,
+          error=e,
+          state=False,
+        )
       )
       return None
 
@@ -224,7 +237,7 @@ class DirectPostDownloadTaskService:
 
     if result_metadata:
       self._safe(
-        "record result",
+        "record_result",
         task_id,
         lambda: self._task_service.update_metadata(
           task_id, {"result": result_metadata}
@@ -235,7 +248,7 @@ class DirectPostDownloadTaskService:
     ## processed, not work that succeeded.
     ##
     self._safe(
-      "advance progress",
+      "advance_progress",
       task_id,
       lambda: self._task_service.update_progress(task_id, current=1),
     )
@@ -246,7 +259,7 @@ class DirectPostDownloadTaskService:
       "failed": self._task_service.finish_failed,
     }
     self._safe(
-      "finish {}".format(outcome),
+      "finish",
       task_id,
       lambda: finishers[outcome](task_id, message=message),
     )
@@ -269,13 +282,23 @@ class DirectPostDownloadTaskService:
       result = downloader.run(token)
     except Exception as e:
       ##
-      ## The full trace goes to the log, where it belongs; the task keeps a short
-      ## sentence, because task metadata is read by a browser and a traceback
-      ## there is both noise and a disclosure risk.
+      ## The class and the host, and nothing else.
       ##
-      get_logger().exception(
-        "direct post download crashed for {}: {}".format(
-          get_dict_attr(token, "$.url"), e
+      ## This used to be ``logger.exception`` with the pasted share url and the
+      ## caught exception formatted into it.  Both halves were disclosures and
+      ## the call itself was a third: ``exception`` appends the traceback, and a
+      ## ``requests`` traceback quotes the signed url it failed on - which is
+      ## where ``a_bogus``, ``msToken`` and ``verifyFp`` live.  There is no safe
+      ## message that survives having a traceback stapled to it, so there is no
+      ## traceback.
+      ##
+      get_logger().error(
+        post_diagnostic(
+          "post_job_failed",
+          url=get_dict_attr(token, "$.url"),
+          task_id=task_id,
+          error=e,
+          state=False,
         )
       )
       self._finish(task_id, "failed", CRASHED_MESSAGE, {})
@@ -298,10 +321,13 @@ class DirectPostDownloadTaskService:
         metadata["ownership_linked"] = True
       except Exception as e:
         get_logger().error(
-          "direct post ownership failed for task {}: {}: {}".format(
-            task_id,
-            type(e).__name__,
-            e,
+          post_diagnostic(
+            "post_ownership_failed",
+            operation="link_ownership",
+            task_id=task_id,
+            aweme_id=result.aweme_id,
+            error=e,
+            state=False,
           )
         )
         metadata["ownership_linked"] = False
@@ -346,7 +372,15 @@ class DirectPostDownloadTaskService:
       get_logger().info("direct post task refused: task_capacity")
       raise TaskCreationCapacityExceeded(CAPACITY_MESSAGE)
     except Exception as e:
-      get_logger().error("direct post task: strict create failed: {}".format(e))
+      get_logger().error(
+        post_diagnostic(
+          "post_task_not_created",
+          operation="create",
+          aweme_id=aweme_id,
+          error=e,
+          state=False,
+        )
+      )
       raise TaskCreationUnavailable(NOT_CREATED_MESSAGE)
 
     if task is None:
@@ -414,12 +448,22 @@ class DirectPostDownloadTaskService:
         ## exactly what it should be looking at.
         ##
         get_logger().info(
-          "direct post task {} failed while running inline: {}".format(task_id, e)
+          post_diagnostic(
+            "post_job_failed",
+            operation="schedule",
+            task_id=task_id,
+            error=e,
+            state=False,
+          )
         )
       else:
         get_logger().error(
-          "direct post download was not scheduled for task {}: {}".format(
-            task_id, e
+          post_diagnostic(
+            "post_job_scheduled_failed",
+            operation="schedule",
+            task_id=task_id,
+            error=e,
+            state=False,
           )
         )
         self._finish(task_id, "failed", NOT_SCHEDULED_MESSAGE, {})
@@ -442,8 +486,13 @@ class DirectPostDownloadTaskService:
       ).submit(self._run, task_id, token, None)
     except Exception as e:
       get_logger().error(
-        "direct post download was not scheduled for {}: {}".format(
-          get_dict_attr(token, "$.url"), e
+        post_diagnostic(
+          "post_job_scheduled_failed",
+          operation="schedule",
+          url=get_dict_attr(token, "$.url"),
+          task_id=task_id,
+          error=e,
+          state=False,
         )
       )
       self._finish(task_id, "failed", NOT_SCHEDULED_MESSAGE, {})

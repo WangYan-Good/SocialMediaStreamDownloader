@@ -7,6 +7,7 @@ from copy import deepcopy
 
 ##<<Third-part>>
 from backend.src.library.loglib import get_logger
+from backend.src.library.safe_diagnostics import config_diagnostic
 
 class Proxies(ABC):
 
@@ -24,7 +25,15 @@ class Proxies(ABC):
       self.__proxies = proxies.copy()
       self.__dict__.update(proxies)
     except Exception as e:
-      get_logger().error("Set proxies failed {}".format(e))
+      ##
+      ## A proxy mapping holds the url - credentials included, when one is
+      ## configured that way - and a failure message quotes it back.
+      ##
+      get_logger().error(
+        config_diagnostic(
+          "config_apply_failed", section="proxies", error=e, state=False
+        )
+      )
 
   ##
   ## get proxies in dict
@@ -35,10 +44,17 @@ class Proxies(ABC):
   ##
   ## Dump configuration
   ##
+  ##
+  ## Counted, never listed: a proxy url can carry a user and a password.
+  ##
   def dump_config(self):
-    get_logger().info("Proxies configuration:")
-    for key, value in self.__proxies.items():
-      get_logger().info("\t{}: {}".format(key, value))
+    get_logger().info(
+      config_diagnostic(
+        "config_dumped",
+        section="proxies",
+        total=len(self.__proxies) if isinstance(self.__proxies, dict) else 0,
+      )
+    )
 
 class Login(ABC):
 
@@ -77,14 +93,29 @@ class Login(ABC):
       self.proxies = Proxies()
       self.proxies.set_proxies(self.__login.get("proxies", None))
     except Exception as e:
-      get_logger().error("Construct aggregation class failed {}".format(e))
+      get_logger().error(
+        config_diagnostic(
+          "config_apply_failed", section="login", error=e, state=False
+        )
+      )
 
   ##
   ## Dump configuration
   ##
+  ##
+  ## Deliberately dumps nothing.
+  ##
+  ## The login section holds ``msToken`` and the signing material beside it.
+  ## What a diagnostic can honestly say is that a dump was asked for and how
+  ## many entries the section had.
+  ##
   @abstractmethod
   def dump_config(self):
-    get_logger().info("Login configuration:")
-    for key, value in self.__login.items():
-      get_logger().info("\t{}: {}".format(key, value))
+    get_logger().info(
+      config_diagnostic(
+        "config_dumped",
+        section="login",
+        total=len(self.__login) if isinstance(self.__login, dict) else 0,
+      )
+    )
     self.proxies.dump_config()
