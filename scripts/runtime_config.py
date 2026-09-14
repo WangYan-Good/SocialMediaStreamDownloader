@@ -380,7 +380,7 @@ def external_environment(
 ## state as a side effect of a check; fixing the mode is a decision an operator
 ## makes, and this only refuses to proceed until they have.
 ##
-def require_private_config(path: Path) -> Path:
+def _require_private_file(path: Path, description: str, max_bytes=None) -> Path:
   path = Path(path)
   ##
   ## ``lstat``: the mode of a link says nothing about the mode of its target,
@@ -388,15 +388,139 @@ def require_private_config(path: Path) -> Path:
   ##
   info = path.lstat()
   if stat.S_ISLNK(info.st_mode):
-    raise ValueError("the configuration file must not be a symbolic link")
+    raise ValueError(f"the {description} must not be a symbolic link")
   if not stat.S_ISREG(info.st_mode):
-    raise ValueError("the configuration file must be a regular file")
+    raise ValueError(f"the {description} must be a regular file")
   if stat.S_IMODE(info.st_mode) & 0o077:
     raise ValueError(
-      "the configuration file holds the database password and must not be "
+      f"the {description} holds the database password and must not be "
       "readable by group or other"
     )
+  if max_bytes is not None and info.st_size > max_bytes:
+    raise ValueError(f"the {description} is larger than one can be")
   return path
+
+
+def require_private_config(path: Path) -> Path:
+  return _require_private_file(path, "configuration file")
+
+
+##
+## An option file is a handful of lines. Anything larger is not one, and reading
+## it unbounded is how a single planted file becomes an outage.
+##
+MYSQL_OPTION_FILE_MAX_BYTES = 8192
+
+
+def require_private_option_file(path: Path) -> Path:
+  return _require_private_file(
+    path, "MySQL option file", MYSQL_OPTION_FILE_MAX_BYTES
+  )
+
+
+##
+## >>================== the external client credential ==================>>
+##
+##
+## Getting a password to ``mysqldump`` without leaving it anywhere it survives.
+##
+## The Compose backup never faces this: the credential is a Docker secret read
+## inside the container by a shell that already has it mounted. An external
+## backup runs against a MySQL on the host, and every obvious route is wrong.
+## ``-pSECRET`` puts it in argv, which is world-readable in ``/proc`` for as long
+## as the dump runs - and a dump of this database runs for a while. ``MYSQL_PWD``
+## puts it in the environment, readable by anything that can read the process and
+## inherited by every child. A heredoc puts it wherever the shell was traced.
+##
+## An option file is what is left: the *path* travels in argv and the secret
+## stays in a 0600 file that the caller removes. The format has quoting rules,
+## and a password containing ``#`` silently becomes a comment if they are
+## ignored, so every value is quoted and escaped rather than interpolated.
+##
+_MYSQL_OPTION_ESCAPES = {
+  "\\": "\\\\",
+  '"': '\\"',
+  "\t": "\\t",
+  "\n": "\\n",
+  "\r": "\\r",
+  ##
+  ## Spaces are escaped everywhere rather than only at the edges: the client
+  ## strips unquoted trailing whitespace, and ``\s`` removes the question.
+  ##
+  " ": "\\s",
+}
+
+
+def _quote_mysql_option_value(value: str) -> str:
+  escaped = "".join(_MYSQL_OPTION_ESCAPES.get(character, character)
+                    for character in value)
+  return '"' + escaped + '"'
+
+
+##
+## Written to every group a release client actually reads, so one file serves
+## the dump and the restore without either having to know about the other.
+##
+_MYSQL_OPTION_GROUPS = ("client", "mysql", "mysqldump")
+
+
+def write_mysql_option_file(config: dict, output_path: Path) -> Path:
+  database = config["database"]
+  values = {
+    "user": _require_non_empty_string(database, "username", "$.database.username"),
+    "password": _require_non_empty_string(
+      database, "password", "$.database.password"
+    ),
+    "host": _require_non_empty_string(database, "host", "$.database.host"),
+  }
+  port = database.get("port")
+  if type(port) is int:
+    values["port"] = str(port)
+
+  lines = []
+  for group in _MYSQL_OPTION_GROUPS:
+    lines.append("[{}]".format(group))
+    for key, value in values.items():
+      lines.append("{}={}".format(key, _quote_mysql_option_value(value)))
+    lines.append("")
+  document = "\n".join(lines)
+
+  output_path = Path(output_path)
+  ##
+  ## Created through a private temporary and renamed into place, so the final
+  ## name never exists with a wider mode - which is exactly the window a
+  ## write-then-chmod would leave open.
+  ##
+  descriptor, temporary_name = tempfile.mkstemp(
+    prefix=".my.cnf.", dir=output_path.parent
+  )
+  temporary_path = Path(temporary_name)
+  try:
+    os.fchmod(descriptor, 0o600)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+      descriptor = -1
+      stream.write(document)
+    os.replace(temporary_path, output_path)
+  finally:
+    if descriptor >= 0:
+      os.close(descriptor)
+    try:
+      temporary_path.unlink()
+    except FileNotFoundError:
+      pass
+  return output_path
+
+
+##
+## MySQL honours ``--defaults-extra-file`` only when it is the first argument.
+## Anywhere else it is read as an unknown option and the client falls back to
+## whatever other configuration it can find, which is how a backup silently
+## connects as the wrong user. Returned as a list so a caller cannot reorder it
+## by accident.
+##
+def mysql_credential_arguments(option_file: Path) -> list[str]:
+  require_private_option_file(option_file)
+  return ["--defaults-extra-file={}".format(Path(option_file))]
 
 
 def write_compose_environment(
