@@ -27,13 +27,21 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 SNAPSHOT_SCRIPT = PROJECT_ROOT / "scripts" / "release_media_snapshot.py"
-PYTHON_BIN = PROJECT_ROOT / "venv" / "bin" / "python"
+##
+## The interpreter running these tests, not a checked-in virtualenv path.
+## A hard-coded ``venv/bin/python`` exists on a developer machine and on no
+## CI runner, where it fails as "the configuration file must be a 0600
+## regular file" - the inner check never ran, and the script reported the
+## refusal it falls back to.
+##
+PYTHON_BIN = sys.executable
 
 
 def reflink_supported(directory: Path) -> bool:

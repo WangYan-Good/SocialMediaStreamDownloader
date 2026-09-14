@@ -26,6 +26,7 @@ from pathlib import Path
 import shutil
 import socket
 import subprocess
+import sys
 import tempfile
 import textwrap
 import unittest
@@ -37,7 +38,14 @@ from backend.src.unit_test.config_fixture import unified_config
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 BACKUP_SCRIPT = PROJECT_ROOT / "scripts" / "release_external_backup.sh"
-PYTHON_BIN = PROJECT_ROOT / "venv" / "bin" / "python"
+##
+## The interpreter running these tests, not a checked-in virtualenv path.
+## A hard-coded ``venv/bin/python`` exists on a developer machine and on no
+## CI runner, where it fails as "the configuration file must be a 0600
+## regular file" - the inner check never ran, and the script reported the
+## refusal it falls back to.
+##
+PYTHON_BIN = sys.executable
 
 SECRET_PASSWORD = "SECRET_BACKUP_DB_PASSWORD_P19"
 CANONICAL_IMAGE = "ghcr.io/example/socialmediastreamdownloader@sha256:" + "a" * 64
