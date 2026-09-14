@@ -218,11 +218,27 @@ class MediaSnapshotCreateTest(MediaSnapshotTestCase):
       )
 
       self.assertNotEqual(0, completed.returncode)
-      self.assertIn("reflink", completed.stderr.lower())
+      ##
+      ## The *probe's* refusal, named specifically. A generic "reflink" match
+      ## would also be satisfied by the clone failing later, which is a weaker
+      ## guarantee: it would mean the destination was never checked and the
+      ## refusal came from cp giving up partway through a tree.
+      ##
+      self.assertIn("does not support reflink", completed.stderr)
       self.assertFalse(
         (root / "media-snapshot.json").exists(),
         "a document was written for a snapshot that was refused",
       )
+      ##
+      ## And nothing half-made was left behind for a later release to mistake
+      ## for a complete capture.
+      ##
+      snapshots = root / "snapshots"
+      if snapshots.exists():
+        self.assertEqual(
+          [], sorted(p.name for p in snapshots.iterdir()),
+          "a partial snapshot survived a refused clone",
+        )
 
   def test_the_filesystem_root_is_never_snapshotted(self):
     with tempfile.TemporaryDirectory() as directory:
@@ -355,6 +371,51 @@ class MediaSnapshotCreateTest(MediaSnapshotTestCase):
           path.startswith(".smsd-release-snapshot"),
           "the snapshot store was cloned into the snapshot: {}".format(path),
         )
+
+
+  ##
+  ## A clone that fails partway must leave nothing. A half-made snapshot that
+  ## looks like a whole one is the failure the whole helper exists to prevent:
+  ## the next release would find a plausible directory and describe it.
+  ##
+  def test_a_clone_that_fails_partway_leaves_no_snapshot_behind(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      if not reflink_supported(root):
+        self.skipTest("the scratch filesystem cannot reflink")
+      media = root / "media"
+      media.mkdir()
+      self.populate(media)
+      ##
+      ## An entry cp cannot read. The clone of the tree fails after some of it
+      ## has already been written.
+      ##
+      unreadable = media / "unreadable"
+      unreadable.mkdir()
+      (unreadable / "a.flv").write_bytes(b"x")
+      unreadable.chmod(0o000)
+
+      completed = self.run_snapshot(
+        "create",
+        "--media-root", media,
+        "--snapshot-root", root / "snapshots",
+        "--output", root / "media-snapshot.json",
+      )
+
+      ##
+      ## Restored before anything else looks at the tree, so the temporary
+      ## directory can still be cleaned up afterwards.
+      ##
+      unreadable.chmod(0o700)
+
+      self.assertNotEqual(0, completed.returncode)
+      snapshots = root / "snapshots"
+      if snapshots.exists():
+        self.assertEqual(
+          [], sorted(item.name for item in snapshots.iterdir()),
+          "a partial snapshot survived a failed clone",
+        )
+      self.assertFalse((root / "media-snapshot.json").exists())
 
 
 class MediaSnapshotVerifyTest(MediaSnapshotTestCase):

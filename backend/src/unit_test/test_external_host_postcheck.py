@@ -119,6 +119,19 @@ class ExternalPostcheckTest(unittest.TestCase):
     self.assertEqual(0, completed.returncode, completed.stderr)
     self.assertNotIn("name=^mysql", log)
     self.assertNotIn("mysql:8.0", log)
+    ##
+    ## And every engine call is about the application container it was given.
+    ## Without this the check passes even if the postcheck were quietly asking
+    ## about a container named ``mysql`` instead - which is exactly the Compose
+    ## assumption this topology has to drop.
+    ##
+    inspected = [
+      line for line in log.splitlines()
+      if line.startswith("engine inspect") or line.startswith("engine exec")
+    ]
+    self.assertTrue(inspected)
+    for line in inspected:
+      self.assertIn("smsd-app", line)
 
   def test_a_stopped_container_fails(self):
     completed, unused = self.run_postcheck(RUNNING="false")

@@ -22,5 +22,22 @@ postcheck_result: PASS_OR_FAIL
 postcheck_image_identity: PASS_OR_FAIL
 ```
 
+External-host topology 另外记录：
+
+```text
+topology: external-host
+publish_address: HOST_PUBLISH_ADDRESS
+media_root: HOST_MEDIA_ROOT
+media_snapshot_path: SNAPSHOT_PATH
+media_snapshot_entries: ENTRY_COUNT
+writer_authority_confirmed: PASS_OR_FAIL
+db_privilege_verdict: sufficient_OR_insufficient
+db_privilege_findings: HARDENING_FINDINGS_OR_NONE
+restore_drill_result: PASS_OR_FAIL
+```
+
+media snapshot 是同文件系统 reflink clone：它是 logical-loss rollback authority，不是
+device-loss 保护。
+
 Release record 禁止保存 registry credential、password、Cookie、session/CSRF token、root secret
 或 platform token。

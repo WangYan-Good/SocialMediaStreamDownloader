@@ -29,6 +29,8 @@ class ReleasePostcheckTest(unittest.TestCase):
     revision_label="b" * 40,
     requirements_label="c" * 64,
     mysql_config_image="mysql:8.0.46@sha256:" + "d" * 64,
+    app_id="app-id",
+    mysql_id="mysql-id",
   ):
     with tempfile.TemporaryDirectory() as temporary:
       root = Path(temporary)
@@ -63,8 +65,11 @@ class ReleasePostcheckTest(unittest.TestCase):
               printf '%s\n' "$STATUS_OUTPUT" ;;
             *"exec -T app python -m backend.src.database.migration_cli check")
               printf '%s\n' "$CHECK_OUTPUT" ;;
-            *"ps -q app") printf '%s\n' app-id ;;
-            *"ps -q mysql") printf '%s\n' mysql-id ;;
+            # ``${X-default}`` rather than ``${X:-default}``: an explicitly
+            # empty value is how a test says "that container is absent", and
+            # the colon form would helpfully substitute the default instead.
+            *"ps -q app") printf '%s\n' "${APP_ID-app-id}" ;;
+            *"ps -q mysql") printf '%s\n' "${MYSQL_ID-mysql-id}" ;;
             *) exit 92 ;;
           esac
           """
@@ -106,6 +111,8 @@ class ReleasePostcheckTest(unittest.TestCase):
           "REVISION_LABEL": revision_label,
           "REQUIREMENTS_LABEL": requirements_label,
           "MYSQL_CONFIG_IMAGE": mysql_config_image,
+          "APP_ID": app_id,
+          "MYSQL_ID": mysql_id,
         }
       )
       arguments = ["bash", str(SCRIPT), "--health-url", "http://127.0.0.1/health"]
@@ -171,6 +178,22 @@ class ReleasePostcheckTest(unittest.TestCase):
     self.assertTrue(any("ps -q mysql" in call for call in calls))
     self.assertTrue(any("app-id" in call for call in calls))
     self.assertTrue(any("mysql-id" in call for call in calls))
+
+  ##
+  ## In Compose the database is part of the release, so its absence is a failed
+  ## deployment rather than a different topology. Without this, a check that
+  ## stopped requiring the MySQL container would still pass every test - and the
+  ## Compose contract would have quietly become the external one.
+  ##
+  def test_compose_postcheck_fails_when_the_mysql_container_is_absent(self):
+    absent, calls = self.run_postcheck(compose=True, mysql_id="")
+
+    self.assertNotEqual(0, absent.returncode)
+
+  def test_compose_postcheck_fails_when_the_app_container_is_absent(self):
+    absent, calls = self.run_postcheck(compose=True, app_id="")
+
+    self.assertNotEqual(0, absent.returncode)
 
   def test_release_identity_checks_exact_app_labels_and_mysql_reference(self):
     result, calls = self.run_postcheck(compose=True, identity=True)

@@ -65,3 +65,23 @@ python -m backend.src.database.migration_cli downgrade \
 `stamp` 只写版本表，不运行 DDL。仅在 schema 已人工识别且符合现有 CLI guard 时使用；对
 非-head revision 必须显式提供该数据库的真实名称。不要把任何历史 revision 固化到当前
 runbook。完成纳管后重新运行 status/check，再按 preflight 执行 upgrade。
+
+## External-host topology
+
+`migration_cli` 不接受 DSN，也不读环境变量：它总是读取 `<root>/config/config.yml`。因此针对
+host MySQL 运行它的唯一方式，是在 disposable container 内挂载 canonical config 并提供
+`SMSD_DB_HOST`——这正是 external backup 与 external postcheck 读取 schema state 的方式：
+
+```shell
+CONTAINER_ENGINE run --rm \
+  --env SMSD_DB_HOST=HOST_ADDRESS \
+  --volume /path/to/config.yml:/run/secrets/config.yml:ro \
+  IMAGE_DIGEST \
+  python -m backend.src.database.migration_cli status
+```
+
+`state=ready` 之外的任何结果都会让 external backup 拒绝继续：对 schema 状态未知的数据库所做的
+dump，其 restore 语义同样未知。
+
+Migration rehearsal 必须针对 production-shaped snapshot 在 disposable MySQL 上进行，
+不得针对生产数据库执行 `upgrade`。

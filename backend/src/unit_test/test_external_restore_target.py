@@ -62,6 +62,24 @@ class ExternalRestoreTargetTest(unittest.TestCase):
     with self.assertRaises(ValueError):
       self.validate(self.source_database, "/srv/restore-drill/media")
 
+  def test_a_disposable_name_that_is_still_the_source_is_refused(self):
+    ##
+    ## Isolates the "differs from the source" rule from the name pattern.
+    ##
+    ## A source that already looks disposable is not hypothetical: it is what a
+    ## second drill run against the output of the first one looks like. With
+    ## only the pattern check, restoring a drill's own bundle back over itself
+    ## would be permitted, and the rule that the destination must be a
+    ## *different* place would never be exercised by any test.
+    ##
+    with self.assertRaises(ValueError):
+      self.module.validate_external_restore_target(
+        database="smsd_restore_test_drill01",
+        media_root="/srv/restore-drill/second",
+        source_database="smsd_restore_test_drill01",
+        source_media_root="/srv/restore-drill/first",
+      )
+
   def test_a_name_that_is_not_explicitly_disposable_is_refused(self):
     for name in ("", "smsd", "production", "social_media_stream_downloader_v3",
                  "restore_test", "smsd_restore_test_"):

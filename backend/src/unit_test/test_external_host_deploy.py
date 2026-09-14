@@ -248,6 +248,30 @@ class ExternalDeploySafetyTest(ExternalDeployTestCase):
 
     self.assertNotEqual(0, completed.returncode)
     self.assertNotIn("engine run", log)
+    ##
+    ## Asserted on *which* guard fired. Without this the test passes whenever
+    ## ``/`` happens not to be writable by the test user, which would leave the
+    ## rule that actually matters - never mount the filesystem root - untested
+    ## on any host where that happens to be true.
+    ##
+    self.assertIn("filesystem root", completed.stderr)
+
+  def test_an_ancestor_of_the_media_root_is_not_silently_accepted(self):
+    ##
+    ## A writable directory that happens to sit above the media tree passes
+    ## every other check. What stops it is that the operator has to name the
+    ## media root itself, and the deployment mounts exactly what it was given -
+    ## so the mount argument is pinned to the resolved value rather than to
+    ## anything derived from it.
+    ##
+    completed, log = self.run_deploy()
+
+    self.assertEqual(0, completed.returncode, completed.stderr)
+    mounts = [line for line in log.splitlines() if "--volume" in line]
+    self.assertTrue(mounts)
+    for line in mounts:
+      self.assertNotIn("--volume /tmp:", line)
+      self.assertNotIn("--volume /:", line)
 
   ##
   ## The cpu controller is not delegated to a rootless user slice on this host,

@@ -148,6 +148,38 @@ def collect_identity(root: Path) -> tuple[list, int]:
 ##     ``recording_orphan`` is the rule this leans on, and a test pins the two
 ##     together so they cannot drift.
 ##
+##
+## Remove a tree this process owns, including parts of it that were cloned with
+## modes that forbid traversal.
+##
+## Ownership is what makes this safe: the mode can be restored because the
+## caller created these entries a moment ago. Nothing outside the snapshot being
+## abandoned is ever touched.
+##
+def _remove_tree(target: Path) -> None:
+  def reopen(function, path, unused):
+    try:
+      os.chmod(path, 0o700)
+    except OSError:
+      return
+    function(path)
+
+  try:
+    shutil.rmtree(target, onexc=reopen)
+  except TypeError:
+    ## Python 3.11 and earlier spell the same hook differently.
+    shutil.rmtree(target, onerror=lambda f, p, e: reopen(f, p, e))
+  except OSError:
+    ##
+    ## Reported rather than swallowed: an operator needs to know a directory
+    ## was left behind, because the next release will see it.
+    ##
+    print(
+      "media snapshot warning: an abandoned snapshot could not be removed",
+      file=sys.stderr,
+    )
+
+
 def require_valid_snapshot_root(media_root: Path, snapshot_root: Path) -> bool:
   try:
     media_device = os.stat(media_root).st_dev
@@ -240,7 +272,13 @@ def create(arguments) -> int:
     ## one is the failure this whole file exists to prevent, and leaving one
     ## behind would let a later release mistake it for a complete capture.
     ##
-    shutil.rmtree(snapshot_path, ignore_errors=True)
+    ## ``ignore_errors`` is deliberately not used. A clone can fail precisely
+    ## because it hit a directory nothing can traverse, and ``cp`` will have
+    ## reproduced that mode on the way in - so the removal has to be able to
+    ## open what it is removing, and a silent failure here would leave exactly
+    ## the debris this is here to clear.
+    ##
+    _remove_tree(snapshot_path)
     fail("the media tree could not be cloned by reflink")
 
   entries, total_bytes = collect_identity(snapshot_path)
