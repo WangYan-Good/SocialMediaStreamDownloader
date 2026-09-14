@@ -119,13 +119,42 @@ port=$port
 CNF
 chmod 600 "$option_file"
 
+##
+## Which database the snapshot will actually land in.
+##
+## A dump taken with ``--databases`` carries ``CREATE DATABASE X`` and ``USE X``
+## and therefore selects its own destination; the restoring client's choice is
+## ignored. This snapshot is one of those - it predates the release tooling - so
+## the rehearsal reads the name out of it rather than assuming its own.
+##
+## Guessing wrong here does not fail loudly, which is what makes it worth
+## handling: the import succeeds, the intended database stays empty, and the
+## rehearsal reports ``unversioned`` as though production had no schema at all.
+##
+## Safe because the *server* is the disposable thing. It was created moments
+## ago, holds nothing else and is destroyed on exit, so whatever the database
+## inside it is called carries no risk.
+##
+embedded_database="$(
+  head -c 200000 "$snapshot" |
+    grep -aoE '^USE `[^`]+`;' |
+    head -1 |
+    sed -E 's/^USE `//; s/`;$//'
+)"
+if [[ -n "$embedded_database" ]]; then
+  rehearsal_database="$embedded_database"
+  record "the snapshot selects its own database: using $rehearsal_database"
+else
+  rehearsal_database="smsd_rehearsal"
+  record "the snapshot names no database: using $rehearsal_database"
+fi
+
 config_file="$workspace/config.yml"
-"$PYTHON_BIN" - "$config_file" "$port" <<'PYEOF'
+"$PYTHON_BIN" - "$config_file" "$port" "$rehearsal_database" <<'PYEOF'
 import sys
 from pathlib import Path
 import yaml
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[0]))
 example = Path("docs/design/config.yml.example")
 config = yaml.safe_load(example.read_text(encoding="utf-8"))
 config["database"].update({
@@ -134,7 +163,7 @@ config["database"].update({
     "port": int(sys.argv[2]),
     "username": "root",
     "password": "rehearsal",
-    "name": "smsd_rehearsal",
+    "name": sys.argv[3],
 })
 Path(sys.argv[1]).write_text(
     yaml.safe_dump(config, allow_unicode=True, sort_keys=False), encoding="utf-8"
@@ -173,7 +202,7 @@ migration() {
 ##
 record "restoring the production-shaped snapshot"
 started="$(date -u +%s)"
-"$MYSQL_BIN" "--defaults-extra-file=$option_file" smsd_rehearsal < "$snapshot" ||
+"$MYSQL_BIN" "--defaults-extra-file=$option_file" < "$snapshot" ||
   fail "the production-shaped snapshot could not be restored"
 record "restore completed in $(( $(date -u +%s) - started ))s"
 
@@ -222,10 +251,10 @@ record "second upgrade is a no-op: $second_state"
 ##
 row_report="$(
   "$MYSQL_BIN" "--defaults-extra-file=$option_file" --skip-column-names --batch \
-    smsd_rehearsal -e "
+    "$rehearsal_database" -e "
       SELECT CONCAT(table_name, '=', table_rows)
       FROM information_schema.tables
-      WHERE table_schema = 'smsd_rehearsal'
+      WHERE table_schema = DATABASE()
       ORDER BY table_name;
     "
 )"
