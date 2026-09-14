@@ -20,11 +20,30 @@ from backend.src.library.config_contract import (
 )
 
 
+import re
+
 CANONICAL_CONFIG_PATH = PROJECT_ROOT / "config" / "config.yml"
 CONFIG_EXAMPLE_PATH = PROJECT_ROOT / "docs" / "design" / "config.yml.example"
 CONFIG_ERROR = "config/config.yml is missing or invalid"
 CONTAINER_INTERNAL_SERVER_HOST = "0.0.0.0"
 MYSQL_ROOT_SECRET_PATH = PROJECT_ROOT / "config" / "mysql-root-password"
+
+##
+## The Compose service name, which is exactly what an external deployment must
+## never be pointed at: inside Compose it is a service, and outside it is
+## either nothing or somebody else's host entirely.
+##
+COMPOSE_DATABASE_HOST = "mysql"
+
+##
+## What may be used as a database address.
+##
+## Deliberately narrow, and enforced rather than trusted, because this value
+## reaches the container as an environment string and is then written into a
+## YAML document. A value carrying a newline would stop being an address and
+## start being additional configuration.
+##
+_DATABASE_HOST = re.compile(r"[A-Za-z0-9]([A-Za-z0-9._-]{0,251}[A-Za-z0-9])?\Z")
 
 
 def _require_non_empty_string(source: dict, key: str, path: str) -> str:
@@ -48,11 +67,25 @@ def load_runtime_config(config_path: Path = CANONICAL_CONFIG_PATH) -> dict:
   return config
 
 
+def require_database_host(value) -> str:
+  """Return ``value`` if it can be a database address, or refuse it.
+
+  The address is not a secret and may travel as an environment value, which is
+  precisely why it is checked here: an unchecked string is written verbatim
+  into the staged YAML document, and a newline would make it a second setting
+  rather than a hostname.
+  """
+  if not isinstance(value, str) or _DATABASE_HOST.fullmatch(value) is None:
+    raise ValueError("$.database.host override must be a hostname or address")
+  return value
+
+
 def stage_container_config(
   source_path: Path,
   target_path: Path,
   owner_uid: int,
   owner_gid: int,
+  database_host: str | None = None,
 ) -> None:
   config = yaml.safe_load(source_path.read_text(encoding="utf-8"))
   validate_runtime_config(config)
@@ -60,6 +93,21 @@ def stage_container_config(
   # isolated Compose network Waitress must listen on the container interface;
   # host exposure remains constrained by docker-compose.yml.
   config["server"]["host"] = CONTAINER_INTERNAL_SERVER_HOST
+  ##
+  ## External-host deployments only.
+  ##
+  ## Production's canonical file says ``localhost`` and must keep saying it -
+  ## the bare-metal writer reads that same file until the moment it is stopped,
+  ## so rewriting it would break the running production before its replacement
+  ## was proven. Inside a container ``localhost`` is the container, so the
+  ## address is corrected *here*, on the staged copy, and nowhere else.
+  ##
+  ## Only the address moves. The password stays in the mounted file, because an
+  ## address in an environment variable is a fact about the network and a
+  ## password in one is a credential in every ``inspect`` and every crash dump.
+  ##
+  if database_host is not None:
+    config["database"]["host"] = require_database_host(database_host)
   staged_text = yaml.safe_dump(
     config, allow_unicode=True, sort_keys=False
   )
@@ -94,17 +142,44 @@ def drop_privileges_and_exec(username: str, command: list[str]) -> None:
   os.execvp(command[0], command)
 
 
+##
+## The environment value an external-host deployment sets, and the only one it
+## may set.
+##
+## A database *address* is a fact about the network: it appears in ``inspect``
+## output, in a process listing and in a crash dump, and none of that is a
+## disclosure. A database *password* in the same place would be, which is why
+## there is no companion variable for one - the credential stays in the mounted
+## file and is read only by the staging step below.
+##
+CONTAINER_DATABASE_HOST_VARIABLE = "SMSD_DB_HOST"
+
+
 def run_container_entrypoint(
   source_path: Path,
   username: str,
   command: list[str],
 ) -> None:
   account = pwd.getpwnam(username)
+  ##
+  ## Absent for a Compose deployment, which wants the file exactly as mounted.
+  ## Present for an external-host one, where the canonical ``localhost`` means
+  ## the container itself and has to be corrected on the staged copy.
+  ##
+  database_host = os.environ.get(CONTAINER_DATABASE_HOST_VARIABLE)
+  if database_host is not None:
+    ##
+    ## Checked before anything is written. A container that refused to start is
+    ## a deployment that failed; a container that started against an address
+    ## somebody injected is a deployment that succeeded at the wrong thing.
+    ##
+    require_database_host(database_host)
   stage_container_config(
     source_path,
     CANONICAL_CONFIG_PATH,
     account.pw_uid,
     account.pw_gid,
+    database_host=database_host,
   )
   drop_privileges_and_exec(username, command)
 
@@ -230,6 +305,98 @@ def compose_environment(
     "SMSD_CONFIG_FILE": str(Path(config_path).resolve()),
     "SMSD_MYSQL_ROOT_SECRET_FILE": str(Path(root_secret_path).resolve()),
   }
+
+
+##
+## The other topology, stated separately on purpose.
+##
+## ``compose_environment`` describes a stack that brings its own database and
+## keeps media in a named volume. This describes the one this project actually
+## runs in production: an application container against a MySQL that already
+## exists on the host, and a media tree at a real path that is bind-mounted
+## rather than copied.
+##
+## The two are not a flag apart. They disagree about where the database is,
+## what may be created, and what a rollback means, and expressing that as
+## conditionals inside one function is how one topology's guard quietly stops
+## protecting the other. So each keeps its own refusal: Compose refuses any
+## database host but ``mysql``, and this refuses exactly that one.
+##
+## Deliberately returns no password. Compose needs it because Compose *creates*
+## the database user; an external deployment connects to a user somebody else
+## already made, so the credential never has to leave the configuration file.
+##
+def external_environment(
+  config: dict,
+  config_path: Path = CANONICAL_CONFIG_PATH,
+) -> dict:
+  validate_runtime_config(config)
+  database = config["database"]
+  host = _require_non_empty_string(database, "host", "$.database.host")
+  if host == COMPOSE_DATABASE_HOST:
+    raise ValueError(
+      "$.database.host must not be the Compose service name for an "
+      "external-host deployment"
+    )
+  require_database_host(host)
+
+  download = config.get("download")
+  if not isinstance(download, dict):
+    raise ValueError("$.download must be a mapping")
+  media_root = _require_non_empty_string(
+    download, "save_path", "$.download.save_path"
+  )
+  ##
+  ## An absolute path, because it is about to become a bind-mount source and a
+  ## relative one would be resolved against whatever directory the deployment
+  ## happened to run from.
+  ##
+  if not media_root.startswith("/"):
+    raise ValueError("$.download.save_path must be an absolute path")
+  normalised = str(Path(media_root))
+  if normalised == "/":
+    raise ValueError("$.download.save_path must not be the filesystem root")
+
+  return {
+    "SMSD_SERVER_PORT": config["server"]["port"],
+    "SMSD_DB_HOST": host,
+    "SMSD_DB_NAME": _require_non_empty_string(
+      database, "name", "$.database.name"
+    ),
+    "SMSD_MEDIA_ROOT": normalised,
+    "SMSD_CONFIG_FILE": str(Path(config_path).resolve()),
+  }
+
+
+##
+## Refuse a configuration file anybody but its owner can read.
+##
+## The file holds the database password. Production's copy is ``0644`` today,
+## and a deployment tool that read it anyway would be treating "this mistake
+## has already been made" as permission to keep making it.
+##
+## Not repaired here, deliberately. A deployment script that quietly widened or
+## narrowed the permissions of an operator's file would be changing production
+## state as a side effect of a check; fixing the mode is a decision an operator
+## makes, and this only refuses to proceed until they have.
+##
+def require_private_config(path: Path) -> Path:
+  path = Path(path)
+  ##
+  ## ``lstat``: the mode of a link says nothing about the mode of its target,
+  ## and a link at this name is somebody choosing which file gets read.
+  ##
+  info = path.lstat()
+  if stat.S_ISLNK(info.st_mode):
+    raise ValueError("the configuration file must not be a symbolic link")
+  if not stat.S_ISREG(info.st_mode):
+    raise ValueError("the configuration file must be a regular file")
+  if stat.S_IMODE(info.st_mode) & 0o077:
+    raise ValueError(
+      "the configuration file holds the database password and must not be "
+      "readable by group or other"
+    )
+  return path
 
 
 def write_compose_environment(
