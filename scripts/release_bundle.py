@@ -256,9 +256,20 @@ def _declared_topology(directory: Path) -> tuple[dict, str]:
   if version not in SUPPORTED_FORMAT_VERSIONS:
     raise ValueError("backup manifest format is unsupported")
   ##
-  ## Version 1 has no topology field and could only have been Compose.
+  ## Version 1 predates the field and could only ever have been Compose, so it
+  ## is *interpreted* rather than refused - a backup taken before this change is
+  ## still a backup somebody may need.
   ##
-  topology = manifest.get("topology", TOPOLOGY_COMPOSE)
+  ## Every later version must say so itself. A current-format bundle with no
+  ## topology is one this build did not write, and the answer is never to infer
+  ## one from whatever the reading environment happens to be: that is how a
+  ## Compose restore ends up pointed at an external bundle because it was run on
+  ## a host that happens to use Compose.
+  ##
+  if version == 1:
+    topology = manifest.get("topology", TOPOLOGY_COMPOSE)
+  else:
+    topology = manifest.get("topology")
   if topology not in ASSETS_BY_TOPOLOGY:
     raise ValueError("backup topology is unsupported")
   return manifest, topology

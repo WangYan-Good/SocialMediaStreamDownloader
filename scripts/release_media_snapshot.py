@@ -22,6 +22,23 @@ And the snapshot necessarily shares a filesystem with the media it clones. It is
 authority against *logical* loss - a bad migration, an application bug, a wrong
 delete - and it is not authority against the device failing. That boundary is
 stated here and in the runbook rather than left for somebody to discover.
+
+Two things this deliberately does **not** claim.
+
+It is not atomic across the tree. ``cp --reflink`` clones entry by entry, so a
+tree still being written to would be captured at slightly different instants per
+file. Consistency is the *backup contract's* job, not this helper's: the writer
+is stopped and proven stopped before this runs, and the ordering lives in
+``release_external_backup.sh``. A snapshot taken under a live writer is a
+snapshot of nothing in particular.
+
+And the identity it records is the identity of *the snapshot object*, not a
+content integrity hash. Device and inode prove that the files in a snapshot are
+still the files that were cloned into it - that nothing was substituted
+underneath - which is exactly what a later restore needs to know about its
+source. They say nothing about a restored copy: restoring or re-cloning produces
+new inodes by definition, so a restore is verified against what it produced, not
+against these numbers.
 """
 
 import argparse
@@ -111,16 +128,52 @@ def collect_identity(root: Path) -> tuple[list, int]:
   return entries, total_bytes
 
 
-def require_distinct_trees(media_root: Path, snapshot_root: Path) -> None:
-  ##
-  ## A snapshot root inside the media root would clone itself, and every release
-  ## would nest the one before it until the tree was mostly its own history.
-  ##
+##
+## Where a snapshot store is allowed to be.
+##
+## Reflink cannot cross a filesystem, and the media root *is* the mount point of
+## its filesystem, so the store has to live inside the tree being cloned. There
+## is nowhere else on that disk. Everything here is about making that safe
+## rather than pretending it can be avoided.
+##
+## Two rules, and both are load-bearing:
+##
+##   - same filesystem, checked by device rather than by path. A store on
+##     another mount would either fail obscurely or, far worse, silently become
+##     the byte copy this whole approach exists to avoid.
+##   - hidden, when it is inside the media root. The application's orphan scan
+##     descends into every directory whose name is not hidden, so a visible
+##     store would be walked as if it were media and each cloned recording would
+##     be offered as an orphan candidate. ``_is_scannable_directory_name`` in
+##     ``recording_orphan`` is the rule this leans on, and a test pins the two
+##     together so they cannot drift.
+##
+def require_valid_snapshot_root(media_root: Path, snapshot_root: Path) -> bool:
   try:
-    snapshot_root.relative_to(media_root)
+    media_device = os.stat(media_root).st_dev
+    snapshot_device = os.stat(
+      snapshot_root if snapshot_root.exists() else snapshot_root.parent
+    ).st_dev
+  except OSError as error:
+    fail("the snapshot root could not be inspected ({})".format(
+      type(error).__name__
+    ))
+  if media_device != snapshot_device:
+    fail(
+      "the snapshot root must be on the same filesystem as the media root; "
+      "reflink cannot cross one"
+    )
+
+  try:
+    relative = snapshot_root.relative_to(media_root)
   except ValueError:
-    return
-  fail("the snapshot root must not be inside the media root")
+    return False
+  if any(part.startswith(".") for part in relative.parts):
+    return True
+  fail(
+    "a snapshot root inside the media root must be hidden, or the application "
+    "will scan the snapshot as if it were media"
+  )
 
 
 def create(arguments) -> int:
@@ -132,9 +185,9 @@ def create(arguments) -> int:
     fail("the media root must not be the filesystem root")
   if not media_root.is_dir():
     fail("the media root is not an existing directory")
-  require_distinct_trees(media_root, snapshot_root)
 
   snapshot_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+  nested = require_valid_snapshot_root(media_root, snapshot_root)
   if not reflink_available(snapshot_root):
     ##
     ## Refused, never degraded. See the module note.
@@ -144,25 +197,48 @@ def create(arguments) -> int:
       "media tree is not a supported fallback"
     )
 
-  stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+  ##
+  ## A readable timestamp so an operator can tell snapshots apart, and a random
+  ## suffix so two taken in the same second cannot collide - which is not a
+  ## hypothetical: a rehearsal takes several in a row.
+  ##
+  stamp = "{}-{}".format(
+    datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"),
+    os.urandom(4).hex(),
+  )
   snapshot_path = snapshot_root / stamp
   if snapshot_path.exists():
     fail("a snapshot already exists under that name")
 
   ##
-  ## ``-a`` to keep ownership, mode and timestamps; ``--reflink=always`` so the
-  ## command fails rather than silently copying; ``-T`` so the destination is
-  ## the snapshot itself rather than a directory inside it.
+  ## Cloned entry by entry rather than with one ``cp -T`` of the whole root,
+  ## because the snapshot store lives inside the tree being cloned and must be
+  ## left out of it. Without the exclusion each release would nest the release
+  ## before it until the media root was mostly its own history.
   ##
-  completed = subprocess.run(
-    ["cp", "-a", "--reflink=always", "-T", str(media_root), str(snapshot_path)],
-    capture_output=True,
-    text=True,
-  )
-  if completed.returncode != 0:
+  ## ``-a`` keeps ownership, mode and timestamps; ``--reflink=always`` makes the
+  ## command fail rather than silently fall back to copying.
+  ##
+  snapshot_path.mkdir(mode=0o700)
+  try:
+    for entry in sorted(media_root.iterdir()):
+      if nested and entry == snapshot_root:
+        continue
+      completed = subprocess.run(
+        [
+          "cp", "-a", "--reflink=always",
+          str(entry), str(snapshot_path / entry.name),
+        ],
+        capture_output=True,
+        text=True,
+      )
+      if completed.returncode != 0:
+        raise OSError(completed.stderr.strip() or "clone failed")
+  except OSError:
     ##
     ## Remove the half-made clone. A partial snapshot that looked like a whole
-    ## one is the failure this whole file exists to avoid.
+    ## one is the failure this whole file exists to prevent, and leaving one
+    ## behind would let a later release mistake it for a complete capture.
     ##
     shutil.rmtree(snapshot_path, ignore_errors=True)
     fail("the media tree could not be cloned by reflink")

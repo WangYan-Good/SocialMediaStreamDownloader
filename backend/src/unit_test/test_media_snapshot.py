@@ -236,9 +236,38 @@ class MediaSnapshotCreateTest(MediaSnapshotTestCase):
 
       self.assertNotEqual(0, completed.returncode)
 
-  def test_a_snapshot_root_inside_the_media_root_is_refused(self):
+  ##
+  ## >>============ where a snapshot is allowed to live ============>>
+  ##
+  ## Reflink only works within one filesystem, and the media root *is* the
+  ## mount point of its filesystem. So the snapshot store has to sit inside the
+  ## media root - there is nowhere else on that disk - and everything below is
+  ## about making that safe rather than pretending it can be avoided.
+  ##
+
+  def test_a_hidden_snapshot_root_inside_the_media_root_is_allowed(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      if not reflink_supported(root):
+        self.skipTest("the scratch filesystem cannot reflink")
+      media = root / "media"
+      media.mkdir()
+      self.populate(media)
+
+      completed = self.run_snapshot(
+        "create",
+        "--media-root", media,
+        "--snapshot-root", media / ".smsd-release-snapshot",
+        "--output", root / "media-snapshot.json",
+      )
+
+      self.assertEqual(0, completed.returncode, completed.stderr)
+
+  def test_a_visible_snapshot_root_inside_the_media_root_is_refused(self):
     ##
-    ## It would snapshot itself, and each release would nest the previous one.
+    ## The application's orphan scan descends into any directory whose name is
+    ## not hidden. A visible snapshot store would be walked as if it were media,
+    ## and every cloned recording would be offered as an orphan candidate.
     ##
     with tempfile.TemporaryDirectory() as directory:
       root = Path(directory)
@@ -254,6 +283,78 @@ class MediaSnapshotCreateTest(MediaSnapshotTestCase):
       )
 
       self.assertNotEqual(0, completed.returncode)
+      self.assertIn("hidden", completed.stderr.lower())
+
+  def test_the_application_scan_really_excludes_a_hidden_snapshot_root(self):
+    ##
+    ## Pinned against the production rule rather than restated, so the two
+    ## cannot drift into disagreeing about what is scanned.
+    ##
+    from backend.src.service.recording_orphan import (
+      _is_scannable_directory_name,
+    )
+
+    self.assertFalse(_is_scannable_directory_name(".smsd-release-snapshot"))
+    self.assertTrue(_is_scannable_directory_name("snapshots"))
+
+  def test_a_snapshot_root_on_another_filesystem_is_refused(self):
+    ##
+    ## Reflink cannot cross a filesystem, so this would either fail obscurely or
+    ## silently become the byte copy that must never happen.
+    ##
+    shared = Path("/dev/shm")
+    if not shared.is_dir() or not os.access(shared, os.W_OK):
+      self.skipTest("no second filesystem available")
+    with tempfile.TemporaryDirectory() as directory, \
+         tempfile.TemporaryDirectory(dir=shared) as elsewhere:
+      root = Path(directory)
+      media = root / "media"
+      media.mkdir()
+      self.populate(media)
+
+      completed = self.run_snapshot(
+        "create",
+        "--media-root", media,
+        "--snapshot-root", Path(elsewhere) / ".snapshots",
+        "--output", root / "media-snapshot.json",
+      )
+
+      self.assertNotEqual(0, completed.returncode)
+      self.assertIn("filesystem", completed.stderr.lower())
+
+  def test_the_snapshot_store_is_never_cloned_into_itself(self):
+    ##
+    ## The store lives inside the tree being cloned, so without an explicit
+    ## exclusion every release would nest the release before it until the media
+    ## root was mostly its own history.
+    ##
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      if not reflink_supported(root):
+        self.skipTest("the scratch filesystem cannot reflink")
+      media = root / "media"
+      media.mkdir()
+      self.populate(media)
+      store = media / ".smsd-release-snapshot"
+
+      first = self.run_snapshot(
+        "create", "--media-root", media, "--snapshot-root", store,
+        "--output", root / "first.json",
+      )
+      self.assertEqual(0, first.returncode, first.stderr)
+      second = self.run_snapshot(
+        "create", "--media-root", media, "--snapshot-root", store,
+        "--output", root / "second.json",
+      )
+      self.assertEqual(0, second.returncode, second.stderr)
+
+      document = json.loads((root / "second.json").read_text(encoding="utf-8"))
+      paths = [entry["relative_path"] for entry in document["entries"]]
+      for path in paths:
+        self.assertFalse(
+          path.startswith(".smsd-release-snapshot"),
+          "the snapshot store was cloned into the snapshot: {}".format(path),
+        )
 
 
 class MediaSnapshotVerifyTest(MediaSnapshotTestCase):

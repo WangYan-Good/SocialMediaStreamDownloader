@@ -34,6 +34,7 @@ db_host=""
 port=""
 health_url=""
 memory_limit=""
+publish_address=""
 
 usage() {
   cat >&2 <<'USAGE'
@@ -65,6 +66,7 @@ while [[ $# -gt 0 ]]; do
     --media-root) [[ $# -ge 2 ]] || usage; media_root="$2"; shift 2 ;;
     --db-host) [[ $# -ge 2 ]] || usage; db_host="$2"; shift 2 ;;
     --port) [[ $# -ge 2 ]] || usage; port="$2"; shift 2 ;;
+    --publish-address) [[ $# -ge 2 ]] || usage; publish_address="$2"; shift 2 ;;
     --health-url) [[ $# -ge 2 ]] || usage; health_url="$2"; shift 2 ;;
     --memory) [[ $# -ge 2 ]] || usage; memory_limit="$2"; shift 2 ;;
     ##
@@ -86,7 +88,7 @@ done
 
 [[ -n "$image_ref" && -n "$expected_revision" && -n "$container_name" ]] || usage
 [[ -n "$config_file" && -n "$media_root" && -n "$db_host" ]] || usage
-[[ -n "$port" && -n "$health_url" ]] || usage
+[[ -n "$port" && -n "$health_url" && -n "$publish_address" ]] || usage
 
 ##
 ## >>===================== identity, before anything runs =====================>>
@@ -105,6 +107,18 @@ done
   fail "port must be an integer from 1 to 65535"
 [[ "$db_host" =~ ^[A-Za-z0-9]([A-Za-z0-9._-]{0,251}[A-Za-z0-9])?$ ]] ||
   fail "database host must be a hostname or address"
+##
+## Two different exposures are easy to conflate. Inside the container the
+## application listens on 0.0.0.0 or nothing outside its namespace could reach
+## it - that is the staged config's job. What the *host* publishes is a separate
+## decision and the one that changes who can reach production, so it is stated
+## on the command line rather than defaulted to whatever seemed reasonable.
+##
+## Validated as a bare address, because it is interpolated into the publish
+## argument and an unchecked value there is a second flag.
+##
+[[ "$publish_address" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$|^\[[0-9a-fA-F:]+\]$ ]] ||
+  fail "publish address must be a plain IPv4 address or a bracketed IPv6 address"
 [[ -f "$REQUIREMENTS_FILE" ]] || fail "requirements lock is absent"
 
 ##
@@ -192,7 +206,13 @@ run_arguments=(
   run --detach
   --name "$container_name"
   --restart unless-stopped
-  --publish "127.0.0.1:${port}:${port}"
+  ##
+  ## Bridge networking with an explicit published address, never
+  ## ``--network=host``. Host networking would reach the database by dissolving
+  ## the namespace boundary rather than routing across it, and it would publish
+  ## every port the container opens instead of the one that was asked for.
+  ##
+  --publish "${publish_address}:${port}:${port}"
   --env "SMSD_DB_HOST=${db_host}"
   --volume "${config_file}:/run/secrets/config.yml:ro"
   --volume "${media_resolved}:${media_resolved}"

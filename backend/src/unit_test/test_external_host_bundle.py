@@ -160,6 +160,26 @@ class ExternalBundleShapeTest(ExternalBundleTestCase):
 
       self.assertEqual(self.module.TOPOLOGY_COMPOSE, verified["topology"])
 
+  def test_a_current_format_bundle_without_a_topology_is_refused(self):
+    ##
+    ## Only version 1 may be *interpreted* as Compose, and only because it
+    ## predates the field and could have been nothing else. A current-format
+    ## bundle that does not say which topology produced it is a bundle this
+    ## build did not write, and the answer is never to infer one from whatever
+    ## the current environment happens to be.
+    ##
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      self.write_compose_bundle(root)
+      path = root / "manifest.json"
+      manifest = json.loads(path.read_text(encoding="utf-8"))
+      del manifest["topology"]
+      path.write_text(json.dumps(manifest), encoding="utf-8")
+      self.module.write_checksums(root)
+
+      with self.assertRaises(ValueError):
+        self.module.verify_bundle(root)
+
   def test_an_unknown_topology_is_refused_rather_than_guessed(self):
     with tempfile.TemporaryDirectory() as directory:
       root = Path(directory)

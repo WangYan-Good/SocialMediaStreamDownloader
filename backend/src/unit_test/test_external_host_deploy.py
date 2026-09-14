@@ -138,6 +138,14 @@ class ExternalDeployTestCase(unittest.TestCase):
         "--port", str(overrides.pop("port", 5000)),
         "--health-url", "http://127.0.0.1:5000/",
       ]
+      ##
+      ## Stated explicitly by every caller, exactly as an operator must. A
+      ## default here would hide the one argument that decides who can reach
+      ## production.
+      ##
+      publish_address = overrides.pop("publish_address", "0.0.0.0")
+      if publish_address is not None:
+        argv += ["--publish-address", publish_address]
       for extra in overrides.pop("extra", []):
         argv.append(extra)
       self.assertEqual({}, overrides, "unused override")
@@ -283,6 +291,54 @@ class ExternalDeploySafetyTest(ExternalDeployTestCase):
     self.assertEqual(0, completed.returncode, completed.stderr)
     for forbidden in ("--privileged", "docker.sock", "podman.sock", "-v /:"):
       self.assertNotIn(forbidden, log)
+
+  ##
+  ## >>================ the host publication contract ================>>
+  ##
+  ## Two different things are easy to conflate here. Inside the container the
+  ## application must listen on ``0.0.0.0`` or nothing outside its namespace
+  ## could ever reach it - that is the staged config's job. What the *host*
+  ## exposes is a separate decision, and it is the one that changes who can
+  ## reach production.
+  ##
+  ## Production today serves on ``0.0.0.0:5000``. Narrowing that is a change
+  ## worth making deliberately and not one to bundle into a cutover, so the
+  ## address is stated on the command line rather than defaulted.
+  ##
+
+  def test_the_publication_address_must_be_stated(self):
+    completed, log = self.run_deploy(publish_address=None)
+
+    self.assertNotEqual(0, completed.returncode)
+    self.assertNotIn("engine run", log)
+
+  def test_the_stated_publication_address_is_what_gets_published(self):
+    for address in ("0.0.0.0", "127.0.0.1"):
+      with self.subTest(address=address):
+        completed, log = self.run_deploy(publish_address=address)
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("--publish {}:".format(address), log)
+
+  def test_an_address_that_is_not_an_address_is_refused(self):
+    for hostile in ("0.0.0.0 --privileged", "; rm -rf /", "not-an-address!"):
+      with self.subTest(value=hostile):
+        completed, log = self.run_deploy(publish_address=hostile)
+
+        self.assertNotEqual(0, completed.returncode)
+        self.assertNotIn("engine run", log)
+
+  ##
+  ## Host networking would reach the host database by dissolving the boundary
+  ## rather than by routing across it, and it would silently publish every port
+  ## the container opens. The route to the database is explicit instead.
+  ##
+  def test_host_networking_is_never_used(self):
+    completed, log = self.run_deploy()
+
+    self.assertEqual(0, completed.returncode, completed.stderr)
+    self.assertNotIn("--network=host", log)
+    self.assertNotIn("--network host", log)
 
 
 if __name__ == "__main__":
