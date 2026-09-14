@@ -236,8 +236,17 @@ def check_repository(root: Path) -> list[Issue]:
     _add(issues, "promotion-scope", "promotion must be limited to develop pushes")
   needs_match = re.search(r"^    needs:\s*\[([^]]+)\]", promotion, re.MULTILINE)
   needs = {item.strip() for item in needs_match.group(1).split(",")} if needs_match else set()
-  if needs != {"backend", "mysql", "frontend", "image"}:
-    _add(issues, "promotion-needs", "promotion must depend explicitly on all four verification jobs")
+  ##
+  ## Every verification job, named explicitly rather than counted.
+  ##
+  ## ``external_host`` joined the set when the release gained a second
+  ## deployment topology: a promotion that could not deploy to the topology
+  ## production actually runs is not a promotion. The set is compared rather
+  ## than its size checked, so adding a job without gating promotion on it -
+  ## or dropping one - fails here.
+  ##
+  if needs != {"backend", "mysql", "external_host", "frontend", "image"}:
+    _add(issues, "promotion-needs", "promotion must depend explicitly on every verification job")
   package_write_blocks = [name for name, block in blocks.items() if re.search(r"^      packages:\s*write\s*$", block, re.MULTILINE)]
   if package_write_blocks != ["publish_tested_image"]:
     _add(issues, "promotion-permissions", "packages: write must exist only on the promotion job")

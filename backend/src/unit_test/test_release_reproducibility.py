@@ -67,7 +67,13 @@ class ReleaseReproducibilityTest(unittest.TestCase):
   def test_d17_promotion_is_reachable_only_from_develop_pushes(self):
     self.assertContract("promotion-scope")
 
-  def test_d18_promotion_depends_on_all_four_verification_jobs(self):
+  def test_d18_promotion_depends_on_every_verification_job(self):
+    ##
+    ## Five since the release gained a second deployment topology. Named
+    ## rather than counted: the failure this catches is a job that exists and
+    ## does not gate promotion, which a count would miss the moment two
+    ## changes landed together.
+    ##
     self.assertContract("promotion-needs")
 
   def test_d19_package_write_permission_exists_only_at_promotion_boundary(self):
@@ -198,8 +204,8 @@ class ReleaseReproducibilityTest(unittest.TestCase):
       (
         "M17",
         ".github/workflows/ci.yml",
+        "    needs: [backend, mysql, external_host, frontend, image]",
         "    needs: [backend, mysql, frontend, image]",
-        "    needs: [backend, frontend, image]",
         "promotion-needs",
       ),
       (
