@@ -164,7 +164,14 @@ sys.stdout.write(path)
 ## Two writers against one database and one media tree is the outcome with no
 ## clean rollback, so both ways it can happen are refused here.
 ##
-existing="$("$ENGINE_BIN" ps --all --quiet --filter "name=^${container_name}$" 2>/dev/null || true)"
+##
+## An engine that cannot answer is not an engine answering "nothing there".
+## A swallowed failure here would let a second writer start because the check
+## that should have stopped it could not run.
+##
+if ! existing="$("$ENGINE_BIN" ps --all --quiet --filter "name=^${container_name}$" 2>/dev/null)"; then
+  fail "the container engine could not be queried; refusing to start blind"
+fi
 [[ -z "$existing" ]] ||
   fail "a container named $container_name already exists; refusing to start a second writer"
 

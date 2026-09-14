@@ -112,7 +112,14 @@ module.require_private_config('$config_file')
 ## container can be up with nothing listening while it starts, and a bare-metal
 ## writer can hold the port with no container anywhere.
 ##
-running="$("$ENGINE_BIN" ps --quiet --filter "name=^${container_name}$" 2>/dev/null || true)"
+##
+## An engine that cannot be queried is not an engine reporting "stopped".
+## Swallowing its failure here would turn a broken Podman into a silent pass on
+## the one check that stands between this and a dump beside a live writer.
+##
+if ! running="$("$ENGINE_BIN" ps --quiet --filter "name=^${container_name}$" 2>/dev/null)"; then
+  fail "the container engine could not be queried; the writer state is unknown"
+fi
 [[ -z "$running" ]] ||
   fail "the application container is still running; stop the writer before backing up"
 
@@ -172,14 +179,26 @@ grep -q "state=ready" "$schema_status_file" ||
   fail "the database schema is not the one this build expects"
 
 ##
-## The dump. ``--defaults-extra-file`` must be the first argument or the client
-## treats it as an unknown option and falls back to whatever other configuration
-## it finds, which is how a backup silently connects as the wrong user.
+## The dump. Two things about this invocation are deliberate.
+##
+## ``--defaults-extra-file`` must be the first argument or the client treats it
+## as an unknown option and falls back to whatever other configuration it finds,
+## which is how a backup silently connects as the wrong user.
+##
+## And the database is named positionally rather than with ``--databases``.
+## ``--databases X`` emits ``CREATE DATABASE X`` and ``USE X`` into the dump, so
+## the SQL selects its own destination and any ``--database`` the restoring
+## client passes is ignored. A restore of such a dump lands in the source
+## database whatever it was aimed at - which against the production server means
+## importing a backup over production while the disposable-target guard reports
+## success. The Compose path keeps ``--databases`` because there the destination
+## is a whole disposable stack and preserving the name is the point; here the
+## destination is a name on a shared server, so the dump must not choose it.
 ##
 "$MYSQLDUMP_BIN" \
   "--defaults-extra-file=${option_file}" \
   --single-transaction --routines --triggers --events \
-  --databases "$database_name" \
+  "$database_name" \
   > "$output_directory/database.sql" ||
   fail "the database could not be dumped"
 

@@ -3,7 +3,8 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+import posixpath
 import re
 import sys
 
@@ -326,6 +327,82 @@ def verify_bundle(directory: Path) -> dict:
   return manifest
 
 
+##
+## The external restore guard, and why it is two guards.
+##
+## The Compose rule below works because in Compose a project name *is* the
+## destination: the database and the volume both hang off it, so refusing a
+## project name refuses both. Externally there is no project. The destination is
+## a database name on a host and a directory on a filesystem, and either of them
+## can be the live one - a drill run against the production database name would
+## import a backup over production, and one pointed at the media root would
+## unpack a snapshot over terabytes of library.
+##
+## Neither of those is a typo away from impossible. They are a typo away from
+## happening, which is why the name has to be explicitly disposable rather than
+## merely different.
+##
+EXTERNAL_RESTORE_DATABASE_PATTERN = re.compile(
+  r"^smsd_restore_test_[a-z0-9][a-z0-9_]{2,54}$"
+)
+
+
+def _normalised_path(value: str) -> PurePosixPath:
+  ##
+  ## Compared after normalisation, or the guard only refuses the spellings
+  ## somebody happened to think of: ``/mnt/video/``, ``/mnt/video/.`` and
+  ## ``/mnt/video/x/..`` are all the same directory.
+  ##
+  return PurePosixPath(posixpath.normpath(value))
+
+
+def validate_external_restore_target(
+  *,
+  database: str,
+  media_root: str,
+  source_database: str,
+  source_media_root: str,
+) -> None:
+  if not EXTERNAL_RESTORE_DATABASE_PATTERN.fullmatch(database or ""):
+    raise ValueError(
+      "restore database must be an explicit disposable test database"
+    )
+  if database == source_database:
+    raise ValueError("restore database must differ from the source database")
+
+  if not media_root or not media_root.startswith("/"):
+    raise ValueError("restore media root must be an absolute path")
+  target = _normalised_path(media_root)
+  if str(target) == "/":
+    raise ValueError("restore media root must not be the filesystem root")
+
+  source = _normalised_path(source_media_root)
+  if target == source:
+    raise ValueError("restore media root must differ from the live media root")
+  if source in target.parents:
+    ##
+    ## Restoring into a subdirectory of the library would interleave a
+    ## snapshot's files with the live ones, and the orphan scan would then be
+    ## asked which of two identical trees is real.
+    ##
+    raise ValueError("restore media root must not be inside the live media root")
+
+
+##
+## A name guard says the operator meant a drill. It says nothing about whether
+## something is already there, and restoring on top of an existing tree is how a
+## drill quietly becomes a merge.
+##
+def require_empty_restore_destination(path: Path) -> None:
+  path = Path(path)
+  if not path.exists():
+    return
+  if not path.is_dir():
+    raise ValueError("restore media root exists and is not a directory")
+  if any(path.iterdir()):
+    raise ValueError("restore media root already has content")
+
+
 def validate_restore_project(project: str, *, source_project: str) -> None:
   if not RESTORE_PROJECT_PATTERN.fullmatch(project or ""):
     raise ValueError("restore project must be an explicit isolated test project")
@@ -365,6 +442,13 @@ def build_parser() -> argparse.ArgumentParser:
   validate = subparsers.add_parser("validate-restore-project")
   validate.add_argument("project")
   validate.add_argument("--source-project", required=True)
+  external = subparsers.add_parser("validate-external-restore-target")
+  external.add_argument("--database", required=True)
+  external.add_argument("--media-root", required=True)
+  external.add_argument("--source-database", required=True)
+  external.add_argument("--source-media-root", required=True)
+  empty = subparsers.add_parser("require-empty-restore-destination")
+  empty.add_argument("directory", type=Path)
   return parser
 
 
@@ -395,6 +479,15 @@ def main(argv=None) -> int:
       print(value)
     elif args.command == "validate-restore-project":
       validate_restore_project(args.project, source_project=args.source_project)
+    elif args.command == "validate-external-restore-target":
+      validate_external_restore_target(
+        database=args.database,
+        media_root=args.media_root,
+        source_database=args.source_database,
+        source_media_root=args.source_media_root,
+      )
+    elif args.command == "require-empty-restore-destination":
+      require_empty_restore_destination(args.directory)
   except (OSError, ValueError) as error:
     print(str(error), file=sys.stderr)
     return 1
