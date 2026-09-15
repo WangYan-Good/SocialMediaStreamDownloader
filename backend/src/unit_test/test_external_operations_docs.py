@@ -38,6 +38,18 @@ class ExternalRunbookTest(unittest.TestCase):
     self.assertIn("设备损失", self.release)
     self.assertIn("off-host backup", self.release)
 
+  ##
+  ## The store sits on the media filesystem, under the media root, and the
+  ## running application can write there. Hidden keeps the orphan scan out; it
+  ## is not a permission boundary. A runbook that let an operator plan around
+  ## this as general protection would be worse than none.
+  ##
+  def test_the_runbook_does_not_overstate_what_the_snapshot_protects(self):
+    self.assertIn("递归删除", self.release)
+    self.assertIn("隐藏**不是**权限边界", self.release)
+    self.assertIn("被攻陷", self.release)
+    self.assertIn("受支持的 release path", self.release)
+
   def test_nothing_implies_the_cutover_has_happened(self):
     self.assertIn("不**表示生产 cutover 已经发生", self.release)
     for claim in ("cutover 已完成", "已切换到容器", "生产已迁移"):
@@ -181,6 +193,27 @@ class ExternalRunbookReviewRoundTest(unittest.TestCase):
     self.assertIn("COUNT(*)", self.migrations)
     self.assertIn("BIT_XOR", self.migrations)
     self.assertIn("幂等", self.migrations)
+
+  ##
+  ## The two have different strengths and the document must not blur them.
+  ## ``COUNT(*)`` is exact; a 32-bit CRC folded with XOR is a fingerprint that
+  ## can collide, used only where the count already agrees. Calling it an exact
+  ## identity would invite somebody to trust it on its own.
+  ##
+  def test_the_fingerprint_is_not_described_as_an_exact_identity(self):
+    self.assertIn("概率性指纹", self.migrations)
+    self.assertIn("不是数学意义上的", self.migrations)
+    self.assertIn("绝不替代行数本身", self.migrations)
+    for overclaim in ("精确 identity", "精确指纹", "exact identity"):
+      self.assertNotIn(overclaim, self.migrations)
+
+  ##
+  ## And the rule that replaced allow-growth is stated, since an operator
+  ## reading the old wording would plan around a check that no longer exists.
+  ##
+  def test_the_strict_preservation_rule_is_documented(self):
+    self.assertIn("行数必须完全相等", self.migrations)
+    self.assertIn("alembic_version", self.migrations)
 
 
 if __name__ == "__main__":

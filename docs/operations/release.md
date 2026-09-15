@@ -200,9 +200,19 @@ scripts/release_external_backup.sh   --output BACKUP_DIR --config-file CONFIG [-
 媒体以 XFS **reflink** clone 捕获，与源共享 extent，成本接近于零。它是同一文件系统上的
 snapshot，因此：
 
-- **覆盖**：逻辑损失——错误迁移、应用缺陷、误删。
-- **不覆盖**：设备损失。`/dev/sdb1` 故障时 snapshot 一并丢失。设备级保护属于 off-host backup
-  policy，不在本 release contract 内。
+- **覆盖**：**受支持的 release path 上**的逻辑损失——错误迁移、release 过程中的应用缺陷、
+  cutover 期间的误删。这是它被设计来承担的范围，也是唯一被证明过的范围。
+- **不覆盖**，且不要按它来规划：
+  - **设备损失。** `/dev/sdb1` 故障时 snapshot 一并丢失。
+  - **应用对媒体树的任意递归删除。** snapshot store 就位于 media 所在的文件系统内、
+    media root 之下，而运行中的 application 对该文件系统具有写权限。它是隐藏目录，所以不会
+    被 orphan scan 当作媒体遍历；隐藏**不是**权限边界，一个递归删除或一次错误的清理路径同样
+    能删掉它。
+  - **application 被攻陷。** 与上一条同源：能以 application 身份写 media 的进程，也能写
+    snapshot store。
+
+  换句话说，它防的是「release 做错了事」，不是「有东西在乱删」。设备级与对抗性场景属于
+  off-host backup policy，不在本 release contract 内。
 
 snapshot root 必须与 media root 同一文件系统（reflink 无法跨文件系统），因此它位于 media root
 之内；并且必须是 media root 的**直接隐藏子目录**（`MEDIA_ROOT/.smsd-release-snapshot`）。

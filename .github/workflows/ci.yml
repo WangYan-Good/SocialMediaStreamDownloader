@@ -303,6 +303,7 @@ jobs:
             backend/src/unit_test/test_external_mysql_credential.py \
             backend/src/unit_test/test_external_restore_target.py \
             backend/src/unit_test/test_external_restore_drill_contract.py \
+            backend/src/unit_test/test_external_restore_drill_cleanup.py \
             backend/src/unit_test/test_external_preflight.py \
             backend/src/unit_test/test_external_db_privileges.py \
             backend/src/unit_test/test_external_writable_paths.py \
@@ -311,6 +312,7 @@ jobs:
             backend/src/unit_test/test_media_snapshot.py \
             backend/src/unit_test/test_media_write_probe.py \
             backend/src/unit_test/test_db_invariants.py \
+            backend/src/unit_test/test_release_image_identity.py \
             -q -rs --no-header | tee /tmp/external-host-tests.txt
 
       # A skip here is a proof that quietly stopped happening. The reflink
