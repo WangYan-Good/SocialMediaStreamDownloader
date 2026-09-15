@@ -141,12 +141,23 @@ def collect_identity(root: Path) -> tuple[list, int]:
 ##   - same filesystem, checked by device rather than by path. A store on
 ##     another mount would either fail obscurely or, far worse, silently become
 ##     the byte copy this whole approach exists to avoid.
-##   - hidden, when it is inside the media root. The application's orphan scan
-##     descends into every directory whose name is not hidden, so a visible
-##     store would be walked as if it were media and each cloned recording would
-##     be offered as an orphan candidate. ``_is_scannable_directory_name`` in
-##     ``recording_orphan`` is the rule this leans on, and a test pins the two
-##     together so they cannot drift.
+##   - a hidden directory *directly beneath* the media root, when it is inside
+##     it at all. Two separate rules collapse into that one shape.
+##
+##     Hidden, because the application's orphan scan descends into every
+##     directory whose name is not hidden, so a visible store would be walked as
+##     if it were media and each cloned recording would be offered as an orphan
+##     candidate. ``_is_scannable_directory_name`` in ``recording_orphan`` is
+##     the rule this leans on, and a test pins the two together so they cannot
+##     drift.
+##
+##     Directly beneath, because that is the only shape the clone below can
+##     actually exclude. The clone iterates the media root's own entries and
+##     skips the store; a store nested deeper - ``MEDIA/visible/.store`` - is not
+##     one of those entries, so ``visible`` would be cloned whole and would carry
+##     the store in with it. Every release would then nest the release before it.
+##     The validator used to accept that shape and the clone could not honour it,
+##     which is the kind of disagreement that shows up as a full disk.
 ##
 ##
 ## Remove a tree this process owns, including parts of it that were cloned with
@@ -200,11 +211,17 @@ def require_valid_snapshot_root(media_root: Path, snapshot_root: Path) -> bool:
     relative = snapshot_root.relative_to(media_root)
   except ValueError:
     return False
-  if any(part.startswith(".") for part in relative.parts):
+  ##
+  ## Exactly one component, and hidden. Anything else - the media root itself,
+  ## or a store buried under a visible directory - is refused rather than
+  ## accepted into a clone that cannot leave it out.
+  ##
+  if len(relative.parts) == 1 and relative.parts[0].startswith("."):
     return True
   fail(
-    "a snapshot root inside the media root must be hidden, or the application "
-    "will scan the snapshot as if it were media"
+    "a snapshot root inside the media root must be a hidden directory directly "
+    "beneath it: hidden so the application does not scan the snapshot as media, "
+    "and directly beneath so the clone can leave it out of itself"
   )
 
 

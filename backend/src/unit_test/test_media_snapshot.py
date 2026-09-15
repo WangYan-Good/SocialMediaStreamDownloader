@@ -309,6 +309,81 @@ class MediaSnapshotCreateTest(MediaSnapshotTestCase):
       self.assertNotEqual(0, completed.returncode)
       self.assertIn("hidden", completed.stderr.lower())
 
+  ##
+  ## >>========== the shape the clone can actually leave out ==========>>
+  ##
+  ## The validator used to accept any path with a hidden component anywhere in
+  ## it, and the clone can only skip entries of the media root itself. So
+  ## ``MEDIA/visible/.store`` was accepted and then cloned: ``visible`` is not
+  ## the store, so it was copied whole and carried the store in with it. Each
+  ## release would nest the release before it until the media root was mostly
+  ## its own history.
+  ##
+  ## Refused rather than made to work by teaching the clone about ancestors,
+  ## because the useful shape is one directory and the general one is a walk
+  ## across two terabytes.
+  ##
+  def test_a_snapshot_root_buried_under_a_visible_directory_is_refused(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      media = root / "media"
+      media.mkdir()
+      self.populate(media)
+      buried = media / "douyin" / ".smsd-release-snapshot"
+
+      completed = self.run_snapshot(
+        "create",
+        "--media-root", media,
+        "--snapshot-root", buried,
+        "--output", root / "media-snapshot.json",
+      )
+
+      self.assertNotEqual(0, completed.returncode)
+      self.assertIn("directly beneath", completed.stderr)
+      ##
+      ## And nothing was cloned on the way to refusing.
+      ##
+      self.assertFalse((root / "media-snapshot.json").exists())
+      self.assertEqual([], list(buried.glob("*")) if buried.exists() else [])
+
+  def test_a_snapshot_root_under_a_hidden_directory_is_also_refused(self):
+    ##
+    ## Hidden all the way down is still not a direct child, so the clone still
+    ## could not leave it out. The accepted topology is one shape, not "anything
+    ## the scanner happens to skip".
+    ##
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      media = root / "media"
+      media.mkdir()
+      self.populate(media)
+
+      completed = self.run_snapshot(
+        "create",
+        "--media-root", media,
+        "--snapshot-root", media / ".smsd-recording-recovery" / "store",
+        "--output", root / "media-snapshot.json",
+      )
+
+      self.assertNotEqual(0, completed.returncode)
+      self.assertIn("directly beneath", completed.stderr)
+
+  def test_the_media_root_may_not_be_its_own_snapshot_root(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      media = root / "media"
+      media.mkdir()
+      self.populate(media)
+
+      completed = self.run_snapshot(
+        "create",
+        "--media-root", media,
+        "--snapshot-root", media,
+        "--output", root / "media-snapshot.json",
+      )
+
+      self.assertNotEqual(0, completed.returncode)
+
   def test_the_application_scan_really_excludes_a_hidden_snapshot_root(self):
     ##
     ## Pinned against the production rule rather than restated, so the two
