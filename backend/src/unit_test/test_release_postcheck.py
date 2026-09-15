@@ -189,11 +189,22 @@ class ReleasePostcheckTest(unittest.TestCase):
     absent, calls = self.run_postcheck(compose=True, mysql_id="")
 
     self.assertNotEqual(0, absent.returncode)
+    ##
+    ## Asserted on *which* guard fired.
+    ##
+    ## A non-zero exit alone does not distinguish "the required container is
+    ## absent" from "something downstream choked on an empty container id", and
+    ## the script does the second one whether or not it still does the first.
+    ## Without naming the message, deleting the requirement left this test green
+    ## and the Compose contract quietly became the external one.
+    ##
+    self.assertIn("required Compose container is absent", absent.stderr)
 
   def test_compose_postcheck_fails_when_the_app_container_is_absent(self):
     absent, calls = self.run_postcheck(compose=True, app_id="")
 
     self.assertNotEqual(0, absent.returncode)
+    self.assertIn("required Compose container is absent", absent.stderr)
 
   def test_release_identity_checks_exact_app_labels_and_mysql_reference(self):
     result, calls = self.run_postcheck(compose=True, identity=True)
