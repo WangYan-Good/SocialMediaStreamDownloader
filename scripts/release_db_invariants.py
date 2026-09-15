@@ -38,6 +38,21 @@ INVARIANT_DOCUMENT_VERSION = 1
 ## Differences that mean data was lost, as opposed to differences that mean a
 ## migration did its job. Only the first kind fails.
 ##
+##
+## The tables a migration is supposed to rewrite.
+##
+## ``alembic_version`` holds one row naming the applied revision, and advancing
+## it is the entire point of an upgrade: the count stays at one and the value
+## changes, which is exactly the shape of "rows were replaced at an unchanged
+## count". Treating that as data loss made the rehearsal fail on a correct
+## migration - the first run against the real production snapshot did precisely
+## that, and it was the rehearsal that was wrong, not the migration.
+##
+## Narrow on purpose. Only the identity rule is relaxed, and only for this one
+## table: losing the row, or losing the table, is still a failure.
+##
+BOOKKEEPING_TABLES = frozenset({"alembic_version"})
+
 FAILURE_MISSING_TABLE = "table absent after the upgrade"
 FAILURE_ROWS_LOST = "row count decreased"
 FAILURE_IDENTITY_CHANGED = "rows were replaced at an unchanged count"
@@ -278,7 +293,16 @@ def compare_invariants(baseline: dict, observed: dict):
       and now.get("identity") is not None
       and was["identity"] != now["identity"]
     ):
-      failures.append("{}: {}".format(table, FAILURE_IDENTITY_CHANGED))
+      if table in BOOKKEEPING_TABLES:
+        ##
+        ## Reported rather than passed over in silence: which revision the
+        ## database moved to is the most interesting line in the record.
+        ##
+        notes.append(
+          "{}: migration bookkeeping advanced, as an upgrade must".format(table)
+        )
+      else:
+        failures.append("{}: {}".format(table, FAILURE_IDENTITY_CHANGED))
 
   for table in sorted(set(after) - set(before)):
     notes.append("{}: table added by the upgrade".format(table))

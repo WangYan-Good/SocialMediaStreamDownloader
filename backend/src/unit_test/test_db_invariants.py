@@ -102,6 +102,44 @@ class InvariantComparisonTest(unittest.TestCase):
     self.assertIn("replaced", failures[0])
 
   ##
+  ## The one table an upgrade is supposed to rewrite.
+  ##
+  ## It holds a single row naming the applied revision, so advancing it looks
+  ## exactly like "rows replaced at an unchanged count". The first rehearsal
+  ## against the real production snapshot failed on precisely this, and the
+  ## rehearsal was what was wrong.
+  ##
+  def test_the_version_table_is_allowed_to_advance(self):
+    before = snapshot(alembic_version=(1, "0002"))
+    after = snapshot(alembic_version=(1, "0011"))
+
+    failures, notes = self.compare(before, after)
+
+    self.assertEqual([], failures)
+    self.assertIn("bookkeeping advanced", notes[0])
+
+  ##
+  ## And the exemption is only for identity. Losing the row is still losing it.
+  ##
+  def test_the_version_table_may_still_not_lose_its_row(self):
+    before = snapshot(alembic_version=(1, "0002"))
+    after = snapshot(alembic_version=(0, "0002"))
+
+    failures, notes = self.compare(before, after)
+
+    self.assertEqual(1, len(failures))
+    self.assertIn("row count decreased", failures[0])
+
+  def test_the_exemption_does_not_extend_to_any_other_table(self):
+    before = snapshot(live=(10, "aaaa"), alembic_version=(1, "0002"))
+    after = snapshot(live=(10, "bbbb"), alembic_version=(1, "0011"))
+
+    failures, notes = self.compare(before, after)
+
+    self.assertEqual(1, len(failures))
+    self.assertIn("live", failures[0])
+
+  ##
   ## And the things a migration is supposed to do.
   ##
   def test_rows_and_tables_added_by_the_upgrade_are_reported_not_failed(self):
