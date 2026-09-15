@@ -152,8 +152,22 @@ class ExternalHostGateExposureTest(unittest.TestCase):
       self.assertNotIn("set -o xtrace", stripped, stripped)
 
   def test_the_credential_file_is_private_disposable_and_outside_the_repository(self):
-    self.assertIn('mysql_env_file="$workspace/mysql.env"', self.gate)
-    self.assertIn('chmod 600 "$mysql_env_file"', self.gate)
+    self.assertIn('mysql_server_env="$workspace/mysql-server.env"', self.gate)
+    self.assertIn('mysql_client_env="$workspace/mysql-client.env"', self.gate)
+    self.assertIn(
+      'chmod 600 "$mysql_server_env" "$mysql_client_env"', self.gate
+    )
+    ##
+    ## The client credential must not reach the server's environment: the MySQL
+    ## image's own entrypoint runs client commands while it is still setting the
+    ## root password up, and a MYSQL_PWD already in scope makes those fail.
+    ##
+    server_run = [
+      line for line in self.statements
+      if "--env-file" in line and "mysql_server_env" in line
+    ]
+    self.assertEqual(1, len(server_run), server_run)
+    self.assertNotIn("mysql_client_env", server_run[0])
     self.assertIn("umask 077", self.gate)
     ##
     ## The workspace is a temporary directory removed by the exit trap, so the

@@ -226,17 +226,32 @@ echo "container-to-host route: $host_route"
 ## 0600 file and is read only by the staging step - nothing in the release path
 ## may start passing that one through an environment.
 ##
-mysql_env_file="$workspace/mysql.env"
+##
+## Two files, not one, and the split is load-bearing.
+##
+## The official MySQL image's entrypoint runs client commands against its own
+## temporary server while it is still setting the root password up. If
+## ``MYSQL_PWD`` is already in that container's environment, those calls send it,
+## the server has not been told about it yet, and initialisation dies with
+## "Access denied" - so the server never becomes ready and the gate fails on a
+## probe it never reached. Found by running this, not by reading it.
+##
+## So the server gets only what a server needs, and the credential the *clients*
+## read lives in its own file.
+##
+mysql_server_env="$workspace/mysql-server.env"
+mysql_client_env="$workspace/mysql-client.env"
 ( umask 077
   "$PYTHON_BIN" -c "
-import secrets
+import secrets, sys
 password = secrets.token_hex(24)
-print('MYSQL_ROOT_PASSWORD=' + password)
-print('MYSQL_PWD=' + password)
-print('MYSQL_DATABASE=gate_probe')
-" > "$mysql_env_file"
+with open(sys.argv[1], 'w', encoding='utf-8') as server:
+  server.write('MYSQL_ROOT_PASSWORD={}\nMYSQL_DATABASE=gate_probe\n'.format(password))
+with open(sys.argv[2], 'w', encoding='utf-8') as client:
+  client.write('MYSQL_PWD={}\n'.format(password))
+" "$mysql_server_env" "$mysql_client_env"
 )
-chmod 600 "$mysql_env_file"
+chmod 600 "$mysql_server_env" "$mysql_client_env"
 
 mysql_port="$("$PYTHON_BIN" -c "
 import socket
@@ -246,21 +261,21 @@ print(probe.getsockname()[1])
 probe.close()
 ")"
 "$ENGINE_BIN" run -d --name "$mysql_container" \
-  --env-file "$mysql_env_file" \
+  --env-file "$mysql_server_env" \
   --publish "${host_route_address}:${mysql_port}:3306" \
   "$MYSQL_IMAGE" >/dev/null
 for attempt in $(seq 1 90); do
-  if "$ENGINE_BIN" exec --env-file "$mysql_env_file" "$mysql_container" \
+  if "$ENGINE_BIN" exec --env-file "$mysql_client_env" "$mysql_container" \
       mysqladmin ping -h 127.0.0.1 -uroot >/dev/null 2>&1; then
     break
   fi
   sleep 1
 done
-"$ENGINE_BIN" exec --env-file "$mysql_env_file" "$mysql_container" \
+"$ENGINE_BIN" exec --env-file "$mysql_client_env" "$mysql_container" \
   mysqladmin ping -h 127.0.0.1 -uroot >/dev/null 2>&1 ||
   fail "the disposable MySQL never became reachable"
 
-"$ENGINE_BIN" run --rm --env-file "$mysql_env_file" "$MYSQL_IMAGE" \
+"$ENGINE_BIN" run --rm --env-file "$mysql_client_env" "$MYSQL_IMAGE" \
   mysqladmin ping -h "$host_route" -P "$mysql_port" -uroot >/dev/null 2>&1 ||
   fail "a container could not speak the database protocol to a host-side server"
 echo "container-to-host database protocol: reached $host_route_address:$mysql_port"
