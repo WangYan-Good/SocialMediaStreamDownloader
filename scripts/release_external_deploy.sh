@@ -29,6 +29,7 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 REQUIREMENTS_FILE="${REQUIREMENTS_FILE:-$PROJECT_DIR/requirements.txt}"
 EXTERNAL_POSTCHECK_SCRIPT="${EXTERNAL_POSTCHECK_SCRIPT:-$PROJECT_DIR/scripts/release_external_postcheck.sh}"
 RUNTIME_CONFIG="${RUNTIME_CONFIG:-$PROJECT_DIR/scripts/runtime_config.py}"
+IMAGE_IDENTITY="${IMAGE_IDENTITY:-$PROJECT_DIR/scripts/release_image_identity.py}"
 
 ##
 ## The account the image drops to. Its numeric identity is read from the image
@@ -128,16 +129,42 @@ abandon_started_container() {
   fi
 
   ##
-  ## Removal reported success; that is not the same as the container being
-  ## gone. Asked again, and an engine that cannot answer counts as unknown
-  ## rather than as absent.
+  ## Removal reported success; that is not the same as the container being gone.
   ##
-  local state
-  if state="$("$ENGINE_BIN" inspect --format '{{.State.Running}}' "$container_id" 2>/dev/null)"; then
-    if [[ "$state" != "false" ]]; then
-      incomplete "it is still running after removal ($reason)"
-    fi
+  ## The previous spelling asked ``inspect`` for ``.State.Running`` and treated
+  ## two different answers as success. ``false`` means the container is still
+  ## there and merely stopped - it still holds the name, and the next deployment
+  ## would refuse because of it. And a failed ``inspect`` returned no value at
+  ## all, which the check read as "not running" and therefore as gone: the one
+  ## case where the engine could not answer became the case where it answered
+  ## reassuringly.
+  ##
+  ## So the question is existence, not state, and it is asked of the whole
+  ## container list including stopped ones. Three outcomes, kept apart:
+  ##
+  ##   the query itself fails            -> unknown, and unknown is not absent
+  ##   the exact identifier comes back   -> still there, running or not
+  ##   the query succeeds with nothing   -> gone, and only now is this a rollback
+  ##
+  ## Distinguished by exit status and returned identifier rather than by reading
+  ## the engine's error text, which is a message and not a contract.
+  ##
+  local listing
+  if ! listing="$("$ENGINE_BIN" ps --all --no-trunc --quiet --filter "id=${container_id}" 2>/dev/null)"; then
+    incomplete "the engine could not be asked whether it is gone ($reason)"
   fi
+  ##
+  ## The filter matches on a prefix, so what comes back is compared against the
+  ## identifier this invocation was given rather than assumed to be it.
+  ##
+  local listed
+  while IFS= read -r listed; do
+    [[ -n "$listed" ]] || continue
+    if [[ "$listed" == "$container_id" ]]; then
+      incomplete "the container still exists after removal ($reason)"
+    fi
+  done <<< "$listing"
+
   echo "external deploy rolled back: removed the container it started ($reason)" >&2
 }
 
@@ -194,8 +221,12 @@ done
 ## is a name somebody can repoint after it was reviewed, so it names an
 ## intention rather than an artifact.
 ##
-[[ "$image_ref" =~ ^ghcr\.io/[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$ ]] ||
-  fail "image must be a canonical lowercase GHCR digest"
+##
+## One validator, shared with the backup and the restore drill, because three
+## regular expressions agree only until one of them is edited.
+##
+"$PYTHON_BIN" "$IMAGE_IDENTITY" require-canonical "$image_ref" 2>/dev/null ||
+  fail "image must be a canonical digest of this project's GHCR repository"
 [[ "$expected_revision" =~ ^[0-9a-f]{40}$ ]] ||
   fail "expected revision must be a 40-character SHA"
 [[ "$container_name" =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$ ]] ||

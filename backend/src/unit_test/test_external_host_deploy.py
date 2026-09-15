@@ -29,7 +29,7 @@ from backend.src.unit_test.config_fixture import unified_config
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEPLOY_SCRIPT = PROJECT_ROOT / "scripts" / "release_external_deploy.sh"
 
-CANONICAL_IMAGE = "ghcr.io/example/socialmediastreamdownloader@sha256:" + "a" * 64
+CANONICAL_IMAGE = "ghcr.io/wangyan-good/socialmediastreamdownloader@sha256:" + "a" * 64
 EXPECTED_REVISION = "b" * 40
 EXPECTED_IMAGE_ID = "sha256:" + "c" * 64
 ##
@@ -70,7 +70,17 @@ class ExternalDeployTestCase(unittest.TestCase):
                 printf '%s\\n' "$LOCK_LABEL" ;;
               *) printf '%s\\n' "$EXPECTED_IMAGE_ID" ;;
             esac ;;
-          "ps "*) printf '%s' "${EXISTING_CONTAINER:-}" ;;
+          "ps "*)
+            case "$*" in
+              ##
+              ## The rollback's existence query, which asks about one exact
+              ## identifier across all containers including stopped ones.
+              ##
+              *"--filter id="*)
+                [[ "${EXISTENCE_QUERY_FAILS:-}" != "true" ]] || exit 1
+                printf '%s' "${EXISTS_AFTER_REMOVAL:-}" ;;
+              *) printf '%s' "${EXISTING_CONTAINER:-}" ;;
+            esac ;;
           "run "*)
             ##
             ## Two different runs reach this stub. One asks the image what its
@@ -84,14 +94,6 @@ class ExternalDeployTestCase(unittest.TestCase):
             esac ;;
           "inspect"*)
             case "$*" in
-              *".State.Running"*)
-                ##
-                ## An engine asked about a container it has removed exits
-                ## non-zero. Modelled, because "absent" and "still running"
-                ## must not be the same answer to the cleanup path.
-                ##
-                [[ -n "${INSPECT_RUNNING:-}" ]] || exit 1
-                printf '%s\\n' "$INSPECT_RUNNING" ;;
               *)
                 [[ "${INSPECT_IMAGE_FAILS:-}" != "true" ]] || exit 1
                 printf '%s\\n' "${RUNNING_IMAGE_ID:-$EXPECTED_IMAGE_ID}" ;;
@@ -169,9 +171,12 @@ class ExternalDeployTestCase(unittest.TestCase):
         "REMOVE_FAILS": (
           "true" if overrides.pop("remove_fails", False) else ""
         ),
-        "INSPECT_RUNNING": overrides.pop("inspect_running", ""),
         "INSPECT_IMAGE_FAILS": (
           "true" if overrides.pop("inspect_image_fails", False) else ""
+        ),
+        "EXISTS_AFTER_REMOVAL": overrides.pop("exists_after_removal", ""),
+        "EXISTENCE_QUERY_FAILS": (
+          "true" if overrides.pop("existence_query_fails", False) else ""
         ),
       })
 
@@ -603,15 +608,78 @@ class ExternalDeployRollbackTest(ExternalDeployTestCase):
   ## The one outcome that may not be reported as a plain failure. An operator
   ## reading "refused" would reasonably conclude nothing is running.
   ##
-  def test_an_engine_that_cannot_remove_reports_an_incomplete_deployment(self):
-    completed, log = self.run_deploy(postcheck_exit=1, remove_fails=True)
+  ##
+  ## >>============ removal reported success is not the same as gone ============>>
+  ##
+  ## The rollback used to ask ``inspect`` for ``.State.Running`` and accept two
+  ## different answers as success. ``false`` means the container is still there
+  ## and merely stopped - it still holds the name, and the next deployment would
+  ## refuse because of it. And a failed inspect produced no value, which read as
+  ## "not running" and so as gone: the one case where the engine could not answer
+  ## became the case where it answered reassuringly.
+  ##
+  ## Each of the three outcomes now has a case that only it produces.
+  ##
+  def test_a_rollback_is_reported_only_once_the_exact_id_is_proven_absent(self):
+    completed, log = self.run_deploy(postcheck_exit=1)
+
+    self.assertNotEqual(0, completed.returncode)
+    self.assertIn("rolled back", completed.stderr)
+    self.assertNotIn("DEPLOYMENT INCOMPLETE", completed.stderr)
+    ##
+    ## Asked of the whole list, by exact identifier, not by name.
+    ##
+    queries = [
+      line for line in log.splitlines()
+      if line.startswith("engine ps") and "--filter id=" in line
+    ]
+    self.assertEqual(1, len(queries), log)
+    self.assertIn(CONTAINER_ID, queries[0])
+    self.assertIn("--all", queries[0])
+    self.assertIn("--no-trunc", queries[0])
+    self.assertNotIn("smsd-app", queries[0])
+
+  ##
+  ## Stopped is not gone. It still holds the name.
+  ##
+  def test_a_container_that_still_exists_but_is_stopped_is_incomplete(self):
+    completed, log = self.run_deploy(
+      postcheck_exit=1, exists_after_removal=CONTAINER_ID
+    )
 
     self.assertNotEqual(0, completed.returncode)
     self.assertIn("DEPLOYMENT INCOMPLETE", completed.stderr)
     self.assertIn("WRITER STATE UNKNOWN", completed.stderr)
+    self.assertNotIn("rolled back", completed.stderr)
 
-  def test_a_container_still_running_after_removal_is_reported_incomplete(self):
-    completed, log = self.run_deploy(postcheck_exit=1, inspect_running="true")
+  ##
+  ## An engine that cannot answer has not answered "absent".
+  ##
+  def test_an_engine_that_cannot_answer_the_existence_query_is_incomplete(self):
+    completed, log = self.run_deploy(
+      postcheck_exit=1, existence_query_fails=True
+    )
+
+    self.assertNotEqual(0, completed.returncode)
+    self.assertIn("DEPLOYMENT INCOMPLETE", completed.stderr)
+    self.assertIn("WRITER STATE UNKNOWN", completed.stderr)
+    self.assertNotIn("rolled back", completed.stderr)
+
+  ##
+  ## And a different container coming back from the prefix filter is not this
+  ## one, so it must not be read as "still there".
+  ##
+  def test_another_containers_identifier_does_not_block_the_rollback(self):
+    completed, log = self.run_deploy(
+      postcheck_exit=1, exists_after_removal="a" * 64
+    )
+
+    self.assertNotEqual(0, completed.returncode)
+    self.assertIn("rolled back", completed.stderr)
+    self.assertNotIn("DEPLOYMENT INCOMPLETE", completed.stderr)
+
+  def test_an_engine_that_cannot_remove_reports_an_incomplete_deployment(self):
+    completed, log = self.run_deploy(postcheck_exit=1, remove_fails=True)
 
     self.assertNotEqual(0, completed.returncode)
     self.assertIn("DEPLOYMENT INCOMPLETE", completed.stderr)
