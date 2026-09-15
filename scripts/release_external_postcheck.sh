@@ -92,8 +92,18 @@ running="$("$ENGINE_BIN" inspect --format '{{.State.Running}}' "$container_name"
 ## it stays the release authority here: what is running must be the image that
 ## digest resolved to, not merely something built from the same source.
 ##
-running_image_id="$("$ENGINE_BIN" inspect --format '{{.Image}}' "$container_name")"
-expected_image_id="$("$ENGINE_BIN" image inspect --format '{{.Id}}' "$expected_image")"
+##
+## Normalised on both sides for the same reason the deployment does it: Docker
+## spells an image ID with a ``sha256:`` prefix and Podman without one, and a
+## comparison between the two spellings of the same image would fail on the
+## engine production actually runs.
+##
+normalise_image_id() {
+  printf '%s' "${1#sha256:}"
+}
+
+running_image_id="$(normalise_image_id "$("$ENGINE_BIN" inspect --format '{{.Image}}' "$container_name")")"
+expected_image_id="$(normalise_image_id "$("$ENGINE_BIN" image inspect --format '{{.Id}}' "$expected_image")")"
 [[ "$running_image_id" == "$expected_image_id" ]] ||
   fail "the running image is not the promoted image"
 

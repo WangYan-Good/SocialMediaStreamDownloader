@@ -85,7 +85,9 @@ class ExternalPostcheckTest(unittest.TestCase):
         "CALL_LOG": str(calls),
         "ENGINE_BIN": str(engine),
         "CURL_BIN": str(curl),
-        "EXPECTED_IMAGE_ID": EXPECTED_IMAGE_ID,
+        "EXPECTED_IMAGE_ID": str(
+          overrides.pop("expected_image_id", EXPECTED_IMAGE_ID)
+        ),
         "EXPECTED_REVISION": EXPECTED_REVISION,
         "EXPECTED_LOCK": EXPECTED_LOCK,
         "MEDIA_ROOT": str(media),
@@ -150,6 +152,23 @@ class ExternalPostcheckTest(unittest.TestCase):
     completed, unused = self.run_postcheck(RUNNING="false")
 
     self.assertNotEqual(0, completed.returncode)
+
+  ##
+  ## Podman reports a bare digest where Docker reports ``sha256:<digest>``.
+  ## Comparing the running container's spelling against the image's must not
+  ## depend on which engine is answering.
+  ##
+  def test_either_engines_spelling_of_the_same_image_is_accepted(self):
+    for label, image_id in (
+      ("docker", "sha256:" + "c" * 64),
+      ("podman", "c" * 64),
+    ):
+      with self.subTest(engine=label):
+        completed, unused = self.run_postcheck(
+          expected_image_id=image_id, RUNNING_IMAGE_ID=image_id
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
 
   def test_an_image_identity_mismatch_fails(self):
     completed, unused = self.run_postcheck(

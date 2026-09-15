@@ -151,7 +151,9 @@ class ExternalDeployTestCase(unittest.TestCase):
         "ENGINE_BIN": str(engine),
         "REQUIREMENTS_FILE": str(requirements),
         "EXTERNAL_POSTCHECK_SCRIPT": str(postcheck),
-        "EXPECTED_IMAGE_ID": EXPECTED_IMAGE_ID,
+        "EXPECTED_IMAGE_ID": overrides.pop(
+          "expected_image_id", EXPECTED_IMAGE_ID
+        ),
         "IMAGE_REVISION": overrides.pop("image_revision", EXPECTED_REVISION),
         "LOCK_LABEL": overrides.pop("lock_label", lock_sha),
         "EXISTING_CONTAINER": overrides.pop("existing_container", ""),
@@ -233,6 +235,47 @@ class ExternalDeployIdentityTest(ExternalDeployTestCase):
 
     self.assertNotEqual(0, completed.returncode)
     self.assertNotIn("engine run", log)
+
+  ##
+  ## >>================ the two engines spell an ID differently ================>>
+  ##
+  ## Docker reports an image ID as ``sha256:<64 hex>``; Podman reports the bare
+  ## digest. Production runs Podman. This suite's stub modelled Docker, so a
+  ## format check written against Docker's spelling passed every test here and
+  ## refused every real deployment on the engine it was written for - which only
+  ## running it against that engine revealed.
+  ##
+  def test_the_engines_disagree_about_spelling_and_both_are_accepted(self):
+    for label, image_id in (
+      ("docker", "sha256:" + "c" * 64),
+      ("podman", "c" * 64),
+    ):
+      with self.subTest(engine=label):
+        completed, log = self.run_deploy(
+          expected_image_id=image_id, running_image_id=image_id
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("run --detach", log)
+
+  ##
+  ## And a mismatch is still a mismatch across the two spellings, so
+  ## normalising cannot be used to wave one through.
+  ##
+  def test_a_mismatch_is_caught_whichever_way_each_side_is_spelled(self):
+    completed, log = self.run_deploy(
+      expected_image_id="sha256:" + "c" * 64,
+      running_image_id="9" * 64,
+    )
+
+    self.assertNotEqual(0, completed.returncode)
+
+  def test_an_identifier_that_is_not_a_digest_at_all_is_refused(self):
+    completed, log = self.run_deploy(expected_image_id="not-an-image-id")
+
+    self.assertNotEqual(0, completed.returncode)
+    self.assertNotIn("run --detach", log)
+    self.assertIn("malformed", completed.stderr)
 
   def test_a_running_image_that_is_not_the_pulled_one_fails(self):
     completed, log = self.run_deploy(running_image_id="sha256:" + "9" * 64)

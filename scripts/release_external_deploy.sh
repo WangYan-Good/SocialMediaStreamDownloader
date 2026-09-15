@@ -292,14 +292,28 @@ fi
 ##
 ## >>=========================== the exact image ===========================>>
 ##
+##
+## The two engines disagree about how to spell an image ID: Docker prefixes it
+## with ``sha256:`` and Podman returns the bare digest. Production runs Podman,
+## and the check below was written against Docker's spelling - so it refused
+## every real deployment on the engine it was written for, which only running it
+## against that engine revealed.
+##
+## Both forms are accepted, and every ID is normalised before it is compared, so
+## the two engines cannot be made to disagree by spelling alone.
+##
+normalise_image_id() {
+  printf '%s' "${1#sha256:}"
+}
+
 requirements_sha="$(sha256sum "$REQUIREMENTS_FILE" | awk '{print $1}')"
 
 "$ENGINE_BIN" pull "$image_ref" >/dev/null
-expected_image_id="$("$ENGINE_BIN" image inspect --format '{{.Id}}' "$image_ref")"
+expected_image_id="$(normalise_image_id "$("$ENGINE_BIN" image inspect --format '{{.Id}}' "$image_ref")")"
 revision_label="$("$ENGINE_BIN" image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image_ref")"
 requirements_label="$("$ENGINE_BIN" image inspect --format '{{index .Config.Labels "io.smsd.requirements.sha256"}}' "$image_ref")"
 
-[[ "$expected_image_id" =~ ^sha256:[0-9a-f]{64}$ ]] ||
+[[ "$expected_image_id" =~ ^[0-9a-f]{64}$ ]] ||
   fail "pulled image ID is malformed"
 [[ "$revision_label" == "$expected_revision" ]] ||
   fail "revision label mismatch"
@@ -385,7 +399,7 @@ container_id="$(printf '%s\n' "$container_id" | tail -1 | tr -d '[:space:]')"
 [[ "$container_id" =~ ^[0-9a-f]{12,64}$ ]] ||
   incomplete "the engine did not return a usable container identifier"
 
-running_image_id="$("$ENGINE_BIN" inspect --format '{{.Image}}' "$container_id")"
+running_image_id="$(normalise_image_id "$("$ENGINE_BIN" inspect --format '{{.Image}}' "$container_id")")"
 [[ "$running_image_id" == "$expected_image_id" ]] ||
   fail "running application image ID mismatch"
 
