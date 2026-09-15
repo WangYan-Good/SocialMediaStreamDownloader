@@ -80,6 +80,49 @@ def require_database_host(value) -> str:
   return value
 
 
+##
+## What may be used as a database name.
+##
+## Narrower than MySQL would accept, on purpose. This value is interpolated into
+## a backquoted SQL identifier and into a ``mysqldump`` argument, and the
+## release path has no use for a name that needs either of those to be careful.
+##
+_DATABASE_NAME = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_$-]{0,63}\Z")
+
+
+def require_configured_database_name(config: dict, declared=None) -> str:
+  """Return the database the canonical configuration names.
+
+  The configuration is the authority, and this is the only place a release
+  command may learn which database it is working on. Before this existed the
+  backup asked the migration CLI about the configured database and then dumped
+  whichever database an operator had typed on the command line - two different
+  questions that looked like one answer. A bundle produced that way carries a
+  schema status describing one database and rows from another, and nothing
+  downstream can tell.
+
+  ``declared`` is what an operator wrote, when they wrote anything. It is
+  allowed to exist because naming the target out loud is worth something on a
+  destructive path, but it is never allowed to *decide* anything: it either
+  equals the configured name or the command refuses.
+  """
+  database = config.get("database")
+  if not isinstance(database, dict):
+    raise ValueError("$.database must be a mapping")
+  name = _require_non_empty_string(database, "name", "$.database.name")
+  if _DATABASE_NAME.fullmatch(name) is None:
+    raise ValueError("$.database.name is not a plain database identifier")
+  if declared is not None and declared != name:
+    ##
+    ## Deliberately without either value. This message reaches a terminal and a
+    ## ticket, and a production database name is not something to scatter.
+    ##
+    raise ValueError(
+      "the requested database is not the one the configuration names"
+    )
+  return name
+
+
 def stage_container_config(
   source_path: Path,
   target_path: Path,

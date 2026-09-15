@@ -50,7 +50,7 @@ usage() {
 usage: release_external_backup.sh
   --output BACKUP_DIRECTORY
   --config-file PATH
-  --database NAME
+  [--database NAME]       must equal $.database.name in the configuration
   --media-root PATH
   --snapshot-root PATH
   --container-name NAME
@@ -83,7 +83,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -n "$output_directory" && -n "$config_file" && -n "$database_name" ]] || usage
+[[ -n "$output_directory" && -n "$config_file" ]] || usage
 [[ -n "$media_root" && -n "$snapshot_root" && -n "$container_name" ]] || usage
 [[ -n "$port" && -n "$image_ref" && -n "$db_host" && -n "$source_git_commit" ]] || usage
 
@@ -104,6 +104,40 @@ module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 module.require_private_config('$config_file')
 " 2>/dev/null || fail "the configuration file must be a 0600 regular file"
+
+##
+## >>=============== which database this backup is actually about ===============>>
+##
+## One authority, resolved once, used by everything downstream.
+##
+## Before this, two different questions looked like one answer. The schema
+## status came from the migration CLI, which reads the canonical configuration
+## and therefore reports on the configured database; the dump took whatever an
+## operator typed after ``--database``. A single typo produced a bundle whose
+## manifest and schema status describe one database and whose rows come from
+## another - and nothing downstream can tell, because every artefact in the
+## bundle is internally consistent with itself.
+##
+## So the configuration decides. ``--database`` may still be written, because
+## naming the target out loud is worth something on a path that ends in a
+## restore, but it decides nothing: it either equals the configured name or this
+## refuses, before the credential is staged and long before anything is dumped
+## or cloned.
+##
+if ! database_name="$("$PYTHON_BIN" -c "
+import importlib.util, sys
+from pathlib import Path
+spec = importlib.util.spec_from_file_location('rc', '$RUNTIME_CONFIG')
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+config = module.load_runtime_config(Path(sys.argv[1]))
+declared = sys.argv[2] or None
+sys.stdout.write(module.require_configured_database_name(config, declared))
+" "$config_file" "$database_name" 2>/dev/null)"; then
+  fail "the database this backup would capture is not the one the configuration names"
+fi
+[[ -n "$database_name" ]] ||
+  fail "the configuration does not name a database"
 
 ##
 ## >>================= prove the writer is actually stopped =================>>
@@ -194,6 +228,10 @@ grep -q "state=ready" "$schema_status_file" ||
 ## success. The Compose path keeps ``--databases`` because there the destination
 ## is a whole disposable stack and preserving the name is the point; here the
 ## destination is a name on a shared server, so the dump must not choose it.
+##
+## The name itself came from the configuration and not from the command line,
+## so the rows in this file, the schema status read above and the manifest
+## written below all describe the same database by construction.
 ##
 "$MYSQLDUMP_BIN" \
   "--defaults-extra-file=${option_file}" \

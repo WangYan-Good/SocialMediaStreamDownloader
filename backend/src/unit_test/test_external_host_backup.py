@@ -50,6 +50,12 @@ PYTHON_BIN = sys.executable
 SECRET_PASSWORD = "SECRET_BACKUP_DB_PASSWORD_P19"
 CANONICAL_IMAGE = "ghcr.io/example/socialmediastreamdownloader@sha256:" + "a" * 64
 SOURCE_COMMIT = "c" * 40
+##
+## What the shared fixture's configuration names. The backup resolves the
+## database from that file and from nowhere else, so this is what every
+## artefact in a correct bundle has to say.
+##
+CONFIGURED_DATABASE = unified_config()["database"]["name"]
 
 
 def reflink_supported(directory: Path) -> bool:
@@ -173,7 +179,6 @@ class ExternalBackupTestCase(unittest.TestCase):
       "bash", str(BACKUP_SCRIPT),
       "--output", str(root / "bundle"),
       "--config-file", str(overrides.pop("config_file", config)),
-      "--database", "social_media_stream_downloader_v2",
       "--media-root", str(media),
       "--snapshot-root", str(snapshot_root),
       "--container-name", "smsd-app",
@@ -182,6 +187,13 @@ class ExternalBackupTestCase(unittest.TestCase):
       "--db-host", "host.containers.internal",
       "--source-git-commit", SOURCE_COMMIT,
     ]
+    ##
+    ## The configuration is the authority. ``--database`` is written only when a
+    ## test is about what happens when an operator names one.
+    ##
+    declared = overrides.pop("declared_database", CONFIGURED_DATABASE)
+    if declared is not None:
+      argv += ["--database", declared]
     self.assertEqual({}, overrides, "unused override")
 
     completed = subprocess.run(
@@ -356,6 +368,83 @@ class ExternalBackupSecretTest(ExternalBackupTestCase):
         self.assertNotIn(
           SECRET_PASSWORD, path.read_text(encoding="utf-8", errors="replace")
         )
+
+
+##
+## >>=============== one database, named by one authority ===============>>
+##
+## The schema status comes from the migration CLI, which reads the canonical
+## configuration. The dump used to take whatever an operator typed. Those are
+## two different questions that looked like one answer, and a bundle built from
+## both carries a manifest describing one database and rows from another -
+## internally consistent, and wrong in a way nothing downstream can detect.
+##
+class ExternalBackupDatabaseIdentityTest(ExternalBackupTestCase):
+  def test_the_configured_database_is_what_gets_dumped(self):
+    completed, log, bundle = self.run_backup(declared_database=None)
+
+    self.assertEqual(0, completed.returncode, completed.stderr)
+    dumps = [line for line in log.splitlines() if line.startswith("mysqldump")]
+    self.assertEqual(1, len(dumps))
+    self.assertTrue(dumps[0].endswith(" " + CONFIGURED_DATABASE), dumps[0])
+
+  def test_a_database_the_configuration_does_not_name_is_refused(self):
+    completed, log, bundle = self.run_backup(
+      declared_database="social_media_stream_downloader_v2"
+    )
+
+    self.assertNotEqual(0, completed.returncode)
+    ##
+    ## Refused before anything: no credential staged, no engine query, no dump,
+    ## no clone. Grants are irrelevant here precisely because no connection is
+    ## ever opened - an account with ``*.*`` cannot talk its way past a check
+    ## that happens before the client runs.
+    ##
+    self.assertNotIn("mysqldump", log)
+    self.assertNotIn("engine", log)
+    self.assertFalse(bundle.exists())
+
+  def test_the_manifest_cannot_name_a_database_the_dump_did_not_capture(self):
+    completed, log, bundle = self.run_backup()
+
+    self.assertEqual(0, completed.returncode, completed.stderr)
+    manifest = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
+    dumps = [line for line in log.splitlines() if line.startswith("mysqldump")]
+    self.assertEqual(CONFIGURED_DATABASE, manifest["database_name"])
+    self.assertTrue(dumps[0].endswith(" " + manifest["database_name"]))
+
+  ##
+  ## And the schema status is read about that same database, because the only
+  ## thing the status container is given is the same configuration file.
+  ##
+  def test_the_schema_status_is_read_from_the_same_configuration(self):
+    completed, log, bundle = self.run_backup()
+
+    self.assertEqual(0, completed.returncode, completed.stderr)
+    status = [line for line in log.splitlines() if "migration_cli" in line]
+    self.assertEqual(1, len(status))
+    self.assertIn("/run/secrets/config.yml:ro", status[0])
+    ##
+    ## Nothing may redirect it at another database on the way in.
+    ##
+    self.assertNotIn("SMSD_DB_NAME", status[0])
+    self.assertNotIn("--database", status[0])
+
+  def test_a_configuration_naming_no_database_is_refused(self):
+    temporary = tempfile.mkdtemp()
+    self.addCleanup(shutil.rmtree, temporary, True)
+    nameless = Path(temporary) / "config.yml"
+    document = unified_config()
+    document["database"]["name"] = ""
+    nameless.write_text(yaml.safe_dump(document), encoding="utf-8")
+    nameless.chmod(0o600)
+
+    completed, log, bundle = self.run_backup(
+      config_file=nameless, declared_database=None
+    )
+
+    self.assertNotEqual(0, completed.returncode)
+    self.assertNotIn("mysqldump", log)
 
 
 if __name__ == "__main__":
