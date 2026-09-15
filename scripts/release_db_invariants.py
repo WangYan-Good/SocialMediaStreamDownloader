@@ -54,8 +54,9 @@ INVARIANT_DOCUMENT_VERSION = 1
 BOOKKEEPING_TABLES = frozenset({"alembic_version"})
 
 FAILURE_MISSING_TABLE = "table absent after the upgrade"
-FAILURE_ROWS_LOST = "row count decreased"
+FAILURE_ROWS_CHANGED = "row count changed"
 FAILURE_IDENTITY_CHANGED = "rows were replaced at an unchanged count"
+
 
 
 def fail(message: str) -> None:
@@ -257,10 +258,25 @@ def collect(arguments) -> int:
 ##
 ## Kept separate from the collection so it can be exercised without a database.
 ##
-## The asymmetry is the point. A migration that adds rows, adds tables or adds
-## constraints is doing its job; a migration that removes any of the first two,
-## or that leaves a count alone while changing which rows produced it, has taken
-## data with it. Only the second kind is a failure.
+## A table that exists before the upgrade must come out of it with exactly the
+## rows it went in with. Not "at least" - exactly.
+##
+## The earlier rule allowed a pre-existing table to grow and reported it as a
+## note, which let net growth hide loss: delete a thousand baseline rows, insert
+## two thousand new ones, and the count is higher, so the comparison never even
+## looked at the key fingerprint. That is precisely the failure this file exists
+## to catch, passing.
+##
+## Checked against the real thing before tightening it. Restoring the production
+## snapshot at 0002 and upgrading to head moves 13 tables to 21 and leaves the
+## row total at 310,718 - eight new tables, all empty, and not one pre-existing
+## table gaining a row. So the strict rule costs nothing here.
+##
+## If some future migration does legitimately add rows to a table that already
+## existed, the answer is not to allow growth again. It is an explicit exception
+## for that one table, carrying a proof that the baseline keys are all still
+## present - because "more rows than before" says nothing about whether the
+## original ones survived.
 ##
 def compare_invariants(baseline: dict, observed: dict):
   failures = []
@@ -274,26 +290,20 @@ def compare_invariants(baseline: dict, observed: dict):
       failures.append("{}: {}".format(table, FAILURE_MISSING_TABLE))
       continue
     was, now = before[table], after[table]
-    if now["rows"] < was["rows"]:
-      failures.append("{}: {} ({} -> {})".format(
-        table, FAILURE_ROWS_LOST, was["rows"], now["rows"]
-      ))
-      continue
-    if now["rows"] > was["rows"]:
-      notes.append("{}: rows added by the upgrade ({} -> {})".format(
-        table, was["rows"], now["rows"]
-      ))
-      continue
+
     ##
-    ## Equal counts. The only way this is still wrong is if the rows are not the
-    ## same rows, which the key checksum is here to catch.
+    ## The version table is the single exception, and it is narrow: an upgrade is
+    ## *supposed* to replace the revision it holds. What it may not do is lose
+    ## that row, or grow past the one row a single head leaves behind.
     ##
-    if (
-      was.get("identity") is not None
-      and now.get("identity") is not None
-      and was["identity"] != now["identity"]
-    ):
-      if table in BOOKKEEPING_TABLES:
+    ## Matched by exact name, so nothing inherits the exception by resembling it.
+    ##
+    if table in BOOKKEEPING_TABLES:
+      if now["rows"] != was["rows"]:
+        failures.append("{}: {} ({} -> {}); the version table must keep its row".format(
+          table, FAILURE_ROWS_CHANGED, was["rows"], now["rows"]
+        ))
+      elif was.get("identity") != now.get("identity"):
         ##
         ## Reported rather than passed over in silence: which revision the
         ## database moved to is the most interesting line in the record.
@@ -301,8 +311,27 @@ def compare_invariants(baseline: dict, observed: dict):
         notes.append(
           "{}: migration bookkeeping advanced, as an upgrade must".format(table)
         )
-      else:
-        failures.append("{}: {}".format(table, FAILURE_IDENTITY_CHANGED))
+      continue
+
+    ##
+    ## Every other pre-existing table: exactly the rows it had, and the same ones.
+    ##
+    ## Any change in count fails, in either direction. Allowing growth is what
+    ## let net growth hide loss - delete a thousand baseline rows, insert two
+    ## thousand new ones, and the old rule reported "rows added" and never
+    ## reached the fingerprint at all.
+    ##
+    if now["rows"] != was["rows"]:
+      failures.append("{}: {} ({} -> {})".format(
+        table, FAILURE_ROWS_CHANGED, was["rows"], now["rows"]
+      ))
+      continue
+    if (
+      was.get("identity") is not None
+      and now.get("identity") is not None
+      and was["identity"] != now["identity"]
+    ):
+      failures.append("{}: {}".format(table, FAILURE_IDENTITY_CHANGED))
 
   for table in sorted(set(after) - set(before)):
     notes.append("{}: table added by the upgrade".format(table))

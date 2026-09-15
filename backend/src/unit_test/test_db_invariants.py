@@ -77,7 +77,7 @@ class InvariantComparisonTest(unittest.TestCase):
     failures, notes = self.compare(before, after)
 
     self.assertEqual(1, len(failures))
-    self.assertIn("row count decreased", failures[0])
+    self.assertIn("row count changed", failures[0])
 
   def test_a_table_that_disappeared_is_a_failure(self):
     before = snapshot(live=(1200, "7f3a"), task=(40, "0011"))
@@ -128,7 +128,7 @@ class InvariantComparisonTest(unittest.TestCase):
     failures, notes = self.compare(before, after)
 
     self.assertEqual(1, len(failures))
-    self.assertIn("row count decreased", failures[0])
+    self.assertIn("row count changed", failures[0])
 
   def test_the_exemption_does_not_extend_to_any_other_table(self):
     before = snapshot(live=(10, "aaaa"), alembic_version=(1, "0002"))
@@ -140,16 +140,49 @@ class InvariantComparisonTest(unittest.TestCase):
     self.assertIn("live", failures[0])
 
   ##
-  ## And the things a migration is supposed to do.
+  ## >>========== net growth must not be able to hide loss ==========>>
   ##
-  def test_rows_and_tables_added_by_the_upgrade_are_reported_not_failed(self):
+  ## The rule used to report a higher count as "rows added" and move on without
+  ## ever consulting the fingerprint. So deleting a thousand baseline rows and
+  ## inserting two thousand new ones passed: the count was higher, therefore
+  ## fine. That is the exact failure this file exists to catch.
+  ##
+  def test_a_pre_existing_table_that_grew_is_a_failure(self):
     before = snapshot(live=(1200, "7f3a"))
-    after = snapshot(live=(1400, "b19c"), recovery=(3, "aa"))
+    after = snapshot(live=(1400, "b19c"))
+
+    failures, notes = self.compare(before, after)
+
+    self.assertEqual(1, len(failures), notes)
+    self.assertIn("row count changed", failures[0])
+
+  ##
+  ## And growth is not excused by the fingerprint being looked at afterwards -
+  ## the count difference alone ends it, whichever way the identity went.
+  ##
+  def test_growth_is_refused_whether_or_not_the_identity_also_changed(self):
+    for label, identity in (("identity changed", "b19c"), ("identity same", "7f3a")):
+      with self.subTest(case=label):
+        failures, notes = self.compare(
+          snapshot(live=(1200, "7f3a")), snapshot(live=(1400, identity))
+        )
+
+        self.assertEqual(1, len(failures))
+        self.assertIn("row count changed", failures[0])
+
+  ##
+  ## A table the upgrade creates is a different matter: it had no baseline rows
+  ## to lose.
+  ##
+  def test_a_table_added_by_the_upgrade_is_allowed(self):
+    before = snapshot(live=(1200, "7f3a"))
+    after = snapshot(live=(1200, "7f3a"), recovery=(3, "aa"))
 
     failures, notes = self.compare(before, after)
 
     self.assertEqual([], failures)
-    self.assertEqual(2, len(notes))
+    self.assertEqual(1, len(notes))
+    self.assertIn("table added by the upgrade", notes[0])
 
   def test_a_table_without_a_single_column_key_is_still_counted(self):
     before = {"tables": {"joins": {"rows": 10, "identity": None}}}
@@ -237,15 +270,15 @@ class KeySerialisationTest(unittest.TestCase):
   ## enough to collide; it is only ever consulted where the exact count already
   ## agrees, which is what makes that acceptable.
   ##
-  def test_the_fingerprint_is_only_consulted_at_an_unchanged_count(self):
+  def test_a_changed_count_ends_it_before_the_fingerprint_is_consulted(self):
     module = self.module
     before = {"tables": {"t": {"rows": 10, "identity": "aaaa"}}}
     after = {"tables": {"t": {"rows": 11, "identity": "bbbb"}}}
 
     failures, notes = module.compare_invariants(before, after)
 
-    self.assertEqual([], failures)
-    self.assertIn("rows added", notes[0])
+    self.assertEqual(1, len(failures))
+    self.assertIn("row count changed", failures[0])
 
   def test_the_exact_count_is_what_decides_loss(self):
     module = self.module
@@ -258,7 +291,58 @@ class KeySerialisationTest(unittest.TestCase):
     failures, notes = module.compare_invariants(before, after)
 
     self.assertEqual(1, len(failures))
-    self.assertIn("row count decreased", failures[0])
+    self.assertIn("row count changed", failures[0])
+
+  ##
+  ## >>============ the version table, and only the version table ============>>
+  ##
+  def test_the_version_table_may_advance_its_revision(self):
+    module = self.module
+    before = {"tables": {"alembic_version": {"rows": 1, "identity": "0002"}}}
+    after = {"tables": {"alembic_version": {"rows": 1, "identity": "0011"}}}
+
+    failures, notes = module.compare_invariants(before, after)
+
+    self.assertEqual([], failures)
+    self.assertIn("bookkeeping advanced", notes[0])
+
+  def test_the_version_table_may_not_lose_its_row(self):
+    module = self.module
+    before = {"tables": {"alembic_version": {"rows": 1, "identity": "0002"}}}
+    after = {"tables": {"alembic_version": {"rows": 0, "identity": "0"}}}
+
+    failures, notes = module.compare_invariants(before, after)
+
+    self.assertEqual(1, len(failures))
+    self.assertIn("must keep its row", failures[0])
+
+  ##
+  ## More than one row means more than one head, which is an anomaly rather
+  ## than bookkeeping.
+  ##
+  def test_the_version_table_may_not_gain_a_row(self):
+    module = self.module
+    before = {"tables": {"alembic_version": {"rows": 1, "identity": "0002"}}}
+    after = {"tables": {"alembic_version": {"rows": 2, "identity": "0011"}}}
+
+    failures, notes = module.compare_invariants(before, after)
+
+    self.assertEqual(1, len(failures))
+
+  ##
+  ## The exception is for one exact name. Nothing inherits it by resembling it.
+  ##
+  def test_no_other_table_inherits_the_version_table_exception(self):
+    module = self.module
+    for name in ("alembic_version_backup", "my_alembic_version", "live"):
+      with self.subTest(table=name):
+        before = {"tables": {name: {"rows": 5, "identity": "aaaa"}}}
+        after = {"tables": {name: {"rows": 5, "identity": "bbbb"}}}
+
+        failures, notes = module.compare_invariants(before, after)
+
+        self.assertEqual(1, len(failures), name)
+        self.assertIn("replaced", failures[0])
 
 
 class InvariantCommandTest(unittest.TestCase):
