@@ -156,5 +156,177 @@ class ExternalRestoreTargetTest(unittest.TestCase):
       self.module.require_empty_restore_destination(empty)
 
 
+##
+## >>=============== identity, not spelling ===============>>
+##
+## The guards used to compare normalised text. ``normpath`` is pure string work
+## - it collapses ``.`` and ``..`` and knows nothing about links - so a
+## destination that was a symbolic link into the live library passed every check
+## and would have written the restore into the one tree it was forbidden to
+## touch. These are real links on a real filesystem, because a mocked one would
+## only prove that the mock behaves the way the code assumes.
+##
+class ExternalRestoreTargetIdentityTest(unittest.TestCase):
+  def setUp(self):
+    self.module = bundle_module()
+    self.root = Path(tempfile.mkdtemp())
+    self.addCleanup(__import__("shutil").rmtree, self.root, True)
+    self.live = self.root / "live-media"
+    (self.live / "douyin").mkdir(parents=True)
+    ##
+    ## An *empty* subdirectory of the library, which is the case a
+    ## non-emptiness check alone would happily accept.
+    ##
+    self.empty_live_subdirectory = self.live / "empty"
+    self.empty_live_subdirectory.mkdir()
+
+  def validate(self, media_root):
+    self.module.validate_external_restore_target(
+      database="smsd_restore_test_drill",
+      media_root=str(media_root),
+      source_database="smsd",
+      source_media_root=str(self.live),
+    )
+
+  def test_a_symlink_into_the_live_media_root_is_refused(self):
+    link = self.root / "restore"
+    link.symlink_to(self.empty_live_subdirectory)
+
+    with self.assertRaises(ValueError):
+      self.validate(link)
+
+  def test_a_symlinked_ancestor_resolving_into_the_live_media_is_refused(self):
+    ##
+    ## The destination itself is an ordinary name. Its parent is the link, so
+    ## the path the kernel would write to is inside the library and the spelling
+    ## gives no sign of it.
+    ##
+    link = self.root / "staging"
+    link.symlink_to(self.live)
+
+    with self.assertRaises(ValueError):
+      self.validate(link / "restored")
+
+  def test_a_symlink_to_the_live_media_root_itself_is_refused(self):
+    link = self.root / "restore-root"
+    link.symlink_to(self.live)
+
+    with self.assertRaises(ValueError):
+      self.validate(link)
+
+  ##
+  ## The symlink rule, isolated.
+  ##
+  ## This link points somewhere harmless - not into the library, not near it -
+  ## so every path comparison is satisfied and only "the destination must not be
+  ## a symbolic link" objects. Without this case, deleting that rule changed
+  ## nothing: the other symlink tests were all caught by the resolved-path
+  ## comparison instead.
+  ##
+  ## Refusing it is the point rather than an accident. A link can be repointed
+  ## between the check and the write, and a destination whose spelling is not
+  ## the directory written to is one an operator cannot reason about.
+  ##
+  def test_a_symlink_is_refused_even_when_it_points_somewhere_harmless(self):
+    elsewhere = self.root / "somewhere-else"
+    elsewhere.mkdir()
+    link = self.root / "restore-link"
+    link.symlink_to(elsewhere)
+
+    with self.assertRaises(ValueError):
+      self.validate(link)
+
+    ##
+    ## And the same destination, named directly, is fine - so the refusal is
+    ## about the link and not about the place it leads.
+    ##
+    self.validate(elsewhere)
+
+  ##
+  ## The resolved-against-resolved comparison, isolated.
+  ##
+  ## Both roots are reached through different links to the same real directory.
+  ## Comparing the two spellings finds nothing; comparing either spelling
+  ## against the other's resolved form finds nothing; only resolving both ends
+  ## shows that the destination is inside the library.
+  ##
+  def test_two_different_links_to_one_directory_are_still_one_directory(self):
+    real_live = self.root / "real-live"
+    (real_live / "inside").mkdir(parents=True)
+    source_link = self.root / "source-link"
+    source_link.symlink_to(real_live)
+    target_link = self.root / "target-link"
+    target_link.symlink_to(real_live)
+
+    with self.assertRaises(ValueError):
+      self.module.validate_external_restore_target(
+        database="smsd_restore_test_drill",
+        media_root=str(target_link / "inside"),
+        source_database="smsd",
+        source_media_root=str(source_link),
+      )
+
+  ##
+  ## Any symlink, not only one that points somewhere dangerous.
+  ##
+  ## A destination that resolves elsewhere is a destination whose emptiness and
+  ## filesystem were checked against a different directory than the one that
+  ## will be written. Refusing only the links that happen to reach the live
+  ## library leaves the rest of that reasoning resting on where the link points
+  ## today.
+  ##
+  def test_a_symlink_to_a_harmless_directory_is_still_refused(self):
+    elsewhere = self.root / "somewhere-else"
+    elsewhere.mkdir()
+    link = self.root / "restore"
+    link.symlink_to(elsewhere)
+
+    with self.assertRaises(ValueError):
+      self.validate(link)
+
+  ##
+  ## The case that only resolving *both* ends can catch.
+  ##
+  ## The library is named through a symlink to it, and the destination sits
+  ## under a symlinked ancestor. The literal pair shares no prefix, and each
+  ## crossed pair still has one unresolved half, so none of those three match.
+  ## Only resolving both ends shows the restore would land inside the library.
+  ##
+  def test_a_destination_and_a_source_both_spelled_through_links_are_refused(self):
+    staging = self.root / "staging"
+    staging.symlink_to(self.live)
+    source_link = self.root / "live-link"
+    source_link.symlink_to(self.live)
+
+    with self.assertRaises(ValueError):
+      self.module.validate_external_restore_target(
+        database="smsd_restore_test_drill",
+        media_root=str(staging / "restored"),
+        source_database="smsd",
+        source_media_root=str(source_link),
+      )
+
+  def test_a_destination_containing_the_live_media_root_is_refused(self):
+    with self.assertRaises(ValueError):
+      self.validate(self.root)
+
+  def test_a_genuinely_separate_destination_is_accepted(self):
+    self.validate(self.root / "restore-here")
+
+  ##
+  ## And the same substitution against the emptiness check, which follows links
+  ## and would otherwise answer for whatever is on the other end.
+  ##
+  def test_an_empty_destination_that_is_a_symlink_is_refused(self):
+    link = self.root / "empty-link"
+    link.symlink_to(self.empty_live_subdirectory)
+
+    with self.assertRaises(ValueError):
+      self.module.require_empty_restore_destination(link)
+
+  def test_a_destination_that_does_not_exist_yet_is_accepted(self):
+    self.module.require_empty_restore_destination(self.root / "absent")
+
+
 if __name__ == "__main__":
   unittest.main()

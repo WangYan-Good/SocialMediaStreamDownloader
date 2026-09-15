@@ -3,6 +3,7 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path, PurePosixPath
 import posixpath
 import re
@@ -376,16 +377,58 @@ def validate_external_restore_target(
   if str(target) == "/":
     raise ValueError("restore media root must not be the filesystem root")
 
+  ##
+  ## >>================ the destination the kernel will use ================>>
+  ##
+  ## Normalising the spelling is not enough and was the hole here. ``normpath``
+  ## is pure text: it collapses ``.`` and ``..`` and knows nothing about links,
+  ## so ``/tmp/restore`` passed every check while being a symlink to a directory
+  ## inside the live library. The restore would then have written two terabytes
+  ## of somebody's recordings into the tree it was forbidden to touch, having
+  ## been told it was somewhere else entirely.
+  ##
+  ## So the comparison is made against what the path actually resolves to. The
+  ## destination need not exist yet - ``realpath`` resolves the ancestors that
+  ## do and leaves the rest alone, which is exactly the question being asked:
+  ## where would a write here land.
+  ##
+  if os.path.islink(media_root):
+    raise ValueError("restore media root must not be a symbolic link")
+  resolved_target = _normalised_path(os.path.realpath(media_root))
+  resolved_source = _normalised_path(os.path.realpath(source_media_root))
+
   source = _normalised_path(source_media_root)
-  if target == source:
-    raise ValueError("restore media root must differ from the live media root")
-  if source in target.parents:
+  for candidate_target, candidate_source in (
+    (target, source),
+    (resolved_target, resolved_source),
     ##
-    ## Restoring into a subdirectory of the library would interleave a
-    ## snapshot's files with the live ones, and the orphan scan would then be
-    ## asked which of two identical trees is real.
+    ## Crossed as well, because only one of the two has to resolve for the
+    ## destination and the library to be the same directory.
     ##
-    raise ValueError("restore media root must not be inside the live media root")
+    (resolved_target, source),
+    (target, resolved_source),
+  ):
+    if candidate_target == candidate_source:
+      raise ValueError(
+        "restore media root must differ from the live media root"
+      )
+    if candidate_source in candidate_target.parents:
+      ##
+      ## Restoring into a subdirectory of the library would interleave a
+      ## snapshot's files with the live ones, and the orphan scan would then be
+      ## asked which of two identical trees is real.
+      ##
+      raise ValueError(
+        "restore media root must not be inside the live media root"
+      )
+    if candidate_target in candidate_source.parents:
+      ##
+      ## And the other direction, which is worse: a destination *containing*
+      ## the live library means the drill's own cleanup would be aimed at it.
+      ##
+      raise ValueError(
+        "restore media root must not contain the live media root"
+      )
 
 
 ##
@@ -395,6 +438,12 @@ def validate_external_restore_target(
 ##
 def require_empty_restore_destination(path: Path) -> None:
   path = Path(path)
+  ##
+  ## Checked before ``exists()``, which follows links and would answer for
+  ## whatever is on the other end.
+  ##
+  if path.is_symlink():
+    raise ValueError("restore media root must not be a symbolic link")
   if not path.exists():
     return
   if not path.is_dir():
