@@ -42,6 +42,8 @@ SNAPSHOT_HELPER="${SNAPSHOT_HELPER:-$PROJECT_DIR/scripts/release_media_snapshot.
 INVARIANT_HELPER="${INVARIANT_HELPER:-$PROJECT_DIR/scripts/release_db_invariants.py}"
 RUNTIME_CONFIG="${RUNTIME_CONFIG:-$PROJECT_DIR/scripts/runtime_config.py}"
 EXTERNAL_POSTCHECK_SCRIPT="${EXTERNAL_POSTCHECK_SCRIPT:-$PROJECT_DIR/scripts/release_external_postcheck.sh}"
+IMAGE_IDENTITY="${IMAGE_IDENTITY:-$PROJECT_DIR/scripts/release_image_identity.py}"
+REQUIREMENTS_FILE="${REQUIREMENTS_FILE:-$PROJECT_DIR/requirements.txt}"
 APPLICATION_USER="${APPLICATION_USER:-appuser}"
 
 MARKER="ok   runtime external host restore drill"
@@ -125,6 +127,47 @@ topology="$("$PYTHON_BIN" "$BUNDLE_HELPER" field "$backup_directory" topology)"
 [[ "$topology" == "external-host" ]] ||
   fail "this drill restores external-host bundles; that bundle is $topology"
 
+##
+## >>=========== the image, settled before the credential is staged ===========>>
+##
+## This drill stages the operator's database credential and hands a
+## configuration built from it to whatever image it was given. So the image is
+## settled first, by digest, and against an authority outside the image.
+##
+## That last part is the subtle one. Reading the revision out of the image and
+## then asking the postcheck to confirm the image matches it proves only that
+## the image agrees with itself. The authority here is the bundle: its manifest
+## was written by the backup and its checksums were verified above, before any
+## of this ran. The image must be the one that produced the bundle, built from
+## the commit the manifest records.
+##
+## A consequence worth stating: this drill restores a bundle with the image that
+## made it. It is not a way to test a newer release against an older bundle -
+## that would need its own explicit expected-target arguments, and does not
+## exist here.
+##
+"$PYTHON_BIN" "$IMAGE_IDENTITY" require-canonical "$image_ref" 2>/dev/null ||
+  fail "image must be a canonical digest of this project's GHCR repository"
+
+bundle_image="$("$PYTHON_BIN" "$BUNDLE_HELPER" field "$backup_directory" source_image)"
+[[ "$image_ref" == "$bundle_image" ]] ||
+  fail "this drill restores a bundle with the image that produced it; that is not the image the manifest names"
+
+bundle_revision="$("$PYTHON_BIN" "$BUNDLE_HELPER" field "$backup_directory" source_git_commit)"
+[[ -f "$REQUIREMENTS_FILE" ]] || fail "requirements lock is absent"
+requirements_sha="$(sha256sum "$REQUIREMENTS_FILE" | awk '{print $1}')"
+
+"$ENGINE_BIN" pull "$image_ref" >/dev/null 2>&1 ||
+  fail "the release image could not be pulled by digest"
+image_revision="$("$ENGINE_BIN" image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image_ref" 2>/dev/null)" ||
+  fail "the release image could not be inspected"
+image_requirements="$("$ENGINE_BIN" image inspect --format '{{index .Config.Labels "io.smsd.requirements.sha256"}}' "$image_ref" 2>/dev/null)" ||
+  fail "the release image could not be inspected"
+[[ "$image_revision" == "$bundle_revision" ]] ||
+  fail "the image was not built from the commit the bundle records"
+[[ "$image_requirements" == "$requirements_sha" ]] ||
+  fail "the image was not built against this dependency lock"
+
 source_database="$("$PYTHON_BIN" "$BUNDLE_HELPER" field "$backup_directory" database_name)"
 source_media_root="$(
   "$PYTHON_BIN" -c "
@@ -206,17 +249,49 @@ created_restore_media=false
 started_container=false
 
 ##
-## Reported rather than swallowed. A drill that could not take its own
-## disposable state away has left something on a production host, and the next
-## run of it will meet that leftover as a refusal - so an operator needs to be
-## told now rather than to discover it then.
+## >>=================== taking the disposable state away ===================>>
 ##
-cleanup() {
+## This used to be a warning. The drill printed its success marker and then, on
+## the way out, tried to remove what it had made; a failure there produced a
+## line on stderr and an exit status of zero. So "the bundle is restorable" and
+## "there is now an orphaned database, a running container and a cloned media
+## tree on this host" were the same result.
+##
+## They are not the same result. The next run of this drill meets that leftover
+## as a refusal, and an operator reading a green line has no reason to look.
+##
+## So removal is part of the work, each step is *proved* rather than attempted,
+## and the marker comes after. Only what this invocation created is ever
+## touched, and a failure here never widens the blast radius: it reports and
+## fails, it does not go looking for something else to delete.
+##
+## Returns non-zero if any piece could not be proved gone.
+##
+remove_disposable_state() {
+  local outcome=0
+
   if [[ "$started_container" == "true" ]]; then
-    if ! "$ENGINE_BIN" rm --force "$container_name" >/dev/null 2>&1; then
-      echo "external restore drill warning: the disposable container was not removed: $container_name" >&2
+    if ! "$ENGINE_BIN" rm --force "$container_id" >/dev/null 2>&1; then
+      echo "external restore drill: the disposable container was not removed" >&2
+      outcome=1
+    else
+      ##
+      ## Removed is not the same as gone, and stopped is not gone either. Asked
+      ## of the whole list by exact identifier, exactly as the deployment does.
+      ##
+      local listing
+      if ! listing="$("$ENGINE_BIN" ps --all --no-trunc --quiet --filter "id=${container_id}" 2>/dev/null)"; then
+        echo "external restore drill: the engine could not confirm the container is gone" >&2
+        outcome=1
+      elif printf '%s\n' "$listing" | grep -qxF "$container_id"; then
+        echo "external restore drill: the disposable container still exists" >&2
+        outcome=1
+      else
+        started_container=false
+      fi
     fi
   fi
+
   if [[ "$created_restore_database" == "true" ]]; then
     ##
     ## Only ever the database this invocation created, and only after proving
@@ -224,18 +299,72 @@ cleanup() {
     ##
     if ! "$MYSQL_BIN" "--defaults-extra-file=${option_file}" \
         --execute "DROP DATABASE \`${restore_database}\`;" >/dev/null 2>&1; then
-      echo "external restore drill warning: the disposable database was not removed" >&2
+      echo "external restore drill: the disposable database was not dropped" >&2
+      outcome=1
+    else
+      local remaining
+      if ! remaining="$("$MYSQL_BIN" "--defaults-extra-file=${option_file}" --skip-column-names --batch \
+          --execute "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name = '${restore_database}';" 2>/dev/null)"; then
+        echo "external restore drill: the server could not confirm the database is gone" >&2
+        outcome=1
+      elif [[ "$remaining" != "0" ]]; then
+        echo "external restore drill: the disposable database still exists" >&2
+        outcome=1
+      else
+        created_restore_database=false
+      fi
     fi
   fi
+
   if [[ "$created_restore_media" == "true" ]]; then
+    ##
+    ## ``cp -a`` reproduces modes that forbid traversal, so the tree may need to
+    ## be made removable first - on paths this invocation itself created.
+    ##
+    ##
+    ## Attempted, not asserted: what decides the outcome is whether the tree is
+    ## gone afterwards, not whether these two commands reported success. Written
+    ## as guarded blocks rather than ``|| true`` so the rule that no step in this
+    ## script may be short-circuited stays absolute and needs no exception.
+    ##
     if ! chmod -R u+rwX "$restore_media_root" >/dev/null 2>&1; then
-      echo "external restore drill warning: the restored media could not be made removable" >&2
+      :
     fi
-    if ! rm -rf -- "$restore_media_root"; then
-      echo "external restore drill warning: the restored media was not removed: $restore_media_root" >&2
+    if ! rm -rf -- "$restore_media_root" >/dev/null 2>&1; then
+      :
+    fi
+    if [[ -e "$restore_media_root" ]]; then
+      echo "external restore drill: the restored media tree still exists" >&2
+      outcome=1
+    else
+      created_restore_media=false
     fi
   fi
-  rm -rf -- "$credential_directory"
+
+  if ! rm -rf -- "$credential_directory" >/dev/null 2>&1; then
+    :
+  fi
+  if [[ -e "$credential_directory" ]]; then
+    echo "external restore drill: the credential directory still exists" >&2
+    outcome=1
+  fi
+
+  return "$outcome"
+}
+
+##
+## The exit trap covers early failures and signals. On the success path the
+## removal has already been done and proved, and each step clears its own flag,
+## so this finds nothing left to do rather than doing it twice.
+##
+cleanup() {
+  ##
+  ## The exit status here belongs to whatever brought us to the exit, so this
+  ## reports and returns rather than replacing it.
+  ##
+  if ! remove_disposable_state >/dev/null 2>&1; then
+    echo "external restore drill: disposable state may remain on this host" >&2
+  fi
 }
 trap cleanup EXIT
 trap 'exit 130' HUP INT TERM
@@ -443,20 +572,24 @@ application_gid="$(printf '%s\n' "$application_identity" | sed -n 2p | tr -d '[:
 [[ "$application_uid" =~ ^[0-9]{1,10}$ && "$application_gid" =~ ^[0-9]{1,10}$ ]] ||
   fail "the image reported a malformed identity for $APPLICATION_USER"
 
-expected_image_id="$("$ENGINE_BIN" image inspect --format '{{.Id}}' "$image_ref")"
-revision_label="$("$ENGINE_BIN" image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image_ref")"
-requirements_label="$("$ENGINE_BIN" image inspect --format '{{index .Config.Labels "io.smsd.requirements.sha256"}}' "$image_ref")"
-
-"$ENGINE_BIN" run --detach \
+if ! container_id="$("$ENGINE_BIN" run --detach \
   --name "$container_name" \
   --publish "127.0.0.1:${port}:${port}" \
   --userns "keep-id:uid=${application_uid},gid=${application_gid}" \
   --env "SMSD_DB_HOST=${db_host}" \
   --volume "${drill_config}:/run/secrets/config.yml:ro" \
   --volume "${restore_media_root}:${restore_media_root}" \
-  "$image_ref" >/dev/null ||
+  "$image_ref")"; then
   fail "the disposable application could not be started against the restored state"
+fi
 started_container=true
+##
+## By identifier, like the deployment: a name is a label the engine will happily
+## attach to something else.
+##
+container_id="$(printf '%s\n' "$container_id" | tail -1 | tr -d '[:space:]')"
+[[ "$container_id" =~ ^[0-9a-f]{12,64}$ ]] ||
+  fail "the engine did not return a usable container identifier"
 
 ##
 ## Startup recovery runs while the application comes up, so the postcheck's
@@ -479,8 +612,8 @@ done
   --health-url "http://127.0.0.1:${port}/" \
   --container-name "$container_name" \
   --expected-image "$image_ref" \
-  --expected-revision "$revision_label" \
-  --expected-requirements-sha "$requirements_label" \
+  --expected-revision "$bundle_revision" \
+  --expected-requirements-sha "$requirements_sha" \
   --media-root "$restore_media_root" \
   --application-user "$APPLICATION_USER" \
   --application-uid "$application_uid" \
@@ -500,5 +633,15 @@ done
   fail "the drill disturbed the snapshot it restored from"
 "$PYTHON_BIN" "$BUNDLE_HELPER" verify "$backup_directory" ||
   fail "the drill disturbed the bundle it restored from"
+
+##
+## >>============ and the host is left as it was found ============>>
+##
+## Before the marker, not after it. A drill that proves a bundle restorable and
+## leaves a database, a container and a cloned tree behind has not finished; the
+## marker says it has.
+##
+remove_disposable_state ||
+  fail "the drill could not prove it removed the disposable state it created"
 
 echo "$MARKER"

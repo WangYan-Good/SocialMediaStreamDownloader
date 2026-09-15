@@ -71,14 +71,19 @@ class ExternalRestoreDrillContractTest(unittest.TestCase):
     for line in statements:
       self.assertNotIn("IF EXISTS", line, line)
     ##
-    ## The one drop that remains is the cleanup of what this invocation itself
+    ## The one drop that remains is the removal of what this invocation itself
     ## created, and it is gated on having created it.
     ##
     self.assertEqual(1, len(statements), statements)
-    cleanup = self.drill[self.drill.index("cleanup() {"):]
-    cleanup = cleanup[:cleanup.index('trap cleanup EXIT')]
-    self.assertIn("DROP DATABASE", cleanup)
-    self.assertIn('created_restore_database" == "true"', cleanup)
+    removal = self.drill[self.drill.index("remove_disposable_state() {"):]
+    removal = removal[:removal.index("\ncleanup() {")]
+    self.assertIn("DROP DATABASE", removal)
+    self.assertIn('created_restore_database" == "true"', removal)
+    ##
+    ## And dropping it is not the end of it: the server is asked whether the
+    ## database is actually gone.
+    ##
+    self.assertIn("information_schema.schemata", removal)
 
   def test_the_existing_database_check_precedes_the_create(self):
     self.assertLess(
@@ -119,7 +124,11 @@ class ExternalRestoreDrillContractTest(unittest.TestCase):
       line for line in self.drill.splitlines() if "run --detach" in line
     ]
     self.assertEqual(1, len(started))
-    self.assertTrue(started[0].startswith('"$ENGINE_BIN"'), started[0])
+    ##
+    ## Captured rather than fired and forgotten: the identifier the engine
+    ## returns is what the cleanup later removes and proves absent.
+    ##
+    self.assertIn('container_id="$("$ENGINE_BIN" run --detach', started[0])
 
     postchecks = [
       line for line in self.drill.splitlines()
@@ -172,6 +181,42 @@ class ExternalRestoreDrillContractTest(unittest.TestCase):
     self.assertIn('source["download"]["test_mode"] = True', staging)
     self.assertIn('source["download"]["save_response"] = False', staging)
     self.assertIn('source["download"]["save_error_response"] = False', staging)
+
+  ##
+  ## >>========= the image is settled before the credential is staged =========>>
+  ##
+  ## The drill stages the operator's database credential and hands a
+  ## configuration built from it to whatever image it was given. So the image is
+  ## decided first, by digest, and against an authority outside the image.
+  ##
+  ## That last part is the subtle one: reading the revision out of the image and
+  ## then asking the postcheck to confirm the image matches it proves only that
+  ## the image agrees with itself.
+  ##
+  def test_the_image_is_canonical_and_settled_before_the_credential(self):
+    self.assertIn("require-canonical", self.drill)
+    self.assertLess(
+      self.drill.index("require-canonical"),
+      self.drill.index("write_mysql_option_file"),
+    )
+
+  def test_the_expected_identity_comes_from_the_bundle_not_the_image(self):
+    ##
+    ## The manifest was written by the backup and its checksums were verified
+    ## before any of this ran, so it is an authority; the image is not one about
+    ## itself.
+    ##
+    self.assertIn('field "$backup_directory" source_image', self.drill)
+    self.assertIn('field "$backup_directory" source_git_commit', self.drill)
+    self.assertIn('[[ "$image_ref" == "$bundle_image" ]]', self.drill)
+    self.assertIn('[[ "$image_revision" == "$bundle_revision" ]]', self.drill)
+    ##
+    ## And what the postcheck is told to expect is the bundle's value, never a
+    ## value read back out of the image under test.
+    ##
+    self.assertIn('--expected-revision "$bundle_revision"', self.drill)
+    self.assertIn('--expected-requirements-sha "$requirements_sha"', self.drill)
+    self.assertNotIn("revision_label", self.drill)
 
   def test_the_application_runs_under_the_same_identity_mapping(self):
     self.assertIn('--userns "keep-id:uid=${application_uid}', self.drill)
@@ -228,8 +273,16 @@ class ExternalRestoreDrillContractTest(unittest.TestCase):
       ## Flags that would turn a refusal into a warning. ``--skip-column-names``
       ## is deliberately not here: it shapes output, it does not skip a check.
       ##
-      for escape in ("--no-verify", "--skip-verify", "|| true"):
+      for escape in ("--no-verify", "--skip-verify"):
         self.assertNotIn(escape, source)
+      ##
+      ## Checked on the executable lines, because the comment explaining why
+      ## this form is not used necessarily contains it.
+      ##
+      for line in source.splitlines():
+        if line.strip().startswith("#"):
+          continue
+        self.assertNotIn("|| true", line, line.strip())
       ##
       ## ``--force`` is allowed in exactly one place: removing a disposable
       ## container this script started. Anywhere else - on the bundle helper, on
@@ -303,6 +356,60 @@ class ExternalRestoreDrillContractTest(unittest.TestCase):
       self.assertIn('rm -rf -- "$credential_directory"', source)
       self.assertNotIn("MYSQL_PWD", source)
       self.assertNotIn("-p$", source)
+
+
+##
+## >>========== the drill is not done until the host is as it was ==========>>
+##
+## Cleanup used to be a warning printed on the way out, after the marker. So
+## "the bundle is restorable" and "there is now an orphaned database, a running
+## container and a cloned tree on this host" were the same result - and the next
+## run of the drill meets that leftover as a refusal.
+##
+class ExternalRestoreDrillCleanupContractTest(ExternalRestoreDrillContractTest):
+  def test_the_removal_is_proved_before_the_marker(self):
+    self.assertLess(
+      self.drill.index("remove_disposable_state ||"),
+      self.drill.index('echo "$MARKER"'),
+    )
+    self.assertIn(
+      "could not prove it removed the disposable state it created", self.drill
+    )
+
+  ##
+  ## Each piece is proved gone rather than assumed gone.
+  ##
+  def test_every_removal_is_followed_by_a_proof(self):
+    removal = self.drill[self.drill.index("remove_disposable_state() {"):]
+    removal = removal[:removal.index("\ncleanup() {")]
+    self.assertIn("--filter \"id=${container_id}\"", removal)
+    self.assertIn("information_schema.schemata", removal)
+    self.assertIn('[[ -e "$restore_media_root" ]]', removal)
+    self.assertIn('[[ -e "$credential_directory" ]]', removal)
+
+  ##
+  ## Each proved removal clears its own flag, so the exit trap finds nothing
+  ## left to do rather than repeating destructive work.
+  ##
+  def test_a_proved_removal_disarms_the_exit_trap(self):
+    removal = self.drill[self.drill.index("remove_disposable_state() {"):]
+    removal = removal[:removal.index("\ncleanup() {")]
+    for flag in ("started_container=false", "created_restore_database=false",
+                 "created_restore_media=false"):
+      self.assertIn(flag, removal)
+
+  ##
+  ## And a cleanup failure never widens what gets deleted.
+  ##
+  def test_cleanup_never_reaches_beyond_what_this_invocation_created(self):
+    removal = self.drill[self.drill.index("remove_disposable_state() {"):]
+    removal = removal[:removal.index("\ncleanup() {")]
+    for line in removal.splitlines():
+      if "rm -rf" in line and not line.strip().startswith("#"):
+        self.assertTrue(
+          "$restore_media_root" in line or "$credential_directory" in line,
+          line.strip(),
+        )
 
 
 if __name__ == "__main__":
