@@ -401,7 +401,7 @@ chmod 0755 "$foreign"
 set +e
 ENGINE_BIN="$ENGINE_BIN" PYTHON_BIN="$PYTHON_BIN" \
   "$PROJECT_DIR/scripts/release_external_deploy.sh" \
-  --image "ghcr.io/example/app@sha256:$(printf 'a%.0s' {1..64})" \
+  --image "ghcr.io/wangyan-good/socialmediastreamdownloader@sha256:$(printf 'a%.0s' {1..64})" \
   --expected-revision "$(printf 'b%.0s' {1..40})" \
   --container-name "smsd-external-gate-foreign-$$" \
   --config-file "$config" \
@@ -426,7 +426,7 @@ echo "ownership guard: refused a 0755 media root owned by another user"
 set +e
 ENGINE_BIN="$ENGINE_BIN" PYTHON_BIN="$PYTHON_BIN" \
   "$PROJECT_DIR/scripts/release_external_deploy.sh" \
-  --image "ghcr.io/example/app@sha256:$(printf 'a%.0s' {1..64})" \
+  --image "ghcr.io/wangyan-good/socialmediastreamdownloader@sha256:$(printf 'a%.0s' {1..64})" \
   --expected-revision "$(printf 'b%.0s' {1..40})" \
   --container-name "$container" \
   --config-file "$config" \

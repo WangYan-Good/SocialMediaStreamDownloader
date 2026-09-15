@@ -33,6 +33,8 @@ MYSQLDUMP_BIN="${MYSQLDUMP_BIN:-mysqldump}"
 BUNDLE_HELPER="${BUNDLE_HELPER:-$PROJECT_DIR/scripts/release_bundle.py}"
 SNAPSHOT_HELPER="${SNAPSHOT_HELPER:-$PROJECT_DIR/scripts/release_media_snapshot.py}"
 RUNTIME_CONFIG="${RUNTIME_CONFIG:-$PROJECT_DIR/scripts/runtime_config.py}"
+IMAGE_IDENTITY="${IMAGE_IDENTITY:-$PROJECT_DIR/scripts/release_image_identity.py}"
+REQUIREMENTS_FILE="${REQUIREMENTS_FILE:-$PROJECT_DIR/requirements.txt}"
 
 output_directory=""
 config_file=""
@@ -90,6 +92,42 @@ done
 [[ "$source_git_commit" =~ ^[0-9a-f]{40}$ ]] ||
   fail "source commit must be a 40-character SHA"
 [[ "$port" =~ ^[0-9]{1,5}$ ]] || fail "port must be an integer"
+
+##
+## >>=========== the image, settled before the configuration is read ===========>>
+##
+## This backup mounts the operator's configuration - the file holding the
+## production database password - into the image, and then runs the image's own
+## code against the production database to read schema state. So which image it
+## is has to be decided before any of that, and decided by digest: a tag is a
+## name whoever controls the registry can repoint after the review, and
+## repointing it hands over the credential.
+##
+## Every check here precedes the 0600 gate below, which is the first thing that
+## even reads the file.
+##
+"$PYTHON_BIN" "$IMAGE_IDENTITY" require-canonical "$image_ref" 2>/dev/null ||
+  fail "image must be a canonical digest of this project's GHCR repository"
+
+[[ -f "$REQUIREMENTS_FILE" ]] || fail "requirements lock is absent"
+requirements_sha="$(sha256sum "$REQUIREMENTS_FILE" | awk '{print $1}')"
+
+"$ENGINE_BIN" pull "$image_ref" >/dev/null 2>&1 ||
+  fail "the release image could not be pulled by digest"
+image_revision="$("$ENGINE_BIN" image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image_ref" 2>/dev/null)" ||
+  fail "the release image could not be inspected"
+image_requirements="$("$ENGINE_BIN" image inspect --format '{{index .Config.Labels "io.smsd.requirements.sha256"}}' "$image_ref" 2>/dev/null)" ||
+  fail "the release image could not be inspected"
+
+##
+## The commit recorded in the bundle must be the commit the image was built
+## from. Otherwise the manifest names a revision nothing in the bundle came
+## from, and a restore drill would be proving the wrong thing.
+##
+[[ "$image_revision" == "$source_git_commit" ]] ||
+  fail "the image was not built from the commit this backup records"
+[[ "$image_requirements" == "$requirements_sha" ]] ||
+  fail "the image was not built against this dependency lock"
 
 ##
 ## The operator's file, refused rather than repaired. It holds the password this

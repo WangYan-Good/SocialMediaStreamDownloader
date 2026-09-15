@@ -48,7 +48,7 @@ BACKUP_SCRIPT = PROJECT_ROOT / "scripts" / "release_external_backup.sh"
 PYTHON_BIN = sys.executable
 
 SECRET_PASSWORD = "SECRET_BACKUP_DB_PASSWORD_P19"
-CANONICAL_IMAGE = "ghcr.io/example/socialmediastreamdownloader@sha256:" + "a" * 64
+CANONICAL_IMAGE = "ghcr.io/wangyan-good/socialmediastreamdownloader@sha256:" + "a" * 64
 SOURCE_COMMIT = "c" * 40
 ##
 ## What the shared fixture's configuration names. The backup resolves the
@@ -128,6 +128,12 @@ class ExternalBackupTestCase(unittest.TestCase):
         echo "engine $*" >> "$CALL_LOG"
         case "$*" in
           *"ps "*) printf '%s' "${RUNNING_CONTAINER:-}" ;;
+          ##
+          ## The release image's own labels, which the backup now checks before
+          ## it reads the operator's configuration.
+          ##
+          *"org.opencontainers.image.revision"*) printf '%s\\n' "$IMAGE_REVISION" ;;
+          *"io.smsd.requirements.sha256"*) printf '%s\\n' "$LOCK_LABEL" ;;
           *"migration_cli"*) printf '%s\\n' "${MIGRATION:-state=ready current=0011_x heads=0011_x}" ;;
           *) exit 0 ;;
         esac
@@ -159,13 +165,26 @@ class ExternalBackupTestCase(unittest.TestCase):
     )
     mysqldump.chmod(0o700)
 
+    ##
+    ## A lock of its own, so the label the image claims can be compared against
+    ## something this test controls rather than against the repository's.
+    ##
+    requirements = root / "requirements.txt"
+    requirements.write_text(
+      "example==1.0 --hash=sha256:" + "d" * 64 + "\n", encoding="utf-8"
+    )
+    lock_sha = hashlib.sha256(requirements.read_bytes()).hexdigest()
+
     environment = dict(os.environ)
     environment.update({
       "CALL_LOG": str(calls),
       "ENGINE_BIN": str(engine),
       "MYSQLDUMP_BIN": str(mysqldump),
       "PYTHON_BIN": str(PYTHON_BIN),
+      "REQUIREMENTS_FILE": str(requirements),
       "RUNNING_CONTAINER": overrides.pop("running_container", ""),
+      "IMAGE_REVISION": overrides.pop("image_revision", SOURCE_COMMIT),
+      "LOCK_LABEL": overrides.pop("lock_label", lock_sha),
     })
     for key in ("MIGRATION", "DUMP_STATUS"):
       if key.lower() in overrides:
@@ -183,7 +202,7 @@ class ExternalBackupTestCase(unittest.TestCase):
       "--snapshot-root", str(snapshot_root),
       "--container-name", "smsd-app",
       "--port", str(overrides.pop("port", self.free_port())),
-      "--image", CANONICAL_IMAGE,
+      "--image", str(overrides.pop("image", CANONICAL_IMAGE)),
       "--db-host", "host.containers.internal",
       "--source-git-commit", SOURCE_COMMIT,
     ]
@@ -395,13 +414,19 @@ class ExternalBackupDatabaseIdentityTest(ExternalBackupTestCase):
 
     self.assertNotEqual(0, completed.returncode)
     ##
-    ## Refused before anything: no credential staged, no engine query, no dump,
-    ## no clone. Grants are irrelevant here precisely because no connection is
-    ## ever opened - an account with ``*.*`` cannot talk its way past a check
-    ## that happens before the client runs.
+    ## Refused before the capture: no credential staged, no dump, no clone.
+    ## Grants are irrelevant here precisely because no connection is ever opened
+    ## - an account with ``*.*`` cannot talk its way past a check that happens
+    ## before the client runs.
+    ##
+    ## The engine has been used by this point, and only for the image: its
+    ## identity is settled before the configuration is read at all, which is a
+    ## stricter ordering than this test originally described.
     ##
     self.assertNotIn("mysqldump", log)
-    self.assertNotIn("engine", log)
+    self.assertNotIn("/run/secrets/config.yml", log)
+    for line in log.splitlines():
+      self.assertIn("image inspect", line.replace("engine pull", "image inspect"))
     self.assertFalse(bundle.exists())
 
   def test_the_manifest_cannot_name_a_database_the_dump_did_not_capture(self):
@@ -445,6 +470,79 @@ class ExternalBackupDatabaseIdentityTest(ExternalBackupTestCase):
 
     self.assertNotEqual(0, completed.returncode)
     self.assertNotIn("mysqldump", log)
+
+
+##
+## >>=============== the image is settled before the secret moves ===============>>
+##
+## The backup mounts the operator's configuration - the file holding the
+## production database password - into the image, and then runs the image's own
+## code against the production database. So which image it is has to be decided
+## first, and by digest: a tag is a name whoever controls the registry can
+## repoint after the review, and repointing it hands over the credential.
+##
+class ExternalBackupImageTrustTest(ExternalBackupTestCase):
+  def test_a_mutable_tag_is_refused(self):
+    for reference in (
+      "ghcr.io/wangyan-good/socialmediastreamdownloader:latest",
+      "ghcr.io/wangyan-good/socialmediastreamdownloader:sha-abcdef",
+    ):
+      with self.subTest(image=reference):
+        completed, log, bundle = self.run_backup(image=reference)
+
+        self.assertNotEqual(0, completed.returncode)
+        self.assertEqual("", log, "the engine was used before the image was settled")
+        self.assertFalse(bundle.exists())
+
+  def test_another_repositorys_digest_is_refused(self):
+    completed, log, bundle = self.run_backup(
+      image="ghcr.io/example/socialmediastreamdownloader@sha256:" + "a" * 64
+    )
+
+    self.assertNotEqual(0, completed.returncode)
+    self.assertEqual("", log)
+
+  def test_a_malformed_digest_is_refused(self):
+    completed, log, bundle = self.run_backup(
+      image="ghcr.io/wangyan-good/socialmediastreamdownloader@sha256:deadbeef"
+    )
+
+    self.assertNotEqual(0, completed.returncode)
+    self.assertEqual("", log)
+
+  ##
+  ## The commit the bundle records must be the commit the image was built from,
+  ## or the manifest names a revision nothing in the bundle came from.
+  ##
+  def test_a_revision_label_that_is_not_the_recorded_commit_is_refused(self):
+    completed, log, bundle = self.run_backup(image_revision="f" * 40)
+
+    self.assertNotEqual(0, completed.returncode)
+    self.assertNotIn("mysqldump", log)
+    self.assertFalse(bundle.exists())
+
+  def test_a_requirements_label_mismatch_is_refused(self):
+    completed, log, bundle = self.run_backup(lock_label="e" * 64)
+
+    self.assertNotEqual(0, completed.returncode)
+    self.assertNotIn("mysqldump", log)
+
+  ##
+  ## And all of it happens before the configuration is even read, let alone
+  ## mounted into the image.
+  ##
+  def test_the_image_is_settled_before_the_configuration_is_touched(self):
+    completed, log, bundle = self.run_backup()
+
+    self.assertEqual(0, completed.returncode, completed.stderr)
+    lines = log.splitlines()
+    first_label = next(
+      i for i, line in enumerate(lines) if "image inspect" in line
+    )
+    first_mount = next(
+      i for i, line in enumerate(lines) if "/run/secrets/config.yml" in line
+    )
+    self.assertLess(first_label, first_mount)
 
 
 if __name__ == "__main__":
