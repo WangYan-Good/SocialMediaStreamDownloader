@@ -307,7 +307,10 @@ jobs:
             backend/src/unit_test/test_external_db_privileges.py \
             backend/src/unit_test/test_external_writable_paths.py \
             backend/src/unit_test/test_external_operations_docs.py \
+            backend/src/unit_test/test_external_host_gate_contract.py \
             backend/src/unit_test/test_media_snapshot.py \
+            backend/src/unit_test/test_media_write_probe.py \
+            backend/src/unit_test/test_db_invariants.py \
             -q -rs --no-header | tee /tmp/external-host-tests.txt
 
       # A skip here is a proof that quietly stopped happening. The reflink

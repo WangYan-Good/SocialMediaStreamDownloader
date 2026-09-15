@@ -106,5 +106,82 @@ class ExternalRunbookTest(unittest.TestCase):
       self.assertNotIn(forbidden, self.record)
 
 
+##
+## >>=============== what the review round added ===============>>
+##
+## Each of these is a boundary an operator would otherwise have to discover by
+## hitting it, and each corresponds to something the tooling now refuses.
+##
+class ExternalRunbookReviewRoundTest(unittest.TestCase):
+  def setUp(self):
+    self.release = RELEASE.read_text(encoding="utf-8")
+    self.migrations = MIGRATIONS.read_text(encoding="utf-8")
+
+  def test_the_identity_mapping_is_documented_with_what_it_replaces(self):
+    self.assertIn("keep-id:uid=", self.release)
+    self.assertIn("EACCES", self.release)
+    ##
+    ## And the alternatives that are never used, so nobody reaches for one.
+    ##
+    for forbidden in ("chown -R", "chmod -R", "`:U`", "--privileged"):
+      self.assertIn(forbidden, self.release)
+
+  def test_the_deployment_transaction_boundary_is_documented(self):
+    self.assertIn("DEPLOYMENT INCOMPLETE", self.release)
+    self.assertIn("WRITER STATE UNKNOWN", self.release)
+    self.assertIn("committed", self.release)
+
+  def test_the_backup_database_authority_is_documented(self):
+    self.assertIn("$.database.name", self.release)
+    self.assertIn("--database", self.release)
+
+  def test_the_drill_refusals_are_documented(self):
+    for topic in (
+      "DROP DATABASE IF EXISTS",
+      "symlink",
+      "--reflink=always",
+      "release_external_postcheck.sh",
+    ):
+      with self.subTest(topic=topic):
+        self.assertIn(topic, self.release)
+
+  ##
+  ## The honest limitation. The drill cannot run against a production bundle on
+  ## production's own filesystem, and saying so is better than an operator
+  ## discovering it mid-incident.
+  ##
+  def test_the_drill_states_where_it_cannot_run(self):
+    self.assertIn("挂载点", self.release)
+    self.assertIn("snapshot 交换", self.release)
+
+  def test_the_snapshot_root_shape_is_documented_exactly(self):
+    self.assertIn("直接隐藏子目录", self.release)
+    self.assertIn(".smsd-release-snapshot", self.release)
+
+  def test_the_release_record_captures_the_new_proofs(self):
+    record = RECORD.read_text(encoding="utf-8")
+    for field in (
+      "userns_mapping",
+      "media_write_proof",
+      "restore_drill_postcheck",
+      "migration_rehearsal_runs",
+      "migration_rehearsal_invariants",
+    ):
+      with self.subTest(field=field):
+        self.assertIn(field, record)
+    ##
+    ## Still no credential may be invited into a record that gets pasted into a
+    ## ticket. The identity fields are numbers, not secrets.
+    ##
+    for forbidden in ("password: ", "db_password", "cookie:"):
+      self.assertNotIn(forbidden, record)
+
+  def test_the_rehearsal_contract_is_documented(self):
+    self.assertIn("table_rows", self.migrations)
+    self.assertIn("COUNT(*)", self.migrations)
+    self.assertIn("BIT_XOR", self.migrations)
+    self.assertIn("幂等", self.migrations)
+
+
 if __name__ == "__main__":
   unittest.main()

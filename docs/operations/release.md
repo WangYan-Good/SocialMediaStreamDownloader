@@ -125,6 +125,10 @@ tree。它**不**迁移数据库，也**不**迁移媒体；唯一改变的是 a
 4. **Single writer。** deployment 会拒绝同名 container 已存在、或目标端口仍在服务。任何时刻
    只允许一个 writer 写同一个 database 与同一棵 media tree。
 
+5. **Media root 必须由执行部署的 operator 可写。** 见下节的 user-namespace mapping：容器里的
+   application 以这个 operator 的 host 身份操作 bind mount，因此 operator 写不了的目录，
+   application 也写不了。deployment 在启动任何东西之前拒绝。
+
 ### 部署
 
 ```shell
@@ -147,12 +151,38 @@ scripts/release_external_deploy.sh   --image ghcr.io/OWNER/REPOSITORY@sha256:<64
   不进入 argv、不进入环境、不进入日志。旧 bare-metal writer 直到被停止为止，读到的仍是原文件。
 - **媒体按原路径 bind mount**（`/path:/path`），因此数据库里已有的路径无需转换。挂载的是
   storage root 而不是 recording 子树，否则 journal 与 quarantine 会留在容器内。
+- **application 身份通过 user namespace 映射，绝不修改生产 ownership。** entrypoint 以 root
+  运行、stage 配置后立即降权到 `appuser`；在 rootless Podman 下这两者是不同的 *host* 用户：
+  container root 映射到 operator，而 `appuser` 映射进 subordinate range。本机实测：没有映射
+  时，application 进程对 operator 拥有的 `0755` 目录得到 `EACCES`。因此 deployment 从 image
+  读出 `appuser` 的 uid/gid（不写死），并传入
+  `--userns keep-id:uid=<uid>,gid=<gid>`，把 operator 的 host 身份放到 application 的
+  container 身份上。application 写出的文件与今天 bare-metal writer 写出的一样归 operator 所有。
+  **不使用** `chown -R`、`chmod -R`、mount 的 `:U`、`--privileged` 或 host root。
+
+### 启动之后失败会发生什么
+
+deployment 有一个显式的事务边界：`started_by_this_invocation` 与 `committed`。
+
+- container 启动之前的任何失败都是**拒绝**，什么都没有被创建。
+- container 启动之后、postcheck 通过之前的任何失败（image ID 不符、postcheck 失败、health
+  失败、schema 失败、engine inspect 失败、可捕获的信号），都会**按 engine 返回的 container
+  id**（不是按名字）停止并删除这次调用启动的那个 container，然后再确认它确实不在运行。
+  已存在的 container 永远不会被删除。
+- 如果清理本身无法证明新 writer 已停止，输出 `DEPLOYMENT INCOMPLETE` 与
+  `WRITER STATE UNKNOWN`，并打印 container id。此时**不要**假设没有东西在运行。
 
 ### Backup
 
 ```shell
-scripts/release_external_backup.sh   --output BACKUP_DIR --config-file CONFIG --database NAME   --media-root MEDIA_ROOT --snapshot-root MEDIA_ROOT/.smsd-release-snapshot   --container-name CONTAINER --port PORT   --image DIGEST --db-host HOST --source-git-commit SHA
+scripts/release_external_backup.sh   --output BACKUP_DIR --config-file CONFIG [--database NAME]   --media-root MEDIA_ROOT --snapshot-root MEDIA_ROOT/.smsd-release-snapshot   --container-name CONTAINER --port PORT   --image DIGEST --db-host HOST --source-git-commit SHA
 ```
+
+**数据库身份只有一个来源：canonical config 的 `$.database.name`。** schema status 由
+`migration_cli` 读取该配置得到，dump 也必须是同一个数据库；两者各自为政时，bundle 的 manifest
+与 schema status 描述一个数据库、行来自另一个，而且每个 artefact 内部都自洽，下游无从分辨。
+`--database` 仍可写出（在以 restore 收尾的路径上明确写下目标是有价值的），但它不做决定：
+与配置不符即在 stage credential 之前、dump 与 snapshot 之前拒绝。
 
 固定顺序：**停 writer → 证明已停 → dump → snapshot → manifest → checksums → verify**。
 
@@ -175,8 +205,12 @@ snapshot，因此：
   policy，不在本 release contract 内。
 
 snapshot root 必须与 media root 同一文件系统（reflink 无法跨文件系统），因此它位于 media root
-之内；必须是**隐藏目录**，否则 orphan scan 会把 snapshot 当作媒体遍历。snapshot 自身被排除在
-clone 之外，否则每次 release 都会把上一次嵌套进去。
+之内；并且必须是 media root 的**直接隐藏子目录**（`MEDIA_ROOT/.smsd-release-snapshot`）。
+
+两条规则合成一个形状。隐藏，否则 orphan scan 会把 snapshot 当作媒体遍历。直接子目录，因为
+clone 逐个遍历 media root 自己的条目并跳过 snapshot store —— `MEDIA_ROOT/visible/.store`
+这种更深的位置不是其中一个条目，`visible` 会被整体 clone 并把 store 一并带进去，于是每次
+release 都把上一次嵌套进来。更深的形状一律**拒绝**，而不是被接受进一个无法排除它的 clone。
 
 snapshot 记录的是**身份**（relative path、size、mtime_ns、device、inode）而非内容哈希：两 TB
 的逐文件哈希会占满整个 cutover 窗口。这些 device/inode 用于证明 snapshot 对象未被替换，
@@ -187,13 +221,36 @@ snapshot 记录的是**身份**（relative path、size、mtime_ns、device、ino
 只允许恢复到 disposable database 与 isolated media path：
 
 ```shell
-scripts/release_external_restore_drill.sh   --backup BACKUP_DIR   --restore-database smsd_restore_test_NAME   --restore-media-root ISOLATED_PATH   --config-file DISPOSABLE_CONFIG
+scripts/release_external_restore_drill.sh   --backup BACKUP_DIR   --restore-database smsd_restore_test_NAME   --restore-media-root ISOLATED_PATH   --config-file DISPOSABLE_CONFIG   --image IMAGE --db-host HOST   [--port PORT] [--container-name NAME]
 ```
 
-拒绝条件：database 名不符合 `smsd_restore_test_*`、与 source 相同、media root 是 live media
-root 或位于其内部（按规范化路径比较）、目标目录已有内容。drill 只 clone snapshot，不移动它：
-snapshot 是产出它的那次 release 的 rollback authority。restore 之后会核对目标 database 确实
-有表——若 dump 再次自行选择目标，这会把静默成功变成失败。
+**拒绝条件。** database 名不符合 `smsd_restore_test_*`、与 source 相同、或**该名字在服务器上
+已经存在**——drill 绝不 `DROP DATABASE IF EXISTS` 再重建：那读起来像隔离、做起来是销毁，因为
+执行的那一刻没有人确认过这个名字是空的。创建用普通 `CREATE DATABASE`，因此在检查与创建之间
+被别人抢走名字会失败而不是静默共享目标。
+
+media root 的判定按**解析后的路径**而非拼写：目标本身是 symlink、祖先 symlink 解析进 live
+media、目标等于 live media realpath、目标在其内部、live media 在目标内部、目标非空——全部拒绝。
+只做 `normpath` 的文本比较曾经让 `/tmp/restore -> /mnt/video/...` 通过全部检查。
+
+**媒体只 clone，不复制。** 使用 `cp -a --reflink=always`；在动数据库之前先按 `st_dev` 确认
+目标与 snapshot 同一文件系统，不同则拒绝。没有 byte-copy fallback：这种规模下的复制不是“慢一点
+的成功”，而是几小时后才到达、并在途中撑爆磁盘的失败。
+
+**drill 是 disposable topology 的演练。** 生产的 media root 就是其文件系统的挂载点，所以“与
+snapshot 同一文件系统”且“不在 live media root 内部”在生产盘上无法同时成立，drill 会明确拒绝。
+演练用在 scratch reflink 文件系统上捕获的 bundle 进行；生产的 media rollback 不是复制，而是
+就地的 snapshot 交换（见上节的 rollback 边界）。
+
+**drill 一路做到应用跑起来。** DB 与媒体恢复之后：核对目标 database 确实有表（若 dump 再次
+自行选择目标，这会把静默成功变成失败）、确实有行（只恢复 schema 会通过前面每一项检查）、
+媒体清单与隐藏的 recovery/quarantine 状态齐备；然后用 restored DB 与 restored media 启动一个
+disposable application container（disposable 端口、disposable 名字、绑 `127.0.0.1`），
+并运行**真正的** `release_external_postcheck.sh`——不是它的复制品。最后重新 verify snapshot
+与 bundle，证明 drill 没有动过它所恢复的来源。
+
+drill 只删除它自己创建的东西：它启动的 container、它创建的 database、它创建的目标目录。
+snapshot 与 bundle 永远不被移动或删除：snapshot 是产出它的那次 release 的 rollback authority。
 
 ## Rollback choices
 

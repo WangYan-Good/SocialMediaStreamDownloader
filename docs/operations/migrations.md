@@ -83,5 +83,28 @@ CONTAINER_ENGINE run --rm \
 `state=ready` 之外的任何结果都会让 external backup 拒绝继续：对 schema 状态未知的数据库所做的
 dump，其 restore 语义同样未知。
 
+## Migration rehearsal
+
 Migration rehearsal 必须针对 production-shaped snapshot 在 disposable MySQL 上进行，
 不得针对生产数据库执行 `upgrade`。
+
+```shell
+scripts/release_migration_rehearsal.sh \
+  --snapshot PATH --expected-sha256 SHA256 --expected-source-revision REVISION
+```
+
+它证明的是三件不同的事，不要互相当替代品：
+
+1. **数据没有丢。** 每张表取精确 `COUNT(*)`，另取主键的顺序无关校验和
+   （`BIT_XOR(CRC32(pk))`）。**不使用** `information_schema.tables.table_rows`：那对 InnoDB
+   是优化器从抽样索引页维护的估计值，会在无人控制的时刻重算，跨 upgrade 比较它会在没有变化处
+   报出差异、在真的丢了行时报出一致。比较是不对称的——加行、加表、加约束都只是记录；少表、
+   少行、或行数不变而主键校验和改变，都是失败。
+2. **升级可重复。** 整个流程做两遍，每遍都从**同一个经过 sha256 校验的不可变 snapshot** 恢复到
+   一台**全新**的 disposable server 上，各自证明 source revision、各自 upgrade 到 head、各自
+   `status` 与 `check`，然后比较两遍的 invariants。
+3. **升级幂等。** 在 head 上再跑一次 `upgrade` 是 no-op。这一条保留，但它**不能**替代第 2 条：
+   「对 head 再执行一次」与「0002 → head 第二次执行」是两个不同的命题。
+
+rehearsal 不改写工作副本的 `config/config.yml`。`migration_cli` 只认一个固定路径，所以 rehearsal
+把项目复制一份到临时目录，在那份副本里写配置。snapshot 在两遍之前与之后各校验一次 sha256。
