@@ -12,6 +12,11 @@
 # runs before the engine is asked to start anything, because the failure this
 # must never produce is two writers against one database.
 #
+# And once it has started something, it owns it. A deployment that fails after
+# the container is up must leave nothing running, or it has produced the exact
+# outcome its refusals were written to prevent - while reporting failure, which
+# is worse than reporting nothing.
+#
 # Deliberately not Compose. Production's engine is rootless Podman, the bundled
 # MySQL and named volume are not what production uses, and the Compose CPU
 # reservations cannot be satisfied on a user slice with no cpu controller.
@@ -24,6 +29,13 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 REQUIREMENTS_FILE="${REQUIREMENTS_FILE:-$PROJECT_DIR/requirements.txt}"
 EXTERNAL_POSTCHECK_SCRIPT="${EXTERNAL_POSTCHECK_SCRIPT:-$PROJECT_DIR/scripts/release_external_postcheck.sh}"
 RUNTIME_CONFIG="${RUNTIME_CONFIG:-$PROJECT_DIR/scripts/runtime_config.py}"
+
+##
+## The account the image drops to. Its numeric identity is read from the image
+## rather than written here, because a mapping built from a guessed number is a
+## mapping that silently stops being correct.
+##
+APPLICATION_USER="${APPLICATION_USER:-appuser}"
 
 image_ref=""
 expected_revision=""
@@ -46,16 +58,101 @@ usage: release_external_deploy.sh
   --media-root PATH
   --db-host HOST
   --port PORT
+  --publish-address ADDRESS
   --health-url URL
   [--memory SIZE]
 USAGE
   exit 2
 }
 
-fail() {
-  echo "external deploy refused: $*" >&2
+##
+## >>================== what this invocation has done so far ==================>>
+##
+## Two facts, and every failure path below reads them.
+##
+## ``started`` is true once the engine has been asked to run a container and has
+## answered with an identifier, which is the instant this script becomes
+## responsible for a writer. ``committed`` is true only once that writer has
+## been proved to be the reviewed image and to have passed the external
+## postcheck - the point at which leaving it running is the correct outcome
+## rather than the dangerous one.
+##
+## Between the two, any exit must take the container with it.
+##
+started_by_this_invocation=false
+committed=false
+container_id=""
+
+##
+## The one outcome that must never be reported quietly.
+##
+## Reached only when the engine cannot be made to prove the container this
+## invocation started is gone. An operator reading a plain failure would
+## reasonably assume nothing is running; here something may be, against the
+## production database, and the next thing anybody does must account for it.
+##
+incomplete() {
+  ##
+  ## Terminal. The worst outcome has already been reported, so the exit trap
+  ## must not follow it with a removal aimed at whatever is left - in
+  ## particular not at an identifier the engine never gave us.
+  ##
+  started_by_this_invocation=false
+  echo "DEPLOYMENT INCOMPLETE" >&2
+  echo "WRITER STATE UNKNOWN" >&2
+  echo "external deploy started a container and could not prove it is stopped: $*" >&2
+  echo "container id: ${container_id:-unknown}" >&2
   exit 1
 }
+
+##
+## Remove the container this invocation created, and nothing else.
+##
+## By identifier, never by name. A name is a label the engine will happily
+## attach to a different container, and the container this script must not
+## touch under any circumstance is a pre-existing writer - so the thing removed
+## here is the exact object the engine handed back from ``run``.
+##
+abandon_started_container() {
+  local reason="$1"
+  if [[ "$started_by_this_invocation" != "true" || "$committed" == "true" ]]; then
+    return 0
+  fi
+  ##
+  ## Cleared first, so a failure inside the cleanup cannot re-enter it.
+  ##
+  started_by_this_invocation=false
+
+  if ! "$ENGINE_BIN" rm --force "$container_id" >/dev/null 2>&1; then
+    incomplete "the engine refused to remove it ($reason)"
+  fi
+
+  ##
+  ## Removal reported success; that is not the same as the container being
+  ## gone. Asked again, and an engine that cannot answer counts as unknown
+  ## rather than as absent.
+  ##
+  local state
+  if state="$("$ENGINE_BIN" inspect --format '{{.State.Running}}' "$container_id" 2>/dev/null)"; then
+    if [[ "$state" != "false" ]]; then
+      incomplete "it is still running after removal ($reason)"
+    fi
+  fi
+  echo "external deploy rolled back: removed the container it started ($reason)" >&2
+}
+
+fail() {
+  echo "external deploy refused: $*" >&2
+  abandon_started_container "$*"
+  exit 1
+}
+
+##
+## ``set -e`` and a signal both reach here, so a failure nobody wrote a message
+## for still cannot leave a writer behind.
+##
+trap 'abandon_started_container "interrupted"; exit 130' HUP INT TERM
+trap 'abandon_started_container "the deployment did not complete"' EXIT
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -156,7 +253,15 @@ sys.stdout.write(path)
 " "$media_root")"
 [[ "$media_resolved" != "/" ]] || fail "media root must not be the filesystem root"
 [[ -d "$media_resolved" ]] || fail "media root is not an existing directory"
-[[ -w "$media_resolved" ]] || fail "media root is not writable"
+##
+## Writable *by the identity running this script*, which - because of the
+## mapping established below - is exactly the identity the application process
+## will have on this bind mount. Without that mapping this check would be
+## meaningless: the operator can write a tree the containerised application
+## cannot, and that is the failure this whole section exists to prevent.
+##
+[[ -w "$media_resolved" ]] ||
+  fail "media root is not writable by this operator, and the application will run with this operator's host identity"
 
 ##
 ## >>======================== the single-writer gate ========================>>
@@ -202,6 +307,45 @@ requirements_label="$("$ENGINE_BIN" image inspect --format '{{index .Config.Labe
   fail "requirements label mismatch"
 
 ##
+## >>============== the identity the application will really have ==============>>
+##
+## The entrypoint runs as root only long enough to stage the mounted
+## configuration, then drops to an unprivileged account. Under rootless Podman
+## those two are different *host* users: container root maps to the operator,
+## and container ``appuser`` maps into the subordinate range - so a bind mount
+## the operator owns is readable by the entrypoint and unwritable by the
+## application. Proven on this host: without the mapping below the application
+## process gets EACCES on a 0755 directory the operator owns.
+##
+## The fix is a user-namespace mapping, not an ownership change. ``keep-id``
+## with an explicit uid and gid places the *operator's* host identity at the
+## application's container identity, so the application acts on the media tree
+## as the operator already does. Production's ownership is never touched: no
+## recursive chown, no ``:U`` on the mount, no privileged container. Files the
+## application creates land owned by the operator, exactly as the bare-metal
+## writer's do today.
+##
+## The numbers are read out of the image because they are a property of the
+## image. A hard-coded pair would keep working right up until the image changed
+## one, and would then map the operator onto the wrong account in silence.
+##
+if ! application_identity="$("$ENGINE_BIN" run --rm --entrypoint="" "$image_ref" \
+    sh -c "id -u $APPLICATION_USER; id -g $APPLICATION_USER" 2>/dev/null)"; then
+  fail "the image does not resolve its application account $APPLICATION_USER; the media mapping cannot be established"
+fi
+application_uid="$(printf '%s\n' "$application_identity" | sed -n 1p | tr -d '[:space:]')"
+application_gid="$(printf '%s\n' "$application_identity" | sed -n 2p | tr -d '[:space:]')"
+[[ "$application_uid" =~ ^[0-9]{1,10}$ && "$application_gid" =~ ^[0-9]{1,10}$ ]] ||
+  fail "the image reported a malformed identity for $APPLICATION_USER"
+##
+## Refused rather than mapped. ``keep-id:uid=0`` would place the operator at
+## container root, which is both a privilege the application does not need and
+## a sign the image stopped dropping privileges at all.
+##
+(( application_uid != 0 && application_gid != 0 )) ||
+  fail "the application account $APPLICATION_USER resolves to root in this image; it must be unprivileged"
+
+##
 ## >>============================== start it ==============================>>
 ##
 ## The address travels as an environment value because an address is a fact
@@ -220,6 +364,7 @@ run_arguments=(
   ## every port the container opens instead of the one that was asked for.
   ##
   --publish "${publish_address}:${port}:${port}"
+  --userns "keep-id:uid=${application_uid},gid=${application_gid}"
   --env "SMSD_DB_HOST=${db_host}"
   --volume "${config_file}:/run/secrets/config.yml:ro"
   --volume "${media_resolved}:${media_resolved}"
@@ -229,9 +374,18 @@ if [[ -n "$memory_limit" ]]; then
 fi
 run_arguments+=("$image_ref")
 
-"$ENGINE_BIN" "${run_arguments[@]}" >/dev/null
+##
+## From here on this invocation owns a writer.
+##
+if ! container_id="$("$ENGINE_BIN" "${run_arguments[@]}")"; then
+  fail "the container could not be started"
+fi
+started_by_this_invocation=true
+container_id="$(printf '%s\n' "$container_id" | tail -1 | tr -d '[:space:]')"
+[[ "$container_id" =~ ^[0-9a-f]{12,64}$ ]] ||
+  incomplete "the engine did not return a usable container identifier"
 
-running_image_id="$("$ENGINE_BIN" inspect --format '{{.Image}}' "$container_name")"
+running_image_id="$("$ENGINE_BIN" inspect --format '{{.Image}}' "$container_id")"
 [[ "$running_image_id" == "$expected_image_id" ]] ||
   fail "running application image ID mismatch"
 
@@ -241,6 +395,14 @@ running_image_id="$("$ENGINE_BIN" inspect --format '{{.Image}}' "$container_name
   --expected-image "$image_ref" \
   --expected-revision "$expected_revision" \
   --expected-requirements-sha "$requirements_sha" \
-  --media-root "$media_resolved"
+  --media-root "$media_resolved" \
+  --application-user "$APPLICATION_USER" \
+  --application-uid "$application_uid" \
+  --application-gid "$application_gid" ||
+  fail "the external postcheck did not pass"
 
+##
+## Only now is leaving it running the right outcome.
+##
+committed=true
 echo "external deployment completed: revision=$expected_revision container=$container_name"

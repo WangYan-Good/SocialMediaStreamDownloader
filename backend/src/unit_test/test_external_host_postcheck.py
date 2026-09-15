@@ -59,7 +59,15 @@ class ExternalPostcheckTest(unittest.TestCase):
             *"org.opencontainers.image.revision"*) printf '%s\\n' "${IMAGE_REVISION:-$EXPECTED_REVISION}" ;;
             *"io.smsd.requirements.sha256"*) printf '%s\\n' "${LOCK_LABEL:-$EXPECTED_LOCK}" ;;
             *"Destination"*) printf '%s\\n' "${MEDIA_MOUNT:-$MEDIA_ROOT}" ;;
-            "exec "*"migration_cli"*) printf '%s\\n' "${MIGRATION:-state=ready current=0011_x heads=0011_x}" ;;
+            *"test -f"*"release_media_write_probe"*)
+              exit "${PROBE_PRESENT_STATUS:-0}" ;;
+            *"release_media_write_probe"*)
+              printf '%s\\n' "${PROBE_OUTPUT:-media write probe passed: uid=999 gid=999 read=3}"
+              exit "${PROBE_STATUS:-0}" ;;
+            *"migration_cli status"*) printf '%s\\n' "${MIGRATION:-state=ready current=0011_x heads=0011_x}" ;;
+            *"migration_cli check"*)
+              printf '%s\\n' "${CHECK_OUTPUT:-managed schema is compatible}"
+              exit "${CHECK_STATUS:-0}" ;;
             "exec "*) exit "${EXEC_STATUS:-0}" ;;
             *) exit 91 ;;
           esac
@@ -85,6 +93,8 @@ class ExternalPostcheckTest(unittest.TestCase):
       for key in (
         "RUNNING", "RUNNING_IMAGE_ID", "IMAGE_REVISION", "LOCK_LABEL",
         "MEDIA_MOUNT", "MIGRATION", "HEALTH_STATUS", "EXEC_STATUS",
+        "PROBE_OUTPUT", "PROBE_STATUS", "CHECK_OUTPUT", "CHECK_STATUS",
+        "PROBE_PRESENT_STATUS",
       ):
         if key in overrides:
           environment[key] = str(overrides.pop(key))
@@ -97,6 +107,9 @@ class ExternalPostcheckTest(unittest.TestCase):
         "--expected-revision", EXPECTED_REVISION,
         "--expected-requirements-sha", EXPECTED_LOCK,
         "--media-root", str(media),
+        "--application-user", str(overrides.pop("application_user", "appuser")),
+        "--application-uid", str(overrides.pop("application_uid", 999)),
+        "--application-gid", str(overrides.pop("application_gid", 999)),
       ]
       self.assertEqual({}, overrides, "unused override")
       completed = subprocess.run(
@@ -167,6 +180,22 @@ class ExternalPostcheckTest(unittest.TestCase):
 
     self.assertNotEqual(0, completed.returncode)
 
+  ##
+  ## The same clause, isolated.
+  ##
+  ## Every other case here is refused by more than one of the four checks, so
+  ## deleting any single one left the postcheck still refusing and the suite
+  ## still green. This line satisfies the other three - a real revision, one
+  ## head, and the database sitting on it - and is wrong in exactly one way, so
+  ## only the state check can catch it.
+  ##
+  def test_a_state_that_is_not_ready_fails_even_when_the_revision_is_the_head(self):
+    completed, unused = self.run_postcheck(
+      MIGRATION="state=schema_drift current=0011_x heads=0011_x"
+    )
+
+    self.assertNotEqual(0, completed.returncode)
+
   def test_a_failing_health_endpoint_fails(self):
     completed, unused = self.run_postcheck(HEALTH_STATUS=7)
 
@@ -177,6 +206,145 @@ class ExternalPostcheckTest(unittest.TestCase):
 
     self.assertEqual(0, completed.returncode, completed.stderr)
     self.assertIn("migration_cli", log)
+
+
+##
+## >>================ the application account, not the entrypoint ================>>
+##
+## The container starts as root to stage the mounted configuration and then
+## drops to an unprivileged account. Under a rootless engine those are different
+## host identities, so a mount the entrypoint can write is not necessarily a
+## mount the application can write - and the failure appears on the first
+## recording, long after a health endpoint has answered.
+##
+class ExternalPostcheckMediaWriteTest(ExternalPostcheckTest):
+  def test_the_write_proof_runs_as_the_application_account(self):
+    completed, log = self.run_postcheck()
+
+    self.assertEqual(0, completed.returncode, completed.stderr)
+    ##
+    ## Two calls, and they are different questions: is the probe there at all,
+    ## and can the application account use it.
+    ##
+    presence = [
+      line for line in log.splitlines()
+      if "release_media_write_probe" in line and "test -f" in line
+    ]
+    run = [
+      line for line in log.splitlines()
+      if "release_media_write_probe" in line and "--expect-uid" in line
+    ]
+    self.assertEqual(1, len(presence), log)
+    self.assertEqual(1, len(run), log)
+    self.assertIn("exec --user appuser", run[0])
+    self.assertIn("--expect-uid 999", run[0])
+    self.assertIn("--expect-gid 999", run[0])
+    ##
+    ## Presence first, so a missing probe is never reported as a denied write.
+    ##
+    self.assertLess(log.index(presence[0]), log.index(run[0]))
+
+  def test_a_media_tree_the_application_cannot_write_fails(self):
+    completed, unused = self.run_postcheck(PROBE_STATUS=1)
+
+    self.assertNotEqual(0, completed.returncode)
+    self.assertIn("cannot write the media tree", completed.stderr)
+
+  ##
+  ## A missing capability and a denied write are different failures and they
+  ## send an operator to different places. An image built before this contract
+  ## has no probe in it; reporting that as "cannot write" sends somebody to look
+  ## at uids, mappings and mount options for a check that never ran.
+  ##
+  def test_an_image_without_the_probe_says_so_rather_than_blaming_permissions(self):
+    completed, unused = self.run_postcheck(PROBE_PRESENT_STATUS=1)
+
+    self.assertNotEqual(0, completed.returncode)
+    self.assertIn("predates the media-write contract", completed.stderr)
+    self.assertIn("not a permission failure", completed.stderr)
+    self.assertNotIn("cannot write the media tree", completed.stderr)
+
+  ##
+  ## A probe that exits zero without saying it passed is a probe that did not
+  ## run. Exit status alone would accept that.
+  ##
+  def test_a_probe_that_does_not_report_success_fails(self):
+    completed, unused = self.run_postcheck(PROBE_OUTPUT="nothing to report")
+
+    self.assertNotEqual(0, completed.returncode)
+
+
+##
+## >>=================== the release contract, kept explicit ===================>>
+##
+## ``status`` now classifies schema compatibility as part of its own answer, so
+## ``check`` could be argued to be redundant. It is kept because the release
+## contract names both, and a contract that quietly became implicit is one that
+## can quietly stop being enforced.
+##
+class ExternalPostcheckMigrationParityTest(ExternalPostcheckTest):
+  def test_both_status_and_check_are_run(self):
+    completed, log = self.run_postcheck()
+
+    self.assertEqual(0, completed.returncode, completed.stderr)
+    self.assertIn("migration_cli status", log)
+    self.assertIn("migration_cli check", log)
+
+  def test_a_database_at_no_revision_fails(self):
+    completed, unused = self.run_postcheck(
+      MIGRATION="state=ready current=none heads=0011_x"
+    )
+
+    self.assertNotEqual(0, completed.returncode)
+
+  ##
+  ## Isolated: an unversioned database agrees with a build that has no head, so
+  ## every other check passes and only "there must be an applied revision" can
+  ## refuse it. Without this, deleting that clause changed nothing.
+  ##
+  def test_a_database_at_no_revision_fails_even_when_it_matches_the_heads(self):
+    completed, unused = self.run_postcheck(
+      MIGRATION="state=ready current=none heads=none"
+    )
+
+    self.assertNotEqual(0, completed.returncode)
+
+  def test_more_than_one_head_fails(self):
+    completed, unused = self.run_postcheck(
+      MIGRATION="state=ready current=0011_x heads=0011_x,0012_y"
+    )
+
+    self.assertNotEqual(0, completed.returncode)
+
+  ##
+  ## Isolated: the database is at the heads, whatever the heads are. Only the
+  ## single-head rule objects to there being two of them.
+  ##
+  def test_more_than_one_head_fails_even_when_the_database_is_at_both(self):
+    completed, unused = self.run_postcheck(
+      MIGRATION="state=ready current=0011_x,0012_y heads=0011_x,0012_y"
+    )
+
+    self.assertNotEqual(0, completed.returncode)
+
+  def test_a_current_revision_behind_the_head_fails(self):
+    completed, unused = self.run_postcheck(
+      MIGRATION="state=ready current=0009_x heads=0011_x"
+    )
+
+    self.assertNotEqual(0, completed.returncode)
+
+  def test_an_incompatible_managed_schema_fails(self):
+    completed, unused = self.run_postcheck(CHECK_STATUS=3)
+
+    self.assertNotEqual(0, completed.returncode)
+
+  def test_a_check_that_does_not_report_compatibility_fails(self):
+    completed, unused = self.run_postcheck(
+      CHECK_OUTPUT="column live_status is missing"
+    )
+
+    self.assertNotEqual(0, completed.returncode)
 
 
 if __name__ == "__main__":
