@@ -52,7 +52,17 @@ class ReleaseBundleTest(unittest.TestCase):
 
       manifest = helper.verify_bundle(root)
 
-      self.assertEqual(1, manifest["format_version"])
+      ##
+      ## Compared against the constant rather than a literal: the format is
+      ## versioned precisely so it can move, and a test that pins the number
+      ## turns every future bump into a false failure here.
+      ##
+      self.assertEqual(helper.FORMAT_VERSION, manifest["format_version"])
+      ##
+      ## A Compose bundle, and it says so. Version 1 bundles predate the field
+      ## and are read as Compose, which is the only thing they could have been.
+      ##
+      self.assertEqual(helper.TOPOLOGY_COMPOSE, manifest["topology"])
       self.assertEqual("ready", manifest["schema_status"])
       self.assertEqual(
         "0011_recording_recovery_key", manifest["schema_current"]

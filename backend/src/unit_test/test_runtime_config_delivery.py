@@ -543,11 +543,18 @@ Path(os.environ["FAKE_DOCKER_RECORD"]).write_text(
         source_path, "appuser", command
       )
 
+    ##
+    ## ``database_host=None`` is the Compose case and means "leave the mounted
+    ## file's address alone". An external-host deployment sets SMSD_DB_HOST and
+    ## the entrypoint passes it here instead; asserting the None explicitly is
+    ## what keeps that override from ever leaking into this topology.
+    ##
     stage.assert_called_once_with(
       source_path,
       runtime_config.CANONICAL_CONFIG_PATH,
       2345,
       3456,
+      database_host=None,
     )
     drop.assert_called_once_with("appuser", command)
     direct_exec.assert_not_called()
